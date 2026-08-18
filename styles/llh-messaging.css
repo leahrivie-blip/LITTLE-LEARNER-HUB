@@ -1281,6 +1281,24 @@
   font-size: 0.9rem;
 }
 
+.admin-sent-channel-lines {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0;
+}
+
+.admin-sent-channel-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0;
+  font-size: 0.92rem;
+}
+
+.admin-sent-channel-detail h4 {
+  margin: 0 0 8px;
+}
+
 .admin-sent-campaign-list,
 .admin-sent-recipient-list {
   display: grid;

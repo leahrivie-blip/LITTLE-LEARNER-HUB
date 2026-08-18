@@ -19340,32 +19340,90 @@ function filteredAdminConversations() {
   });
 }
 
-function adminSentCampaignCardHtml(campaign) {
+function adminSentChannelLinesHtml(campaign) {
+  const email = campaign?.channels?.email;
+  const inApp = campaign?.channels?.inApp;
+  if (email || inApp) {
+    const rows = [];
+    if (email) {
+      rows.push(`<p class="admin-sent-channel-line"><span>Email</span><strong>${escapeHtml(String(email.successCount || 0))} delivered</strong></p>`);
+    }
+    if (inApp) {
+      rows.push(`<p class="admin-sent-channel-line"><span>In-app</span><strong>${escapeHtml(String(inApp.successCount || 0))} delivered</strong></p>`);
+    }
+    const dates = [email?.sentAt, inApp?.sentAt, campaign.sentAt].filter(Boolean);
+    const uniqueDates = [...new Set(dates.map((value) => formatAdminSentDate(value)).filter(Boolean))];
+    return `
+      <p class="muted-copy">${escapeHtml(uniqueDates.length ? uniqueDates.join(" · ") : "Sent date on file")}</p>
+      <div class="admin-sent-channel-lines">${rows.join("")}</div>
+    `;
+  }
   const sentLabel = campaign.sentAt ? `Sent ${formatAdminSentDate(campaign.sentAt)}` : "Sent date on file";
+  return `<p class="muted-copy">${escapeHtml(sentLabel)} · ${escapeHtml(String(campaign.recipientCount || 0))} recipients · ${escapeHtml(String(campaign.successCount || 0))} delivered · ${escapeHtml(String(campaign.failureCount || 0))} failed</p>`;
+}
+
+function adminSentCampaignCardHtml(campaign) {
   return `
     <button type="button" class="admin-sent-campaign-card" data-admin-open-sent-campaign="${escapeHtml(campaign.campaignId)}">
       <div class="admin-messages-list-head">
         <strong>${escapeHtml(campaign.displayName || campaign.title || "Campaign")}</strong>
         <span class="admin-message-channel-badge">${escapeHtml(campaign.channel || "In-app")}</span>
       </div>
-      <p class="muted-copy">${escapeHtml(sentLabel)} · ${escapeHtml(String(campaign.recipientCount || 0))} recipients · ${escapeHtml(String(campaign.successCount || 0))} delivered · ${escapeHtml(String(campaign.failureCount || 0))} failed</p>
+      ${adminSentChannelLinesHtml(campaign)}
       <p><strong>${escapeHtml(campaign.title || "")}</strong></p>
       <p class="admin-sent-campaign-preview">${escapeHtml(campaign.preview || campaign.body || "")}</p>
     </button>
   `;
 }
 
+function adminSentChannelFactsHtml(channel, fallbackTitle) {
+  if (!channel) return "";
+  return `
+    <section class="admin-sent-channel-detail">
+      <h4>${escapeHtml(channel.label || fallbackTitle || "Channel")}</h4>
+      <dl class="admin-sent-campaign-facts">
+        <div><dt>Channel</dt><dd>${escapeHtml(channel.label || "")}</dd></div>
+        <div><dt>Title / subject</dt><dd>${escapeHtml(channel.title || "")}</dd></div>
+        <div><dt>Body</dt><dd>${escapeHtml(channel.body || "")}</dd></div>
+        <div><dt>CTA</dt><dd>${escapeHtml(channel.ctaLabel || "None")}${channel.ctaDestination ? ` · ${escapeHtml(channel.ctaDestination)}` : ""}</dd></div>
+        <div><dt>Sent</dt><dd>${channel.sentAt ? escapeHtml(formatAdminSentDateTime(channel.sentAt)) : "On file"}</dd></div>
+        <div><dt>Attempted</dt><dd>${escapeHtml(String(channel.attemptedCount || 0))}</dd></div>
+        <div><dt>Successful</dt><dd>${escapeHtml(String(channel.successCount || 0))}</dd></div>
+        <div><dt>Failed</dt><dd>${escapeHtml(String(channel.failureCount || 0))}</dd></div>
+        <div><dt>Recipients</dt><dd>${escapeHtml(String(channel.recipientCount || 0))}</dd></div>
+        <div><dt>Receipts</dt><dd>${escapeHtml(String(channel.receiptCount || 0))}</dd></div>
+      </dl>
+    </section>
+  `;
+}
+
 function adminSentCampaignDetailHtml(campaign) {
   const recipients = Array.isArray(campaign.recipients) ? campaign.recipients : [];
+  const email = campaign?.channels?.email;
+  const inApp = campaign?.channels?.inApp;
   const recipientHtml = recipients.length
     ? recipients.map((row) => `
         <article class="admin-sent-recipient-card">
           <strong>${escapeHtml(row.firstName || row.email || "Member")}</strong>
           <p class="muted-copy">${escapeHtml(row.email || "")}${row.userId && row.userId !== row.email ? ` · ${escapeHtml(row.userId)}` : ""}</p>
-          <p class="muted-copy">${row.delivered ? "Delivered in-app" : "Delivery not confirmed"}</p>
+          <p class="muted-copy">${row.channel === "email" ? "Email" : "In-app"}${row.delivered ? " · delivered" : ""}</p>
         </article>
       `).join("")
     : `<p class="messages-empty">No recipient records stored for this send.</p>`;
+  const channelBlocks = (email || inApp)
+    ? `${adminSentChannelFactsHtml(email, "Email")}${adminSentChannelFactsHtml(inApp, "In-app")}`
+    : `
+      <dl class="admin-sent-campaign-facts">
+        <div><dt>Title</dt><dd>${escapeHtml(campaign.title || "")}</dd></div>
+        <div><dt>Body</dt><dd>${escapeHtml(campaign.body || "")}</dd></div>
+        <div><dt>CTA label</dt><dd>${escapeHtml(campaign.ctaLabel || "None")}</dd></div>
+        <div><dt>CTA destination</dt><dd>${escapeHtml(campaign.ctaDestination || "")}</dd></div>
+        <div><dt>Recipients</dt><dd>${escapeHtml(String(campaign.recipientCount || 0))}</dd></div>
+        <div><dt>Successful</dt><dd>${escapeHtml(String(campaign.successCount || 0))}</dd></div>
+        <div><dt>Failed</dt><dd>${escapeHtml(String(campaign.failureCount || 0))}</dd></div>
+        <div><dt>Channel</dt><dd>${escapeHtml(campaign.channel || "In-app")}</dd></div>
+      </dl>
+    `;
   return `
     <div class="admin-sent-campaign-detail">
       <button type="button" class="ghost-button admin-sent-campaign-back" data-admin-sent-back>Back to Sent</button>
@@ -19377,18 +19435,12 @@ function adminSentCampaignDetailHtml(campaign) {
         </div>
       </div>
       <dl class="admin-sent-campaign-facts">
+        <div><dt>Campaign name</dt><dd>${escapeHtml(campaign.displayName || "")}</dd></div>
         <div><dt>Campaign ID</dt><dd>${escapeHtml(campaign.campaignId || "")}</dd></div>
-        <div><dt>Title</dt><dd>${escapeHtml(campaign.title || "")}</dd></div>
-        <div><dt>Body</dt><dd>${escapeHtml(campaign.body || "")}</dd></div>
-        <div><dt>CTA label</dt><dd>${escapeHtml(campaign.ctaLabel || "None")}</dd></div>
-        <div><dt>CTA destination</dt><dd>${escapeHtml(campaign.ctaDestination || "")}</dd></div>
-        <div><dt>Recipients</dt><dd>${escapeHtml(String(campaign.recipientCount || 0))}</dd></div>
-        <div><dt>Successful</dt><dd>${escapeHtml(String(campaign.successCount || 0))}</dd></div>
-        <div><dt>Failed</dt><dd>${escapeHtml(String(campaign.failureCount || 0))}</dd></div>
-        <div><dt>Channel</dt><dd>${escapeHtml(campaign.channel || "In-app")}</dd></div>
-        <div><dt>Email</dt><dd>${escapeHtml(campaign.emailLabel || "Not sent")}</dd></div>
+        <div><dt>Channels</dt><dd>${escapeHtml(campaign.channel || "In-app")}</dd></div>
         <div><dt>Web push</dt><dd>${escapeHtml(campaign.webPushLabel || "Not sent")}</dd></div>
       </dl>
+      ${channelBlocks}
       <h4 class="admin-sent-recipients-heading">Recipients</h4>
       <div class="admin-sent-recipient-list">${recipientHtml}</div>
     </div>

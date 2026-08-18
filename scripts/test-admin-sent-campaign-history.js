@@ -21,7 +21,10 @@ const ARTIFACT_DIR = "/opt/cursor/artifacts/admin-sent-campaign-history";
 const ADMIN_EMAIL = "admin@test.local";
 const REPLY_USER = "paid.reply@providermail.com";
 const PAID_COUNT = 21;
+const THANKYOU6_COUNT = 25;
 const SENT_AT = "2026-08-18T16:05:00.000Z";
+const THANKYOU6_EMAIL_SENT_AT = "2026-08-18T14:00:00.000Z";
+const THANKYOU6_INAPP_SENT_AT = "2026-08-18T15:30:00.000Z";
 
 let failures = 0;
 
@@ -118,28 +121,56 @@ function buildSeedStore() {
   }
 
   users[REPLY_USER].firstName = "Riley";
-  const thankYouEmail = "free.thankyou@providermail.com";
-  users[thankYouEmail] = {
-    email: thankYouEmail,
-    firstName: "Free",
-    plan: "Free",
-  };
-  notifications.push({
-    id: "notif-thankyou6-1",
-    email: thankYouEmail,
-    type: "feature_update",
-    category: "thankyou6",
-    title: thankYou6InApp.IN_APP_TITLE,
-    preview: thankYou6InApp.IN_APP_BODY,
-    messageId: "",
-    conversationEmail: "",
-    refId: history.THANKYOU6_CAMPAIGN_ID,
-    deepLink: "/?view=upgrade",
-    createdAt: "2026-08-17T15:00:00.000Z",
-    read: false,
-    pushAttempted: false,
-    pushSent: false,
-  });
+  const thankYouReceipts = {};
+  const thankYouDeliveries = [];
+  const thankYouInAppDeliveries = [];
+  const messageIdIndex = {};
+  for (let i = 1; i <= THANKYOU6_COUNT; i += 1) {
+    const email = `free.thankyou${String(i).padStart(2, "0")}@providermail.com`;
+    users[email] = { email, firstName: `Free${i}`, plan: "Free" };
+    const notificationId = `notif-thankyou6-${String(i).padStart(2, "0")}`;
+    const messageId = `re_ty6_${String(i).padStart(2, "0")}`;
+    notifications.push({
+      id: notificationId,
+      email,
+      type: "feature_update",
+      category: "thankyou6",
+      title: thankYou6InApp.IN_APP_TITLE,
+      preview: thankYou6InApp.IN_APP_BODY,
+      messageId: "",
+      conversationEmail: "",
+      refId: history.THANKYOU6_CAMPAIGN_ID,
+      deepLink: "/?view=upgrade",
+      createdAt: THANKYOU6_INAPP_SENT_AT,
+      read: false,
+      pushAttempted: false,
+      pushSent: false,
+    });
+    thankYouReceipts[email] = {
+      campaignId: history.THANKYOU6_CAMPAIGN_ID,
+      email: {
+        campaignId: history.THANKYOU6_CAMPAIGN_ID,
+        channel: "email",
+        messageId,
+        sentAt: THANKYOU6_EMAIL_SENT_AT,
+        apiAccepted: true,
+        deliveryStatus: "accepted",
+      },
+      messageId,
+      sentAt: THANKYOU6_EMAIL_SENT_AT,
+      apiAccepted: true,
+      deliveryStatus: "accepted",
+      in_app: {
+        campaignId: history.THANKYOU6_CAMPAIGN_ID,
+        channel: "in_app",
+        notificationId,
+        sentAt: THANKYOU6_INAPP_SENT_AT,
+      },
+    };
+    thankYouDeliveries.push({ email, messageId, sentAt: THANKYOU6_EMAIL_SENT_AT, deliveryStatus: "accepted" });
+    thankYouInAppDeliveries.push({ email, notificationId, sentAt: THANKYOU6_INAPP_SENT_AT });
+    messageIdIndex[messageId] = email;
+  }
 
   return {
     users,
@@ -184,20 +215,25 @@ function buildSeedStore() {
       settings: {
         freeUserThankYou6: {
           campaignId: history.THANKYOU6_CAMPAIGN_ID,
-          sentAt: "",
-          inAppSentAt: "2026-08-17T15:00:00.000Z",
-          inAppRecipientCount: 1,
-          recipientReceipts: {
-            [thankYouEmail]: {
-              email: thankYouEmail,
-              in_app: {
-                campaignId: history.THANKYOU6_CAMPAIGN_ID,
-                channel: "in_app",
-                notificationId: "notif-thankyou6-1",
-                sentAt: "2026-08-17T15:00:00.000Z",
-              },
-            },
+          sentAt: THANKYOU6_EMAIL_SENT_AT,
+          recipientCount: THANKYOU6_COUNT,
+          attemptedCount: THANKYOU6_COUNT,
+          sentCount: THANKYOU6_COUNT,
+          deliveredCount: THANKYOU6_COUNT,
+          failedCount: 0,
+          deliveries: thankYouDeliveries,
+          recipientReceipts: thankYouReceipts,
+          messageIdIndex,
+          lastPostSendReport: {
+            campaign: history.THANKYOU6_CAMPAIGN_ID,
+            sentAt: THANKYOU6_EMAIL_SENT_AT,
+            totalAttempted: THANKYOU6_COUNT,
+            totalDelivered: THANKYOU6_COUNT,
+            totalFailed: 0,
           },
+          inAppSentAt: THANKYOU6_INAPP_SENT_AT,
+          inAppRecipientCount: THANKYOU6_COUNT,
+          inAppDeliveries: thankYouInAppDeliveries,
         },
       },
       events: [],
@@ -224,18 +260,22 @@ async function main() {
     assert.equal(paidItem.emailLabel, "Not sent");
     assert.equal(paidItem.webPushLabel, "Not sent");
     assert.equal(paidItem.ctaLabel, paid.CTA_LABEL);
+    assert.equal(paidItem.channels.inApp.successCount, 21);
+    assert.equal(paidItem.channels.email, null);
     assert.equal(history.campaignEvidenceSnapshot(store).notificationCount, before.notificationCount);
     assert.equal(history.campaignEvidenceSnapshot(store).paidReceiptCount, before.paidReceiptCount);
     assert.equal(history.campaignEvidenceSnapshot(store).paidJson, before.paidJson);
   });
 
-  await test("unit — THANKYOU6 surfaces only from persisted send evidence and is not mutated", () => {
+  await test("unit — dry-run-only THANKYOU6 does not appear as sent", () => {
     const dryOnly = {
       emailEngagement: {
         settings: {
           freeUserThankYou6: {
             campaignId: history.THANKYOU6_CAMPAIGN_ID,
+            dryRunToken: "dry-only",
             inAppDryRunToken: "dry-only",
+            lastDryRunSummary: { recipientCount: 25, recipientEmails: ["a@b.com"] },
             inAppSentAt: "",
             sentAt: "",
             recipientReceipts: {},
@@ -248,16 +288,40 @@ async function main() {
       history.listOwnerSentCampaigns(dryOnly).some((row) => row.campaignId === history.THANKYOU6_CAMPAIGN_ID),
       false,
     );
+  });
 
+  await test("unit — THANKYOU6 email 25 and in-app 25 stay independent and are not mutated", () => {
     const store = buildSeedStore();
     const before = history.campaignEvidenceSnapshot(store);
     const item = history.listOwnerSentCampaigns(store).find((row) => row.campaignId === history.THANKYOU6_CAMPAIGN_ID);
-    assert.ok(item, "expected THANKYOU6 in sent history when in-app evidence exists");
-    assert.equal(item.emailSent, false);
+    assert.ok(item, "expected THANKYOU6 in sent history when real send receipts exist");
+    assert.equal(item.emailSent, true);
     assert.equal(item.webPushSent, false);
+    assert.equal(item.channels.email.successCount, 25);
+    assert.equal(item.channels.email.recipientCount, 25);
+    assert.equal(item.channels.email.failureCount, 0);
+    assert.equal(item.channels.inApp.successCount, 25);
+    assert.equal(item.channels.inApp.recipientCount, 25);
+    assert.equal(item.channels.inApp.failureCount, 0);
+    assert.equal(item.channels.email.successCount, item.channels.inApp.successCount);
+    assert.notEqual(item.channels.email.sentAt, item.channels.inApp.sentAt);
     const after = history.campaignEvidenceSnapshot(store);
     assert.equal(after.thankYou6Json, before.thankYou6Json);
     assert.equal(after.thankYou6InAppSentAt, before.thankYou6InAppSentAt);
+    assert.equal(after.thankYou6SentAt, before.thankYou6SentAt);
+    assert.equal(after.stripeFingerprint, before.stripeFingerprint);
+  });
+
+  await test("unit — THANKYOU6 still appears from receipts if campaign sentAt fields are missing", () => {
+    const store = buildSeedStore();
+    delete store.emailEngagement.settings.freeUserThankYou6.sentAt;
+    delete store.emailEngagement.settings.freeUserThankYou6.inAppSentAt;
+    store.emailEngagement.settings.freeUserThankYou6.sentCount = 0;
+    store.emailEngagement.settings.freeUserThankYou6.inAppRecipientCount = 0;
+    const item = history.listOwnerSentCampaigns(store).find((row) => row.campaignId === history.THANKYOU6_CAMPAIGN_ID);
+    assert.ok(item, "receipts alone must prove the send");
+    assert.equal(item.channels.email.successCount, 25);
+    assert.equal(item.channels.inApp.successCount, 25);
   });
 
   await test("unit — incoming user reply is inferred as Reply to Paid User Check-In", () => {
@@ -348,7 +412,11 @@ async function main() {
       assert.equal(paidItem.emailLabel, "Not sent");
       assert.equal(paidItem.webPushLabel, "Not sent");
       const thankyou = (res.json.campaigns || []).find((row) => row.campaignId === history.THANKYOU6_CAMPAIGN_ID);
-      assert.ok(thankyou, "expected THANKYOU6 history from persisted in-app evidence");
+      assert.ok(thankyou, "expected THANKYOU6 history from persisted send receipts");
+      assert.equal(thankyou.channels.email.successCount, 25);
+      assert.equal(thankyou.channels.inApp.successCount, 25);
+      assert.equal(thankyou.channels.email.failureCount, 0);
+      assert.equal(thankyou.channels.inApp.failureCount, 0);
       const after = JSON.parse(fs.readFileSync(STORE, "utf8"));
       const afterSnap = history.campaignEvidenceSnapshot(after);
       assert.equal(afterSnap.notificationCount, beforeSnap.notificationCount);
@@ -369,7 +437,7 @@ async function main() {
       assert.ok(emails.includes(REPLY_USER), `expected reply in inbox: ${JSON.stringify(emails)}`);
       const replyRow = (inbox.json.conversations || []).find((row) => row.userEmail === REPLY_USER);
       assert.equal(replyRow.replyToCampaignLabel, "Paid User Check-In");
-      assert.ok(!(inbox.json.conversations || []).some((row) => row.userEmail === "free.thankyou@providermail.com"));
+      assert.ok(!(inbox.json.conversations || []).some((row) => String(row.userEmail || "").startsWith("free.thankyou")));
       const sent = await adminApi(BASE, "GET", "/api/admin/messages/sent", { token });
       assert.equal(sent.status, 200);
       assert.ok(!(sent.json.messages || []).some((m) => String(m.refId || "") === paid.CAMPAIGN_ID));
@@ -383,6 +451,7 @@ async function main() {
       assert.equal(after.notificationCount, before.notificationCount);
       assert.equal(after.paidReceiptCount, before.paidReceiptCount);
       assert.equal(after.thankYou6Json, before.thankYou6Json);
+      assert.equal(after.stripeFingerprint, before.stripeFingerprint);
     });
 
     await test("UI mobile — Inbox/Sent cards and paid check-in detail", async () => {
@@ -428,10 +497,15 @@ async function main() {
         const html = await page.locator("#adminMessagesApp").innerHTML().catch(() => "");
         throw new Error(`${error.message}\npageErrors=${pageErrors.join(" | ")}\nadminMessagesApp=${html.slice(0, 1200)}`);
       }
-      const cardText = await page.locator(".admin-sent-campaign-card").first().innerText();
-      assert.match(cardText, /Paid User Check-In/);
-      assert.match(cardText, /21 recipients/);
-      assert.match(cardText, /21 delivered/);
+      const paidCard = page.locator(".admin-sent-campaign-card", { hasText: "Paid User Check-In" });
+      const thankyouCard = page.locator(".admin-sent-campaign-card", { hasText: "THANKYOU6" });
+      const paidText = await paidCard.innerText();
+      const thankyouText = await thankyouCard.innerText();
+      assert.match(paidText, /21 delivered/);
+      assert.match(thankyouText, /Email \+ In-app/);
+      assert.match(thankyouText, /Email/);
+      assert.match(thankyouText, /In-app/);
+      assert.equal((thankyouText.match(/25 delivered/g) || []).length, 2);
       const tableCount = await page.locator(".admin-sent-campaign-list table, .admin-sent-campaign-detail table").count();
       assert.equal(tableCount, 0);
       await page.locator(".admin-sent-campaign-card").first().click();
