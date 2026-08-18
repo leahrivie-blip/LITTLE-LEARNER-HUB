@@ -1251,6 +1251,120 @@
 }
 
 /* Admin communications workspace (Messages section) */
+.admin-messages-inbox-sent-toggle {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 14px;
+}
+
+.admin-messages-inbox-sent-btn {
+  flex: 1 1 0;
+  min-height: 44px;
+  border: 1px solid var(--line, #e6e8ef);
+  border-radius: 12px;
+  background: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.admin-messages-inbox-sent-btn.active {
+  border-color: rgba(123, 107, 181, 0.45);
+  background: rgba(123, 107, 181, 0.14);
+}
+
+.admin-conversation-reply-to,
+.admin-sent-campaign-preview {
+  display: block;
+  margin: 4px 0 0;
+  color: var(--muted, #5f5f70);
+  font-size: 0.9rem;
+}
+
+.admin-sent-channel-lines {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0;
+}
+
+.admin-sent-channel-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0;
+  font-size: 0.92rem;
+}
+
+.admin-sent-channel-detail h4 {
+  margin: 0 0 8px;
+}
+
+.admin-sent-campaign-list,
+.admin-sent-recipient-list {
+  display: grid;
+  gap: 12px;
+  margin: 0 0 18px;
+}
+
+.admin-sent-campaign-card,
+.admin-sent-recipient-card {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 14px;
+  border: 1px solid var(--line, #e6e8ef);
+  border-radius: 12px;
+  background: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+
+.admin-sent-recipient-card {
+  cursor: default;
+}
+
+.admin-sent-campaign-card:hover {
+  background: rgba(123, 107, 181, 0.06);
+}
+
+.admin-sent-section-heading,
+.admin-sent-recipients-heading {
+  margin: 8px 0 10px;
+  font-size: 1rem;
+}
+
+.admin-sent-campaign-back {
+  margin-bottom: 12px;
+}
+
+.admin-sent-campaign-facts {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 18px;
+}
+
+.admin-sent-campaign-facts > div {
+  padding: 10px 12px;
+  border: 1px solid var(--line, #e6e8ef);
+  border-radius: 10px;
+  background: #fff;
+}
+
+.admin-sent-campaign-facts dt {
+  margin: 0 0 4px;
+  color: var(--muted, #5f5f70);
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.admin-sent-campaign-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Admin communications workspace (Messages section) */
 .admin-messages-workspace-nav {
   display: flex;
   flex-wrap: wrap;
@@ -1368,6 +1482,20 @@
     flex: 1 1 calc(50% - 6px);
     justify-content: center;
     min-height: 44px;
+  }
+
+  .admin-messages-list-head,
+  .admin-sent-campaign-card .admin-messages-list-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .admin-sent-campaign-facts,
+  .admin-sent-recipient-list,
+  .admin-sent-campaign-list,
+  .admin-messages-list {
+    display: grid;
+    grid-template-columns: 1fr;
   }
 }
 

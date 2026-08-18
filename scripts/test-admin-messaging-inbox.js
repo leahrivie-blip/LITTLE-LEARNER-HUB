@@ -122,7 +122,7 @@ async function main() {
 
   await test("static UI guards", () => {
     const app = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
-    assert.match(app, /New Messages/);
+    assert.match(app, /Inbox/);
     assert.match(app, /Welcome Sent/);
     assert.match(app, /data-admin-mark-unread/);
     assert.match(app, /markRead=0/);

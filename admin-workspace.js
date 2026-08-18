@@ -254,7 +254,7 @@
         <div><p class="eyebrow">Messages</p><h3>Communications workspace</h3><p class="muted-copy">Member inbox, conversations, templates, and welcome sequences.</p>${unreadNote}</div>
       </div>
       <div class="admin-card-grid">
-        ${landingCard("New Messages", "Unread member replies with name, plan, preview, and badge.", "messages-conversations", "Messaging")}
+        ${landingCard("Inbox", "Unread member replies with name, plan, preview, and badge.", "messages-conversations", "Messaging")}
         ${landingCard("Welcome Sent", "Automatic welcome messages — not New Messages until they reply.", "messages-automations", "Messaging")}
         ${landingCard("Support Inbox", "Support, feedback, and submission rows.", "admin-inbox", "Inbox")}
         ${landingCard("Sent & Drafts", "Review sent messages and saved drafts.", "messages-sent", "Messaging")}

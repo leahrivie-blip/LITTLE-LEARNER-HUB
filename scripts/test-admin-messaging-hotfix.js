@@ -213,7 +213,7 @@ async function main() {
 
       await test("browser — workspace nav visible with core tabs", async () => {
         const labels = await page.$$eval(".admin-messages-workspace-btn", (els) => els.map((el) => el.textContent.trim()));
-        assert.ok(labels.some((l) => /New Messages/.test(l)));
+        assert.ok(labels.some((l) => /Inbox/.test(l)));
         assert.ok(labels.some((l) => /Welcome Sent/.test(l)));
         assert.ok(labels.some((l) => /^Sent/.test(l) || /\bSent\b/.test(l)));
         assert.ok(labels.some((l) => /Drafts/.test(l)));
