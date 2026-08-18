@@ -9722,7 +9722,7 @@ function loadCurriculumManagedActivities() {
         return {
           ...activity,
           parentTitle: parent?.title || activity.parentTitle || "",
-          parentAge: parent?.age || activity.parentAge || "Preschool",
+          parentAge: parent?.age || activity.parentAge || "",
           parentTheme: parent?.theme || activity.parentTheme || "",
           parentPlan: parent?.plan || activity.parentPlan || "Free",
           locked: false,
@@ -9742,7 +9742,7 @@ function loadCurriculumManagedActivities() {
       id: item.id,
       category: "Activity Center",
       title: item.title,
-      age: item.parentAge || "All Ages",
+      age: item.parentAge || "",
       plan: item.parentPlan || "Free",
       // Locked Pro teasers never carry activity how-to copy into the library card.
       description: lockedTeaser ? "" : (item.description || ""),
@@ -22444,7 +22444,7 @@ function activityBrowseCard(resource) {
   const locked = !canAccess(resource);
   const favorite = favorites.includes(resource.id);
   const category = resource.activityCategory || resource.theme || "Activity";
-  const age = resource.age || "All Ages";
+  const age = String(resource.age || "").trim();
   const parentLessonTitle = resource._curriculumParentTitle || "";
   const favoriteLabel = favorite ? "Remove from Saved" : "Save activity";
   const saveCtrl = favoriteSaveControl(resource, {
@@ -22477,7 +22477,7 @@ function activityBrowseCard(resource) {
       </div>
       <div class="browse-card-body">
         <h3>${escapeHtml(resource.title)}</h3>
-        <p class="browse-card-meta">${escapeHtml(age)} · ${escapeHtml(category)}</p>
+        <p class="browse-card-meta">${age ? `${escapeHtml(age)} · ` : ""}${escapeHtml(category)}</p>
         ${parentLessonTitle ? `<p class="browse-card-parent">From ${escapeHtml(parentLessonTitle)}</p>` : ""}
       </div>
       <button type="button" class="browse-card-quick-toggle" data-browse-actions-toggle aria-label="Quick actions">⋯</button>
@@ -26872,6 +26872,19 @@ function lessonPlanDisplayAge(resource, plan) {
   return String(plan?.age ?? "").trim();
 }
 
+function lessonAssignmentAgeGroup(explicitAge, snapshotOrPlan) {
+  const api = typeof curriculumSafeValuesApi === "function" ? curriculumSafeValuesApi() : null;
+  if (api?.curriculumAssignmentAgeText) {
+    return api.curriculumAssignmentAgeText(explicitAge, snapshotOrPlan);
+  }
+  const requested = String(explicitAge ?? "").trim();
+  if (requested) return requested;
+  if (snapshotOrPlan && typeof snapshotOrPlan === "object") {
+    return String(snapshotOrPlan.age ?? snapshotOrPlan.ageGroup ?? "").trim();
+  }
+  return String(snapshotOrPlan ?? "").trim();
+}
+
 function lessonWorkspaceDefaultAgeGroup(resource, plan) {
   const raw = lessonPlanDisplayAge(resource, plan);
   if (!raw) return "";
@@ -26926,7 +26939,7 @@ function applyCurriculumLessonToWeeklyPlanner({ resource, plan, weekStartDate, a
     ...existing,
     weekOf: week,
     theme,
-    ageGroup: String(ageGroup || lessonWorkspaceDefaultAgeGroup(resource, normalized)).trim() || "Preschool",
+    ageGroup: lessonAssignmentAgeGroup(ageGroup, { age: lessonWorkspaceDefaultAgeGroup(resource, normalized) }),
     resourceId: resource?.id || existing.resourceId || "",
     focus: plannerFocusForTheme(theme),
     days: { ...existing.days },
@@ -35032,7 +35045,7 @@ async function assignScheduleLessonPlan({
     lessonPlanTitle: snapshot.title || resource.title || "Untitled Lesson Plan",
     lessonPlanPlan: snapshot.plan,
     lessonPlanUpdatedAt: snapshot.updatedAt || "",
-    ageGroup: String(ageGroup || snapshot.age || "Preschool").trim() || "Preschool",
+    ageGroup: lessonAssignmentAgeGroup(ageGroup, snapshot),
     snapshot,
     preserveExecution: true,
   });
@@ -35634,7 +35647,7 @@ async function assignCurriculumLessonPlanToWeek({
   let assignment = {
     id: existing?.id || generateCurriculumAssignmentId(),
     weekStartDate: week,
-    ageGroup: String(ageGroup || snapshot.age || "Preschool").trim() || "Preschool",
+    ageGroup: lessonAssignmentAgeGroup(ageGroup, snapshot),
     classroomLabel: String(classroomLabel || "").trim(),
     lessonPlanId: resource.id,
     lessonPlanTitle: snapshot.title || resource.title || "Untitled Lesson Plan",
@@ -37946,7 +37959,7 @@ async function handleCurriculumPlannerAssignSubmit(form) {
   if (!form || curriculumPlannerBusy) return;
   const formData = new FormData(form);
   const weekStartDate = curriculumPlannerWeekStartIso(formData.get("weekStartDate"));
-  const ageGroup = String(formData.get("ageGroup") || "Preschool").trim();
+  const ageGroup = String(formData.get("ageGroup") || "").trim();
   const classroomLabel = String(formData.get("classroomLabel") || "").trim();
   const lessonPlanId = String(formData.get("lessonPlanId") || "").trim();
   const replaceExisting = true; // Form submit always writes the chosen plan for the selected week.

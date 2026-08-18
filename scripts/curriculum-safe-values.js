@@ -139,6 +139,15 @@ function curriculumLessonAgeText(value) {
   return curriculumAsString(value);
 }
 
+function curriculumAssignmentAgeText(explicitAge, snapshotOrPlan) {
+  const requested = curriculumAsString(explicitAge);
+  if (requested) return requested;
+  if (snapshotOrPlan && typeof snapshotOrPlan === "object") {
+    return curriculumAsString(snapshotOrPlan.age || snapshotOrPlan.ageGroup);
+  }
+  return curriculumAsString(snapshotOrPlan);
+}
+
 function normalizeCurriculumLessonPlanForRender(plan = {}) {
   const entry = curriculumAsObject(plan);
   const dailyPlans = emptyCurriculumDailyPlansForRender();
@@ -211,6 +220,7 @@ const api = {
   CURRICULUM_WEEKDAYS,
   curriculumAsString,
   curriculumLessonAgeText,
+  curriculumAssignmentAgeText,
   curriculumAsStringArray,
   curriculumAsObject,
   curriculumAsBookList,

@@ -220,6 +220,8 @@ async function main() {
     "lessonWorkspaceChromeHtml",
     "lessonWorkspaceTeachingKitChrome",
     "calendarWeekPrintResource",
+    "activityBrowseCard",
+    "loadCurriculumManagedActivities",
   ];
   displayFns.forEach((name) => {
     const body = extractFn(APP_JS, name);
