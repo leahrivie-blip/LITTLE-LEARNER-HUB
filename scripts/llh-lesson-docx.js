@@ -324,11 +324,16 @@
   function buildWeeklyCalendarDocumentXml(payload) {
     const title = cleanText(payload.title) || "Weekly Lesson Plan";
     const theme = cleanText(payload.theme) || "Classroom Theme";
-    const age = cleanText(payload.age) || "Preschool";
+    const age = cleanText(payload.age);
     const weekOf = cleanText(payload.weekOfLabel) || "____________________";
     const days = Array.isArray(payload.days) ? payload.days : normalizeDays(payload.plan || {});
     const usableWidth = 14760; // page width minus margins
     const colWidth = Math.floor(usableWidth / 5);
+    const headerMeta = [
+      theme ? `Theme: ${theme}` : "",
+      age ? `Age: ${age}` : "",
+      `Week Of: ${weekOf}`,
+    ].filter(Boolean).join("    ·    ");
 
     const header = [
       paragraph("Little Learner Hub · Weekly Classroom Schedule", {
@@ -338,7 +343,7 @@
         spaceAfter: 40,
       }),
       paragraph(title, { size: 28, bold: true, color: "1A2B4A", spaceAfter: 80 }),
-      paragraph(`Theme: ${theme}    ·    Age: ${age}    ·    Week Of: ${weekOf}`, {
+      paragraph(headerMeta, {
         size: 16,
         color: "536280",
         spaceAfter: 160,
@@ -403,7 +408,7 @@
     const plan = payload.plan || {};
     const title = presentCopy(payload.title || plan.title) || "Full Lesson Plan";
     const theme = presentCopy(payload.theme || plan.theme) || "Classroom Theme";
-    const age = presentCopy(payload.age || plan.age) || "Preschool";
+    const age = presentCopy(payload.age || plan.age);
     const weekOf = presentCopy(payload.weekOfLabel) || "____________________";
     const days = normalizeDays(plan);
     const domains = asStringArray(plan.learningDomains).map((item) => presentLabel(item, item)).filter(Boolean);
@@ -429,7 +434,7 @@
       paragraph("Little Learner Hub · Full Lesson Plan", { size: 18, bold: true, color: "3A7ABF", spaceAfter: 40 }),
       paragraph(title, { size: 30, bold: true, color: "1A2B4A", spaceAfter: 80 }),
       paragraph(`Theme: ${theme}`, { size: 18, spaceAfter: 40 }),
-      paragraph(`Age group: ${age}`, { size: 18, spaceAfter: 40 }),
+      ...(age ? [paragraph(`Age group: ${age}`, { size: 18, spaceAfter: 40 })] : []),
       paragraph(`Week of: ${weekOf}`, { size: 18, spaceAfter: 160 }),
       paragraph("Weekly Snapshot", { size: 22, bold: true, color: "3A7ABF", spaceAfter: 80 }),
     ];

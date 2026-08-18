@@ -164,6 +164,83 @@ Explore
   assert(!/preschool/i.test(v1Empty.data.age), "empty age is not Preschool");
   assert(!/preschool/i.test(v1Invalid.data.age), "invalid age is not normalized to Preschool");
 
+  console.log("10) Published 3-day / 4-day / 5-day pastes import; missing days stay empty");
+  function publishedWeekdayPaste(days) {
+    const blocks = days.map((day) => `${day}
+ACTIVITY_NAME:
+${day} Named Activity
+CATEGORY:
+Art
+DESCRIPTION:
+Paint.
+MATERIALS:
+Paint
+DIRECTIONS:
+1. Paint.
+TEACHER_ROLE:
+Guide.
+LEARNING_GOALS:
+Explore
+`).join("\n");
+    return `TITLE:
+Published ${days.length}-Day Fixture
+AGE_GROUP:
+Preschool
+THEME:
+Wheels
+PLAN:
+Free
+STATUS:
+published
+WEEKLY_OVERVIEW:
+Intentional ${days.length}-day lesson.
+${blocks}`;
+  }
+  function assertPublishedWeekdayImport(days, label) {
+    const parsed = parseCurriculumLessonPlanImport(publishedWeekdayPaste(days));
+    assert(parsed.ok, `${label} should import: ${(parsed.errors || []).join(" | ")}`);
+    assert(parsed.data.status === "published", `${label} stays published`);
+    assert(parsed.parseReport.activityCount === days.length, `${label} activity count ${parsed.parseReport.activityCount}`);
+    const keys = ["monday", "tuesday", "wednesday", "thursday", "friday"];
+    keys.forEach((key) => {
+      assert(parsed.data.dailyPlans[key], `${label} keeps ${key} container`);
+      assert(Array.isArray(parsed.data.dailyPlans[key].items), `${label} ${key} items array`);
+    });
+    days.forEach((day) => {
+      const key = day.toLowerCase();
+      assert(parsed.data.dailyPlans[key].items.length === 1, `${label} ${day} has one activity`);
+      assert(parsed.data.dailyPlans[key].items[0].title === `${day} Named Activity`, `${label} ${day} title`);
+    });
+    keys.filter((key) => !days.map((day) => day.toLowerCase()).includes(key)).forEach((key) => {
+      assert(parsed.data.dailyPlans[key].items.length === 0, `${label} ${key} stays empty`);
+      const titles = parsed.data.dailyPlans[key].items.map((item) => item.title || "");
+      assert(!titles.some((title) => /no activity scheduled/i.test(title)), `${label} no fake ${key} activity`);
+    });
+    assert(!(parsed.errors || []).some((err) => /Missing activities|Mon–Fri|Mon-Fri|all five/i.test(err)), `${label} must not require all five ACTIVITY_NAME blocks`);
+  }
+  assertPublishedWeekdayImport(["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"], "5-day published");
+  assertPublishedWeekdayImport(["Monday", "Tuesday", "Wednesday", "Thursday"], "4-day published");
+  assertPublishedWeekdayImport(["Monday", "Tuesday", "Wednesday"], "3-day published");
+
+  console.log("11) Zero-activity published paste is still rejected");
+  const zero = parseCurriculumLessonPlanImport(`TITLE:
+Zero Activity Fixture
+AGE_GROUP:
+Toddler
+THEME:
+Wheels
+PLAN:
+Free
+STATUS:
+published
+WEEKLY_OVERVIEW:
+No named activities.
+MONDAY
+`);
+  assert(!zero.ok, "zero-activity published paste must fail");
+  assert(zero.errors.some((err) => /ACTIVITY_NAME/i.test(err)), "zero-activity error mentions ACTIVITY_NAME");
+  assert(!(zero.data && zero.data.dailyPlans && Object.values(zero.data.dailyPlans).some((day) => (day.items || []).some((item) => /no activity scheduled/i.test(item.title || "")))), "zero-activity must not invent placeholders");
+
   console.log("\nAll curriculum import parser checks passed.");
 }
 

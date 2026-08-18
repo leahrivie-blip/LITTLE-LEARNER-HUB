@@ -538,6 +538,64 @@ Activity only crayons
     1,
   );
   console.log(`PASS  10 Name-block master paste creates ${expectedNameCount} real activities only`);
+
+  function weekdaySpanMasterPaste(days) {
+    const blocks = days.map((day, index) => activityBlock(`${day} Span Activity`, day, index === 0 ? "Weekday" : "Activity weekday"));
+    return `Lesson title
+Weekday Span ${days.length}-Day Fixture
+
+Age band
+Toddler 12–24 Months
+
+Weekly overview
+Intentional ${days.length}-day lesson.
+
+${blocks.join("\n\n")}
+`;
+  }
+
+  function assertWeekdaySpanImport(days, label) {
+    const parsed = parseFullLessonStructurePaste(weekdaySpanMasterPaste(days));
+    assert.equal(parsed.ok, true, parsed.errors.join("; "));
+    assert.equal(parsed.activityCount, days.length, `${label} activity count`);
+    const titles = flattenActivityTitles(parsed);
+    assert.equal(titles.length, days.length);
+    days.forEach((day) => {
+      const key = day.toLowerCase();
+      assert.deepEqual(parsed.dailyPlans[key].items.map((item) => item.title), [`${day} Span Activity`]);
+    });
+    WEEKDAYS.filter((day) => !days.includes(day)).forEach((day) => {
+      const key = day.toLowerCase();
+      assert.ok(parsed.dailyPlans[key], `${label} keeps ${day} container`);
+      assert.equal(parsed.dailyPlans[key].items.length, 0, `${label} ${day} stays empty`);
+    });
+    assert.equal(titles.some((title) => /no activity scheduled/i.test(title)), false, `${label} no fake placeholders`);
+    console.log(`PASS  11 ${label} master paste imports; missing days stay empty`);
+  }
+
+  assertWeekdaySpanImport(["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"], "5-day");
+  assertWeekdaySpanImport(["Monday", "Tuesday", "Wednesday", "Thursday"], "4-day");
+  assertWeekdaySpanImport(["Monday", "Tuesday", "Wednesday"], "3-day");
+
+  const zeroActivity = parseFullLessonStructurePaste(`Lesson title
+Zero Activity Fixture
+
+Age band
+Toddler 12–24 Months
+
+Weekly overview
+Title and age only.
+`);
+  assert.equal(zeroActivity.activityCount, 0, "zero-activity paste creates no activities");
+  assert.equal(flattenActivityTitles(zeroActivity).length, 0);
+  WEEKDAYS.forEach((day) => {
+    assert.equal(zeroActivity.dailyPlans[day.toLowerCase()].items.length, 0);
+  });
+  assert.equal(
+    flattenActivityTitles(zeroActivity).some((title) => /no activity scheduled/i.test(title)),
+    false,
+  );
+  console.log("PASS  12 zero-activity master paste does not fabricate weekday activities");
 }
 
 function flattenActivityTitles(parsed) {

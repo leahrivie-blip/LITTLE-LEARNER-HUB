@@ -26866,18 +26866,26 @@ function setLessonWorkspaceActionSheetPanel(panel = "main-calendar") {
 
 const LESSON_WORKSPACE_PLANNER_AGE_GROUPS = ["Infant", "Toddler", "Preschool", "Mixed Ages"];
 
+function lessonPlanDisplayAge(resource, plan) {
+  const fromResource = String(resource?.age ?? "").trim();
+  if (fromResource) return fromResource;
+  return String(plan?.age ?? "").trim();
+}
+
 function lessonWorkspaceDefaultAgeGroup(resource, plan) {
-  const raw = String(resource?.age || plan?.age || "Preschool").trim();
+  const raw = lessonPlanDisplayAge(resource, plan);
+  if (!raw) return "";
   if (LESSON_WORKSPACE_PLANNER_AGE_GROUPS.includes(raw)) return raw;
   if (/infant/i.test(raw)) return "Infant";
   if (/toddler/i.test(raw)) return "Toddler";
   if (/mixed/i.test(raw)) return "Mixed Ages";
-  return "Preschool";
+  return raw;
 }
 
-function lessonWorkspacePlannerAgeGroupOptions(selected = "Preschool") {
+function lessonWorkspacePlannerAgeGroupOptions(selected = "") {
   const value = lessonWorkspaceDefaultAgeGroup({ age: selected }, { age: selected });
-  return LESSON_WORKSPACE_PLANNER_AGE_GROUPS.map((age) => (
+  const blank = `<option value=""${!value ? " selected" : ""}>Age not set</option>`;
+  return blank + LESSON_WORKSPACE_PLANNER_AGE_GROUPS.map((age) => (
     `<option value="${escapeHtml(age)}"${age === value ? " selected" : ""}>${escapeHtml(age)}</option>`
   )).join("");
 }
@@ -27461,7 +27469,10 @@ function lessonPlanPrintHeaderHtml(resource, title, options = {}) {
       <p class="lesson-print-brand">Little Learner Hub</p>
       <h3>${escapeHtml(title)}</h3>
       <div class="tag-row">
-        <span class="tag">${escapeHtml(resource?.age || plan.age || "Preschool")}</span>
+        ${(() => {
+          const age = lessonPlanDisplayAge(resource, plan);
+          return age ? `<span class="tag">${escapeHtml(age)}</span>` : "";
+        })()}
         ${plan.theme ? `<span class="tag">${escapeHtml(plan.theme)}</span>` : ""}
         ${accessTag ? `<span class="tag access-tag">${escapeHtml(accessTag)}</span>` : ""}
       </div>
@@ -27614,7 +27625,7 @@ function lessonPlanWeeklyScheduleHtml(resource, plan, options = {}) {
   const layout = ["week", "week-detail", "planning"].includes(options.layout) ? options.layout : "week-detail";
   const normalized = normalizeCurriculumLessonPlanForRender(plan);
   const theme = normalized.theme || resource?.theme || "";
-  const age = resource?.age || normalized.age || "Preschool";
+  const age = lessonPlanDisplayAge(resource, normalized);
   const plannerApi = typeof globalThis !== "undefined" ? globalThis.LlhTeacherWeeklyPlanner : null;
   const plannerReadyPlan = layout === "week" && plannerApi?.repairLessonPlanForPlanner
     ? plannerApi.repairLessonPlanForPlanner(normalized)
@@ -27762,7 +27773,7 @@ function lessonPlanWeeklyScheduleHtml(resource, plan, options = {}) {
         <h3>${escapeHtml(resource?.title || normalized.title || "Weekly Lesson Plan")}</h3>
         <dl class="lesson-week-schedule-meta">
           <div><dt>Theme</dt><dd>${escapeHtml(theme || "")}</dd></div>
-          <div><dt>Age Group</dt><dd>${escapeHtml(age)}</dd></div>
+          ${age ? `<div><dt>Age Group</dt><dd>${escapeHtml(age)}</dd></div>` : ""}
           <div><dt>Week Of</dt><dd class="lesson-week-schedule-week-of">${weekOfLabel ? escapeHtml(weekOfLabel) : ""}</dd></div>
         </dl>
       </header>
@@ -27912,7 +27923,7 @@ function lessonPlanVariantText(resource, printVariant = "week") {
   const lines = [
     heading,
     "",
-    `Age Group: ${resource?.age || plan.age || "Preschool"}`,
+    lessonPlanDisplayAge(resource, plan) ? `Age Group: ${lessonPlanDisplayAge(resource, plan)}` : "",
     plan.theme ? `Theme: ${plan.theme}` : "",
     (() => {
       const accessLabel = libraryPlanBadge(resource);
@@ -28061,8 +28072,13 @@ function buildLessonPlanWeeklySchedulePdfBlob(resource, options = {}) {
   y -= 24;
   text(`Theme: ${plan.theme || resource?.theme || ""}`, LEFT, y, 10, "F1", "0.25 0.25 0.25");
   y -= 14;
-  text(`Age Group: ${resource?.age || plan.age || "Preschool"}`, LEFT, y, 10, "F1", "0.25 0.25 0.25");
-  y -= 14;
+  {
+    const age = lessonPlanDisplayAge(resource, plan);
+    if (age) {
+      text(`Age Group: ${age}`, LEFT, y, 10, "F1", "0.25 0.25 0.25");
+      y -= 14;
+    }
+  }
   if (weekOfLabel) {
     text(`Week Of: ${weekOfLabel}`, LEFT, y, 10, "F1", "0.25 0.25 0.25");
     y -= 14;
@@ -28243,7 +28259,7 @@ function buildTeacherWeeklyPlannerPdfBlob(resource, options = {}) {
     : {
       title: resource?.title || plan.title || "Weekly Lesson Plan",
       theme: plan.theme || resource?.theme || "",
-      age: resource?.age || plan.age || "Preschool",
+      age: lessonPlanDisplayAge(resource, plan),
       learningDomains: curriculumAsStringArray(plan.learningDomains),
       weeklyOverview: String(plan.weeklyOverview || "").trim(),
       objectives: lessonPlanObjectiveBullets(plan, 8),
@@ -28329,7 +28345,7 @@ function buildTeacherWeeklyPlannerPdfBlob(resource, options = {}) {
     const bookList = books.join("; ");
     return [
       { label: "Theme", value: summary.theme || "Classroom Theme", chars: 48, maxLines: 2, pair: "top" },
-      { label: "Age Group", value: summary.age || "Preschool", chars: 48, maxLines: 1, pair: "top" },
+      { label: "Age Group", value: summary.age || "", chars: 48, maxLines: 1, pair: "top" },
       { label: "Weekly Overview", value: summary.weeklyOverview, chars: 118, maxLines: 4 },
       { label: "Objectives", value: objectives, chars: 112, maxLines: 4 },
       { label: "Materials", value: summary.weeklyMaterials, chars: 118, maxLines: 3 },
@@ -28598,7 +28614,10 @@ function buildLessonPlanPlanningSheetPdfBlob(resource, options = {}) {
   y = 708;
   text(`Theme: ${plan.theme || resource?.theme || "____________"}`, 48, y, 10, "F1", "0.2 0.2 0.2");
   y -= 14;
-  text(`Age Group: ${resource?.age || plan.age || "Preschool"}   ·   Week Of: ${weekOfLabel}`, 48, y, 10, "F1", "0.2 0.2 0.2");
+  {
+    const age = lessonPlanDisplayAge(resource, plan);
+    text(age ? `Age Group: ${age}   ·   Week Of: ${weekOfLabel}` : `Week Of: ${weekOfLabel}`, 48, y, 10, "F1", "0.2 0.2 0.2");
+  }
   y -= 22;
   days.forEach((day) => {
     fillRect(48, y - 2, 500, 16, "0.16 0.33 0.48");
@@ -28641,7 +28660,7 @@ function buildLessonPlanWeeklyCalendarDocxBlob(resource, options = {}) {
   return LlhLessonDocx.buildWeeklyCalendarDocxBlob({
     title: resource?.title || plan.title || "Weekly Lesson Plan",
     theme: plan.theme || resource?.theme || "",
-    age: resource?.age || plan.age || "Preschool",
+    age: lessonPlanDisplayAge(resource, plan),
     weekOfLabel: formatLessonWeekOfLabel(weekStart),
     days: lessonPlanWeeklyScheduleDays(plan),
     plan,
@@ -28657,7 +28676,7 @@ function buildLessonPlanFullDocxBlob(resource, options = {}) {
   return LlhLessonDocx.buildFullLessonPlanDocxBlob({
     title: resource?.title || plan.title || "Full Lesson Plan",
     theme: plan.theme || resource?.theme || "",
-    age: resource?.age || plan.age || "Preschool",
+    age: lessonPlanDisplayAge(resource, plan),
     weekOfLabel: formatLessonWeekOfLabel(weekStart),
     plan,
   });
@@ -28929,7 +28948,7 @@ async function downloadLessonPlanVariant(printVariant = "week", options = {}) {
         fullPlanText = buildLessonPlanDownloadText(plan, {
           title: viewerResource.title,
           theme: plan.theme || viewerResource.theme || "",
-          age: viewerResource.age || plan.age || "Preschool",
+          age: lessonPlanDisplayAge(viewerResource, plan),
           weekOfLabel,
         });
       }
@@ -29364,7 +29383,7 @@ async function submitLessonPlanFeedback({ sentiment, lessonId, lessonTitle, deta
 
 function lessonWorkspaceChromeHtml(resource) {
   const plan = normalizeCurriculumLessonPlanForRender(resource._curriculumLessonPlan);
-  const age = resource.age || plan.age || "Preschool";
+  const age = lessonPlanDisplayAge(resource, plan);
   const planLabel = libraryPlanBadge(resource);
   const planBadgeClass = /pro/i.test(String(planLabel)) ? "pro-badge" : "free-badge";
   const theme = String(resource.theme || plan.theme || "").trim();
@@ -29382,7 +29401,7 @@ function lessonWorkspaceChromeHtml(resource) {
           <div class="lesson-workspace-title-block">
             <h2 class="lesson-workspace-title">${escapeHtml(resource.title)}</h2>
             <p class="lesson-workspace-meta">
-              <span class="tag">${escapeHtml(age)}</span>
+              ${age ? `<span class="tag">${escapeHtml(age)}</span>` : ""}
               ${planLabel ? `<span class="tag access-tag ${planBadgeClass}">${escapeHtml(planLabel)}</span>` : ""}
               ${theme ? `<span class="tag lesson-workspace-theme-tag">${escapeHtml(theme)}</span>` : ""}
             </p>
@@ -29582,7 +29601,7 @@ function lessonWorkspaceTeachingKitChrome(viewerResource) {
   const plan = normalizeCurriculumLessonPlanForRender(viewerResource._curriculumLessonPlan);
   return {
     title: viewerResource.title,
-    age: viewerResource.age || plan.age || "Preschool",
+    age: lessonPlanDisplayAge(viewerResource, plan),
     planLabel: libraryPlanBadge(viewerResource),
     theme: String(viewerResource.theme || plan.theme || "").trim(),
     backLabel: lessonWorkspaceBackButtonLabel(),
@@ -36252,7 +36271,7 @@ function renderCurriculumPlanner() {
   const defaultAge = assignment?.ageGroup
     || pendingResource?.age
     || pendingResource?._curriculumLessonPlan?.age
-    || "Preschool";
+    || "";
   const message = curriculumPlannerMessage?.text
     ? `<div class="form-message ${curriculumPlannerMessage.isSuccess ? "success" : ""}" role="status">${escapeHtml(curriculumPlannerMessage.text)}</div>`
     : "";
@@ -36280,6 +36299,7 @@ function renderCurriculumPlanner() {
             </label>
             <label>Age group
               <select name="ageGroup" required>
+                <option value=""${!defaultAge ? " selected" : ""}>Age not set</option>
                 ${["Infant", "Toddler", "Preschool", "Mixed Ages"].map((age) => `
                   <option value="${escapeHtml(age)}"${age === defaultAge ? " selected" : ""}>${escapeHtml(age)}</option>
                 `).join("")}
@@ -37124,7 +37144,7 @@ function calendarWeekPrintResource(lesson) {
     return {
       id: planId || lesson.id || "calendar-week-print",
       title: lesson.lessonPlanTitle || fromLibrary?.title || lesson.snapshot.title || "Lesson Plan",
-      age: lesson.ageGroup || fromLibrary?.age || lesson.snapshot.age || "Preschool",
+      age: lesson.ageGroup || fromLibrary?.age || lesson.snapshot.age || "",
       plan: lesson.lessonPlanPlan || fromLibrary?.plan || lesson.snapshot.plan || "Free",
       theme: lesson.snapshot.theme || fromLibrary?.theme || "",
       category: "Lesson Plans",

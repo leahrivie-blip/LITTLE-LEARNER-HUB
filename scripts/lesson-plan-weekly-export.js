@@ -307,7 +307,7 @@
     return {
       title: cleanText(normalized.title) || "Weekly Lesson Plan",
       theme: cleanText(normalized.theme),
-      age: cleanText(normalized.age) || "Preschool",
+      age: cleanText(normalized.age) || "",
       learningDomains: asStringArray(normalized.learningDomains),
       weeklyOverview: cleanText(normalized.weeklyOverview),
       objectives: asStringArray(normalized.objectives),

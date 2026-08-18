@@ -135,6 +135,10 @@ function normalizeCurriculumDailyDayForRender(dayPlan = {}) {
   };
 }
 
+function curriculumLessonAgeText(value) {
+  return curriculumAsString(value);
+}
+
 function normalizeCurriculumLessonPlanForRender(plan = {}) {
   const entry = curriculumAsObject(plan);
   const dailyPlans = emptyCurriculumDailyPlansForRender();
@@ -145,7 +149,7 @@ function normalizeCurriculumLessonPlanForRender(plan = {}) {
   const out = {
     id: curriculumAsString(entry.id),
     title: curriculumAsString(entry.title),
-    age: curriculumAsString(entry.age) || "Preschool",
+    age: curriculumLessonAgeText(entry.age),
     theme: curriculumAsString(entry.theme),
     plan: curriculumAsString(entry.plan) || "Free",
     status: curriculumAsString(entry.status) || "draft",
@@ -206,6 +210,7 @@ function curriculumAgeSelectOptions(selectedAge = "") {
 const api = {
   CURRICULUM_WEEKDAYS,
   curriculumAsString,
+  curriculumLessonAgeText,
   curriculumAsStringArray,
   curriculumAsObject,
   curriculumAsBookList,
