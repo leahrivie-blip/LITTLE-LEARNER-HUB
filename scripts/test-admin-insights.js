@@ -289,6 +289,8 @@ async function wiring() {
   assert.match(adminInsightsUi, /Email verification is optional/);
   assert.match(adminInsightsUi, /is-informational/);
   assert.match(adminInsightsUi, /Largest drop-off/);
+  assert.match(adminInsightsUi, /renderAdvisorEvidence/);
+  assert.match(adminInsightsUi, /did not continue/);
   assert.match(adminInsightsUi, /Unavailable/);
   assert.match(adminInsightsUi, /FREE SIGNUP FUNNEL/);
   assert.match(adminInsightsUi, /renderFreeSignupFunnel/);
@@ -327,7 +329,8 @@ function phase1Trust() {
   );
   assert.equal(dropZero.dropOffRate, 0);
   assert.equal(dropZero.conversionRate, 0);
-  assert.equal(dropZero.dropOffRateLabel, "0%");
+  assert.equal(dropZero.dropOffRateLabel, "Insufficient data");
+  assert.equal(dropZero.conversionRateLabel, "Insufficient data");
 
   // ---------------------------------------------------------------------------
   // Revenue fixtures (1–7) — exact createdAt twin key only
@@ -617,7 +620,9 @@ function phase1Trust() {
   const dropAdvisor = insights.buildInsights(dropStore, { hub: "advisor", range: "7d" });
   const dropLine = dropAdvisor.data.summaryLines.find((line) => /Largest drop-off:/.test(line));
   assert.ok(dropLine, "expected largest drop-off summary line");
-  assert.match(dropLine, /drop-off\)/);
+  assert.match(dropLine, /Largest drop-off:/);
+  assert.match(dropLine, /of 10 new accounts did not start a trial|did not start a trial/);
+  assert.doesNotMatch(dropLine, /dropped out of signup/i);
   assert.doesNotMatch(dropLine, /^Biggest Opportunity:/);
 
   // Open requests KPI
