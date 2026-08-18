@@ -8,6 +8,7 @@ const {
   parseFullLessonStructurePaste,
   buildStructurePreview,
 } = require("./curriculum-lesson-structure-paste.js");
+const weekKit = require("./curriculum-week-kit-paste.js");
 
 const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 
@@ -494,6 +495,151 @@ Activity only crayons
   assert.ok(!countGuard.activities.some((row) => row.title === "Giant Floor Drawing paper"));
   assert.ok(!countGuard.activities.some((row) => row.title === "Not An Activity Line"));
   console.log("PASS  9  Activity count comes only from explicit Activity name blocks");
+
+  const namePaste = largeNameBlockMasterPaste();
+  const expectedNameCount = weekKit.countExplicitActivityNameStarts(namePaste);
+  assert.ok(expectedNameCount >= 8, `fixture must declare multiple Name blocks, got ${expectedNameCount}`);
+  const nameParsed = parseFullLessonStructurePaste(namePaste);
+  assert.equal(nameParsed.ok, true, nameParsed.errors.join("; "));
+  assert.equal(nameParsed.activityCount, expectedNameCount, JSON.stringify({
+    activityCount: nameParsed.activityCount,
+    titles: flattenActivityTitles(nameParsed),
+    unrecognized: nameParsed.unrecognized,
+  }));
+  assert.ok(nameParsed.activityCount < 30, "Name-block paste must not explode into dozens of fake activities");
+  const fakeTitles = [
+    "15 minutes", "Age", "Duration", "Materials", "Teacher prep", "Setup", "Steps",
+    "Questions", "Observation focus", "Safety", "Cleanup", "Tips", "Substitutions",
+    "Support adaptations", "Added challenge", "Mixed-age", "Observation prompts",
+    "Vocabulary", "Image request", "Example images", "Check every vehicle for loose parts.",
+  ];
+  const titles = flattenActivityTitles(nameParsed);
+  fakeTitles.forEach((title) => {
+    assert.equal(titles.includes(title), false, `field/value became an activity: ${title}`);
+  });
+  const nameMondayFirst = nameParsed.dailyPlans.monday.items[0];
+  assert.equal(nameMondayFirst.title, "Monday Wheel Painting");
+  assert.equal(nameMondayFirst.durationMinutes, "15 minutes");
+  assert.match(nameMondayFirst.ageModifications || "", /Preschool/);
+  assert.match(nameMondayFirst.safetyNotes || "", /Check every vehicle for loose parts/);
+  assert.match(nameMondayFirst.materials || "", /Paper plates/);
+  assert.match(nameMondayFirst.steps || "", /Invite children to roll/);
+  assert.match(nameMondayFirst.teacherLanguage || "", /Which vehicle moves/);
+  assert.equal(nameMondayFirst.imageRequirement, "required");
+  const nameFridayLast = nameParsed.dailyPlans.friday.items[nameParsed.dailyPlans.friday.items.length - 1];
+  assert.equal(nameFridayLast.title, "Friday Quiet Track Draw");
+  assert.match(nameFridayLast.objective || "", /quiet mark making/);
+  assert.equal(
+    titles.filter((title) => title === "Monday Wheel Painting").length,
+    1,
+  );
+  console.log(`PASS  10 Name-block master paste creates ${expectedNameCount} real activities only`);
+}
+
+function flattenActivityTitles(parsed) {
+  return ["monday", "tuesday", "wednesday", "thursday", "friday"].flatMap((day) => (
+    (parsed.dailyPlans?.[day]?.items || []).map((item) => item.title)
+  ));
+}
+
+function nameBlockActivity(name, { objective, safety } = {}) {
+  return [
+    "Name",
+    name,
+    "Duration",
+    "15 minutes",
+    "Age",
+    "Preschool 3–5 Years",
+    "Category / developmental domain",
+    "Creative Arts",
+    "Objective",
+    objective || `Children will explore ${name} with paint and movement.`,
+    "What children will do",
+    `Children will try ${name}. They will notice texture, color, and motion.`,
+    "Materials",
+    "Paper plates",
+    "Washable paint",
+    "Toy vehicles",
+    "Teacher prep",
+    "Cover the table. Set out one tray per pair.",
+    "Setup",
+    "Place paper and vehicles on a low table.",
+    "Steps",
+    "Invite children to roll a vehicle through paint.",
+    "Ask what tracks they notice.",
+    "Questions",
+    "Which vehicle moves fastest? What sound does it make?",
+    "Observation focus",
+    `Watch grip, language, and turn-taking during ${name}.`,
+    "Safety",
+    safety || "Check every vehicle for loose parts.",
+    "Cleanup",
+    "Wash vehicles and wipe the table.",
+    "Indoor/Outdoor options",
+    "Indoor: table trays. Outdoor: driveway chalk tracks.",
+    "Tips",
+    "Keep groups small. Narrate the tracks.",
+    "Substitutions",
+    "If missing toy cars → use bottle caps.",
+    "Support adaptations",
+    "Offer a chunky handle or hand-over-hand help.",
+    "Added challenge",
+    "Invite a second color or a longer track.",
+    "Mixed-age",
+    "Toddlers stamp; preschoolers compare track shapes.",
+    "Observation prompts",
+    "Did the child name a vehicle? Did they wait for a turn?",
+    "Vocabulary",
+    "track",
+    "roll",
+    "vehicle",
+    "Image request",
+    "Setup + finished example",
+    "Example images",
+    "None yet",
+  ].join("\n");
+}
+
+function largeNameBlockMasterPaste() {
+  const byDay = {
+    Monday: ["Monday Wheel Painting", "Monday Garage Collage"],
+    Tuesday: ["Tuesday Ramp Rolling", "Tuesday Traffic Prints"],
+    Wednesday: ["Wednesday Box Bus", "Wednesday Horn Painting"],
+    Thursday: ["Thursday Map Marks", "Thursday Cargo Collage"],
+    Friday: ["Friday Wash Station", "Friday Quiet Track Draw"],
+  };
+  const days = Object.keys(byDay).map((day) => (
+    `${day}\n${byDay[day].map((name) => nameBlockActivity(name)).join("\n\n")}`
+  )).join("\n\n");
+  return `Lesson title
+Things That Go: Art in Motion
+
+Age band
+Preschool 3–5 Years
+
+Weekly overview
+Children explore vehicles through art, motion, and pretend play.
+
+Learning objectives
+Notice how wheels make tracks.
+Practice sharing art tools.
+
+Materials
+Washable paint
+Toy vehicles
+Paper
+
+Teacher preparation
+Inspect every vehicle before the week begins. Keep paint covered until setup.
+
+Observation focus
+Watch how children describe motion and take turns.
+
+Family connection
+Ask families to notice wheels on the way to school.
+
+${days}
+`;
 }
 
 if (require.main === module) {
@@ -506,4 +652,6 @@ module.exports = {
   formatActivityPreview,
   giantFloorDrawingPaste,
   fifteenActivityFixture,
+  largeNameBlockMasterPaste,
+  nameBlockActivity,
 };

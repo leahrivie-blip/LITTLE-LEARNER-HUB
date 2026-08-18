@@ -90,6 +90,7 @@
     },
     /** Manual week books/songs/printable-ideas editor: { kind, index } or null. index -1 = add. */
     kitMediaEdit: null,
+    ownerWorkspaceData: { notes: "", todos: [] },
   };
 
   function isOwnerSessionEmail() {
@@ -161,6 +162,47 @@
       resources: curriculumResources(),
       ignoredCodes: ignoredQualityCodes(),
     };
+  }
+
+  function ownerWorkspaceApi() {
+    return root.LLHTeachingKitOwnerWorkspace || null;
+  }
+
+  function getOwnerWorkspaceData(plan) {
+    const api = ownerWorkspaceApi();
+    const raw = state.ownerWorkspaceData && typeof state.ownerWorkspaceData === "object"
+      ? state.ownerWorkspaceData
+      : (plan?.ownerWorkspace || {});
+    return api?.normalizedOwnerWorkspace ? api.normalizedOwnerWorkspace(raw) : {
+      notes: String(raw.notes || ""),
+      todos: Array.isArray(raw.todos) ? raw.todos : [],
+    };
+  }
+
+  function ownerGate(plan, activities) {
+    const api = ownerWorkspaceApi();
+    if (!api?.ownerPublishState) {
+      const title = String(plan?.title || "").trim();
+      const blockers = [];
+      if (!title || /^untitled/i.test(title)) blockers.push({ code: "missing_title", message: "Add lesson title" });
+      if (!String(plan?.age || "").trim()) blockers.push({ code: "missing_age", message: "Fix age band" });
+      if (!(activities || []).some((item) => String(item?.title || "").trim())) {
+        blockers.push({ code: "no_activities", message: "Add at least one valid activity" });
+      }
+      const published = ["published", "featured"].includes(String(plan?.status || "").toLowerCase());
+      return {
+        workspaceStatus: published ? "published" : (blockers.length ? "draft" : "ready"),
+        published,
+        canPublish: !blockers.length,
+        blockers,
+        openTodoCount: 0,
+        openTodos: [],
+        optional: {},
+        core: { weekdays: 0, activities: (activities || []).length, title: Boolean(title), age: Boolean(plan?.age) },
+        displayLabel: published ? "Published" : (blockers.length ? "Draft" : "Ready to publish"),
+      };
+    }
+    return api.ownerPublishState(plan, activities, getOwnerWorkspaceData(plan), curriculumResources());
   }
 
   function evaluateCurrentKit() {
@@ -1870,10 +1912,6 @@
     const title = typeof helper.printableIdeaTitle === "function"
       ? helper.printableIdeaTitle(result.removed)
       : String(result.removed?.title || "Printable idea");
-    const confirmed = window.confirm(
-      `Remove Printable Idea “${title}” (${ideaId}) from this lesson draft?\n\nLinked Resources, uploaded PDFs, and published lesson data will not be changed.`,
-    );
-    if (!confirmed) return;
     week.printableIdeas = result.list;
     if (state.kitMediaEdit?.kind === "printableIdea") state.kitMediaEdit = null;
     await persistPrintableIdeasDraft(`Removed Printable Idea “${title}”. Draft saved. Linked Resources unchanged.`);
@@ -1952,9 +1990,10 @@
           saveMode: "enrichment_draft",
           expectedUpdatedAt,
           adminEmail: state.draft.lastEditedBy || admin?.email || "",
-          lessonPlan: {
+            lessonPlan: {
             id: plan.id,
             enrichmentDraft: draftSnapshot,
+            ownerWorkspace: getOwnerWorkspaceData(plan),
           },
         }),
       });
@@ -2000,6 +2039,11 @@
       // Rehydrate from the verified server draft so reload matches what we just saved.
       state.draft = JSON.parse(JSON.stringify(savedDraft));
       state.lastSavedDraft = JSON.parse(JSON.stringify(savedDraft));
+      if (savedPlan?.ownerWorkspace) {
+        state.ownerWorkspaceData = ownerWorkspaceApi()?.normalizedOwnerWorkspace
+          ? ownerWorkspaceApi().normalizedOwnerWorkspace(savedPlan.ownerWorkspace)
+          : savedPlan.ownerWorkspace;
+      }
       state.dirty = false;
       state.lastSaveError = "";
       // Only after successful draft save may unused replaced/removed assets be cleaned up.
@@ -2127,6 +2171,9 @@
       if (incomingDraft) {
         plan = { ...plan, enrichmentDraft: JSON.parse(JSON.stringify(incomingDraft)) };
       }
+      state.ownerWorkspaceData = ownerWorkspaceApi()?.normalizedOwnerWorkspace
+        ? ownerWorkspaceApi().normalizedOwnerWorkspace(plan.ownerWorkspace || {})
+        : { notes: "", todos: [] };
       if (!host()) {
         state.ownerWorkspace = false;
         state.ownerDraftReview = false;
@@ -2809,23 +2856,10 @@
     const n = activities.length;
     const idx = Math.min(state.activityIndex, Math.max(0, n - 1));
     const historyCount = Array.isArray(plan.enrichmentPublishHistory) ? plan.enrichmentPublishHistory.length : 0;
+    const gate = ownerGate(plan, activities);
+    const core = gate.core || {};
+    const optional = gate.optional || {};
     const evaluated = evaluateCurrentKit();
-    const summary = evaluated?.summary || api().buildUpgradeSummary(plan, activities, state.draft, scoringOptions());
-    const premium = evaluated?.premiumReadinessPercent ?? summary.premiumReadinessPercent ?? 0;
-    const readinessUi = publishReadinessUi(evaluated);
-    const workflow = readinessUi.displayWorkflow
-      || evaluated?.workflow
-      || summary.canonicalStatus?.workflow
-      || summary.dashboardStage
-      || label;
-    const libraryStatus = readinessUi.libraryStatus
-      || evaluated?.blocking
-      || summary.libraryStatus
-      || summary.blocking
-      || "No blockers";
-    const blocked = readinessUi.blocked
-      || Boolean(evaluated?.blocksPublish || state.qualityReport?.blocksPublish || libraryStatus === "Blocked");
-    const publishReadyActive = readinessUi.publishReady === true;
     if (evaluated?.report) state.qualityReport = evaluated.report;
     return `
       <header class="tk-enrich-chrome">
@@ -2836,22 +2870,18 @@
             <span class="tk-enrich-chrome-title">${esc(plan.title || "Lesson")}</span>
           </div>
           <div class="tk-enrich-progress-block">
-            <div class="tk-enrich-stepper" aria-label="Teaching Kit readiness steps">
-              ${readinessUi.renderStepperHtml(readinessUi.chromeSteps)}
-            </div>
-            <div class="tk-enrich-percent-row">
-              <strong title="Structural completion (field fill)">Completion ${percent}%</strong>
-              <span class="muted-copy" data-premium-readiness-chrome title="Premium Teaching Kit readiness">Readiness ${premium}%</span>
-              <div class="tk-enrich-bar" aria-hidden="true"><i style="width:${premium}%"></i></div>
-              <span class="tag ${blocked ? "is-danger" : (publishReadyActive ? "is-success" : "")}" data-workflow-status-chrome data-publish-ready="${publishReadyActive ? "true" : "false"}">${esc(workflow)}</span>
-              <span class="tag ${libraryStatus === "Blocked" ? "is-danger" : ""}" data-library-status-chrome title="Same Library Health status">Library ${esc(libraryStatus)}</span>
+            <div class="tk-enrich-percent-row" data-owner-workspace-status>
+              <span class="tag ${gate.published ? "is-success" : (gate.canPublish ? "is-success" : "")}">${esc(gate.displayLabel)}</span>
+              <strong title="Core lesson usability">Core lesson ${core.title ? "✓ title" : "○ title"} · ${core.age ? "✓ age" : "○ age"} · ${esc(core.weekdayLabel || `${core.weekdays || 0}/5 weekdays`)} · ${esc(core.activityLabel || `${n} activities`)}</strong>
+              <span class="muted-copy">Optional ${optional.cover ? "✓" : "○"} cover · ${optional.printables ? "✓" : "○"} printables · ${optional.books ? "✓" : "○"} books · ${optional.family ? "✓" : "○"} family</span>
+              ${gate.openTodoCount ? `<span class="muted-copy">${gate.openTodoCount} optional item${gate.openTodoCount === 1 ? "" : "s"} still on your list</span>` : ""}
             </div>
           </div>
           <div class="tk-enrich-chrome-actions">
             <button type="button" class="primary-button" data-ai-suggest="lesson">Prepare AI Draft</button>
             <button type="button" class="ghost-button" data-summary-toggle>Upgrade Summary</button>
             <button type="button" class="primary-button" data-enrich-save-draft>Save draft</button>
-            <button type="button" class="primary-button" data-enrich-publish data-can-publish="${readinessUi.canPublish ? "true" : "false"}" ${blocked ? "title=\"Publishing blocked — resolve hard blockers or use owner override\"" : ""}>${blocked ? "Publish blocked…" : "Publish…"}</button>
+            <button type="button" class="primary-button" data-enrich-publish data-can-publish="${gate.canPublish ? "true" : "false"}">${gate.canPublish ? "Publish" : "Publish"}</button>
             <button type="button" class="ghost-button" data-enrich-next-lesson>Next lesson →</button>
           </div>
         </div>
@@ -2863,7 +2893,8 @@
             <button type="button" class="ghost-button" data-enrich-rollback ${historyCount ? "" : "disabled"}>Rollback Last Publish</button>
             <button type="button" class="ghost-button" data-enrich-discard-draft>Discard Draft</button>
             <button type="button" class="ghost-button" data-enrich-undo-discard ${plan?.enrichmentDraftUndo?.draft ? "" : "disabled"}>Undo Discard</button>
-            <span class="muted-copy">Rollback restores into a draft — Publish required before providers see changes.</span>
+            <button type="button" class="danger-button" data-enrich-delete-lesson ${plan?.id ? "" : "disabled"}>Delete lesson</button>
+            <span class="muted-copy">Rollback restores into a draft — Publish required before providers see changes. Delete lesson permanently removes this draft and its lesson-owned activities.</span>
           </div>
         </details>
         <div class="tk-enrich-chrome-sub">
@@ -2995,10 +3026,14 @@
             <div>
               <p class="tk-enrich-activity-count">Activity ${state.activityIndex + 1} of ${activities.length}</p>
               <h3 data-enrich-title>${esc(displayTitle)}</h3>
-              <p class="muted-copy">${esc(DAY_LABEL[displayDay] || displayDay)} · ${esc(model.activityCategory || current.activityCategory || "Activity")}</p>
+              <p class="muted-copy">${esc(DAY_LABEL[displayDay] || displayDay)} · ${esc(model.activityCategory || current.activityCategory || "Activity")} · ${esc(displayTitle ? "Ready to edit" : "Add a name")}</p>
               <p class="tk-enrich-completion" data-core-completion>
-                Completion: <strong>${completion.percent}%</strong>
-                <span class="tk-enrich-missing">Missing: ${esc(missingText)}</span>
+                ${completion.percent >= 100
+                  ? `<span>Core fields complete</span>`
+                  : `<span class="muted-copy">Core still open: ${esc(missingText)}</span>`}
+                ${(ownerWorkspaceApi()?.activityOptionalCues(current, draftAct) || []).map((cue) => (
+                  `<span class="muted-copy"> · ${esc(cue)}</span>`
+                )).join("")}
               </p>
               <p class="muted-copy" data-core-edit-channel>
                 ${isPublished
@@ -3250,6 +3285,53 @@
     `;
   }
 
+  function renderOwnerWorkspacePanel(plan) {
+    const workspace = getOwnerWorkspaceData(plan);
+    const todos = workspace.todos || [];
+    return `
+      <section class="tk-enrich-card-block" data-owner-workspace-panel>
+        <h4>Lesson workspace</h4>
+        <p class="muted-copy">Owner-only. These notes and checkboxes never appear in the public lesson or binder.</p>
+        <ul class="tk-enrich-checklist" data-owner-todo-list>
+          ${todos.map((todo) => `
+            <li class="tk-owner-todo-row">
+              <label class="tk-enrich-check-row">
+                <input type="checkbox" data-owner-todo-toggle="${esc(todo.id)}" ${todo.done ? "checked" : ""} />
+                <span>${todo.done ? "✓" : "○"} ${esc(todo.text)}</span>
+              </label>
+              <button type="button" class="ghost-button" data-owner-todo-delete="${esc(todo.id)}">Delete</button>
+            </li>
+          `).join("") || `<li class="muted-copy">No owner todos yet.</li>`}
+        </ul>
+        <div class="account-actions-row">
+          <input type="text" data-owner-todo-new placeholder="Add a small owner todo…" maxlength="240" />
+          <button type="button" class="ghost-button" data-owner-todo-add>Add</button>
+        </div>
+        <label>
+          <span>My notes</span>
+          <textarea data-owner-notes rows="3" placeholder="Make this printable later, replace an image, ask a tester…">${esc(workspace.notes || "")}</textarea>
+        </label>
+        <p class="muted-copy">Printable ideas stay as reminders. They do not become public printables and do not block Publish.</p>
+      </section>
+    `;
+  }
+
+  function renderOwnerStillOnList(plan) {
+    const workspace = getOwnerWorkspaceData(plan);
+    const open = (workspace.todos || []).filter((todo) => !todo.done);
+    const note = String(workspace.notes || "").trim();
+    if (!open.length && !note) return "";
+    return `
+      <aside class="tk-enrich-card-block" data-owner-still-on-list>
+        <h4>Still on my list</h4>
+        <ul>
+          ${open.map((todo) => `<li>○ ${esc(todo.text)}</li>`).join("")}
+          ${note ? `<li class="muted-copy">${esc(note)}</li>` : ""}
+        </ul>
+      </aside>
+    `;
+  }
+
   function renderWeekMode(plan) {
     const week = state.draft.week || {};
     const milestones = Array.isArray(week.milestones) ? week.milestones : [];
@@ -3310,18 +3392,8 @@
             `).join("")}
           </div>
         </section>
+        ${renderOwnerWorkspacePanel(plan)}
         <section class="tk-enrich-card-block">
-          <h4>Completeness checklist (guidance only)</h4>
-          <p class="muted-copy">Never blocks saving a draft. Aim for Ready / Complete before publish.</p>
-          <ul class="tk-enrich-checklist">
-            <li>Cover & week story</li>
-            <li>Setup + finished example images (classroom style)</li>
-            <li>Books & songs</li>
-            <li>Family idea</li>
-            <li>Teacher toolkit</li>
-            <li>Printable ideas / linked printables</li>
-            <li>Observations · adaptations · indoor/outdoor options</li>
-          </ul>
           <label class="tk-enrich-check-row">
             <input type="checkbox" data-preview-ready ${week.previewReady || state.draft.previewReady ? "checked" : ""} />
             Preview looks ready
@@ -3331,13 +3403,14 @@
     `;
   }
 
-  function renderPreviewMode() {
+  function renderPreviewMode(plan) {
     return `
       <div class="tk-enrich-preview-full">
-        <div class="tk-enrich-draft-preview-label" role="status">
-          <strong>Draft Preview</strong>
-          <span>Same Teaching Kit UI providers see — driven by your current draft. The published lesson is unchanged until you Publish.</span>
+        <div class="tk-enrich-draft-preview-label" role="status" data-public-lesson-preview-label>
+          <strong>Public lesson preview</strong>
+          <span>What a teacher/user will see if you publish this draft. Owner todos, printable ideas, and admin notes stay off this view.</span>
         </div>
+        ${renderOwnerStillOnList(plan)}
         <div class="tk-enrich-preview-toolbar">
           <div class="tk-enrich-preview-viewports" role="group" aria-label="Preview viewport">
             ${[["desktop", "Desktop"], ["tablet", "Tablet"], ["mobile", "Mobile"]].map(([id, label]) => `
@@ -3999,14 +4072,9 @@
     const report = evaluated?.report || state.qualityReport;
     if (report) state.qualityReport = report;
     const readinessUi = publishReadinessUi(evaluated);
-    const blocked = qualityOn && (
-      readinessUi.blocked
-      || evaluated?.blocksPublish
-      || report?.blocksPublish
-      || evaluated?.blocking === "Blocked"
-    );
-    const readiness = report?.publishReadinessLabel
-      || (blocked ? "Blocked" : (readinessUi.publishReady || report?.publishReadiness === "ready" ? "Ready" : "Needs Review"));
+    const gate = ownerGate(plan, activities);
+    const blocked = !gate.canPublish;
+    const readiness = gate.displayLabel;
     const acceptedAi = Number(state.draft?.acceptedAiSuggestionCount || state._acceptedAiCount || 0);
     const manualEdits = Number(state.draft?.manualEditCount || (state.dirty ? 1 : 0));
     const warningCount = (report?.warnings || []).length;
@@ -4026,8 +4094,8 @@
         <button type="button" class="tk-enrich-modal-backdrop" data-publish-cancel aria-label="Cancel publish"></button>
         <div class="tk-enrich-modal-card tk-enrich-publish-card" tabindex="-1">
           <div class="tk-enrich-publish-scroll">
-            <h3 id="tk-enrich-publish-title">Publish enrichment for this lesson?</h3>
-            <p class="muted-copy">Only <strong>${esc(plan.title || "this lesson")}</strong> will change. Unrelated lessons stay untouched. AI cannot publish. Save Draft never publishes. Cancel leaves everything unchanged.</p>
+            <h3 id="tk-enrich-publish-title">Publish this lesson?</h3>
+            <p class="muted-copy">Only <strong>${esc(plan.title || "this lesson")}</strong> will change. Optional todos do not block publish. Cancel leaves everything unchanged.</p>
             <ul class="tk-enrich-publish-summary">
               <li><strong>Current published version:</strong> ${historyCount ? `${historyCount} snapshot(s) on file` : "None yet — first enrichment publish"}</li>
               <li><strong>Draft version:</strong> ${esc(upgrade.draftOrPublished)} · structural ${upgrade.completionPercent ?? "—"}% · premium ${evaluated?.premiumReadinessPercent ?? upgrade.premiumReadinessPercent ?? "—"}%</li>
@@ -4036,30 +4104,22 @@
               <li><strong>Accepted AI suggestions (session):</strong> ${acceptedAi}</li>
               <li><strong>Manual edits pending:</strong> ${manualEdits ? "Yes" : "None flagged"}</li>
               <li><strong>Remaining warnings:</strong> ${warningCount}</li>
-              <li><strong>Hard blockers:</strong> ${blockerCount}${blocked ? " — Publish disabled until resolved or owner override" : ""}</li>
-              <li><strong>Images added/removed:</strong> ${summary.photoChanges} photo field update(s)</li>
-              <li><strong>Printables:</strong> ${upgrade.missingPrintables || upgrade.hasDraftOnlyPrintables ? "Still missing a published printable (drafts/ideas do not count)" : "Published printable resources linked"}</li>
-              <li><strong>Customer-visible result:</strong> ${summary.isPublished ? "Providers see enrichment only after this publish succeeds" : "Lesson is not published/featured yet"}</li>
-              <li><strong>Publish readiness:</strong> <span data-publish-readiness-label>${esc(qualityOn ? readiness : "Quality Review off")}</span></li>
+              <li><strong>True blockers:</strong> ${gate.blockers.length ? gate.blockers.map((item) => item.message).join("; ") : "None"}</li>
+              <li><strong>Printables:</strong> ${gate.optional.printables ? "Published printable resources linked" : "Optional — printable ideas do not block publish"}</li>
+              <li><strong>Publish state:</strong> <span data-publish-readiness-label>${esc(readiness)}</span></li>
             </ul>
-            ${blockerCount ? `
+            ${gate.blockers.length ? `
               <div class="tk-quality-hard-blockers" data-publish-blocker-list>
-                <h4>Unresolved blockers</h4>
-                <p class="muted-copy">Every open publish blocker (same list as Quality Review / Library Health):</p>
+                <h4>Fix these before publishing</h4>
                 <ul>
-                  ${blockers.map((b) => `
+                  ${gate.blockers.map((b) => `
                     <li data-blocker-code="${esc(b.code || "")}">
-                      <span>${esc(b.message || b.code || "Unresolved blocker")}</span>
-                      ${b.navigateTo || b.activityKey || b.activityTitle ? `
-                        <button type="button" class="ghost-button" data-blocker-navigate="${esc(b.navigateTo || (b.activityKey ? `activity:${b.activityKey}` : `activity:${b.activityTitle}`))}">
-                          Open ${esc(b.activityTitle || "activity")}
-                        </button>
-                      ` : ""}
+                      <span>${esc(b.message || b.code || "Missing required field")}</span>
                     </li>
                   `).join("")}
                 </ul>
               </div>
-            ` : ""}
+            ` : (gate.openTodoCount ? `<p class="muted-copy">${gate.openTodoCount} optional item${gate.openTodoCount === 1 ? "" : "s"} still on your list</p>` : "")}
             ${qualityOn ? `
               <div class="tk-quality-publish-gate">
                 <div class="tk-quality-publish-gate-head">
@@ -4068,25 +4128,12 @@
                 </div>
                 <p class="muted-copy">Same scoring source as the editor, lesson card, and Library Health. Ready / Needs Review / Blocked. Nothing auto-publishes.</p>
                 ${renderQualityReportBlock(report)}
-                ${blocked ? `
-                  <div class="tk-quality-override" data-publish-override>
-                    <p class="muted-copy"><strong>Owner override</strong> — blocked lessons cannot publish normally. Override requires an explicit reason and is logged.</p>
-                    <label>
-                      <input type="checkbox" data-publish-override-confirm />
-                      I understand this bypasses Ready/Blocked gates for this lesson only
-                    </label>
-                    <label>
-                      Override reason (required)
-                      <textarea data-publish-override-reason rows="2" placeholder="Why publish this incomplete kit now?"></textarea>
-                    </label>
-                  </div>
-                ` : ""}
               </div>
             ` : ""}
           </div>
           <div class="form-actions tk-enrich-publish-actions">
             <button type="button" class="ghost-button" data-publish-cancel autofocus>Cancel</button>
-            <button type="button" class="primary-button" data-publish-confirm ${blocked ? "data-requires-override=\"true\"" : ""}>${blocked ? "Publish with owner override" : "Publish updates to providers"}</button>
+            <button type="button" class="primary-button" data-publish-confirm ${blocked ? "disabled" : ""}>${blocked ? "Fix blockers to publish" : "Publish"}</button>
           </div>
         </div>
       </div>
@@ -4406,20 +4453,33 @@
     }
     let model;
     try {
-      const resources = typeof effectiveCurriculum === "function"
-        ? (effectiveCurriculum().resources || []).filter((r) => (plan.resourceIds || []).includes(r.id))
+      const ownerApi = ownerWorkspaceApi();
+      const publicPlan = ownerApi?.sanitizePublicPreviewPlan ? ownerApi.sanitizePublicPreviewPlan(plan) : plan;
+      const allResources = typeof effectiveCurriculum === "function"
+        ? (effectiveCurriculum().resources || [])
         : [];
+      const resources = ownerApi?.publishedLinkedResources
+        ? ownerApi.publishedLinkedResources(publicPlan, allResources)
+        : allResources.filter((r) => (plan.resourceIds || []).includes(r.id) && String(r.status || "").toLowerCase() === "published");
+      const publicDraft = state.draft && typeof state.draft === "object"
+        ? {
+          ...state.draft,
+          week: state.draft.week && typeof state.draft.week === "object"
+            ? { ...state.draft.week, printableIdeas: [] }
+            : state.draft.week,
+        }
+        : state.draft;
       model = enrich.buildTeachingKitPreviewModel(
-        plan,
+        publicPlan,
         activities,
         resources,
-        state.draft,
+        publicDraft,
         { day: state.previewDay || "monday", includeEmptySections: false },
         kitApi.mapLessonPlanToTeachingKit.bind(kitApi),
       );
     } catch (error) {
       nodes.forEach((node) => {
-        node.innerHTML = `<p class="muted-copy">Draft Preview could not render. Legacy lesson is unchanged. ${esc(error.message || error)}</p>`;
+        node.innerHTML = `<p class="muted-copy">Public lesson preview could not render. Legacy lesson is unchanged. ${esc(error.message || error)}</p>`;
       });
       return;
     }
@@ -4431,7 +4491,7 @@
     // Fail closed: empty/malformed draft kits never throw into the shell.
     if (!teachingKit.companion) {
       nodes.forEach((node) => {
-        node.innerHTML = `<p class="muted-copy">Draft Preview has no companion surface yet. The published Teaching Kit is unchanged.</p>`;
+        node.innerHTML = `<p class="muted-copy">Public lesson preview has no companion surface yet. The published Teaching Kit is unchanged.</p>`;
       });
       return;
     }
@@ -4456,9 +4516,9 @@
           title: model.merged.plan.title || plan.title,
           age: model.merged.plan.age || plan.age,
           planLabel: model.merged.plan.plan || plan.plan,
-          backLabel: "Draft Preview",
+          backLabel: "Public lesson preview",
           saveButtonHtml: "",
-          actionBarsHtml: `<div class="tk-enrich-draft-preview-chip" aria-hidden="true">Draft Preview</div>`,
+          actionBarsHtml: `<div class="tk-enrich-draft-preview-chip" aria-hidden="true">Public lesson preview</div>`,
           feedbackHtml: "",
           copyrightHtml: "",
         },
@@ -4467,12 +4527,12 @@
         result.then((resolved) => {
           if (resolved?.unbind) state.previewUnbind = resolved.unbind;
           if (resolved && resolved.enhanced === false) {
-            node.innerHTML = `<p class="muted-copy">Draft Preview unavailable (${esc(resolved.reason || "unknown")}). Published lesson unchanged.</p>`;
+            node.innerHTML = `<p class="muted-copy">Public lesson preview unavailable (${esc(resolved.reason || "unknown")}). Published lesson unchanged.</p>`;
           } else {
             hydrateDraftMediaImages(node);
           }
         }).catch((error) => {
-          node.innerHTML = `<p class="muted-copy">Draft Preview failed safely. ${esc(error.message || error)}</p>`;
+          node.innerHTML = `<p class="muted-copy">Public lesson preview failed safely. ${esc(error.message || error)}</p>`;
         });
       } else if (result?.unbind) {
         state.previewUnbind = result.unbind;
@@ -4497,69 +4557,39 @@
 
   function renderChromeOnly() {
     const chrome = document.querySelector(".tk-enrich-chrome");
-    const percentEl = chrome?.querySelector(".tk-enrich-percent-row strong");
     const statusEl = chrome?.querySelector(".tk-enrich-status") || document.querySelector(".tk-enrich-status");
     if (statusEl) statusEl.textContent = state.statusText || "";
     const plan = getPlan();
-    if (!plan || !percentEl) return;
+    if (!plan || !chrome) return;
     const activities = getActivities(plan);
-    const percent = recomputePercent(plan, activities);
-    const evaluated = evaluateCurrentKit();
-    const summary = evaluated?.summary || api().buildUpgradeSummary(plan, activities, state.draft, scoringOptions());
-    const premium = evaluated?.premiumReadinessPercent ?? summary.premiumReadinessPercent ?? percent;
-    const readinessUi = publishReadinessUi(evaluated);
-    const workflow = readinessUi.displayWorkflow
-      || evaluated?.workflow
-      || summary.canonicalStatus?.workflow
-      || summary.dashboardStage
-      || api().completenessLabelFromPercent(percent, null);
-    const libraryStatus = readinessUi.libraryStatus
-      || evaluated?.blocking
-      || summary.libraryStatus
-      || summary.blocking
-      || "No blockers";
-    percentEl.textContent = `Completion ${percent}%`;
-    const readinessEl = chrome.querySelector("[data-premium-readiness-chrome]");
-    if (readinessEl) readinessEl.textContent = `Readiness ${premium}%`;
-    const bar = chrome.querySelector(".tk-enrich-bar i");
-    if (bar) bar.style.width = `${premium}%`;
-    const tag = chrome.querySelector("[data-workflow-status-chrome]");
-    if (tag) {
-      tag.textContent = workflow;
-      tag.dataset.publishReady = readinessUi.publishReady ? "true" : "false";
-      tag.classList.toggle("is-danger", readinessUi.blocked);
-      tag.classList.toggle("is-success", readinessUi.publishReady);
-    }
-    const libraryTag = chrome.querySelector("[data-library-status-chrome]");
-    if (libraryTag) {
-      libraryTag.textContent = `Library ${libraryStatus}`;
-      libraryTag.classList.toggle("is-danger", libraryStatus === "Blocked");
-    }
-    const stepper = chrome.querySelector(".tk-enrich-stepper");
-    if (stepper && typeof readinessUi.renderStepperHtml === "function") {
-      stepper.innerHTML = readinessUi.renderStepperHtml(readinessUi.chromeSteps);
-    } else {
-      const publishStep = chrome.querySelector("[data-publish-ready-step]");
-      if (publishStep) {
-        publishStep.textContent = readinessUi.readinessStepLabel || (readinessUi.publishReady ? "Publish Ready" : "Needs Changes");
-        publishStep.classList.toggle("is-active", readinessUi.publishReady || readinessUi.blocked);
-        publishStep.classList.toggle("is-blocked", readinessUi.blocked && !readinessUi.publishReady);
-        publishStep.dataset.readinessKind = readinessUi.readinessStepKind || "";
+    const gate = ownerGate(plan, activities);
+    const core = gate.core || {};
+    const optional = gate.optional || {};
+    const statusWrap = chrome.querySelector("[data-owner-workspace-status]");
+    if (statusWrap) {
+      const tag = statusWrap.querySelector(".tag");
+      if (tag) {
+        tag.textContent = gate.displayLabel;
+        tag.classList.toggle("is-success", Boolean(gate.published || gate.canPublish));
+      }
+      const strong = statusWrap.querySelector("strong");
+      if (strong) {
+        strong.textContent = `Core lesson ${core.title ? "✓ title" : "○ title"} · ${core.age ? "✓ age" : "○ age"} · ${core.weekdayLabel || `${core.weekdays || 0}/5 weekdays`} · ${core.activityLabel || `${activities.length} activities`}`;
+      }
+      const optionalEl = statusWrap.querySelector("span.muted-copy");
+      if (optionalEl) {
+        optionalEl.textContent = `Optional ${optional.cover ? "✓" : "○"} cover · ${optional.printables ? "✓" : "○"} printables · ${optional.books ? "✓" : "○"} books · ${optional.family ? "✓" : "○"} family`;
       }
     }
     const publishBtn = chrome.querySelector("[data-enrich-publish]");
     if (publishBtn) {
-      publishBtn.dataset.canPublish = readinessUi.canPublish ? "true" : "false";
-      publishBtn.textContent = readinessUi.blocked ? "Publish blocked…" : "Publish…";
-      publishBtn.title = readinessUi.blocked
-        ? "Publishing blocked — resolve hard blockers or use owner override"
-        : "Publish enrichment for this lesson";
-    }
-    const summaryPct = document.querySelector("[data-upgrade-summary] .tk-enrich-bar i");
-    if (summaryPct) summaryPct.style.width = `${premium}%`;
-    const summaryStepper = document.querySelector(".tk-enrich-summary-stepper");
-    if (summaryStepper && typeof readinessUi.renderStepperHtml === "function") {
-      summaryStepper.innerHTML = readinessUi.renderStepperHtml(readinessUi.summarySteps || readinessUi.chromeSteps);
+      publishBtn.dataset.canPublish = gate.canPublish ? "true" : "false";
+      publishBtn.textContent = "Publish";
+      publishBtn.title = gate.canPublish
+        ? (gate.openTodoCount
+          ? `${gate.openTodoCount} optional item${gate.openTodoCount === 1 ? "" : "s"} still on your list`
+          : "Publish this lesson")
+        : gate.blockers.map((item) => item.message).join("; ") || "Fix true blockers before publishing";
     }
   }
 
@@ -4659,7 +4689,7 @@
     const body = state.mode === "week"
       ? renderWeekMode(plan)
       : state.mode === "preview"
-        ? renderPreviewMode()
+        ? renderPreviewMode(plan)
         : renderActivityMode(plan, activities);
     el.innerHTML = `
       <div class="tk-enrich-shell">
@@ -4820,6 +4850,48 @@
           state.statusText = `Undo discard failed: ${error.message || error}`;
           render();
         }
+        return;
+      }
+      if (event.target.closest("[data-owner-todo-add]")) {
+        const input = document.querySelector("[data-owner-todo-new]");
+        const api = ownerWorkspaceApi();
+        if (!api?.addOwnerTodo) return;
+        state.ownerWorkspaceData = api.addOwnerTodo(getOwnerWorkspaceData(getPlan()), input?.value || "");
+        if (input) input.value = "";
+        markDirty({ autosave: true });
+        render();
+        return;
+      }
+      const todoToggle = event.target.closest("[data-owner-todo-toggle]");
+      if (todoToggle) {
+        const api = ownerWorkspaceApi();
+        if (!api?.toggleOwnerTodo) return;
+        state.ownerWorkspaceData = api.toggleOwnerTodo(
+          getOwnerWorkspaceData(getPlan()),
+          todoToggle.getAttribute("data-owner-todo-toggle"),
+          todoToggle.checked === true,
+        );
+        markDirty({ autosave: true });
+        render();
+        return;
+      }
+      const todoDelete = event.target.closest("[data-owner-todo-delete]");
+      if (todoDelete) {
+        const api = ownerWorkspaceApi();
+        if (!api?.deleteOwnerTodo) return;
+        state.ownerWorkspaceData = api.deleteOwnerTodo(
+          getOwnerWorkspaceData(getPlan()),
+          todoDelete.getAttribute("data-owner-todo-delete"),
+        );
+        markDirty({ autosave: true });
+        render();
+        return;
+      }
+      if (event.target.closest("[data-enrich-delete-lesson]")) {
+        event.preventDefault();
+        const plan = getPlan();
+        if (!plan?.id || typeof root.deleteAdminCurriculumLessonPlan !== "function") return;
+        await root.deleteAdminCurriculumLessonPlan(plan.id);
         return;
       }
       if (event.target.closest("[data-enrich-discard-draft]")) {
@@ -4999,16 +5071,6 @@
       if (event.target.closest("[data-enrich-publish]")) {
         state.publishOpen = true;
         render();
-        if (isQualityReviewFlagEnabled()) {
-          state.qualityBusy = true;
-          render();
-          try {
-            await runSpecialistQualityReview({ force: true });
-          } finally {
-            state.qualityBusy = false;
-            render();
-          }
-        }
         return;
       }
       if (event.target.closest("[data-quality-run-publish]")) {
@@ -5250,23 +5312,15 @@
         return;
       }
       if (event.target.closest("[data-publish-confirm]")) {
-        let ownerOverride = null;
-        if (isQualityReviewFlagEnabled()) {
-          const report = state.qualityReport || await runSpecialistQualityReview({ force: true });
-          if (report?.blocksPublish) {
-            const confirmed = document.querySelector("[data-publish-override-confirm]")?.checked;
-            const reason = String(document.querySelector("[data-publish-override-reason]")?.value || "").trim();
-            if (!confirmed || reason.length < 8) {
-              state.statusText = "Publish blocked (" + (report.publishReadinessLabel || "Blocked")
-                + "). Resolve issues, or confirm owner override with a reason (8+ characters).";
-              render();
-              return;
-            }
-            ownerOverride = { confirmed: true, reason };
-          }
+        const plan = getPlan();
+        const gate = ownerGate(plan, getActivities(plan));
+        if (!gate.canPublish) {
+          state.statusText = gate.blockers.map((item) => item.message).join(". ");
+          render();
+          return;
         }
         try {
-          await publishEnrichment({ ownerOverride });
+          await publishEnrichment();
         } catch (error) {
           state.statusText = `Publish failed: ${error.message || error}`;
           render();
@@ -5434,8 +5488,6 @@
         const title = typeof list[index] === "object"
           ? String(list[index]?.title || list[index]?.name || label)
           : String(list[index] || label);
-        const confirmed = window.confirm(`Remove “${title}” from the draft? Published lists stay unchanged until you Publish.`);
-        if (!confirmed) return;
         list.splice(index, 1);
         week[key] = list;
         if (state.kitMediaEdit?.kind === kind) {
@@ -6004,6 +6056,14 @@
         } else {
           draftAct.imageBriefExample = event.target.value || "";
         }
+        markDirty();
+        return;
+      }
+      if (event.target.matches("[data-owner-notes]")) {
+        const api = ownerWorkspaceApi();
+        state.ownerWorkspaceData = api?.setOwnerNotes
+          ? api.setOwnerNotes(getOwnerWorkspaceData(getPlan()), event.target.value || "")
+          : { ...getOwnerWorkspaceData(getPlan()), notes: event.target.value || "" };
         markDirty();
         return;
       }

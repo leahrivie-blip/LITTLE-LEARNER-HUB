@@ -2161,6 +2161,17 @@ function normalizedCurriculumLessonPlan(value) {
     // Set when status first becomes published/featured; used by weekly "What's New" digests.
     publishedAt: normalizedShortText(entry.publishedAt, 80),
   };
+  if (Object.prototype.hasOwnProperty.call(entry, "ownerWorkspace") && entry.ownerWorkspace && typeof entry.ownerWorkspace === "object") {
+    let ownerWorkspaceApi = null;
+    try { ownerWorkspaceApi = require("../scripts/teaching-kit-owner-workspace.js"); } catch (_error) { ownerWorkspaceApi = null; }
+    normalized.ownerWorkspace = ownerWorkspaceApi?.normalizedOwnerWorkspace
+      ? ownerWorkspaceApi.normalizedOwnerWorkspace(entry.ownerWorkspace)
+      : {
+        notes: String(entry.ownerWorkspace.notes || "").slice(0, 8000),
+        todos: Array.isArray(entry.ownerWorkspace.todos) ? entry.ownerWorkspace.todos.slice(0, 40) : [],
+        updatedAt: normalizedShortText(entry.ownerWorkspace.updatedAt, 80),
+      };
+  }
   if (teachingKitOverlay) normalized.teachingKit = teachingKitOverlay;
   // Admin-only draft channel for Teaching Kit Enrichment Editor.
   // Public mapper / member views ignore this until Publish merges it.
@@ -3371,6 +3382,9 @@ function writeSiteCurriculumTouched(store, incomingCurriculum, {
         enrichmentPublishHistory: incomingPlan.enrichmentPublishHistory,
         enrichmentPublished: incomingPlan.enrichmentPublished,
         resourceIds: Array.isArray(incomingPlan.resourceIds) ? incomingPlan.resourceIds : plan.resourceIds,
+        ownerWorkspace: Object.prototype.hasOwnProperty.call(incomingPlan, "ownerWorkspace")
+          ? incomingPlan.ownerWorkspace
+          : plan.ownerWorkspace,
         updatedAt: Object.prototype.hasOwnProperty.call(incomingPlan, "updatedAt")
           ? incomingPlan.updatedAt
           : plan.updatedAt,
@@ -3415,6 +3429,9 @@ function writeSiteCurriculumTouched(store, incomingCurriculum, {
           ? incomingPlan.songs
           : plan.songs,
         resourceIds: Array.isArray(incomingPlan.resourceIds) ? incomingPlan.resourceIds : plan.resourceIds,
+        ownerWorkspace: Object.prototype.hasOwnProperty.call(incomingPlan, "ownerWorkspace")
+          ? incomingPlan.ownerWorkspace
+          : plan.ownerWorkspace,
         dailyPlans: incomingPlan.dailyPlans,
         updatedAt: Object.prototype.hasOwnProperty.call(incomingPlan, "updatedAt")
           ? incomingPlan.updatedAt
@@ -21938,6 +21955,173 @@ async function handlePermanentDeleteDisposableFixture(request, response) {
   });
 }
 
+function isDraftCurriculumLessonStatus(status) {
+  const value = String(status || "draft").trim().toLowerCase();
+  return value === "draft" || value === "";
+}
+
+function isSafeSingleLessonDelete(existingCurriculum, incomingCurriculum, planId) {
+  const targetId = normalizedShortText(planId, 160);
+  if (!targetId) return false;
+  const existing = existingCurriculum && typeof existingCurriculum === "object" ? existingCurriculum : {};
+  const incoming = incomingCurriculum && typeof incomingCurriculum === "object" ? incomingCurriculum : {};
+  const existingPlans = Array.isArray(existing.lessonPlans) ? existing.lessonPlans : [];
+  const incomingPlans = Array.isArray(incoming.lessonPlans) ? incoming.lessonPlans : [];
+  const existingActs = Array.isArray(existing.activities) ? existing.activities : [];
+  const incomingActs = Array.isArray(incoming.activities) ? incoming.activities : [];
+  const existingResources = Array.isArray(existing.resources) ? existing.resources : [];
+  const incomingResources = Array.isArray(incoming.resources) ? incoming.resources : [];
+  if (!existingPlans.some((plan) => plan && plan.id === targetId)) return false;
+  if (incomingPlans.some((plan) => plan && plan.id === targetId)) return false;
+  if (incomingPlans.length !== existingPlans.length - 1) return false;
+  const existingPlanIds = new Set(existingPlans.map((plan) => plan && plan.id).filter(Boolean));
+  const incomingPlanIds = new Set(incomingPlans.map((plan) => plan && plan.id).filter(Boolean));
+  if ([...existingPlanIds].filter((id) => id !== targetId).some((id) => !incomingPlanIds.has(id))) return false;
+  if ([...incomingPlanIds].some((id) => !existingPlanIds.has(id))) return false;
+  const keptActIds = new Set(
+    existingActs.filter((act) => act && act.lessonPlanId !== targetId).map((act) => act.id).filter(Boolean),
+  );
+  const incomingActIds = new Set(incomingActs.map((act) => act && act.id).filter(Boolean));
+  if (incomingActs.some((act) => act && act.lessonPlanId === targetId)) return false;
+  if (incomingActIds.size !== keptActIds.size) return false;
+  if ([...keptActIds].some((id) => !incomingActIds.has(id))) return false;
+  const existingResourceIds = new Set(existingResources.map((item) => item && item.id).filter(Boolean));
+  const incomingResourceIds = new Set(incomingResources.map((item) => item && item.id).filter(Boolean));
+  if (existingResourceIds.size !== incomingResourceIds.size) return false;
+  if ([...existingResourceIds].some((id) => !incomingResourceIds.has(id))) return false;
+  return true;
+}
+
+function detachSharedLinksFromDeletedLessonPlan(curriculum, planId, now) {
+  const targetId = normalizedShortText(planId, 160);
+  const resources = (Array.isArray(curriculum.resources) ? curriculum.resources : []).map((resource) => {
+    const ids = Array.isArray(resource?.lessonPlanIds) ? resource.lessonPlanIds : [];
+    if (!ids.includes(targetId)) return resource;
+    return {
+      ...resource,
+      lessonPlanIds: ids.filter((id) => id !== targetId),
+      updatedAt: now,
+    };
+  });
+  const series = (Array.isArray(curriculum.series) ? curriculum.series : []).map((item) => {
+    const weeks = Array.isArray(item?.weeks) ? item.weeks : [];
+    if (!weeks.some((week) => week && week.lessonPlanId === targetId)) return item;
+    return {
+      ...item,
+      weeks: weeks.map((week) => (
+        week && week.lessonPlanId === targetId ? { ...week, lessonPlanId: "" } : week
+      )),
+      updatedAt: now,
+    };
+  });
+  return { resources, series };
+}
+
+async function handleAdminCurriculumLessonPlanDelete(request, response) {
+  let body = {};
+  try {
+    body = await readJson(request);
+  } catch (error) {
+    jsonResponse(response, 500, {
+      error: "Could not read the delete request.",
+      code: "server_failure",
+      detail: error.message || String(error),
+    });
+    return;
+  }
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
+    jsonResponse(response, 401, {
+      error: "Admin access is required to delete a lesson plan.",
+      code: "unauthorized",
+    });
+    return;
+  }
+  if (!requireTeachingKitOwnerAdminSession(request, body, response)) return;
+
+  const planId = normalizedShortText(body.lessonPlanId || body.planId || body.id, 160);
+  if (!planId) {
+    jsonResponse(response, 400, {
+      error: "A canonical lessonPlanId is required.",
+      code: "missing_plan_id",
+    });
+    return;
+  }
+
+  try {
+    const store = await readStore();
+    const siteContent = store.siteContent && typeof store.siteContent === "object"
+      ? store.siteContent
+      : defaultSiteContentStore();
+    if (curriculumConcurrencyConflict(siteContent, body.expectedUpdatedAt)) {
+      curriculumConflictResponse(response, siteContent);
+      return;
+    }
+    const curriculum = siteContent.curriculum || defaultCurriculumStore();
+    const existingPlan = (curriculum.lessonPlans || []).find((item) => item.id === planId);
+    if (!existingPlan) {
+      jsonResponse(response, 404, {
+        error: "Lesson plan not found.",
+        code: "lesson_not_found",
+      });
+      return;
+    }
+    if (!isDraftCurriculumLessonStatus(existingPlan.status)) {
+      jsonResponse(response, 409, {
+        error: "Only draft lesson plans can be permanently deleted from this control.",
+        code: "deletion_conflict",
+      });
+      return;
+    }
+    const confirmTitle = String(body.confirmTitle || "").trim();
+    if (confirmTitle && confirmTitle !== String(existingPlan.title || "").trim()) {
+      jsonResponse(response, 400, {
+        error: "Confirmation title does not match this lesson.",
+        code: "confirm_title_mismatch",
+      });
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const ownedActivities = (curriculum.activities || []).filter((act) => act.lessonPlanId === planId);
+    const nextPlans = (curriculum.lessonPlans || []).filter((item) => item.id !== planId);
+    const nextActivities = (curriculum.activities || []).filter((act) => act.lessonPlanId !== planId);
+    const detached = detachSharedLinksFromDeletedLessonPlan(curriculum, planId, now);
+    const nextCurriculum = {
+      ...curriculum,
+      lessonPlans: nextPlans,
+      activities: nextActivities,
+      resources: detached.resources,
+      series: detached.series,
+      updatedAt: now,
+    };
+    const allowReplace = isSafeSingleLessonDelete(curriculum, nextCurriculum, planId);
+    const writeResult = writeSiteCurriculum(store, nextCurriculum, { updatedAt: now, allowReplace });
+    if (writeResult.wipeBlocked) {
+      jsonResponse(response, 409, {
+        error: "Delete refused to protect curriculum integrity.",
+        code: "deletion_conflict",
+      });
+      return;
+    }
+    await writeStoreAsync(store);
+    jsonResponse(response, 200, {
+      ok: true,
+      deleted: true,
+      deletedPlanId: planId,
+      deletedTitle: existingPlan.title || "",
+      deletedActivityIds: ownedActivities.map((act) => act.id),
+      curriculum: store.siteContent.curriculum,
+      siteContentUpdatedAt: store.siteContent.updatedAt,
+    });
+  } catch (error) {
+    jsonResponse(response, 500, {
+      error: "Lesson delete failed.",
+      code: "server_failure",
+      detail: error.message || String(error),
+    });
+  }
+}
+
 async function handleEnrichmentRollback(request, response) {
   const body = await readJson(request);
   if (!requireTeachingKitOwnerAdminSession(request, body, response)) return;
@@ -22296,66 +22480,45 @@ async function handlePublishEnrichment(request, response, ctx) {
       ? enrichmentMedia.sanitizeEnrichmentDraftPhotos(existingPlan.enrichmentDraft)
       : null);
 
-  // Optional Quality Review gate (flag default false). Report-only system can block
-  // publish when unresolved blocking issues remain. Never auto-edits content.
+  // Owner workspace: only true critical blockers stop publish. Quality Review stays informational.
+  const storeActsForGate = (existingCurriculum.activities || []).filter((item) => item.lessonPlanId === id);
+  const flatForGate = enrichmentApi.flattenLessonActivities
+    ? enrichmentApi.flattenLessonActivities(existingPlan, storeActsForGate)
+    : storeActsForGate;
+  let ownerWorkspaceApi = null;
+  try { ownerWorkspaceApi = require("../scripts/teaching-kit-owner-workspace.js"); } catch (_error) { ownerWorkspaceApi = null; }
+  const trueBlockers = ownerWorkspaceApi?.collectTruePublishBlockers
+    ? ownerWorkspaceApi.collectTruePublishBlockers(existingPlan, flatForGate)
+    : [];
+  if (trueBlockers.length) {
+    jsonResponse(response, 409, {
+      error: trueBlockers.map((item) => item.message).join(". "),
+      code: "true_publish_blockers",
+      blockers: trueBlockers,
+      publishReadiness: "blocked",
+      autoPublished: false,
+    });
+    return;
+  }
   if (teachingKit.isTeachingKitQualityReviewEnabled(enrichFlags)) {
     try {
       const qualityApi = require("../scripts/teaching-kit-quality-review.js");
-      const storeActs = (existingCurriculum.activities || []).filter((item) => item.lessonPlanId === id);
-      const flat = enrichmentApi.flattenLessonActivities
-        ? enrichmentApi.flattenLessonActivities(existingPlan, storeActs)
-        : storeActs;
       const ignored = Array.isArray(incomingDraft?.week?.qualityReviewIgnored)
         ? incomingDraft.week.qualityReviewIgnored
         : [];
       const resources = Array.isArray(existingCurriculum.resources) ? existingCurriculum.resources : [];
-      const report = qualityApi.buildQualityReport(existingPlan, flat, incomingDraft, {
+      const report = qualityApi.buildQualityReport(existingPlan, flatForGate, incomingDraft, {
         ignoredCodes: ignored,
         resources,
       });
       if (report.blocksPublish) {
-        const override = body?.ownerPublishOverride && typeof body.ownerPublishOverride === "object"
-          ? body.ownerPublishOverride
-          : null;
-        const overrideReason = normalizedShortText(override?.reason, 500);
-        const overrideOk = override?.confirmed === true && overrideReason.length >= 8;
-        if (!overrideOk) {
-          jsonResponse(response, 409, {
-            error: "Quality Review blocked publish ("
-              + (report.publishReadinessLabel || "Blocked")
-              + "). Resolve issues, or provide an explicit owner override with a reason.",
-            code: "quality_review_blocked",
-            qualityReport: report,
-            publishReadiness: report.publishReadiness || "blocked",
-            autoPublished: false,
-            ownerOverrideRequired: true,
-          });
-          return;
-        }
-        // Explicit owner override — logged; never silent.
-        console.warn("[enrichment-publish-override]", {
+        console.warn("[enrichment-publish] optional quality findings present; owner publish allowed", {
           planId: id,
-          reason: overrideReason,
-          publishedBy: normalizedShortText(body.publishedBy || incomingDraft?.lastEditedBy || "", 180) || "admin",
-          publishReadiness: report.publishReadiness,
-          completionPercent: report.completionPercent,
           blockingCodes: (report.blockingIssues || []).map((b) => b.code),
-          at: now,
         });
-        body._ownerPublishOverrideApplied = {
-          reason: overrideReason,
-          at: now,
-          publishReadiness: report.publishReadiness,
-          completionPercent: report.completionPercent,
-        };
       }
     } catch (error) {
-      jsonResponse(response, 500, {
-        error: "Quality Review failed before publish.",
-        code: "quality_review_error",
-        detail: error.message || String(error),
-      });
-      return;
+      console.warn("[enrichment-publish] quality review skipped:", error.message || error);
     }
   }
 
@@ -22483,6 +22646,7 @@ async function handlePublishEnrichment(request, response, ctx) {
   const nextPlan = {
     ...existingPlan,
     ...mergedPlan,
+    ownerWorkspace: existingPlan.ownerWorkspace,
     enrichmentDraft: null,
     enrichmentPublishHistory: history,
     teachingKit: {
@@ -22740,6 +22904,13 @@ async function handleAdminCurriculumLessonPlanSave(request, response) {
         enrichmentPublishHistory: nextHistory,
         updatedAt: existingPlan.updatedAt,
       };
+      if (Object.prototype.hasOwnProperty.call(incomingPlan, "ownerWorkspace")) {
+        let ownerWorkspaceApi = null;
+        try { ownerWorkspaceApi = require("../scripts/teaching-kit-owner-workspace.js"); } catch (_error) { ownerWorkspaceApi = null; }
+        draftPlan.ownerWorkspace = ownerWorkspaceApi?.normalizedOwnerWorkspace
+          ? ownerWorkspaceApi.normalizedOwnerWorkspace(incomingPlan.ownerWorkspace)
+          : incomingPlan.ownerWorkspace;
+      }
       // Verify draft still carries activity/week content when we intended to save it.
       if (enrichmentDraftHasContent(draftForSave) && !enrichmentDraftHasContent(draftPlan.enrichmentDraft)) {
         jsonResponse(response, 500, {
@@ -30305,6 +30476,9 @@ const server = http.createServer(async (request, response) => {
     }
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/series") return await handleAdminCurriculumSeriesSave(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/lesson-plans") return await handleAdminCurriculumLessonPlanSave(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/curriculum/lesson-plans/delete") {
+      return await handleAdminCurriculumLessonPlanDelete(request, response);
+    }
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/lesson-plans/access-plan") {
       return await handleAdminCurriculumLessonAccessPlan(request, response);
     }

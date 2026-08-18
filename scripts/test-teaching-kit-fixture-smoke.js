@@ -237,7 +237,7 @@ function runStaticMarkers() {
   ok(editorJs.includes("data-enrich-discard-draft"), "discard draft control present");
   ok(editorJs.includes("aiSuggestionCounts"), "AI selection counts helper present");
   ok(editorJs.includes("ownerPublishOverride"), "owner override wired");
-  ok(serverJs.includes("quality_review_blocked"), "quality gate blocks publish");
+  ok(serverJs.includes("true_publish_blockers"), "true blockers still gate publish");
   ok(serverJs.includes("allowEmptyDraftOverwrite"), "discard empty overwrite supported");
   console.log("PASS static nav/recovery/AI markers");
 }
@@ -436,9 +436,9 @@ async function main() {
       publishedBy: ADMIN.email,
       lessonPlan: { id: FIXTURE_PLAN_ID, enrichmentDraft: blockedDraft },
     }, auth);
-    ok(res.status === 409 && res.json?.code === "quality_review_blocked",
-      `blocked publish rejected: ${res.status} ${res.json?.code || ""}`);
-    ok(res.json?.ownerOverrideRequired === true, "owner override required when blocked");
+    ok(res.status === 200 && res.json?.ok,
+      `optional quality findings do not block publish: ${res.status} ${res.json?.code || ""}`);
+    stamp = res.json.siteContentUpdatedAt;
 
     // 17) Explicit owner override on a *separate* disposable blocked plan (keep main fixture rich).
     const blockedPlanId = `${FIXTURE_PLAN_ID}-blocked`;
@@ -469,7 +469,6 @@ async function main() {
       lessonPlan: { id: blockedPlanId, enrichmentDraft: blockedDraft },
     }, auth);
     ok(res.status === 200 && res.json?.ok, `owner override publish: ${res.status} ${res.json?.error || ""}`);
-    ok(res.json.ownerOverrideApplied === true, "owner override applied flag");
     stamp = res.json.siteContentUpdatedAt;
 
     // Restore rich draft on main fixture, then publish v1 + v2 for history/compare/rollback.

@@ -126,6 +126,7 @@
 
   const ACTIVITY_ITEM_ALIASES = freezeNormalizedAliases({
     "activity name": "title",
+    name: "title",
     title: "title",
     weekday: "dayOfWeek",
     "activity weekday": "dayOfWeek",
@@ -191,6 +192,45 @@
   });
 
   const ACTIVITY_START_IDS = Object.freeze(["title"]);
+
+  function isExplicitActivityStartLabel(label) {
+    const key = normalizeHeading(label);
+    return key === "activity name" || key === "name";
+  }
+
+  /**
+   * A new activity may begin only on an explicit Name / Activity name heading.
+   * Sentences such as "Name a feeling…" do not count.
+   */
+  function hasExplicitActivityStart(source) {
+    const text = String(source || "");
+    if (/\bactivity\s*name\b/i.test(text)) return true;
+    return text.split(/\r?\n/).some((line) => {
+      const cleaned = stripHeadingDecorators(line);
+      if (!cleaned) return false;
+      const headingMatch = cleaned.match(/^(.{1,80}?)\s*:\s*(.*)$/);
+      const labelPart = headingMatch ? headingMatch[1].trim() : cleaned.replace(/[:：]+$/g, "").trim();
+      if (!isExplicitActivityStartLabel(labelPart)) return false;
+      if (!headingMatch && /\s/.test(labelPart)) return false;
+      return true;
+    });
+  }
+
+  function countExplicitActivityNameStarts(source) {
+    return String(source || "").split(/\r?\n/).reduce((count, line) => {
+      const cleaned = stripHeadingDecorators(line);
+      if (!cleaned) return count;
+      const headingMatch = cleaned.match(/^(.{1,80}?)\s*:\s*(.*)$/);
+      const labelPart = headingMatch ? headingMatch[1].trim() : cleaned.replace(/[:：]+$/g, "").trim();
+      return count + (isExplicitActivityStartLabel(labelPart) ? 1 : 0);
+    }, 0);
+  }
+
+  function looksLikeStructuredActivityFields(source) {
+    if (hasExplicitActivityStart(source)) return true;
+    const sections = splitLabeledSections(source, ACTIVITY_ITEM_ALIASES);
+    return sections.some((section) => section.fieldId && section.fieldId !== "title");
+  }
 
   function stripHeadingDecorators(raw) {
     return String(raw || "")
@@ -614,7 +654,7 @@
 
   function parseStructuredActivities(body, weekday) {
     const source = String(body || "");
-    if (!/\bactivity\s*name\b/i.test(source)) {
+    if (!hasExplicitActivityStart(source)) {
       return { records: [], unsupported: [] };
     }
     const parsed = parseRecordList(source, ACTIVITY_ITEM_ALIASES, ["title"]);
@@ -728,6 +768,10 @@
     KIT_SECTION_FIELD_IDS,
     ACTIVITY_ITEM_ALIASES,
     ACTIVITY_START_IDS,
+    isExplicitActivityStartLabel,
+    hasExplicitActivityStart,
+    countExplicitActivityNameStarts,
+    looksLikeStructuredActivityFields,
     normalizeHeading,
     splitLabeledSections,
     listLines,

@@ -6857,6 +6857,7 @@ let adminCurriculumActivityFilters = {
   lessonPlanId: "",
 };
 let adminCurriculumLessonSaving = false;
+let adminCurriculumLessonDeleting = false;
 let adminCurriculumLessonImportDraft = null;
 let adminCreateLessonPlanUi = {
   step: "",
@@ -10470,6 +10471,87 @@ async function persistNewCurriculumLessonDraft(lessonPlan) {
   return data.lessonPlan;
 }
 
+async function deleteAdminCurriculumLessonPlan(planId) {
+  if (adminCurriculumLessonDeleting) return { ok: false, code: "in_flight" };
+  if (typeof isAdminUnlocked === "function" && !isAdminUnlocked()) {
+    if (typeof showActionFeedback === "function") {
+      showActionFeedback("Admin access is required to delete a lesson.");
+    }
+    return { ok: false, code: "unauthorized" };
+  }
+  const id = String(planId || adminCurriculumLessonEditorId || "").trim();
+  const record = typeof curriculumLessonPlanById === "function" ? curriculumLessonPlanById(id) : null;
+  if (!record?.id) {
+    if (typeof showActionFeedback === "function") showActionFeedback("Lesson plan not found.");
+    return { ok: false, code: "lesson_not_found" };
+  }
+  const title = String(record.title || "this lesson").trim();
+  const confirmed = await confirmAction({
+    title: `Delete “${title}”?`,
+    message: "This permanently deletes this lesson plan and its lesson-owned activity records. This cannot be undone.",
+    confirmLabel: "Delete lesson",
+    cancelLabel: "Cancel",
+    danger: true,
+  });
+  if (!confirmed) return { cancelled: true, ok: false };
+  adminCurriculumLessonDeleting = true;
+  document.querySelectorAll("[data-curriculum-lesson-delete], [data-enrich-delete-lesson]").forEach((btn) => {
+    btn.disabled = true;
+  });
+  try {
+    const token = adminSession()?.token || "";
+    const response = await fetch("/api/admin/curriculum/lesson-plans/delete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        lessonPlanId: record.id,
+        confirmTitle: title,
+        expectedUpdatedAt: typeof curriculumExpectedUpdatedAt === "function" ? curriculumExpectedUpdatedAt() : "",
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const msg = data.error || `Delete failed (${response.status})`;
+      if (typeof showActionFeedback === "function") showActionFeedback(msg);
+      if (typeof setAdminCurriculumLessonSaveBanner === "function") {
+        setAdminCurriculumLessonSaveBanner(msg, false);
+      }
+      return { ok: false, code: data.code || "server_failure", status: response.status };
+    }
+    if (data.curriculum && typeof applyCurriculumState === "function") {
+      applyCurriculumState(data.curriculum, { siteContentUpdatedAt: data.siteContentUpdatedAt });
+    }
+    if (typeof LLHTeachingKitEnrichmentEditor !== "undefined" && LLHTeachingKitEnrichmentEditor.isOpen?.()) {
+      await LLHTeachingKitEnrichmentEditor.close({ force: true, abandonUnsaved: true });
+    } else if (typeof restoreAdminLessonListAfterTkEditorClose === "function") {
+      restoreAdminLessonListAfterTkEditorClose();
+    } else {
+      adminCurriculumLessonEditorId = "";
+      if (typeof renderAdminCurriculumLessonPlanManager === "function") {
+        renderAdminCurriculumLessonPlanManager();
+      }
+    }
+    const success = `Deleted “${data.deletedTitle || title}”.`;
+    if (typeof setAdminCurriculumLessonSaveBanner === "function") {
+      setAdminCurriculumLessonSaveBanner(success, true);
+    }
+    if (typeof showActionFeedback === "function") showActionFeedback(success);
+    if (typeof renderAdminCurriculumLessonPlanManager === "function") {
+      renderAdminCurriculumLessonPlanManager();
+    }
+    return { ok: true, deletedPlanId: data.deletedPlanId || record.id };
+  } catch (error) {
+    const msg = error.message || "Lesson delete failed.";
+    if (typeof showActionFeedback === "function") showActionFeedback(msg);
+    return { ok: false, code: "server_failure" };
+  } finally {
+    adminCurriculumLessonDeleting = false;
+    document.querySelectorAll("[data-curriculum-lesson-delete], [data-enrich-delete-lesson]").forEach((btn) => {
+      btn.disabled = false;
+    });
+  }
+}
+
 async function startBlankAdminCurriculumLessonPlan() {
   const api = curriculumLessonStructurePasteApi();
   if (!api) throw new Error("Lesson structure helper did not load.");
@@ -12565,6 +12647,12 @@ function renderAdminCurriculumLessonPlanForm(plan) {
         <button class="ghost-button" type="button" data-curriculum-lesson-save-draft ${adminCurriculumLessonSaving ? "disabled" : ""}>Save Draft</button>
         <button class="primary-button" type="button" data-curriculum-lesson-publish ${adminCurriculumLessonSaving ? "disabled" : ""}>Publish</button>
       </div>
+      ${record.id ? `
+      <div class="admin-lesson-danger-zone" data-curriculum-lesson-danger-zone>
+        <p class="muted-copy">Permanent owner/admin action. This cannot be undone.</p>
+        <button class="danger-button" type="button" data-curriculum-lesson-delete="${escapeHtml(record.id)}" ${adminCurriculumLessonDeleting ? "disabled" : ""}>Delete lesson</button>
+      </div>
+      ` : ""}
       <span class="form-message" id="adminCurriculumLessonPlanMessage"></span>
     </form>
     <div id="admin-lesson-resources">${renderCurriculumLessonLinkedResourcesSection(record)}</div>
@@ -75617,6 +75705,14 @@ document.addEventListener("click", async (event) => {
     adminCurriculumLessonImportTextCache = "";
     resetCurriculumLessonImportPreviewState();
     renderAdminCurriculumLessonPlanManager();
+    return;
+  }
+  const curriculumLessonDeleteButton = event.target.closest("[data-curriculum-lesson-delete]");
+  if (curriculumLessonDeleteButton && isAdminUnlocked()) {
+    event.preventDefault();
+    await deleteAdminCurriculumLessonPlan(
+      curriculumLessonDeleteButton.getAttribute("data-curriculum-lesson-delete") || "",
+    );
     return;
   }
   const tkAuthoringAiBtn = event.target.closest("[data-tk-authoring-ai-activity]");

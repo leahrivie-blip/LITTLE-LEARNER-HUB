@@ -390,31 +390,15 @@ async function main() {
     assert(res.status === 200 && res.json.libraryHealth, "library health");
     assert(res.json.libraryHealth.dataQuality?.analyticsLabel, "analytics label present");
 
-    // Publish blocked while quality flag on + blocking issues
+    // Owner workspace: quality findings stay informational. A valid core lesson publishes.
     res = await requestJson("POST", "/api/admin/curriculum/lesson-plans", {
       adminToken,
       expectedUpdatedAt,
       saveMode: "publish_enrichment",
       lessonPlan: { id: weak.id, enrichmentDraft: weak.enrichmentDraft },
     }, auth);
-    assert(res.status === 409 && res.json.code === "quality_review_blocked", "publish blocked by quality gate");
-    assert(res.json.ownerOverrideRequired === true, "owner override required when blocked");
-    assert(res.json.autoPublished !== true, "blocked publish did not publish");
-
-    // Owner override with reason must succeed and be logged on the fixture only
-    res = await requestJson("POST", "/api/admin/curriculum/lesson-plans", {
-      adminToken,
-      expectedUpdatedAt,
-      saveMode: "publish_enrichment",
-      publishedBy: ADMIN.email,
-      ownerPublishOverride: {
-        confirmed: true,
-        reason: "QA fixture override for quality-gate regression only.",
-      },
-      lessonPlan: { id: weak.id, enrichmentDraft: weak.enrichmentDraft },
-    }, auth);
-    assert(res.status === 200 && res.json.ok, `owner override publish: ${res.status} ${res.json?.error || ""}`);
-    assert(res.json.ownerOverrideApplied === true, "owner override flagged on response");
+    assert(res.status === 200 && res.json.ok, `valid core lesson publishes despite quality findings: ${res.status} ${res.json?.code || res.json?.error || ""}`);
+    assert(res.json.autoPublished !== true, "publish stays explicit — never auto-published");
     expectedUpdatedAt = res.json.siteContentUpdatedAt || expectedUpdatedAt;
 
     // Fresh weak-like draft for ignore-path coverage (do not reuse published weak)
@@ -441,7 +425,8 @@ async function main() {
       saveMode: "publish_enrichment",
       lessonPlan: { id: weak2.id, enrichmentDraft: weak.enrichmentDraft },
     }, auth);
-    assert(res.status === 409 && res.json.code === "quality_review_blocked", "weak2 still blocked");
+    assert(res.status === 200 && res.json.ok, `weak2 publishes without quality override: ${res.status} ${res.json?.code || ""}`);
+    expectedUpdatedAt = res.json.siteContentUpdatedAt || expectedUpdatedAt;
 
     // Ignore all blockers via draft ignored codes, then publish should succeed
     const blockCodes = (res.json.qualityReport?.blockingIssues || []).map((b) => b.code);
