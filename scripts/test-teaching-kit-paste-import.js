@@ -725,6 +725,171 @@ function main() {
   ok(editorSrc.includes("<span>Indoor</span>"), "Indoor label visible in Activity editor");
   ok(editorSrc.includes("<span>Outdoor</span>"), "Outdoor label visible in Activity editor");
 
+  // Colonless Paste Activity Update fixture (Bug Discovery Table) — known aliases only.
+  const bugFixture = [
+    "Activity name",
+    "Bug Discovery Table",
+    "Weekday",
+    "Mon",
+    "Category / developmental domain",
+    "Open-Ended Exploration",
+    "Recommended age",
+    "Toddlers 24–36 months",
+    "Estimated duration",
+    "15–20 minutes",
+    "Activity objective",
+    "Encourage curiosity, early classification, language, and careful observation while children freely explore toy insects and simple bug materials.",
+    "What children will do",
+    "Children will investigate toy bugs, pictures, natural materials, and baskets at an open discovery table.",
+    "Materials",
+    "Large baby-safe insect figures",
+    "Small baskets",
+    "Bug picture cards",
+    "Artificial leaves",
+    "Large magnifiers",
+    "Green fabric or felt",
+    "Tray or low table",
+    "Teacher preparation",
+    "Choose large insect figures without small removable parts. Place the bug figures, baskets, picture cards, leaves, and magnifiers on a low table before children arrive.",
+    "Setup",
+    "Cover the discovery table with green fabric. Spread the bugs and leaves where children can easily reach them. Place baskets and magnifiers around the edge.",
+    "Step-by-step directions",
+    "1. Invite two or three children to the discovery table.",
+    "2. Allow children time to look before giving directions.",
+    "3. Model picking up one bug and looking closely at it.",
+    "4. Name simple features such as wings, legs, spots, and colors.",
+    "5. Encourage children to place bugs into baskets or group bugs that look alike.",
+    "6. Follow the children's interests rather than requiring one correct way to play.",
+    "7. Help children return the bugs to the table when finished.",
+    "Suggested questions to ask",
+    "What bug did you find?",
+    "What do you notice?",
+    "Does your bug have wings?",
+    "How does your bug move?",
+    "Can you find another bug that looks like this one?",
+    "Where should this bug go?",
+    "Learning and observation focus",
+    "Notice whether children visually examine bugs, use simple bug words, compare objects, group similar bugs, imitate bug movements, or share discoveries with an adult.",
+    "Safety and supervision",
+    "Use only oversized insect figures and baby-safe magnifiers. Supervise closely and remove any damaged materials immediately.",
+    "Cleanup",
+    "Return bugs, picture cards, magnifiers, leaves, and baskets to the labeled Bugs & Butterflies discovery bin. Wipe the table if needed.",
+    "Indoor",
+    "Use on a low classroom discovery table or floor mat.",
+    "Outdoor",
+    "Move the tray to a shaded outdoor table and add large leaves or safe natural materials.",
+    "Teacher tips",
+    "Begin with fewer bugs if children become overwhelmed.",
+    "Let children explore before introducing sorting ideas.",
+    "Repeat children's bug words and add one new descriptive word.",
+    "Supply substitutions",
+    "No toy insects — use laminated bug pictures or large felt bugs.",
+    "No magnifiers — use cardboard viewing frames.",
+    "Support adaptations",
+    "Offer only two or three large bugs at a time.",
+    "Place materials within easy reach.",
+    "Model one simple action such as pick up, look, and put down.",
+    "Added challenge",
+    "Invite children to group bugs by wings, color, size, or number of visible spots.",
+    "Mixed-age adaptations",
+    "Younger toddlers can explore and point.",
+    "Older toddlers can sort bugs and explain how two insects are alike.",
+    "Observation prompts",
+    "Does the child look closely at a bug?",
+    "Does the child name or gesture toward a bug feature?",
+    "Does the child group or compare bugs?",
+    "Does the child bring a discovery to an adult?",
+    "Vocabulary",
+    "bug",
+    "insect",
+    "wings",
+    "legs",
+    "spots",
+    "crawl",
+    "fly",
+    "look",
+    "Image request",
+    "Setup + finished example",
+  ].join("\n");
+  const bugActivity = {
+    id: "act-bug-discovery",
+    itemId: "act-bug-discovery",
+    title: "Keep Old Title Unless Selected",
+    dayOfWeek: "tuesday",
+    objective: "",
+    description: "",
+    materials: "Keep this omitted material",
+    vocabulary: "keep",
+    safetyNotes: "Keep safety unless selected",
+  };
+  const bugPreview = paste.buildActivityPreview(bugFixture, bugActivity, {}, "act-bug-discovery");
+  ok((bugPreview.unrecognized || []).length === 0, "bug fixture: no unrecognized sections");
+  ok(findChange(bugPreview, "title")?.next === "Bug Discovery Table", "bug fixture: activity name");
+  ok(findChange(bugPreview, "dayOfWeek")?.parsedWeekday === "monday", "bug fixture: Weekday Mon → monday");
+  ok(findChange(bugPreview, "activityCategory")?.next === "Open-Ended Exploration", "bug fixture: category/domain");
+  ok(String(findChange(bugPreview, "ageModifications")?.next || "").includes("24"), "bug fixture: recommended age");
+  ok(String(findChange(bugPreview, "durationMinutes")?.next || "").includes("15"), "bug fixture: duration");
+  ok(String(findChange(bugPreview, "objective")?.next || "").includes("Encourage curiosity"), "bug fixture: objective");
+  ok(String(findChange(bugPreview, "description")?.next || "").includes("investigate toy bugs"), "bug fixture: what children will do");
+  ok((findChange(bugPreview, "materials")?.list?.add || []).length === 7, "bug fixture: materials lines");
+  ok(String(findChange(bugPreview, "preparation")?.next || "").includes("Choose large insect figures"), "bug fixture: teacher preparation");
+  ok(String(findChange(bugPreview, "setup")?.next || "").includes("green fabric"), "bug fixture: setup");
+  ok((findChange(bugPreview, "steps")?.list?.add || []).length === 7, "bug fixture: steps");
+  ok((findChange(bugPreview, "teacherLanguage")?.list?.add || []).length === 6, "bug fixture: questions");
+  ok(String(findChange(bugPreview, "observationOpportunities")?.next || "").includes("visually examine"), "bug fixture: observation focus");
+  ok(String(findChange(bugPreview, "safetyNotes")?.next || "").includes("oversized insect"), "bug fixture: safety");
+  ok(String(findChange(bugPreview, "cleanupTips")?.next || "").includes("discovery bin"), "bug fixture: cleanup");
+  ok(String(findChange(bugPreview, "indoorAlternatives")?.next || "").includes("discovery table"), "bug fixture: indoor");
+  ok(String(findChange(bugPreview, "outdoorAlternatives")?.next || "").includes("shaded outdoor"), "bug fixture: outdoor");
+  ok((findChange(bugPreview, "teacherTips")?.list?.add || []).length === 3, "bug fixture: teacher tips");
+  ok((findChange(bugPreview, "substitutions")?.list?.add || []).length === 2, "bug fixture: substitutions");
+  ok(String(findChange(bugPreview, "adaptations")?.next || "").includes("two or three large bugs"), "bug fixture: support adaptations");
+  ok(String(findChange(bugPreview, "extensions")?.next || "").includes("group bugs by wings"), "bug fixture: added challenge");
+  ok(String(findChange(bugPreview, "mixedAgeAdaptations")?.next || "").includes("Younger toddlers"), "bug fixture: mixed-age");
+  ok((findChange(bugPreview, "observationPrompts")?.list?.add || []).length === 4, "bug fixture: observation prompts");
+  ok((findChange(bugPreview, "vocabulary")?.list?.add || []).includes("insect"), "bug fixture: vocabulary");
+  ok(findChange(bugPreview, "imageRequirement")?.parsedEnum === "required", "bug fixture: Image request → required");
+  const shortAliasPreview = paste.buildActivityPreview(
+    [
+      "Activity weekday",
+      "Wednesday",
+      "Category/domain",
+      "Creative Arts",
+      "Observation focus",
+      "Watch closely.",
+      "Image request",
+      "Setup + finished example",
+    ].join("\n"),
+    { id: "a-alias", itemId: "a-alias", dayOfWeek: "monday" },
+    {},
+    "a-alias",
+  );
+  ok(findChange(shortAliasPreview, "dayOfWeek")?.parsedWeekday === "wednesday", "Activity weekday alias");
+  ok(findChange(shortAliasPreview, "activityCategory")?.next === "Creative Arts", "Category/domain alias");
+  ok(String(findChange(shortAliasPreview, "observationOpportunities")?.next || "").includes("Watch closely"), "Observation focus alias");
+  ok(findChange(shortAliasPreview, "imageRequirement")?.parsedEnum === "required", "Image request alias");
+  // Omitted fields stay unchanged when only selected present fields are applied.
+  const omitDraft = {
+    activities: {
+      "act-bug-discovery": {
+        title: "Keep Old Title Unless Selected",
+        materials: "Keep this omitted material",
+        safetyNotes: "Keep safety unless selected",
+        vocabulary: "keep",
+      },
+    },
+    week: { weeklyOverview: "Week stays untouched" },
+  };
+  const omitApplied = paste.applyPreviewToDraft(omitDraft, bugPreview, {
+    selectedFieldIds: ["title", "dayOfWeek", "objective"],
+  });
+  ok(omitApplied.draft.activities["act-bug-discovery"].title === "Bug Discovery Table", "selected title applied");
+  ok(omitApplied.draft.activities["act-bug-discovery"].dayOfWeek === "monday", "selected weekday applied");
+  ok(String(omitApplied.draft.activities["act-bug-discovery"].objective || "").includes("Encourage curiosity"), "selected objective applied");
+  ok(omitApplied.draft.activities["act-bug-discovery"].materials === "Keep this omitted material", "omitted materials unchanged");
+  ok(omitApplied.draft.activities["act-bug-discovery"].safetyNotes === "Keep safety unless selected", "omitted safety unchanged");
+  ok(omitApplied.draft.week.weeklyOverview === "Week stays untouched", "week draft untouched by activity paste");
+
   console.log(`OK — teaching-kit-paste-import (${passed} assertions)`);
 }
 

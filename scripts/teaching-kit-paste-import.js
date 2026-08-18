@@ -116,11 +116,13 @@
     "activity name": "title",
     title: "title",
     weekday: "dayOfWeek",
+    "activity weekday": "dayOfWeek",
     day: "dayOfWeek",
     "day of week": "dayOfWeek",
     category: "activityCategory",
     "developmental domain": "activityCategory",
     "category / developmental domain": "activityCategory",
+    "category/domain": "activityCategory",
     "recommended age": "ageModifications",
     age: "ageModifications",
     "estimated duration": "durationMinutes",
@@ -131,6 +133,7 @@
     description: "description",
     materials: "materials",
     "teacher preparation": "preparation",
+    "teacher prep": "preparation",
     preparation: "preparation",
     prep: "preparation",
     setup: "setup",
@@ -143,6 +146,7 @@
     questions: "teacherLanguage",
     "learning and observation focus": "observationOpportunities",
     "learning & observation focus": "observationOpportunities",
+    "observation focus": "observationOpportunities",
     "safety and supervision": "safetyNotes",
     safety: "safetyNotes",
     cleanup: "cleanupTips",
@@ -168,6 +172,7 @@
     vocabulary: "vocabulary",
     "vocabulary words": "vocabulary",
     "image requirement": "imageRequirement",
+    "image request": "imageRequirement",
     "setup example brief": "imageBriefSetup",
     "finished example brief": "imageBriefExample",
     "example image brief": "imageBriefExample",
@@ -550,8 +555,11 @@
   }
 
   /**
-   * Split pasted text into heading sections. A heading is a line ending with ":"
-   * whose normalized label is in the alias map (exact match only).
+   * Split pasted text into heading sections.
+   * A heading is either:
+   * - a line with "Label:" whose normalized label is in the alias map, or
+   * - a bare line whose entire normalized text exactly matches a known alias.
+   * Unknown short sentences and body lines never become headings.
    */
   function splitLabeledSections(pastedText, aliasMap) {
     const lines = String(pastedText || "").replace(/\r\n/g, "\n").split("\n");
@@ -571,6 +579,15 @@
       current = null;
     }
 
+    function startKnownHeading(labelPart, fieldId, rest) {
+      flush();
+      current = {
+        headingRaw: String(labelPart || "").trim(),
+        fieldId,
+      };
+      if (rest) bodyLines.push(rest);
+    }
+
     lines.forEach((line) => {
       const trimmed = line.trim();
       const headingMatch = trimmed.match(/^(.+?)\s*:\s*(.*)$/);
@@ -585,12 +602,7 @@
           ? aliasMap[normalized]
           : "";
         if (fieldId) {
-          flush();
-          current = {
-            headingRaw: labelPart.trim(),
-            fieldId,
-          };
-          if (rest) bodyLines.push(rest);
+          startKnownHeading(labelPart, fieldId, rest);
           return;
         }
         // Unknown "Label:" with empty rest still starts an unrecognized section so
@@ -601,6 +613,15 @@
             headingRaw: labelPart.trim(),
             fieldId: "",
           };
+          return;
+        }
+      } else if (trimmed) {
+        // Bare known alias only — never invent headings from ordinary body sentences.
+        const bareNormalized = normalizeHeading(trimmed.replace(/[:：]+$/g, ""));
+        if (Object.prototype.hasOwnProperty.call(aliasMap, bareNormalized)
+          && /^[A-Za-z][A-Za-z0-9 /&'’:,-]{0,80}$/.test(trimmed)
+          && !/[.!?]$/.test(trimmed)) {
+          startKnownHeading(trimmed.replace(/[:：]+$/g, "").trim(), aliasMap[bareNormalized], "");
           return;
         }
       }
