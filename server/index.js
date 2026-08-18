@@ -24,6 +24,7 @@ const { createOnboardingWelcome, defaultOnboardingWelcomeStore } = require("./on
 const { createFoundingMemberEmail } = require("./founding-member-email.js");
 const { createFreeUserWelcomeEmail } = require("./free-user-welcome-email.js");
 const { createFreeUserThankYou6Email } = require("./free-user-thankyou6-email.js");
+const { createThankYou6InApp } = require("./thankyou6-in-app.js");
 const thankYou6Checkout = require("./thankyou6-checkout.js");
 const billingLifecycleEmail = require("./billing-lifecycle-email.js");
 const { createPushService } = require("./push-lib.js");
@@ -19815,6 +19816,15 @@ const freeUserThankYou6Email = createFreeUserThankYou6Email({
   fetchResendEmailStatus,
 });
 
+const thankYou6InApp = createThankYou6InApp({
+  readStore,
+  writeStore,
+  fanOutNotificationsAndPush,
+  getAdminEmail: () => ADMIN_EMAIL,
+  getAdminEmails: () => ADMIN_EMAILS,
+  siteUrl: SITE_URL,
+});
+
 function pauseEmailAutomationsInStore(reason = "EMAIL_AUTOMATIONS_ENABLED=false") {
   const store = readStore();
   const eng = emailEngagement.ensureEmailEngagement(store);
@@ -27392,6 +27402,7 @@ function publicNotification(notification) {
     messageId: notification.messageId || "",
     conversationEmail: notification.conversationEmail || "",
     refId: notification.refId || "",
+    deepLink: String(notification.deepLink || "").trim(),
     createdAt: notification.createdAt,
     read: Boolean(notification.read),
     readAt: notification.readAt || "",
@@ -29373,6 +29384,77 @@ async function handleAdminThankYou6Report(request, response, url) {
   jsonResponse(response, 200, freeUserThankYou6Email.getReport());
 }
 
+async function handleAdminThankYou6InAppDryRun(request, response, url) {
+  let token = "";
+  if (request.method === "GET") {
+    token = extractAdminToken(request, url) || "";
+  } else {
+    const body = await readJson(request);
+    token = extractAdminTokenFromBody(request, body);
+  }
+  if (!validAdminToken(token)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const preview = thankYou6InApp.dryRun({ persist: true });
+  jsonResponse(response, 200, {
+    ok: true,
+    sent: false,
+    willSend: false,
+    channel: "in_app",
+    preview,
+    note: "In-app preview only. No notifications or receipts were written.",
+  });
+}
+
+async function handleAdminThankYou6InAppSend(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const result = await thankYou6InApp.send({
+    adminEmail: ADMIN_EMAIL,
+    confirm: body.confirm === true,
+    confirmPhrase: body.confirmPhrase || "",
+    dryRunToken: body.dryRunToken || "",
+    confirmationToken: body.confirmationToken || "",
+    forceResend: false,
+  });
+  if (result.skipped && result.reason === "confirmation_required") {
+    jsonResponse(response, 400, {
+      error: "Confirmation required. Type SEND_THANKYOU6_IN_APP after the warning.",
+      result,
+    });
+    return;
+  }
+  if (result.skipped) {
+    jsonResponse(response, result.reason === "already_sent" ? 409 : 400, {
+      error: result.detail || result.reason,
+      result,
+    });
+    return;
+  }
+  jsonResponse(response, 200, {
+    ok: true,
+    channel: "in_app",
+    result,
+    emailSent: false,
+    membershipRecordsModified: false,
+    billingRecordsModified: false,
+    accountAccessModified: false,
+  });
+}
+
+async function handleAdminThankYou6InAppReport(request, response, url) {
+  const token = extractAdminToken(request, url) || "";
+  if (!validAdminToken(token)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  jsonResponse(response, 200, thankYou6InApp.getReport());
+}
+
 async function handleAdminEmailEngagementSettings(request, response) {
   const body = await readJson(request);
   if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
@@ -30004,6 +30086,15 @@ const server = http.createServer(async (request, response) => {
     }
     if (request.method === "GET" && url.pathname === "/api/admin/thankyou6-email/report") {
       return await handleAdminThankYou6Report(request, response, url);
+    }
+    if ((request.method === "GET" || request.method === "POST") && url.pathname === "/api/admin/thankyou6-in-app/dry-run") {
+      return await handleAdminThankYou6InAppDryRun(request, response, url);
+    }
+    if (request.method === "POST" && url.pathname === "/api/admin/thankyou6-in-app/send") {
+      return await handleAdminThankYou6InAppSend(request, response);
+    }
+    if (request.method === "GET" && url.pathname === "/api/admin/thankyou6-in-app/report") {
+      return await handleAdminThankYou6InAppReport(request, response, url);
     }
     if (request.method === "POST" && url.pathname === "/api/webhooks/resend") {
       return await handleResendEmailWebhook(request, response);
