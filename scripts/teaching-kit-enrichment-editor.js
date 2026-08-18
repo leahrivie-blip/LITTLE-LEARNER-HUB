@@ -2799,17 +2799,25 @@
     const canRollback = Array.isArray(plan.enrichmentPublishHistory) && plan.enrichmentPublishHistory.length > 0;
     const structural = summary.enrichmentFillPercent ?? summary.completionPercent ?? 0;
     const premium = evaluated?.premiumReadinessPercent ?? summary.premiumReadinessPercent ?? 0;
+    const suggestionRows = rows.filter(([, , , warn]) => warn);
     return `
       <aside class="tk-enrich-summary ${state.summaryOpen ? "is-open" : "is-collapsed"}" data-upgrade-summary>
         <div class="tk-enrich-summary-head">
           <div>
-            <p class="eyebrow">Upgrade Summary</p>
-            <strong data-workflow-status>${esc(workflow)}</strong>
-            <p class="muted-copy">${esc(summary.weekdayCoverageLabel || "Weekday coverage pending")} · ${structural}% structural completion · ${premium}% premium readiness · Library ${esc(libraryStatus)}</p>
+            <p class="eyebrow">Optional quality details</p>
+            <strong>Suggestions only — not a publish score</strong>
+            ${!state.summaryOpen ? `
+              <ul class="muted-copy" data-optional-quality-suggestions>
+                ${suggestionRows.length
+                  ? suggestionRows.slice(0, 8).map(([, label]) => `<li>${esc(label)}</li>`).join("")
+                  : "<li>No optional suggestions right now.</li>"}
+              </ul>
+            ` : ""}
           </div>
-          <button type="button" class="ghost-button" data-summary-toggle>${state.summaryOpen ? "Hide" : "Show"}</button>
+          <button type="button" class="ghost-button" data-summary-toggle>${state.summaryOpen ? "Hide details" : "Show details"}</button>
         </div>
         ${state.summaryOpen ? `
+          <p class="muted-copy">Internal scores below are optional quality details, not a publish requirement. Library status: ${esc(libraryStatus)}. Workflow: ${esc(workflow)}.</p>
           <div class="tk-enrich-score-grid" data-readiness-scores>
             <div><span>Structural</span><strong>${scores.structuralCompleteness ?? structural}%</strong></div>
             <div><span>Educational</span><strong>${scores.educationalQuality ?? "—"}%</strong></div>
@@ -2875,19 +2883,17 @@
           <div class="tk-enrich-progress-block">
             <div class="tk-enrich-percent-row" data-owner-workspace-status>
               <span>Status: <span class="tag ${gate.published ? "is-success" : (gate.canPublish ? "is-success" : "")}">${esc(gate.displayLabel)}</span></span>
+              <strong title="Core lesson usability">Core ${core.title ? "✓" : "○"} Title · ${core.age ? "✓" : "○"} Age · ${core.activities ? "✓" : "○"} Activities</strong>
+              <span class="muted-copy">Optional ${optional.cover ? "✓" : "○"} Cover image · ${optional.printables ? "✓" : "○"} Printables · ${optional.books ? "✓" : "○"} Books · ${optional.family ? "✓" : "○"} Family connection · ${optional.todos ? "✓" : "○"} My own todo items</span>
               ${gate.blockers.length ? `
                 <strong>Cannot publish yet</strong>
                 <ul data-owner-true-blockers>${gate.blockers.map((item) => `<li>${esc(item.message)}</li>`).join("")}</ul>
-              ` : `
-                <strong title="Core lesson usability">Core ✓ Title · ${core.age ? "✓" : "○"} Age · ${core.weekdays >= 5 ? "✓" : "○"} ${esc(String(core.weekdays || 0))} weekdays · ✓ ${esc(String(core.activities || n))} activities</strong>
-                <span class="muted-copy">Optional ${optional.cover ? "✓" : "○"} Add cover · ${optional.printables ? "✓" : "○"} Make printables · ${optional.family ? "✓" : "○"} Review family connection</span>
-              `}
-              ${gate.openTodoCount ? `<span class="muted-copy">${gate.openTodoCount} optional item${gate.openTodoCount === 1 ? "" : "s"} still on your list</span>` : ""}
+              ` : ""}
             </div>
           </div>
           <div class="tk-enrich-chrome-actions">
             <button type="button" class="primary-button" data-ai-suggest="lesson">Prepare AI Draft</button>
-            <button type="button" class="ghost-button" data-summary-toggle>Upgrade Summary</button>
+            <button type="button" class="ghost-button" data-summary-toggle>Optional quality details</button>
             <button type="button" class="primary-button" data-enrich-save-draft>Save draft</button>
             <button type="button" class="ghost-button" data-enrich-publish data-can-publish="${gate.canPublish ? "true" : "false"}">Apply enrichment</button>
             <button type="button" class="primary-button" data-publish-lesson ${gate.canPublish ? "" : "disabled"} title="${gate.canPublish ? "This lesson is now published to users" : "Cannot publish yet"}">Publish lesson</button>

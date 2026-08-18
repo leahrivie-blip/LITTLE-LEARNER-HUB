@@ -276,6 +276,23 @@ function curriculumLessonDailyPlansHtml(plan = {}, options = {}) {
   `;
 }
 
+function publicLessonAgeText(age) {
+  return String(age == null ? "" : age).trim();
+}
+
+function lessonAgeTagHtml(age, { adminPreview = false } = {}) {
+  const text = publicLessonAgeText(age);
+  if (text) return `<span class="tag">${escapeHtml(text)}</span>`;
+  if (adminPreview) return `<span class="tag">Age not set</span>`;
+  return "";
+}
+
+function publicLessonAgeFieldHtml(age, label = "Age Group") {
+  const text = publicLessonAgeText(age);
+  if (!text) return "";
+  return `<div class="fp-field"><label>${escapeHtml(label)}</label><div class="fp-field-value">${escapeHtml(text)}</div></div>`;
+}
+
 function copyrightFooterHtml() {
   const api = typeof globalThis !== "undefined" ? globalThis.LlhCopyright : null;
   if (api?.noticeBlockHtml) return api.noticeBlockHtml("llh-copyright-block curriculum-copyright-footer");
@@ -290,7 +307,7 @@ function renderCurriculumLessonPlanHtml(plan = {}, options = {}) {
     <header class="curriculum-lesson-header">
       <h3>${escapeHtml(normalized.title || "Lesson Plan")}</h3>
       <div class="tag-row">
-        <span class="tag">${escapeHtml(normalized.age || "Preschool")}</span>
+        ${lessonAgeTagHtml(normalized.age, { adminPreview: showAdminStatus })}
         ${normalized.theme ? `<span class="tag">${escapeHtml(normalized.theme)}</span>` : ""}
         <span class="tag access-tag">${escapeHtml(accessLabel)}</span>
         ${showAdminStatus && normalized.status ? `<span class="tag">${escapeHtml(normalized.status)}</span>` : ""}
@@ -385,7 +402,7 @@ function lockedCurriculumLessonPreviewHtml(resource = {}, options = {}) {
     title: resource.title || plan.title || "Lesson Plan",
     html: `
       <div class="fp-pro-teaser" data-fp-pro-teaser>
-        <div class="fp-field"><label>Age Group</label><div class="fp-field-value">${escapeHtml(plan.age || resource.age || "Preschool")}</div></div>
+        ${publicLessonAgeFieldHtml(plan.age || resource.age)}
         <div class="fp-field"><label>Theme</label><div class="fp-field-value">${escapeHtml(plan.theme || resource.theme || "—")}</div></div>
         ${domains ? `<div class="fp-field"><label>Learning Domains</label><div class="fp-field-value tag-row">${domains}</div></div>` : ""}
         ${overview ? `<div class="fp-field"><label>Weekly Overview</label><div class="fp-field-value">${escapeHtml(overview)}</div></div>` : ""}
@@ -474,6 +491,9 @@ function lockedCurriculumActivityPreviewHtml(resource = {}, options = {}) {
 const api = {
   CURRICULUM_WEEKDAYS,
   escapeHtml,
+  publicLessonAgeText,
+  lessonAgeTagHtml,
+  publicLessonAgeFieldHtml,
   curriculumMultilineSectionHtml,
   curriculumBooksSectionHtml,
   curriculumSongsSectionHtml,

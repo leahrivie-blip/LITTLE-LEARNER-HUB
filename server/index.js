@@ -23035,26 +23035,6 @@ async function handleAdminCurriculumLessonPlanSave(request, response) {
       }
     }
 
-    // Published/featured plans must keep activities on every weekday so the
-    // lesson viewer never shows "No activities scheduled." after a save.
-    if (willBePublic) {
-      const emptyWeekdays = [];
-      CURRICULUM_WEEKDAYS.forEach((day) => {
-        const items = Array.isArray(planInput?.dailyPlans?.[day]?.items)
-          ? planInput.dailyPlans[day].items
-          : [];
-        const hasTitle = items.some((item) => String(item?.title || "").trim());
-        if (!hasTitle) emptyWeekdays.push(day);
-      });
-      if (emptyWeekdays.length) {
-        jsonResponse(response, 400, {
-          error: `Published lesson plans need activities on every weekday. Missing: ${emptyWeekdays.join(", ")}.`,
-          emptyWeekdays,
-        });
-        return;
-      }
-    }
-
     step = "syncActivities";
     let syncedCurriculum = syncCurriculumActivitiesForLessonPlan(existingCurriculum, planInput);
     if (!syncedCurriculum) {

@@ -92,6 +92,7 @@ function assertUnitContract() {
   assert.equal(state.canPublish, true, "optional todos/printables must not block publish");
   assert.equal(state.blockers.length, 0);
   assert.equal(state.openTodoCount, 1);
+  assert.equal(state.optional.todos, true);
   assert.equal(owner.publicPreviewExcludesOwnerContent({ ownerWorkspace: withNote }), false);
   assert.equal(owner.publicPreviewExcludesOwnerContent({ title: plan.title, activities: acts }), true);
   console.log("PASS  1,3,4,7 optional fields/todos do not block a valid core lesson");
@@ -177,11 +178,21 @@ function assertUnitContract() {
   assert.match(editorJs, /Publish lesson/);
   assert.match(editorJs, /Cannot publish yet/);
   assert.match(editorJs, /Quality notes/);
+  assert.match(editorJs, /Optional quality details/);
+  assert.match(editorJs, /Suggestions only — not a publish score/);
   const ownerChrome = editorJs.slice(
     editorJs.indexOf("data-owner-workspace-status"),
     editorJs.indexOf("data-owner-workspace-status") + 1800,
   );
-  assert.doesNotMatch(ownerChrome, /Library Blocked|Needs Changes/);
+  assert.doesNotMatch(ownerChrome, /Library Blocked|Needs Changes|Completion %|weekdays/);
+  assert.match(ownerChrome, /Cover image/);
+  assert.match(ownerChrome, /My own todo items/);
+  const summaryFn = editorJs.slice(
+    editorJs.indexOf("function renderUpgradeSummary"),
+    editorJs.indexOf("function renderUpgradeSummary") + 3600,
+  );
+  assert.match(summaryFn, /Optional quality details/);
+  assert.doesNotMatch(summaryFn, /% structural completion/);
   assert.equal(owner.ownerFacingQualityLabel(), "Quality notes");
   const normalizer = serverJs.slice(
     serverJs.indexOf("function normalizedCurriculumLessonPlan"),
@@ -189,6 +200,7 @@ function assertUnitContract() {
   );
   assert.doesNotMatch(normalizer, /\|\|\s*"Preschool"/);
   assert.match(serverJs, /true_publish_blockers/);
+  assert.doesNotMatch(serverJs, /Published lesson plans need activities on every weekday/);
   assert.match(serverJs, /ownerWorkspace/);
   console.log("PASS  11,14,15 preview label, no repeated field confirms, one lesson-delete confirm");
 
@@ -456,6 +468,62 @@ async function runPersistTests() {
       assert.equal(themeOnly.json.lessonPlan.age, age, `unrelated save must keep ${age}`);
     }
     console.log("PASS  valid Toddler/Infant/Preschool ages persist unchanged");
+
+    function dailyPlansWithDays(count, prefix) {
+      const days = ["monday", "tuesday", "wednesday", "thursday", "friday"];
+      const dailyPlans = {};
+      days.forEach((day, index) => {
+        dailyPlans[day] = {
+          items: index < count ? [{ itemId: `${prefix}-${day}`, title: `${prefix} ${day}` }] : [],
+        };
+      });
+      return dailyPlans;
+    }
+
+    const noActivityPublish = await requestJson("POST", "/api/admin/curriculum/lesson-plans", {
+      expectedUpdatedAt: stamp,
+      lessonPlan: {
+        id: "cur-lp-owner-ws-no-activity",
+        title: "No Activity Publish Block",
+        age: "Toddler",
+        status: "published",
+        plan: "Pro",
+        dailyPlans: dailyPlansWithDays(0, "none"),
+      },
+    }, token);
+    assert.equal(noActivityPublish.status, 409, noActivityPublish.text);
+    assert.equal(noActivityPublish.json.code, "true_publish_blockers");
+    assert.ok((noActivityPublish.json.blockers || []).some((item) => item.code === "no_activities"));
+    stamp = (await requestJson("GET", "/api/admin/site-content", null, token)).json.siteContent?.updatedAt || stamp;
+    console.log("PASS  no-activity lesson remains blocked from publish");
+
+    for (const dayCount of [3, 4, 5]) {
+      const publishedDays = await requestJson("POST", "/api/admin/curriculum/lesson-plans", {
+        expectedUpdatedAt: stamp,
+        lessonPlan: {
+          id: `cur-lp-owner-ws-${dayCount}day`,
+          title: `${dayCount} Day Publish`,
+          age: "Toddler",
+          status: "published",
+          plan: "Pro",
+          dailyPlans: dailyPlansWithDays(dayCount, `${dayCount}d`),
+        },
+      }, token);
+      assert.equal(publishedDays.status, 200, publishedDays.text);
+      stamp = publishedDays.json.siteContentUpdatedAt || stamp;
+      const plan = publishedDays.json.lessonPlan;
+      assert.equal(plan.status, "published");
+      assert.ok(plan.dailyPlans.monday);
+      assert.ok(plan.dailyPlans.friday, "weekday containers stay present");
+      const filled = ["monday", "tuesday", "wednesday", "thursday", "friday"].filter((day) => (
+        (plan.dailyPlans[day]?.items || []).some((item) => String(item?.title || "").trim())
+      ));
+      assert.equal(filled.length, dayCount, `${dayCount}-day lesson should publish with ${dayCount} filled weekdays`);
+      if (dayCount < 5) {
+        assert.equal((plan.dailyPlans.friday.items || []).length, 0);
+      }
+    }
+    console.log("PASS  3-day, 4-day, and 5-day lessons can publish");
   } finally {
     try { child.kill("SIGTERM"); } catch { /* ignore */ }
     try { fs.unlinkSync(STORE_PATH); } catch { /* ignore */ }

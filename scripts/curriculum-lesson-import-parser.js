@@ -1168,7 +1168,7 @@ function parseCurriculumLessonPlanImportV1(text, { existingItemIds = new Map(), 
     data: {
       _formatVersion: 1,
       title: title || "Untitled Lesson Plan",
-      age: age || "Preschool",
+      age: age || ageRaw || "",
       theme,
       plan,
       status,

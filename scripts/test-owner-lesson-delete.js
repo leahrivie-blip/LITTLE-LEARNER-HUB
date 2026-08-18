@@ -137,6 +137,9 @@ function assertStaticContract() {
   assert.match(serverJs, /function handleAdminCurriculumLessonPlanDelete/);
   assert.match(serverJs, /function isSafeSingleLessonDelete/);
   assert.match(appJs, /function deleteAdminCurriculumLessonPlan/);
+  assert.match(appJs, /deletedAdminCurriculumLessonIds/);
+  assert.match(appJs, /function omitDeletedAdminCurriculumLessons/);
+  assert.match(appJs, /function dropDeletedAdminCurriculumLessonFromLocalStore/);
   assert.match(appJs, /data-curriculum-lesson-delete/);
   assert.match(appJs, /This permanently deletes this lesson plan and its lesson-owned activity records/);
   assert.match(appJs, /if \(!confirmed\) return \{ cancelled: true, ok: false \}/);
@@ -390,10 +393,13 @@ async function runServerTests() {
         const okBtn = document.querySelector("[data-llh-confirm-dialog]:not([hidden]) [data-llh-confirm-ok]");
         if (okBtn) okBtn.click();
         const result = await pending;
+        const listText = document.querySelector("#adminCurriculumLessonPlanManager")?.textContent || "";
         return {
           ok: result?.ok === true,
           code: result?.code || "",
           gone: !curriculumLessonPlanById(id),
+          listed: listText.includes("Delete Me UI Draft"),
+          keepVisible: listText.includes("Keep Lesson Plan"),
           list: Boolean(document.querySelector("#adminCreateCurriculumLessonPlanButton")),
           banner: document.querySelector("#adminCurriculumLessonPlanBanner")?.textContent || "",
           clicked: Boolean(okBtn),
@@ -401,6 +407,8 @@ async function runServerTests() {
       }, UI_ID);
       assert.equal(okResult.ok, true, JSON.stringify(okResult));
       assert.equal(okResult.gone, true, JSON.stringify(okResult));
+      assert.equal(okResult.listed, false, JSON.stringify(okResult));
+      assert.equal(okResult.keepVisible, true, JSON.stringify(okResult));
       assert.equal(okResult.list, true, JSON.stringify(okResult));
       assert.match(okResult.banner, /Deleted “Delete Me UI Draft”/);
       console.log("PASS  UI returns to the lesson list after delete");
@@ -412,10 +420,17 @@ async function runServerTests() {
         if (typeof setAdminSectionTab === "function") setAdminSectionTab("curriculum-lesson-plans");
       });
       await page.waitForSelector("#adminCreateCurriculumLessonPlanButton", { timeout: 20000 });
-      const afterReload = await page.evaluate((id) => (
-        typeof curriculumLessonPlanById === "function" ? Boolean(curriculumLessonPlanById(id)) : true
-      ), UI_ID);
-      assert.equal(afterReload, false);
+      const afterReload = await page.evaluate((id) => {
+        const listText = document.querySelector("#adminCurriculumLessonPlanManager")?.textContent || "";
+        return {
+          present: typeof curriculumLessonPlanById === "function" ? Boolean(curriculumLessonPlanById(id)) : true,
+          listed: listText.includes("Delete Me UI Draft"),
+          keepVisible: listText.includes("Keep Lesson Plan"),
+        };
+      }, UI_ID);
+      assert.equal(afterReload.present, false);
+      assert.equal(afterReload.listed, false);
+      assert.equal(afterReload.keepVisible, true);
       console.log("PASS  browser refresh does not restore the deleted draft");
       await page.close();
     } finally {

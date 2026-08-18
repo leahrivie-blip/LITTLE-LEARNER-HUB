@@ -143,7 +143,11 @@
       blockers,
       openTodoCount: openTodos.length,
       openTodos,
-      optional,
+      optional: {
+        ...optional,
+        todos: todos.length > 0,
+        todoCount: todos.length,
+      },
       core: coreLessonSnapshot(plan, activities),
       displayLabel: published ? "Published" : (blockers.length ? "Draft" : "Ready to publish"),
     };

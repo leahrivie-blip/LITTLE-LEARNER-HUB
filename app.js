@@ -6128,7 +6128,9 @@ function mergeIncomingPublicSiteContent(incoming) {
   const incomingCurriculum = next.curriculum && typeof next.curriculum === "object" ? next.curriculum : null;
   const incomingLessonCount = Array.isArray(incomingCurriculum?.lessonPlans) ? incomingCurriculum.lessonPlans.length : 0;
   if (incomingLessonCount > 0) {
-    merged.curriculum = incomingCurriculum;
+    merged.curriculum = typeof omitDeletedAdminCurriculumLessons === "function"
+      ? omitDeletedAdminCurriculumLessons(incomingCurriculum)
+      : incomingCurriculum;
   } else if (prior.curriculum && typeof prior.curriculum === "object") {
     // Public /api/site-content never includes admin curriculum — preserve loaded admin payload.
     merged.curriculum = prior.curriculum;
@@ -6272,7 +6274,11 @@ async function loadAdminSiteContent() {
     );
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data?.error || "Could not load admin content.");
-    siteContentState = data.siteContent || emptySiteContent();
+    const incoming = data.siteContent || emptySiteContent();
+    if (incoming.curriculum && typeof omitDeletedAdminCurriculumLessons === "function") {
+      incoming.curriculum = omitDeletedAdminCurriculumLessons(incoming.curriculum);
+    }
+    siteContentState = incoming;
     adminCurriculumLoadFailed = false;
     adminCurriculumLoadError = "";
     return effectiveSiteContent();
@@ -6858,6 +6864,7 @@ let adminCurriculumActivityFilters = {
 };
 let adminCurriculumLessonSaving = false;
 let adminCurriculumLessonDeleting = false;
+const deletedAdminCurriculumLessonIds = new Set();
 let adminCurriculumLessonImportDraft = null;
 let adminCreateLessonPlanUi = {
   step: "",
@@ -9248,6 +9255,7 @@ function curriculumCollectionByKey(key) {
 function curriculumLessonPlanById(id) {
   const targetId = String(id || "").trim();
   if (!targetId) return null;
+  if (deletedAdminCurriculumLessonIds.has(targetId)) return null;
   return effectiveCurriculum().lessonPlans.find((item) => item.id === targetId) || null;
 }
 
@@ -9586,7 +9594,7 @@ function effectiveCurriculumLibrary() {
       return {
         ...activity,
         parentTitle: parent?.title || "",
-        parentAge: parent?.age || "Preschool",
+        parentAge: parent?.age || "",
         parentTheme: parent?.theme || "",
         parentPlan: parent?.plan || "Free",
         parentStatus: parent?.status || "",
@@ -9665,7 +9673,7 @@ function loadCurriculumManagedLessonPlans() {
       id: plan.id,
       category: "Lesson Plans",
       title: plan.title,
-      age: plan.age || "Preschool",
+      age: plan.age || "",
       plan: plan.plan || "Free",
       month: "",
       tags: [
@@ -10528,18 +10536,31 @@ async function deleteAdminCurriculumLessonPlan(planId) {
       }
       return { ok: false, code: data.code || "server_failure", status: response.status };
     }
+    const deletedId = data.deletedPlanId || record.id;
+    rememberDeletedAdminCurriculumLessonId(deletedId);
+    dropDeletedAdminCurriculumLessonFromLocalStore(deletedId);
+    adminCurriculumLessonEditorId = "";
+    if (typeof adminCurriculumSelectedIds !== "undefined" && adminCurriculumSelectedIds?.delete) {
+      adminCurriculumSelectedIds.delete(deletedId);
+    }
     if (data.curriculum && typeof applyCurriculumState === "function") {
       applyCurriculumState(data.curriculum, { siteContentUpdatedAt: data.siteContentUpdatedAt });
     }
     if (typeof LLHTeachingKitEnrichmentEditor !== "undefined" && LLHTeachingKitEnrichmentEditor.isOpen?.()) {
       await LLHTeachingKitEnrichmentEditor.close({ force: true, abandonUnsaved: true });
-    } else if (typeof restoreAdminLessonListAfterTkEditorClose === "function") {
+    }
+    if (typeof restoreAdminLessonListAfterTkEditorClose === "function") {
       restoreAdminLessonListAfterTkEditorClose();
-    } else {
-      adminCurriculumLessonEditorId = "";
-      if (typeof renderAdminCurriculumLessonPlanManager === "function") {
-        renderAdminCurriculumLessonPlanManager();
-      }
+    } else if (typeof renderAdminCurriculumLessonPlanManager === "function") {
+      renderAdminCurriculumLessonPlanManager();
+    }
+    if (typeof loadAdminSiteContent === "function") {
+      try { await loadAdminSiteContent(); } catch (_error) { /* local drop already applied */ }
+    }
+    if (typeof restoreAdminLessonListAfterTkEditorClose === "function") {
+      restoreAdminLessonListAfterTkEditorClose();
+    } else if (typeof renderAdminCurriculumLessonPlanManager === "function") {
+      renderAdminCurriculumLessonPlanManager();
     }
     const success = `Deleted “${data.deletedTitle || title}”.`;
     if (typeof setAdminCurriculumLessonSaveBanner === "function") {
@@ -11666,7 +11687,7 @@ function buildUserLessonCopyResource(sourceResource) {
     id: copyId,
     category: "Lesson Plans",
     title: copyPlan.title || sourceResource.title || "Untitled Lesson Plan",
-    age: copyPlan.age || sourceResource.age || "Preschool",
+    age: copyPlan.age || sourceResource.age || "",
     plan: copyPlan.plan || sourceResource.plan || "Free",
     month: sourceResource.month || "",
     tags: [
@@ -11928,7 +11949,7 @@ function renderUserLessonPlanEditorForm(plan) {
         <p class="eyebrow">Lesson Plan Editor</p>
         <h2>${escapeHtml(record.title || "Untitled Lesson Plan")}</h2>
         <p class="lesson-editor-meta">
-          <span>${escapeHtml(record.age || "Preschool")}</span>
+          <span>${escapeHtml(String(record.age || "").trim() || "Age not set")}</span>
           <span>${escapeHtml(record.theme || "Theme")}</span>
           <span>${escapeHtml(record.plan || "Free")}</span>
           <span>${escapeHtml(curriculumLessonPlanStatusLabel(record.status || "draft"))}</span>
@@ -13008,7 +13029,7 @@ function curriculumLessonPlanAdminCardHtml(plan) {
           <strong>${escapeHtml(plan.title || "Untitled Lesson Plan")}</strong>
           <div class="tag-row" style="margin:2px 0 4px">
             <span class="tag">${curriculumLessonPlanStatusLabel(plan.status || "draft")}</span>
-            <span class="tag">${escapeHtml(plan.age || "Preschool")}</span>
+            <span class="tag">${escapeHtml(String(plan.age || "").trim() || "Age not set")}</span>
             <span class="tag">${escapeHtml(plan.plan || "Free")}</span>
             <span class="tag">${isKit ? "Teaching Kit" : "Legacy"}</span>
             <span class="${coverQualityStatusTagClass(coverQuality)}">Cover: ${escapeHtml(coverQualityStatusLabel(coverQuality))}</span>
@@ -13495,7 +13516,7 @@ function buildAdminCurriculumLessonResourceFromPlan(plan, { adminPreview = false
     id: normalized.id,
     category: "Lesson Plans",
     title: normalized.title,
-    age: normalized.age || "Preschool",
+    age: normalized.age || "",
     plan: normalized.plan || "Free",
     month: "",
     tags: [
@@ -14092,10 +14113,6 @@ async function saveAdminCurriculumLessonPlanForm(form, options = {}) {
     document.querySelector("#adminCurriculumLessonPlanBanner")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     return;
   }
-  const emptyWeekdays = CURRICULUM_WEEKDAYS.filter((day) => {
-    const items = Array.isArray(lessonPlan.dailyPlans?.[day]?.items) ? lessonPlan.dailyPlans[day].items : [];
-    return !items.some((item) => String(item?.title || "").trim());
-  });
   const publishing = ["published", "featured"].includes(String(lessonPlan.status || "").toLowerCase());
   if (publishing) {
     const ownerApi = window.LLHTeachingKitOwnerWorkspace;
@@ -14113,17 +14130,6 @@ async function saveAdminCurriculumLessonPlanForm(form, options = {}) {
       return;
     }
   }
-  if (publishing && emptyWeekdays.length) {
-    const labels = emptyWeekdays.map((day) => day.charAt(0).toUpperCase() + day.slice(1)).join(", ");
-    setAdminCurriculumLessonSaveBanner(
-      `❌ Published lesson plans need activities on every weekday. Add activities for: ${labels}.`,
-      false,
-    );
-    renderAdminCurriculumLessonPlanManager();
-    document.querySelector("#adminCurriculumLessonPlanBanner")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    return;
-  }
-
   adminCurriculumLessonSaving = true;
   const actionLabel = publishing ? "Publishing" : "Saving draft of";
   setAdminCurriculumLessonSaveBanner(`${actionLabel} “${lessonPlan.title}” with ${activityCount} activities…`, true);
@@ -14568,10 +14574,39 @@ function curriculumResourceHasFile(resource) {
   return Boolean(curriculumResourceFileHref(resource));
 }
 
+function rememberDeletedAdminCurriculumLessonId(id) {
+  const key = String(id || "").trim();
+  if (key) deletedAdminCurriculumLessonIds.add(key);
+  return key;
+}
+
+function omitDeletedAdminCurriculumLessons(curriculum) {
+  if (!curriculum || typeof curriculum !== "object" || !deletedAdminCurriculumLessonIds.size) {
+    return curriculum;
+  }
+  const lessonPlans = Array.isArray(curriculum.lessonPlans)
+    ? curriculum.lessonPlans.filter((plan) => !deletedAdminCurriculumLessonIds.has(String(plan?.id || "").trim()))
+    : curriculum.lessonPlans;
+  const activities = Array.isArray(curriculum.activities)
+    ? curriculum.activities.filter((act) => !deletedAdminCurriculumLessonIds.has(String(act?.lessonPlanId || "").trim()))
+    : curriculum.activities;
+  if (lessonPlans === curriculum.lessonPlans && activities === curriculum.activities) return curriculum;
+  return { ...curriculum, lessonPlans, activities };
+}
+
+function dropDeletedAdminCurriculumLessonFromLocalStore(id) {
+  const key = rememberDeletedAdminCurriculumLessonId(id);
+  if (!key || typeof applyCurriculumState !== "function") return key;
+  applyCurriculumState(omitDeletedAdminCurriculumLessons(effectiveCurriculum()), {
+    siteContentUpdatedAt: typeof curriculumExpectedUpdatedAt === "function" ? curriculumExpectedUpdatedAt() : "",
+  });
+  return key;
+}
+
 function applyCurriculumState(curriculum, { siteContentUpdatedAt } = {}) {
   const next = {
     ...effectiveSiteContent(),
-    curriculum: curriculum || effectiveCurriculum(),
+    curriculum: omitDeletedAdminCurriculumLessons(curriculum || effectiveCurriculum()),
     ...(siteContentUpdatedAt ? { updatedAt: siteContentUpdatedAt } : {}),
   };
   // Drop stale public-library cache so user-facing views derive from the saved curriculum.
