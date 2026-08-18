@@ -13,6 +13,7 @@ const { spawn } = require("node:child_process");
 const { parseFullLessonStructurePaste } = require("./curriculum-lesson-structure-paste.js");
 const weekKit = require("./curriculum-week-kit-paste.js");
 const { largeNameBlockMasterPaste } = require("./test-master-lesson-activity-import-parser.js");
+const { unlockAdminInBrowser } = require("./lib/admin-browser-unlock.js");
 
 const ROOT = path.join(__dirname, "..");
 const PORT = 20610 + Math.floor(Math.random() * 80);
@@ -402,15 +403,7 @@ async function runServerTests() {
       await page.addInitScript(() => {
         try { localStorage.setItem("llhMetaCookieNoticeDismissed", "1"); } catch { /* ignore */ }
       });
-      await page.goto(`${BASE}/`, { waitUntil: "domcontentloaded", timeout: 60000 });
-      await page.waitForFunction(() => typeof setView === "function", null, { timeout: 45000 });
-      await page.evaluate(() => setView("admin"));
-      await page.waitForSelector("#adminUnlockForm", { timeout: 20000 });
-      await page.fill('input[name="adminEmail"]', ADMIN.email);
-      await page.fill('input[name="adminPassword"]', ADMIN.password);
-      await page.fill('input[name="adminCode"]', ADMIN.code);
-      await page.click("#adminUnlockForm button[type='submit']");
-      await page.waitForSelector("#adminProtectedContent:not([hidden])", { timeout: 20000 });
+      await unlockAdminInBrowser(page, BASE, ADMIN);
       await page.evaluate(() => {
         if (typeof setAdminSectionTab === "function") setAdminSectionTab("curriculum-lesson-plans");
       });
