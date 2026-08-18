@@ -9,9 +9,12 @@
  *
  * Usage:
  *   node scripts/replace-tummy-time-with-tiny-artist-studio.js --validate-only
+ *   node scripts/replace-tummy-time-with-tiny-artist-studio.js --images-only
  *   node scripts/replace-tummy-time-with-tiny-artist-studio.js --store=/path/to/launch-store.json
  *   SITE_URL=… ADMIN_EMAIL=… ADMIN_PASSWORD=… ADMIN_ACCESS_CODE=… \
  *     node scripts/replace-tummy-time-with-tiny-artist-studio.js --remote
+ *   SITE_URL=… ADMIN_EMAIL=… ADMIN_PASSWORD=… ADMIN_ACCESS_CODE=… \
+ *     node scripts/replace-tummy-time-with-tiny-artist-studio.js --images-only --remote
  */
 "use strict";
 
@@ -46,6 +49,22 @@ const DAY_THEMES = {
   thursday: "Baby Makes a Mark",
   friday: "My First Masterpiece",
 };
+
+const IMAGE_DIR_REL = "images/teaching-kit-drafts/tiny-artist-studio";
+const IMAGE_URL_BASE = `/${IMAGE_DIR_REL}`;
+const COVER_FILENAME = "tiny-artist-studio-cover.png";
+const COVER_IMAGE_URL = `${IMAGE_URL_BASE}/${COVER_FILENAME}`;
+
+/** @type {Readonly<Record<string, string>>} */
+const ACTIVITY_EXAMPLE_IMAGE_FILES = Object.freeze({
+  "Love Grows Here Handprint Flower": "love-grows-here.png",
+  "You Make My Heart Flutter Footprint Butterfly": "you-make-my-heart-flutter.png",
+  "Watch Me Grow Footprint Flower": "watch-me-grow.png",
+  "Our Little Busy Bee Footprint": "our-little-busy-bee.png",
+  "Our Little Sunshine Handprint Art": "our-little-sunshine.png",
+  "Little Feet Leave Big Impressions": "little-feet-leave-big-impressions.png",
+  "Baby Artist Photo and Artwork": "my-first-masterpiece.png",
+});
 
 require(path.join(ROOT, "scripts/curriculum-week-kit-paste.js"));
 require(path.join(ROOT, "scripts/teaching-kit-paste-import.js"));
@@ -236,6 +255,144 @@ function activityTitlesByDay(dailyPlans) {
   return out;
 }
 
+function imageDiskPath(filename) {
+  return path.join(ROOT, IMAGE_DIR_REL, filename);
+}
+
+function imagePublicUrl(filename) {
+  return `${IMAGE_URL_BASE}/${filename}`;
+}
+
+function verifyTinyArtistStudioImageFiles() {
+  const required = [COVER_FILENAME, ...Object.values(ACTIVITY_EXAMPLE_IMAGE_FILES)];
+  const unique = [...new Set(required)];
+  const missing = unique.filter((filename) => !fs.existsSync(imageDiskPath(filename)));
+  if (missing.length) {
+    throw new Error(`Missing Tiny Artist Studio image file(s): ${missing.join(", ")}`);
+  }
+  const activityFiles = Object.values(ACTIVITY_EXAMPLE_IMAGE_FILES);
+  if (activityFiles.includes(COVER_FILENAME)) {
+    throw new Error("Cover file must not be assigned as an activity example image");
+  }
+  return unique;
+}
+
+/**
+ * @param {object | null | undefined} plan
+ * @returns {Map<string, {exampleImageUrl: string, setupImageUrl: string, exampleMediaAssetId: string, setupMediaAssetId: string}>}
+ */
+function collectActivityImageState(plan) {
+  /** @type {Map<string, {exampleImageUrl: string, setupImageUrl: string, exampleMediaAssetId: string, setupMediaAssetId: string}>} */
+  const byTitle = new Map();
+  const remember = (title, rec) => {
+    const key = text(title);
+    if (!key || !rec || typeof rec !== "object") return;
+    const prev = byTitle.get(key) || {
+      exampleImageUrl: "",
+      setupImageUrl: "",
+      exampleMediaAssetId: "",
+      setupMediaAssetId: "",
+    };
+    byTitle.set(key, {
+      exampleImageUrl: text(rec.exampleImageUrl) || prev.exampleImageUrl,
+      setupImageUrl: text(rec.setupImageUrl) || prev.setupImageUrl,
+      exampleMediaAssetId: text(rec.exampleMediaAssetId) || prev.exampleMediaAssetId,
+      setupMediaAssetId: text(rec.setupMediaAssetId) || prev.setupMediaAssetId,
+    });
+  };
+  WEEKDAYS.forEach((day) => {
+    (plan?.dailyPlans?.[day]?.items || []).forEach((item) => remember(item.title, item));
+  });
+  Object.values(plan?.enrichmentDraft?.activities || {}).forEach((act) => remember(act?.title, act));
+  Object.values(plan?.enrichmentPublished?.activities || {}).forEach((act) => remember(act?.title, act));
+  return byTitle;
+}
+
+function copyImageStateOnto(rec, state) {
+  if (!rec || typeof rec !== "object" || !state) return;
+  if (state.exampleImageUrl) rec.exampleImageUrl = state.exampleImageUrl;
+  if (state.setupImageUrl) rec.setupImageUrl = state.setupImageUrl;
+  if (state.exampleMediaAssetId) rec.exampleMediaAssetId = state.exampleMediaAssetId;
+  if (state.setupMediaAssetId) rec.setupMediaAssetId = state.setupMediaAssetId;
+}
+
+function preserveExistingActivityImages(existing, next) {
+  const byTitle = collectActivityImageState(existing);
+  WEEKDAYS.forEach((day) => {
+    (next?.dailyPlans?.[day]?.items || []).forEach((item) => {
+      copyImageStateOnto(item, byTitle.get(text(item.title)));
+    });
+  });
+  Object.values(next?.enrichmentDraft?.activities || {}).forEach((act) => {
+    copyImageStateOnto(act, byTitle.get(text(act?.title)));
+  });
+  Object.values(next?.enrichmentPublished?.activities || {}).forEach((act) => {
+    copyImageStateOnto(act, byTitle.get(text(act?.title)));
+  });
+}
+
+function listPlanActivities(plan) {
+  /** @type {Array<{title: string, day: string, exampleImageUrl: string, setupImageUrl: string}>} */
+  const rows = [];
+  WEEKDAYS.forEach((day) => {
+    (plan?.dailyPlans?.[day]?.items || []).forEach((item) => {
+      rows.push({
+        title: text(item.title),
+        day,
+        exampleImageUrl: text(item.exampleImageUrl),
+        setupImageUrl: text(item.setupImageUrl),
+      });
+    });
+  });
+  return rows;
+}
+
+/**
+ * Cover + mapped activity example images only. Does not create activities or printables.
+ * @param {object} plan
+ */
+function assignTinyArtistStudioImages(plan) {
+  verifyTinyArtistStudioImageFiles();
+  const previousCover = text(plan.coverImageUrl);
+  plan.coverImageUrl = COVER_IMAGE_URL;
+  plan.coverSource = plan.coverSource || "uploaded";
+  plan.coverQualityStatus = plan.coverQualityStatus || "good";
+
+  /** @type {Array<{title: string, location: string, file: string, url: string, previous: string}>} */
+  const replaced = [];
+  const applyMappedExample = (rec, title, location) => {
+    if (!rec || typeof rec !== "object") return;
+    const file = ACTIVITY_EXAMPLE_IMAGE_FILES[title];
+    if (!file) return;
+    if (file === COVER_FILENAME) {
+      throw new Error(`Refusing to assign cover file to activity "${title}"`);
+    }
+    const url = imagePublicUrl(file);
+    const previous = text(rec.exampleImageUrl) || "(none)";
+    rec.exampleImageUrl = url;
+    replaced.push({ title, location, file, url, previous });
+  };
+
+  WEEKDAYS.forEach((day) => {
+    (plan?.dailyPlans?.[day]?.items || []).forEach((item) => {
+      applyMappedExample(item, text(item.title), `dailyPlans.${day}`);
+    });
+  });
+  Object.entries(plan?.enrichmentDraft?.activities || {}).forEach(([key, act]) => {
+    applyMappedExample(act, text(act?.title), `enrichmentDraft.activities.${key}`);
+  });
+  Object.entries(plan?.enrichmentPublished?.activities || {}).forEach(([key, act]) => {
+    applyMappedExample(act, text(act?.title), `enrichmentPublished.activities.${key}`);
+  });
+
+  return {
+    coverAssigned: COVER_IMAGE_URL,
+    previousCover: previousCover || "(none)",
+    replaced,
+    activities: listPlanActivities(plan),
+  };
+}
+
 function validateParsed(parsed) {
   const errors = [];
   if (!parsed.ok) errors.push(...(parsed.errors || ["parse failed"]));
@@ -339,9 +496,8 @@ function mergeOntoExisting(existing, parsed) {
     },
   };
 
-  // Preserve entitlement / identity / linked resources / covers. Replace lesson content only.
-  const coverImageUrl = "/images/lesson-covers/tiny-artist-studio.jpg";
-  return {
+  // Preserve entitlement / identity / linked resources. Replace lesson content only.
+  const merged = {
     ...existing,
     id: LESSON_ID,
     title: NEW_TITLE,
@@ -359,7 +515,7 @@ function mergeOntoExisting(existing, parsed) {
     createdAt: existing.createdAt || now,
     publishedAt: existing.publishedAt || existing.createdAt || now,
     updatedAt: now,
-    coverImageUrl,
+    coverImageUrl: COVER_IMAGE_URL,
     coverImageAlt: "Tiny Artist Studio infant handprint and footprint butterfly artwork",
     coverImagePosition: existing.coverImagePosition || "center",
     coverQualityStatus: "good",
@@ -385,6 +541,9 @@ function mergeOntoExisting(existing, parsed) {
     // Keep any previously published enrichment metadata keys as-is on the plan object,
     // but customer-facing dailyPlans content is fully replaced above.
   };
+  preserveExistingActivityImages(existing, merged);
+  assignTinyArtistStudioImages(merged);
+  return merged;
 }
 
 function mapToApprovedCategory(raw) {
@@ -550,6 +709,8 @@ function snapshotLesson(plan, curriculum) {
     activityTitles: WEEKDAYS.flatMap((day) => byDay[day]),
     resourceIds: linked,
     resourceTitles,
+    coverImageUrl: plan?.coverImageUrl || "",
+    activityImages: listPlanActivities(plan),
     enrichmentDraftPrintableIdeaCount: Array.isArray(plan?.enrichmentDraft?.week?.printableIdeas)
       ? plan.enrichmentDraft.week.printableIdeas.length
       : 0,
@@ -613,6 +774,8 @@ function applyToStore(storePath, parsed) {
         teacherTips: Array.isArray(item.teacherTips) ? item.teacherTips.slice() : [],
         imageRequirement: item.imageRequirement || "",
         imageBriefSetup: item.imageBriefSetup || "",
+        setupImageUrl: item.setupImageUrl || "",
+        exampleImageUrl: item.exampleImageUrl || "",
         status: merged.status || "published",
         plan: merged.plan || "Free",
         age: merged.age || "",
@@ -690,6 +853,141 @@ async function applyRemote(parsed) {
     || save.json.lessonPlan;
   const after = snapshotLesson(afterPlan, afterCurriculum);
   return { before, after, mode: "remote", baseUrl };
+}
+
+function findLessonIndex(lessonPlans) {
+  let idx = lessonPlans.findIndex((plan) => plan.id === LESSON_ID);
+  if (idx < 0) {
+    idx = lessonPlans.findIndex(
+      (plan) => text(plan.title).toLowerCase() === NEW_TITLE.toLowerCase(),
+    );
+  }
+  if (idx < 0) {
+    idx = lessonPlans.findIndex(
+      (plan) => text(plan.title).toLowerCase() === OLD_TITLE.toLowerCase(),
+    );
+  }
+  return idx;
+}
+
+function identityGuard(before, after) {
+  if (before.id !== after.id) throw new Error("Lesson ID changed");
+  if (before.title !== after.title) throw new Error("Lesson title changed");
+  if (before.plan !== after.plan) throw new Error("Free/Pro plan changed");
+  if (before.status !== after.status) throw new Error("Publication status changed");
+  if (JSON.stringify(before.resourceIds) !== JSON.stringify(after.resourceIds)) {
+    throw new Error("Linked Resources / resourceIds changed");
+  }
+  if (JSON.stringify(before.activityTitles) !== JSON.stringify(after.activityTitles)) {
+    throw new Error("Activity titles changed");
+  }
+}
+
+function applyImagesToCurriculumActivities(curriculum, plan) {
+  const byTitle = collectActivityImageState(plan);
+  (curriculum.activities || []).forEach((act) => {
+    if (!act || act.lessonPlanId !== LESSON_ID) return;
+    const state = byTitle.get(text(act.title));
+    copyImageStateOnto(act, state);
+    const file = ACTIVITY_EXAMPLE_IMAGE_FILES[text(act.title)];
+    if (file) act.exampleImageUrl = imagePublicUrl(file);
+  });
+}
+
+function applyImagesOnlyToStore(storePath) {
+  verifyTinyArtistStudioImageFiles();
+  const store = JSON.parse(fs.readFileSync(storePath, "utf8"));
+  if (!store.siteContent?.curriculum) throw new Error("Store has no curriculum");
+  const curriculum = store.siteContent.curriculum;
+  curriculum.lessonPlans = Array.isArray(curriculum.lessonPlans) ? curriculum.lessonPlans : [];
+  curriculum.activities = Array.isArray(curriculum.activities) ? curriculum.activities : [];
+  curriculum.resources = Array.isArray(curriculum.resources) ? curriculum.resources : [];
+
+  const resourcesBefore = JSON.stringify(curriculum.resources);
+  const otherPlansBefore = curriculum.lessonPlans
+    .filter((plan) => plan.id !== LESSON_ID)
+    .map((plan) => ({ id: plan.id, title: plan.title, updatedAt: plan.updatedAt }));
+
+  const idx = findLessonIndex(curriculum.lessonPlans);
+  if (idx < 0) throw new Error(`Lesson ${LESSON_ID} / "${NEW_TITLE}" not found in store`);
+
+  const before = snapshotLesson(curriculum.lessonPlans[idx], curriculum);
+  const merged = JSON.parse(JSON.stringify(curriculum.lessonPlans[idx]));
+  const imageReport = assignTinyArtistStudioImages(merged);
+  merged.updatedAt = new Date().toISOString();
+  curriculum.lessonPlans[idx] = merged;
+  applyImagesToCurriculumActivities(curriculum, merged);
+
+  const after = snapshotLesson(merged, curriculum);
+  identityGuard(before, after);
+  if (JSON.stringify(curriculum.resources) !== resourcesBefore) {
+    throw new Error("Resources changed unexpectedly — aborting write");
+  }
+  const otherPlansAfter = curriculum.lessonPlans
+    .filter((plan) => plan.id !== LESSON_ID)
+    .map((plan) => ({ id: plan.id, title: plan.title, updatedAt: plan.updatedAt }));
+  if (JSON.stringify(otherPlansBefore) !== JSON.stringify(otherPlansAfter)) {
+    throw new Error("Another lesson changed unexpectedly — aborting write");
+  }
+
+  store.siteContent.updatedAt = merged.updatedAt;
+  curriculum.updatedAt = merged.updatedAt;
+  fs.writeFileSync(storePath, `${JSON.stringify(store, null, 2)}\n`);
+  return { before, after, storePath, imageReport, mode: "store-images-only" };
+}
+
+async function applyImagesOnlyRemote() {
+  verifyTinyArtistStudioImageFiles();
+  const baseUrl = text(process.env.SITE_URL || process.env.LLH_PROD_URL);
+  const email = text(process.env.ADMIN_EMAIL);
+  const password = text(process.env.ADMIN_PASSWORD);
+  const code = text(process.env.ADMIN_ACCESS_CODE);
+  if (!baseUrl || !email || !password || !code) {
+    throw new Error("Remote apply requires SITE_URL, ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_ACCESS_CODE");
+  }
+  const login = await requestJson(baseUrl, "POST", "/api/admin/session", {
+    email,
+    password,
+    code,
+  });
+  if (login.status !== 200 || !login.json?.token) {
+    throw new Error(`Admin login failed: ${login.status} ${login.text.slice(0, 200)}`);
+  }
+  const token = login.json.token;
+  const site = await requestJson(baseUrl, "POST", "/api/admin/site-content", { adminToken: token });
+  if (site.status !== 200) {
+    throw new Error(`site-content load failed: ${site.status}`);
+  }
+  const curriculum = site.json.curriculum || site.json.siteContent?.curriculum;
+  const expectedUpdatedAt = site.json.updatedAt || site.json.siteContentUpdatedAt || "";
+  const existing = (curriculum?.lessonPlans || []).find((plan) => plan.id === LESSON_ID);
+  if (!existing) throw new Error(`Remote lesson ${LESSON_ID} not found`);
+  const resourcesBefore = JSON.stringify(curriculum.resources || []);
+  const before = snapshotLesson(existing, curriculum);
+  const merged = JSON.parse(JSON.stringify(existing));
+  const imageReport = assignTinyArtistStudioImages(merged);
+  merged.updatedAt = new Date().toISOString();
+  identityGuard(before, snapshotLesson(merged, curriculum));
+  if (JSON.stringify(merged.resourceIds || []) !== JSON.stringify(existing.resourceIds || [])) {
+    throw new Error("Refusing to change resourceIds");
+  }
+  const save = await requestJson(baseUrl, "POST", "/api/admin/curriculum/lesson-plans", {
+    adminToken: token,
+    expectedUpdatedAt,
+    lessonPlan: merged,
+  });
+  if (save.status !== 200) {
+    throw new Error(`Save failed: ${save.status} ${save.text.slice(0, 400)}`);
+  }
+  const afterCurriculum = save.json.curriculum || curriculum;
+  if (JSON.stringify(afterCurriculum.resources || []) !== resourcesBefore) {
+    throw new Error("Remote resources changed unexpectedly");
+  }
+  const afterPlan = (afterCurriculum.lessonPlans || []).find((plan) => plan.id === LESSON_ID)
+    || save.json.lessonPlan;
+  const after = snapshotLesson(afterPlan, afterCurriculum);
+  identityGuard(before, after);
+  return { before, after, imageReport, mode: "remote-images-only", baseUrl };
 }
 
 function writeImportSources(parsed, validation) {
@@ -807,6 +1105,60 @@ async function main() {
     process.exit(1);
   }
 
+  const mappedMissing = Object.keys(ACTIVITY_EXAMPLE_IMAGE_FILES).filter(
+    (title) => !validation.allTitles.includes(title),
+  );
+  if (mappedMissing.length) {
+    throw new Error(`Mapped activity title(s) not in lesson: ${mappedMissing.join(", ")}`);
+  }
+
+  const verifiedFiles = verifyTinyArtistStudioImageFiles();
+
+  if (hasFlag("--images-only")) {
+    const report = {
+      lessonId: LESSON_ID,
+      mode: "images-only",
+      verifiedFiles,
+      coverAssigned: COVER_IMAGE_URL,
+      mappedExampleImages: ACTIVITY_EXAMPLE_IMAGE_FILES,
+      printablesOrResourcesChanged: false,
+      otherLessonsChanged: false,
+      lessonTextChanged: false,
+      activityTextChanged: false,
+      freeProChanged: false,
+    };
+    if (hasFlag("--validate-only")) {
+      fs.mkdirSync(path.dirname(REPORT_PATH), { recursive: true });
+      fs.writeFileSync(REPORT_PATH, `${JSON.stringify(report, null, 2)}\n`);
+      console.log(JSON.stringify(report, null, 2));
+      return;
+    }
+    const applied = hasFlag("--remote")
+      ? await applyImagesOnlyRemote()
+      : await (async () => {
+        let storePath = argValue("--store");
+        if (!storePath) storePath = await ensureLocalSeededStore();
+        return applyImagesOnlyToStore(storePath);
+      })();
+    Object.assign(report, {
+      mode: applied.mode,
+      storePath: applied.storePath || "",
+      planBefore: applied.before.plan,
+      planAfter: applied.after.plan,
+      statusBefore: applied.before.status,
+      statusAfter: applied.after.status,
+      coverBefore: applied.before.coverImageUrl,
+      coverAfter: applied.after.coverImageUrl,
+      imageReport: applied.imageReport,
+      before: applied.before,
+      after: applied.after,
+    });
+    fs.mkdirSync(path.dirname(REPORT_PATH), { recursive: true });
+    fs.writeFileSync(REPORT_PATH, `${JSON.stringify(report, null, 2)}\n`);
+    console.log(JSON.stringify(report, null, 2));
+    return;
+  }
+
   const importWrite = writeImportSources(parsed, validation);
   const blueprintsPath = patchBlueprints(validation);
 
@@ -828,6 +1180,8 @@ async function main() {
     importWrite,
     blueprintsPath,
     validation,
+    coverAssigned: COVER_IMAGE_URL,
+    verifiedFiles,
   };
 
   if (hasFlag("--validate-only")) {
@@ -844,6 +1198,8 @@ async function main() {
       planAfter: remote.after.plan,
       statusBefore: remote.before.status,
       statusAfter: remote.after.status,
+      coverBefore: remote.before.coverImageUrl,
+      coverAfter: remote.after.coverImageUrl,
       before: remote.before,
       after: remote.after,
       printablesOrResourcesChanged: JSON.stringify(remote.before.resourceIds)
@@ -862,6 +1218,8 @@ async function main() {
       planAfter: local.after.plan,
       statusBefore: local.before.status,
       statusAfter: local.after.status,
+      coverBefore: local.before.coverImageUrl,
+      coverAfter: local.after.coverImageUrl,
       before: local.before,
       after: local.after,
       printablesOrResourcesChanged: JSON.stringify(local.before.resourceIds)
