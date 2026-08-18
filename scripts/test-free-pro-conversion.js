@@ -54,6 +54,18 @@ test("free starter library is exactly 10 plans (3/3/4)", () => {
     title: "Letters & Sounds",
     age: "Preschool",
   }), false);
+  assert.equal(freeSample.effectivePlanTier({
+    id: "cur-lp-preschool-letters-and-sounds",
+    title: "Letters & Sounds",
+    age: "Preschool",
+    plan: "Free",
+  }), "Free");
+  assert.equal(freeSample.effectivePlanTier({
+    id: "cur-lp-toddler-construction-crew",
+    title: "Construction Crew",
+    age: "Toddler",
+    plan: "Pro",
+  }), "Pro");
   assert.match(freeSample.MARKETING.freeCore, /10 complete starter lesson plans/);
   assert.match(freeSample.MARKETING.recommendationSummary, /exactly 10 complete starter/i);
 });
