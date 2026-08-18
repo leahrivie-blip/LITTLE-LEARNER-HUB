@@ -11,6 +11,8 @@ const os = require("node:os");
 const crypto = require("node:crypto");
 const { spawn } = require("node:child_process");
 const owner = require("./teaching-kit-owner-workspace.js");
+const safeValues = require("./curriculum-safe-values.js");
+const { buildBlankLessonPlan, buildCanonicalLessonPlan } = require("./curriculum-lesson-structure-paste.js");
 
 const ROOT = path.join(__dirname, "..");
 const PORT = 20710 + Math.floor(Math.random() * 80);
@@ -100,9 +102,33 @@ function assertUnitContract() {
 
   const noAge = owner.collectTruePublishBlockers(corePlan({ age: "" }), acts);
   assert.ok(noAge.some((item) => item.code === "missing_age"));
-  const badAge = owner.collectTruePublishBlockers(corePlan({ age: "???" }), acts);
+  assert.ok(noAge.some((item) => item.message === "Choose an age band"));
+  const badAge = owner.collectTruePublishBlockers(corePlan({ age: "not-an-age-band" }), acts);
   assert.ok(badAge.some((item) => item.code === "missing_age"));
-  console.log("PASS  6 missing/invalid age blocks publish");
+  assert.ok(badAge.some((item) => item.message === "Choose a valid age band"));
+  assert.equal(owner.collectTruePublishBlockers(corePlan({ age: "Toddler" }), acts).some((item) => item.code === "missing_age"), false);
+  assert.equal(owner.collectTruePublishBlockers(corePlan({ age: "Infant" }), acts).some((item) => item.code === "missing_age"), false);
+  assert.equal(owner.collectTruePublishBlockers(corePlan({ age: "Preschool" }), acts).some((item) => item.code === "missing_age"), false);
+  console.log("PASS  6 missing/invalid age blocks publish; valid Infant/Toddler/Preschool stay valid");
+
+  const emptyAgeOptions = safeValues.curriculumAgeSelectOptions("");
+  assert.equal(emptyAgeOptions[0].value, "");
+  assert.equal(emptyAgeOptions[0].selected, true);
+  assert.equal(emptyAgeOptions.some((opt) => opt.value === "Preschool" && opt.selected), false);
+  assert.equal(safeValues.curriculumAgeSelectOptions("Toddler").some((opt) => opt.value === "Toddler" && opt.selected), true);
+  assert.equal(safeValues.curriculumAgeSelectOptions("Infant").some((opt) => opt.value === "Infant" && opt.selected), true);
+  assert.equal(safeValues.curriculumAgeSelectOptions("Preschool").some((opt) => opt.value === "Preschool" && opt.selected), true);
+  const invalidAgeOptions = safeValues.curriculumAgeSelectOptions("not-an-age-band");
+  assert.equal(invalidAgeOptions.some((opt) => opt.value === "not-an-age-band" && opt.selected), true);
+  assert.equal(invalidAgeOptions.some((opt) => opt.value === "Preschool" && opt.selected), false);
+  assert.equal(buildBlankLessonPlan({ title: "New Lesson Plan" }).age, "");
+  assert.equal(buildCanonicalLessonPlan({
+    ok: true,
+    lesson: { title: "Paste Without Age", age: "", theme: "" },
+    dailyPlans: { monday: { items: [{ title: "One" }] }, tuesday: { items: [] }, wednesday: { items: [] }, thursday: { items: [] }, friday: { items: [] } },
+    resourceIds: [],
+  }).age, "");
+  console.log("PASS  empty age select/import/create do not inject Preschool");
 
   const noActs = owner.collectTruePublishBlockers(corePlan({
     dailyPlans: { monday: { items: [] }, tuesday: { items: [] }, wednesday: { items: [] }, thursday: { items: [] }, friday: { items: [] } },
@@ -146,6 +172,22 @@ function assertUnitContract() {
   );
   assert.match(appJs, /This permanently deletes this lesson plan and its lesson-owned activity records/);
   assert.match(appJs, /if \(!confirmed\) return \{ cancelled: true, ok: false \}/);
+  assert.match(appJs, /function publishAdminCurriculumLessonToLibrary/);
+  assert.match(editorJs, /Apply enrichment/);
+  assert.match(editorJs, /Publish lesson/);
+  assert.match(editorJs, /Cannot publish yet/);
+  assert.match(editorJs, /Quality notes/);
+  const ownerChrome = editorJs.slice(
+    editorJs.indexOf("data-owner-workspace-status"),
+    editorJs.indexOf("data-owner-workspace-status") + 1800,
+  );
+  assert.doesNotMatch(ownerChrome, /Library Blocked|Needs Changes/);
+  assert.equal(owner.ownerFacingQualityLabel(), "Quality notes");
+  const normalizer = serverJs.slice(
+    serverJs.indexOf("function normalizedCurriculumLessonPlan"),
+    serverJs.indexOf("function normalizedCurriculumLessonPlan") + 700,
+  );
+  assert.doesNotMatch(normalizer, /\|\|\s*"Preschool"/);
   assert.match(serverJs, /true_publish_blockers/);
   assert.match(serverJs, /ownerWorkspace/);
   console.log("PASS  11,14,15 preview label, no repeated field confirms, one lesson-delete confirm");
@@ -334,6 +376,85 @@ async function runPersistTests() {
     assert.doesNotMatch(publicBlob, /Create printables later/);
     assert.doesNotMatch(publicBlob, /ownerWorkspace/);
     console.log("PASS  2,11 owner-only notes stay out of public payload");
+
+    const emptyAge = await requestJson("POST", "/api/admin/curriculum/lesson-plans", {
+      expectedUpdatedAt: stamp,
+      lessonPlan: {
+        id: "cur-lp-owner-ws-empty-age",
+        title: "Empty Age Stays Empty",
+        age: "",
+        theme: "Vehicles",
+        status: "draft",
+        plan: "Pro",
+        dailyPlans: {
+          monday: { items: [{ itemId: "e1", title: "Paint Tracks" }] },
+          tuesday: { items: [{ itemId: "e2", title: "Box Bus" }] },
+          wednesday: { items: [] },
+          thursday: { items: [] },
+          friday: { items: [] },
+        },
+      },
+    }, token);
+    assert.equal(emptyAge.status, 200, emptyAge.text);
+    stamp = emptyAge.json.siteContentUpdatedAt;
+    assert.equal(emptyAge.json.lessonPlan.age, "", "empty age must not become Preschool on save");
+    const emptyAgeTheme = await requestJson("POST", "/api/admin/curriculum/lesson-plans", {
+      expectedUpdatedAt: stamp,
+      lessonPlan: {
+        ...emptyAge.json.lessonPlan,
+        theme: "Wheels and ramps",
+      },
+    }, token);
+    assert.equal(emptyAgeTheme.status, 200, emptyAgeTheme.text);
+    stamp = emptyAgeTheme.json.siteContentUpdatedAt;
+    assert.equal(emptyAgeTheme.json.lessonPlan.age, "", "saving unrelated fields must not mutate empty age");
+    assert.equal(emptyAgeTheme.json.lessonPlan.theme, "Wheels and ramps");
+    const emptyAgePublish = await requestJson("POST", "/api/admin/curriculum/lesson-plans", {
+      expectedUpdatedAt: stamp,
+      lessonPlan: {
+        ...emptyAgeTheme.json.lessonPlan,
+        status: "published",
+      },
+    }, token);
+    assert.equal(emptyAgePublish.status, 409, emptyAgePublish.text);
+    assert.equal(emptyAgePublish.json.code, "true_publish_blockers");
+    assert.ok((emptyAgePublish.json.blockers || []).some((item) => item.message === "Choose an age band"));
+    stamp = (await requestJson("GET", "/api/admin/site-content", null, token)).json.siteContent?.updatedAt || stamp;
+    console.log("PASS  empty age stays empty and blocks publishing");
+
+    for (const age of ["Toddler", "Infant", "Preschool"]) {
+      const savedAge = await requestJson("POST", "/api/admin/curriculum/lesson-plans", {
+        expectedUpdatedAt: stamp,
+        lessonPlan: {
+          id: `cur-lp-owner-ws-age-${age.toLowerCase()}`,
+          title: `${age} Stays ${age}`,
+          age,
+          status: "draft",
+          plan: "Pro",
+          dailyPlans: {
+            monday: { items: [{ itemId: `${age}-1`, title: "Paint Tracks" }] },
+            tuesday: { items: [{ itemId: `${age}-2`, title: "Box Bus" }] },
+            wednesday: { items: [] },
+            thursday: { items: [] },
+            friday: { items: [] },
+          },
+        },
+      }, token);
+      assert.equal(savedAge.status, 200, savedAge.text);
+      stamp = savedAge.json.siteContentUpdatedAt;
+      assert.equal(savedAge.json.lessonPlan.age, age, `${age} must remain ${age}`);
+      const themeOnly = await requestJson("POST", "/api/admin/curriculum/lesson-plans", {
+        expectedUpdatedAt: stamp,
+        lessonPlan: {
+          ...savedAge.json.lessonPlan,
+          theme: `${age} theme only`,
+        },
+      }, token);
+      assert.equal(themeOnly.status, 200, themeOnly.text);
+      stamp = themeOnly.json.siteContentUpdatedAt;
+      assert.equal(themeOnly.json.lessonPlan.age, age, `unrelated save must keep ${age}`);
+    }
+    console.log("PASS  valid Toddler/Infant/Preschool ages persist unchanged");
   } finally {
     try { child.kill("SIGTERM"); } catch { /* ignore */ }
     try { fs.unlinkSync(STORE_PATH); } catch { /* ignore */ }

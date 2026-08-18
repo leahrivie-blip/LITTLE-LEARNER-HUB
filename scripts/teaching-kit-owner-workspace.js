@@ -71,8 +71,11 @@
     if (!title || /^untitled(\s+lesson(\s+plan)?)?$/i.test(title)) {
       blockers.push({ code: "missing_title", message: "Add lesson title" });
     }
-    if (!isValidAgeBand(plan?.age)) {
-      blockers.push({ code: "missing_age", message: "Fix age band" });
+    const ageRaw = text(plan?.age);
+    if (!ageRaw) {
+      blockers.push({ code: "missing_age", message: "Choose an age band" });
+    } else if (!isValidAgeBand(ageRaw)) {
+      blockers.push({ code: "missing_age", message: "Choose a valid age band" });
     }
     if (!usableActivities(plan, activities).length) {
       blockers.push({ code: "no_activities", message: "Add at least one valid activity" });
@@ -260,6 +263,20 @@
     ));
   }
 
+  function ownerFacingQualityLabel() {
+    return "Quality notes";
+  }
+
+  function ownerFacingQualityHeading() {
+    return "Optional improvements";
+  }
+
+  function ownerFacingLibraryHealthStatus(value) {
+    const raw = text(value);
+    if (!raw || /blocked|needs changes|library blocked/i.test(raw)) return "Quality notes";
+    return raw;
+  }
+
   function activityOptionalCues(activity, draftActivity) {
     const d = draftActivity && typeof draftActivity === "object" ? draftActivity : {};
     const cues = [];
@@ -295,5 +312,8 @@
     publishedLinkedResources,
     linkedPublishedPrintables,
     activityOptionalCues,
+    ownerFacingQualityLabel,
+    ownerFacingQualityHeading,
+    ownerFacingLibraryHealthStatus,
   };
 });

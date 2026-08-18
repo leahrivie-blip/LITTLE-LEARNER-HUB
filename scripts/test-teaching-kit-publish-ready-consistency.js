@@ -685,7 +685,7 @@ async function browserProof(ownerToken) {
     ok(/Ready to publish/i.test(result.workspaceStatus), `owner chrome Ready to publish (got ${result.workspaceStatus})`);
     ok(/title|weekday|activit/i.test(result.coreLine), `core lesson line present (got ${result.coreLine})`);
     ok(result.canPublishAttr === "true", "draft printables do not set data-can-publish=false");
-    ok(/^Publish$/i.test(result.publishBtnText), `Publish button stays simple (got ${result.publishBtnText})`);
+    ok(/^Apply enrichment$/i.test(result.publishBtnText), `Apply enrichment stays distinct from Publish lesson (got ${result.publishBtnText})`);
     ok(result.blockerLis.length === 0, "publish dialog lists no true blockers for a valid core lesson");
     ok(/Ready to publish/i.test(result.readiness), `publish readiness Ready to publish (got ${result.readiness})`);
 

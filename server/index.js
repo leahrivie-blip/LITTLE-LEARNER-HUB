@@ -2127,7 +2127,7 @@ function normalizedCurriculumLessonPlan(value) {
   const normalized = {
     id,
     title: normalizedShortText(entry.title, 180) || "Untitled Lesson Plan",
-    age: normalizedShortText(entry.age, 40) || "Preschool",
+    age: normalizedShortText(entry.age, 40),
     theme: normalizedShortText(entry.theme, 120),
     plan: plan === "Pro" ? "Pro" : "Free",
     status: CURRICULUM_LESSON_STATUSES.has(status) ? status : "draft",
@@ -23017,6 +23017,23 @@ async function handleAdminCurriculumLessonPlanSave(request, response) {
       updatedAt: now,
       publishedAt,
     });
+
+    if (willBePublic) {
+      let ownerWorkspaceApi = null;
+      try { ownerWorkspaceApi = require("../scripts/teaching-kit-owner-workspace.js"); } catch (_error) { ownerWorkspaceApi = null; }
+      const storeActsForGate = (existingCurriculum.activities || []).filter((item) => item.lessonPlanId === id);
+      const trueBlockers = ownerWorkspaceApi?.collectTruePublishBlockers
+        ? ownerWorkspaceApi.collectTruePublishBlockers(planInput, storeActsForGate)
+        : [];
+      if (trueBlockers.length) {
+        jsonResponse(response, 409, {
+          error: trueBlockers.map((item) => item.message).join(". "),
+          code: "true_publish_blockers",
+          blockers: trueBlockers,
+        });
+        return;
+      }
+    }
 
     // Published/featured plans must keep activities on every weekday so the
     // lesson viewer never shows "No activities scheduled." after a save.

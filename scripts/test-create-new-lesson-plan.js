@@ -243,6 +243,7 @@ function runParserTests() {
   assert.ok(unsupported.lesson.rejectedMilestones.includes("Quantum physics"));
   const blank = buildBlankLessonPlan({ title: "New Lesson Plan" });
   assert.equal(blank.status, "draft");
+  assert.equal(blank.age, "");
   assert.equal(blank.dailyPlans.monday.items.length, 0);
   const dup = findDuplicateLessonTitle("Baby Moves & Discovers", [{ id: "cur-lp-existing", title: "baby moves & discovers" }]);
   assert.equal(dup.id, "cur-lp-existing");
@@ -927,6 +928,7 @@ async function runServerTests() {
     const blankSaved = blank.json.lessonPlan;
     assert.match(blankSaved.id, /^cur-lp-[a-f0-9]+$/);
     assert.equal(blankSaved.status, "draft");
+    assert.equal(blankSaved.age, "");
     assert.notEqual(blankSaved.id, existingId);
     stamp = blank.json.siteContentUpdatedAt;
     console.log("PASS  1-3  blank create: unique cur-lp id, draft-only");

@@ -187,13 +187,20 @@ function normalizeCurriculumLessonPlanForRender(plan = {}) {
 }
 
 function curriculumAgeSelectOptions(selectedAge = "") {
-  const age = curriculumAsString(selectedAge) || "Preschool";
+  const age = curriculumAsString(selectedAge);
   const base = ["Infant", "Toddler", "Preschool"];
-  const options = base.includes(age) ? base : [...base, age];
-  return options.map((option) => ({
-    value: option,
-    selected: option === age,
-  }));
+  const options = [{ value: "", label: "Choose an age band", selected: !age }];
+  if (age && !base.includes(age)) {
+    options.push({ value: age, label: age, selected: true });
+  }
+  base.forEach((option) => {
+    options.push({
+      value: option,
+      label: option,
+      selected: option === age,
+    });
+  });
+  return options;
 }
 
 const api = {

@@ -566,7 +566,7 @@ async function main() {
     assert(ui.improveBtn && ui.ignoreBtn, "improve/ignore actions");
     assert(/Ready to publish/i.test(ui.readiness), `owner publish state Ready to publish (got ${ui.readiness})`);
     assert(!ui.overrideUi, "optional quality gaps do not require owner override");
-    assert(/^Publish$/i.test(ui.confirmLabel), `confirm is a single Publish action (got ${ui.confirmLabel})`);
+    assert(/^Apply enrichment$/i.test(ui.confirmLabel), `confirm is Apply enrichment (got ${ui.confirmLabel})`);
     assert(ui.features.aiQualityReview === true, "slice feature");
 
     await page.screenshot({

@@ -9344,10 +9344,20 @@ function normalizeCurriculumLessonPlanForRender(plan) {
 function curriculumAgeSelectOptions(selectedAge = "") {
   const api = curriculumSafeValuesApi();
   if (api) return api.curriculumAgeSelectOptions(selectedAge);
-  const age = curriculumAsString(selectedAge) || "Preschool";
+  const age = curriculumAsString(selectedAge);
   const base = ["Infant", "Toddler", "Preschool"];
-  const options = base.includes(age) ? base : [...base, age];
-  return options.map((option) => ({ value: option, selected: option === age }));
+  const options = [{ value: "", label: "Choose an age band", selected: !age }];
+  if (age && !base.includes(age)) {
+    options.push({ value: age, label: age, selected: true });
+  }
+  base.forEach((option) => {
+    options.push({
+      value: option,
+      label: option,
+      selected: option === age,
+    });
+  });
+  return options;
 }
 
 function resolvePublishedCurriculumActivityId(lessonPlanId, item) {
@@ -10552,6 +10562,69 @@ async function deleteAdminCurriculumLessonPlan(planId) {
   }
 }
 
+async function publishAdminCurriculumLessonToLibrary(planId) {
+  if (typeof isAdminUnlocked === "function" && !isAdminUnlocked()) {
+    if (typeof showActionFeedback === "function") {
+      showActionFeedback("Admin access is required to publish a lesson.");
+    }
+    return { ok: false, code: "unauthorized" };
+  }
+  const id = String(planId || adminCurriculumLessonEditorId || "").trim();
+  const record = typeof curriculumLessonPlanById === "function" ? curriculumLessonPlanById(id) : null;
+  if (!record?.id) {
+    if (typeof showActionFeedback === "function") showActionFeedback("Lesson plan not found.");
+    return { ok: false, code: "lesson_not_found" };
+  }
+  const ownerApi = window.LLHTeachingKitOwnerWorkspace;
+  const activities = typeof curriculumActivitiesForLesson === "function"
+    ? curriculumActivitiesForLesson(record.id)
+    : [];
+  const blockers = ownerApi?.collectTruePublishBlockers
+    ? ownerApi.collectTruePublishBlockers(record, activities)
+    : [];
+  if (blockers.length) {
+    const msg = `Cannot publish yet: ${blockers.map((item) => item.message).join("; ")}`;
+    if (typeof showActionFeedback === "function") showActionFeedback(msg);
+    if (typeof setAdminCurriculumLessonSaveBanner === "function") {
+      setAdminCurriculumLessonSaveBanner(msg, false);
+    }
+    return { ok: false, code: "true_publish_blockers", blockers };
+  }
+  const token = adminSession()?.token || "";
+  if (!curriculumLessonPlanConfig.endpoint || !canUseLaunchBackend() || !token) {
+    if (typeof showActionFeedback === "function") {
+      showActionFeedback("Backend server and admin login are required.");
+    }
+    return { ok: false, code: "backend_required" };
+  }
+  const response = await fetch(curriculumLessonPlanConfig.endpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({
+      expectedUpdatedAt: typeof curriculumExpectedUpdatedAt === "function" ? curriculumExpectedUpdatedAt() : "",
+      lessonPlan: { ...record, status: "published" },
+    }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const msg = data.error || `Publish lesson failed (${response.status})`;
+    if (typeof showActionFeedback === "function") showActionFeedback(msg);
+    if (typeof setAdminCurriculumLessonSaveBanner === "function") {
+      setAdminCurriculumLessonSaveBanner(msg, false);
+    }
+    return { ok: false, code: data.code || "server_failure", status: response.status, blockers: data.blockers };
+  }
+  if (data.curriculum && typeof applyCurriculumState === "function") {
+    applyCurriculumState(data.curriculum, { siteContentUpdatedAt: data.siteContentUpdatedAt });
+  }
+  const success = `Published lesson “${data.lessonPlan?.title || record.title}”. Visible to users.`;
+  if (typeof setAdminCurriculumLessonSaveBanner === "function") {
+    setAdminCurriculumLessonSaveBanner(success, true);
+  }
+  if (typeof showActionFeedback === "function") showActionFeedback(success);
+  return { ok: true, lessonPlan: data.lessonPlan };
+}
+
 async function startBlankAdminCurriculumLessonPlan() {
   const api = curriculumLessonStructurePasteApi();
   if (!api) throw new Error("Lesson structure helper did not load.");
@@ -10563,7 +10636,7 @@ async function startBlankAdminCurriculumLessonPlan() {
     if (api.findDuplicateLessonTitle(title, existing)) {
       title = `New Lesson Plan ${Date.now().toString(16).slice(-4)}`;
     }
-    const lessonPlan = api.buildBlankLessonPlan({ title, age: "Preschool" });
+    const lessonPlan = api.buildBlankLessonPlan({ title, age: "" });
     const saved = await persistNewCurriculumLessonDraft(lessonPlan);
     resetAdminCreateLessonPlanUi();
     adminCurriculumLessonEditorId = saved.id;
@@ -11866,7 +11939,7 @@ function renderUserLessonPlanEditorForm(plan) {
         <label>Title<input name="title" value="${escapeHtml(record.title || "")}" required /></label>
         <label>Age group
           <select name="age">
-            ${curriculumAgeSelectOptions(record.age).map(({ value, selected }) => `<option${selected ? " selected" : ""}>${escapeHtml(value)}</option>`).join("")}
+            ${curriculumAgeSelectOptions(record.age).map(({ value, label, selected }) => `<option value="${escapeHtml(value)}"${selected ? " selected" : ""}>${escapeHtml(label || value || "Choose an age band")}</option>`).join("")}
           </select>
         </label>
       </div>
@@ -12542,7 +12615,7 @@ function renderAdminCurriculumLessonPlanForm(plan) {
           <img class="admin-lesson-sticky-cover" src="${escapeHtml(coverThumb)}" alt="" width="64" height="36" style="object-fit:cover;object-position:${escapeHtml(record.coverImagePosition || "center")}" />
           <div>
             <strong>${escapeHtml(record.title || "New Lesson Plan")}</strong>
-            <small>${escapeHtml(record.age || "Preschool")} · ${escapeHtml(statusSummary)}</small>
+            <small>${escapeHtml(record.age || "Age not set")} · ${escapeHtml(statusSummary)}</small>
             ${unpublished ? `<span class="tag cover-quality-needs-upgrade">Unpublished Changes</span>` : ""}
           </div>
         </div>
@@ -12557,7 +12630,7 @@ function renderAdminCurriculumLessonPlanForm(plan) {
           <button class="ghost-button" type="button" data-curriculum-lesson-preview-as-user ${adminCurriculumLessonSaving ? "disabled" : ""}>Preview as User</button>
           <button class="ghost-button" type="button" data-curriculum-lesson-view-published ${isPublic ? "" : "disabled"} title="${isPublic ? "Open the live published lesson customers see" : "This lesson is not published yet"}">View Published Version</button>
           <button class="ghost-button" type="button" data-curriculum-lesson-save-draft ${adminCurriculumLessonSaving ? "disabled" : ""}>Save Draft</button>
-          <button class="primary-button" type="button" data-curriculum-lesson-publish ${adminCurriculumLessonSaving ? "disabled" : ""}>Publish</button>
+          <button class="primary-button" type="button" data-curriculum-lesson-publish ${adminCurriculumLessonSaving ? "disabled" : ""}>Publish lesson</button>
         </div>
       </div>
       <button class="ghost-button back-button" type="button" data-curriculum-lesson-back>← Back to Lesson Plan List</button>
@@ -12572,7 +12645,7 @@ function renderAdminCurriculumLessonPlanForm(plan) {
         <label>Title<input name="title" value="${escapeHtml(record.title || "")}" required /></label>
         <label>Age group
           <select name="age">
-            ${curriculumAgeSelectOptions(record.age).map(({ value, selected }) => `<option${selected ? " selected" : ""}>${escapeHtml(value)}</option>`).join("")}
+            ${curriculumAgeSelectOptions(record.age).map(({ value, label, selected }) => `<option value="${escapeHtml(value)}"${selected ? " selected" : ""}>${escapeHtml(label || value || "Choose an age band")}</option>`).join("")}
           </select>
         </label>
       </div>
@@ -12645,7 +12718,7 @@ function renderAdminCurriculumLessonPlanForm(plan) {
         <button class="ghost-button" type="button" data-curriculum-lesson-back>Back to Lesson Plans</button>
         <button class="ghost-button" type="button" data-curriculum-lesson-preview-as-user>Preview as User</button>
         <button class="ghost-button" type="button" data-curriculum-lesson-save-draft ${adminCurriculumLessonSaving ? "disabled" : ""}>Save Draft</button>
-        <button class="primary-button" type="button" data-curriculum-lesson-publish ${adminCurriculumLessonSaving ? "disabled" : ""}>Publish</button>
+        <button class="primary-button" type="button" data-curriculum-lesson-publish ${adminCurriculumLessonSaving ? "disabled" : ""}>Publish lesson</button>
       </div>
       ${record.id ? `
       <div class="admin-lesson-danger-zone" data-curriculum-lesson-danger-zone>
@@ -13897,7 +13970,7 @@ function collectCurriculumLessonPlanFromForm(form, existingOverride = null) {
     ...(existing || {}),
     id,
     title: normalizedShortText(formData.get("title")) || "Untitled Lesson Plan",
-    age: normalizedShortText(formData.get("age")) || "Preschool",
+    age: normalizedShortText(formData.get("age")),
     theme: normalizedShortText(formData.get("theme")),
     plan: normalizedShortText(formData.get("plan")) === "Pro" ? "Pro" : "Free",
     status: CURRICULUM_LESSON_STATUSES.includes(formData.get("status")) ? formData.get("status") : "draft",
@@ -14024,6 +14097,22 @@ async function saveAdminCurriculumLessonPlanForm(form, options = {}) {
     return !items.some((item) => String(item?.title || "").trim());
   });
   const publishing = ["published", "featured"].includes(String(lessonPlan.status || "").toLowerCase());
+  if (publishing) {
+    const ownerApi = window.LLHTeachingKitOwnerWorkspace;
+    const activities = typeof curriculumActivitiesForLesson === "function"
+      ? curriculumActivitiesForLesson(lessonPlan.id)
+      : [];
+    const blockers = ownerApi?.collectTruePublishBlockers
+      ? ownerApi.collectTruePublishBlockers(lessonPlan, activities)
+      : [];
+    if (blockers.length) {
+      setAdminCurriculumLessonSaveBanner(
+        `Cannot publish yet: ${blockers.map((item) => item.message).join("; ")}`,
+        false,
+      );
+      return;
+    }
+  }
   if (publishing && emptyWeekdays.length) {
     const labels = emptyWeekdays.map((day) => day.charAt(0).toUpperCase() + day.slice(1)).join(", ");
     setAdminCurriculumLessonSaveBanner(

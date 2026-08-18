@@ -985,7 +985,7 @@
 
     const plan = {
       title: lesson.title || "Untitled Lesson Plan",
-      age: lesson.age || "Preschool",
+      age: lesson.age || "",
       theme: lesson.theme || "",
       plan: "Free",
       status: "draft",
@@ -1026,7 +1026,7 @@
     const now = options.now || new Date().toISOString();
     const plan = {
       title: text(options.title) || "New Lesson Plan",
-      age: text(options.age) || "Preschool",
+      age: text(options.age) || "",
       theme: "",
       plan: "Free",
       status: "draft",

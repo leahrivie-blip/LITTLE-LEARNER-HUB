@@ -76,9 +76,13 @@
 
   function lessonLine(r) {
     const workflow = r.workflow || r.publishReadiness || "";
-    const library = r.libraryStatus || r.blocking || (r.blockingCount > 0 ? "Blocked" : "No blockers");
+    const libraryRaw = r.libraryStatus || r.blocking || (r.blockingCount > 0 ? "Quality notes" : "No quality notes");
+    const ownerApi = root.LLHTeachingKitOwnerWorkspace;
+    const library = ownerApi?.ownerFacingLibraryHealthStatus
+      ? ownerApi.ownerFacingLibraryHealthStatus(libraryRaw)
+      : (/blocked|needs changes/i.test(String(libraryRaw)) ? "Quality notes" : libraryRaw);
     const premium = r.premiumReadinessPercent != null ? ` · readiness ${esc(r.premiumReadinessPercent)}%` : "";
-    return `<strong>${esc(r.title)}</strong> · ${esc(workflow || r.qualityLabel)} · Library ${esc(library)} · quality ${esc(r.qualityScore)}%${premium}`;
+    return `<strong>${esc(r.title)}</strong> · ${esc(workflow || r.qualityLabel)} · ${esc(library)} · quality ${esc(r.qualityScore)}%${premium}`;
   }
 
   function render() {
@@ -104,7 +108,7 @@
           ${kpi("Lessons", health.summary?.lessonCount ?? 0)}
           ${kpi("Avg quality", `${health.summary?.averageQuality ?? 0}%`)}
           ${kpi("Needing review", health.summary?.needingReview ?? 0)}
-          ${kpi("Blocking issues", health.summary?.blockingLessons ?? 0)}
+          ${kpi("Quality notes", health.summary?.blockingLessons ?? 0)}
         </div>
         <p class="muted-copy">Data quality: ${esc(dq.analyticsLabel || "—")} · ${esc(dq.qualityMethod || "")}</p>
         ${listBlock("Highest quality lessons", (health.highestQuality || []).slice(0, 10).map(lessonLine))}
