@@ -25,6 +25,7 @@ const { createFoundingMemberEmail } = require("./founding-member-email.js");
 const { createFreeUserWelcomeEmail } = require("./free-user-welcome-email.js");
 const { createFreeUserThankYou6Email } = require("./free-user-thankyou6-email.js");
 const { createThankYou6InApp } = require("./thankyou6-in-app.js");
+const { createPaidUserCheckin } = require("./paid-user-checkin.js");
 const thankYou6Checkout = require("./thankyou6-checkout.js");
 const billingLifecycleEmail = require("./billing-lifecycle-email.js");
 const { createPushService } = require("./push-lib.js");
@@ -19825,6 +19826,14 @@ const thankYou6InApp = createThankYou6InApp({
   siteUrl: SITE_URL,
 });
 
+const paidUserCheckin = createPaidUserCheckin({
+  readStore,
+  writeStore,
+  getAdminEmail: () => ADMIN_EMAIL,
+  getAdminEmails: () => ADMIN_EMAILS,
+  siteUrl: SITE_URL,
+});
+
 function pauseEmailAutomationsInStore(reason = "EMAIL_AUTOMATIONS_ENABLED=false") {
   const store = readStore();
   const eng = emailEngagement.ensureEmailEngagement(store);
@@ -29455,6 +29464,78 @@ async function handleAdminThankYou6InAppReport(request, response, url) {
   jsonResponse(response, 200, thankYou6InApp.getReport());
 }
 
+async function handleAdminPaidUserCheckinDryRun(request, response, url) {
+  let token = "";
+  if (request.method === "GET") {
+    token = extractAdminToken(request, url) || "";
+  } else {
+    const body = await readJson(request);
+    token = extractAdminTokenFromBody(request, body);
+  }
+  if (!validAdminToken(token)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const preview = paidUserCheckin.dryRun({ persist: true });
+  jsonResponse(response, 200, {
+    ok: true,
+    sent: false,
+    willSend: false,
+    channel: "in_app",
+    emailWillSend: false,
+    pushWillSend: false,
+    preview,
+    note: "Paid-user check-in preview only. No notifications, emails, or push were written.",
+  });
+}
+
+async function handleAdminPaidUserCheckinSend(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const result = paidUserCheckin.send({
+    confirm: body.confirm === true,
+    confirmPhrase: body.confirmPhrase || "",
+    dryRunToken: body.dryRunToken || "",
+    confirmationToken: body.confirmationToken || "",
+    forceResend: false,
+  });
+  if (result.skipped && result.reason === "confirmation_required") {
+    jsonResponse(response, 400, {
+      error: "Confirmation required. Type SEND_PAID_USER_CHECKIN_IN_APP after the warning.",
+      result,
+    });
+    return;
+  }
+  if (result.skipped) {
+    jsonResponse(response, result.reason === "already_sent" ? 409 : 400, {
+      error: result.detail || result.reason,
+      result,
+    });
+    return;
+  }
+  jsonResponse(response, 200, {
+    ok: true,
+    channel: "in_app",
+    emailSent: false,
+    webPushSent: 0,
+    result,
+    membershipRecordsModified: false,
+    billingRecordsModified: false,
+  });
+}
+
+async function handleAdminPaidUserCheckinReport(request, response, url) {
+  const token = extractAdminToken(request, url) || "";
+  if (!validAdminToken(token)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  jsonResponse(response, 200, paidUserCheckin.getReport());
+}
+
 async function handleAdminEmailEngagementSettings(request, response) {
   const body = await readJson(request);
   if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
@@ -30095,6 +30176,15 @@ const server = http.createServer(async (request, response) => {
     }
     if (request.method === "GET" && url.pathname === "/api/admin/thankyou6-in-app/report") {
       return await handleAdminThankYou6InAppReport(request, response, url);
+    }
+    if ((request.method === "GET" || request.method === "POST") && url.pathname === "/api/admin/paid-user-checkin/dry-run") {
+      return await handleAdminPaidUserCheckinDryRun(request, response, url);
+    }
+    if (request.method === "POST" && url.pathname === "/api/admin/paid-user-checkin/send") {
+      return await handleAdminPaidUserCheckinSend(request, response);
+    }
+    if (request.method === "GET" && url.pathname === "/api/admin/paid-user-checkin/report") {
+      return await handleAdminPaidUserCheckinReport(request, response, url);
     }
     if (request.method === "POST" && url.pathname === "/api/webhooks/resend") {
       return await handleResendEmailWebhook(request, response);

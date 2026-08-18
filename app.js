@@ -50627,6 +50627,7 @@ async function renderAdminEmailEngagement() {
     const cachedThankYou6Preview = window.__adminThankYou6Preview || null;
     const cachedThankYou6Report = window.__adminThankYou6Report || null;
     const cachedThankYou6InAppPreview = window.__adminThankYou6InAppPreview || null;
+    const cachedPaidCheckinPreview = window.__adminPaidCheckinPreview || null;
     const auditChecks = Array.isArray(cachedAudit?.checks) ? cachedAudit.checks : [];
     const sendReady = Boolean(cachedAudit?.sendUnlocked || (oneTime.sendUnlocked && cachedAudit?.auditToken));
     const providerReady = Boolean(support.ready || cachedPrepare?.emailProvider?.ready || cachedAudit?.emailProvider?.ready);
@@ -50897,6 +50898,35 @@ async function renderAdminEmailEngagement() {
           ${cachedThankYou6InAppPreview?.alreadySent
             ? `Already delivered ${escapeHtml(cachedThankYou6InAppPreview.sentAt || "")}. Duplicate in-app sends are blocked.`
             : "In-app preview only. Production in-app send requires typing SEND_THANKYOU6_IN_APP after the warning. No notifications have been created."}
+        </p>
+      </div>
+
+      <div class="admin-email-controls panel-form">
+        <h4>Paid User Check-In — August 2026</h4>
+        <p class="form-note">IN-APP ONLY founder check-in for current paying customers. Not THANKYOU6. No email, no web push, no discount, no upgrade CTA.</p>
+        <p class="form-note"><strong>Status:</strong> ${cachedPaidCheckinPreview?.alreadySent ? `Sent ${escapeHtml(cachedPaidCheckinPreview.sentAt || "")}` : "Not sent"} · Selected: ${cachedPaidCheckinPreview?.counts?.selected ?? "—"}</p>
+        ${cachedPaidCheckinPreview ? `
+          <div class="admin-email-preview">
+            <ul class="admin-email-step-list">
+              ${(cachedPaidCheckinPreview.recipients || []).map((row) => `
+                <li>✓ <strong>${escapeHtml(row.email)}</strong> · ${escapeHtml(row.firstName || "")} · ${escapeHtml(row.currentPlan || "")}
+                  <br><span class="form-note">${escapeHtml(row.accountStatus || "")}</span>
+                </li>
+              `).join("") || "<li>No qualifying recipients</li>"}
+            </ul>
+            <p class="form-note"><strong>Title:</strong> ${escapeHtml(cachedPaidCheckinPreview.inApp?.title || "")}</p>
+            <p class="form-note"><strong>CTA:</strong> ${escapeHtml(cachedPaidCheckinPreview.inApp?.ctaLabel || "")} → ${escapeHtml(cachedPaidCheckinPreview.inApp?.ctaPath || "")}</p>
+            <pre class="admin-email-text-preview" style="white-space:pre-wrap;max-height:240px;overflow:auto;background:#f7f3ec;padding:12px;border-radius:8px;">${escapeHtml(cachedPaidCheckinPreview.inApp?.body || "")}</pre>
+          </div>
+        ` : `<p class="form-note">Run Preview recipients to load current paid customers. Nothing has been sent.</p>`}
+        <div class="account-actions-row">
+          <button class="primary-button" type="button" id="adminPaidCheckinPreview">Preview recipients</button>
+          <button class="ghost-button" type="button" id="adminPaidCheckinSend" ${cachedPaidCheckinPreview?.sendUnlocked && !cachedPaidCheckinPreview?.alreadySent ? "" : "disabled"}>Send in-app (phrase required)</button>
+        </div>
+        <p class="form-note" id="adminPaidCheckinMessage">
+          ${cachedPaidCheckinPreview?.alreadySent
+            ? `Already delivered ${escapeHtml(cachedPaidCheckinPreview.sentAt || "")}. Duplicate in-app sends are blocked.`
+            : "Preview only. Production send requires typing SEND_PAID_USER_CHECKIN_IN_APP. No email or push will be sent."}
         </p>
       </div>
 
@@ -67346,6 +67376,58 @@ document.addEventListener("click", async (event) => {
       await renderAdminEmailEngagement();
     } catch (error) {
       if (msg) msg.textContent = error.message || "THANKYOU6 in-app send failed.";
+    }
+    return;
+  }
+  if (event.target.closest("#adminPaidCheckinPreview")) {
+    event.preventDefault();
+    const msg = document.querySelector("#adminPaidCheckinMessage");
+    try {
+      const data = await adminEmailEngagementPost("/api/admin/paid-user-checkin/dry-run", {});
+      window.__adminPaidCheckinPreview = data.preview || null;
+      if (msg) msg.textContent = `Preview ready: ${data.preview?.counts?.selected || 0} current paid users. No notifications were created.`;
+      await renderAdminEmailEngagement();
+    } catch (error) {
+      if (msg) msg.textContent = error.message || "Paid-user check-in preview failed.";
+    }
+    return;
+  }
+  if (event.target.closest("#adminPaidCheckinSend")) {
+    event.preventDefault();
+    const msg = document.querySelector("#adminPaidCheckinMessage");
+    const preview = window.__adminPaidCheckinPreview;
+    if (!preview?.dryRunToken || !preview?.confirmationToken) {
+      if (msg) msg.textContent = "Run Preview recipients first.";
+      return;
+    }
+    const recipientCount = Number(preview.counts?.selected) || 0;
+    const warning = `You are about to create in-app paid-user check-in messages for ${recipientCount} paying customers. No email or push will be sent.`;
+    if (!window.confirm(warning)) {
+      if (msg) msg.textContent = "Send canceled.";
+      return;
+    }
+    const phrase = window.prompt(`${warning}\n\nType SEND_PAID_USER_CHECKIN_IN_APP to deliver in-app only.`, "");
+    if (String(phrase || "").trim() !== "SEND_PAID_USER_CHECKIN_IN_APP") {
+      if (msg) msg.textContent = "Send canceled — confirmation phrase did not match.";
+      return;
+    }
+    try {
+      const data = await adminEmailEngagementPost("/api/admin/paid-user-checkin/send", {
+        confirm: true,
+        confirmPhrase: "SEND_PAID_USER_CHECKIN_IN_APP",
+        dryRunToken: preview.dryRunToken,
+        confirmationToken: preview.confirmationToken,
+      });
+      window.__adminPaidCheckinPreview = {
+        ...preview,
+        alreadySent: true,
+        sentAt: data.result?.sentAt || "",
+        sendUnlocked: false,
+      };
+      if (msg) msg.textContent = `In-app check-in delivered ${data.result?.sent || 0}. Email sent: 0. Web push sent: 0.`;
+      await renderAdminEmailEngagement();
+    } catch (error) {
+      if (msg) msg.textContent = error.message || "Paid-user check-in send failed.";
     }
     return;
   }
