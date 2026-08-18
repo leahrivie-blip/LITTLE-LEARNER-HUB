@@ -7081,7 +7081,7 @@ const adminTabLabels = {
   "messages-home": "Messages Home",
   "admin-inbox": "Inbox",
   "messages-compose": "New Message",
-  "messages-conversations": "New Messages",
+  "messages-conversations": "Inbox",
   "messages-automations": "Welcome Sent",
   "messages-sent": "Sent",
   "messages-drafts": "Drafts",
@@ -18508,7 +18508,10 @@ async function sendMemberReply(body) {
   const headers = await messagingAuthHeaders();
   if (!headers) return { ok: false, error: "Please log in again." };
   try {
-    const res = await fetch("/api/messages/reply", { method: "POST", headers, body: JSON.stringify({ body }) });
+    const campaign = String(new URLSearchParams(window.location.search).get("campaign") || "").trim();
+    const payload = { body };
+    if (campaign) payload.inReplyToCampaign = campaign;
+    const res = await fetch("/api/messages/reply", { method: "POST", headers, body: JSON.stringify(payload) });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) return { ok: false, error: data.error || "Could not send message." };
     return { ok: true };
@@ -18693,6 +18696,8 @@ let adminMessagesState = {
   deliverVia: "in_app",
   conversations: [],
   sentMessages: [],
+  sentCampaigns: [],
+  activeSentCampaignId: "",
   messageDrafts: [],
   archivedItems: { inbox: [], conversations: [] },
   activeConversationEmail: "",
@@ -18702,7 +18707,7 @@ let adminMessagesState = {
 };
 
 const adminMessagesWorkspaceTabs = [
-  { id: "messages-conversations", label: "New Messages", primary: true },
+  { id: "messages-conversations", label: "Inbox", primary: true },
   { id: "messages-automations", label: "Welcome Sent" },
   { id: "admin-inbox", label: "Support Inbox" },
   { id: "messages-sent", label: "Sent" },
@@ -18745,6 +18750,39 @@ function adminMessagesWorkspaceNavHtml(activeTabId) {
 }
 
 window.adminMessagesWorkspaceNavHtml = adminMessagesWorkspaceNavHtml;
+
+function adminMessagesInboxSentToggleHtml(active) {
+  const inboxActive = active === "inbox";
+  const sentActive = active === "sent";
+  return `
+    <div class="admin-messages-inbox-sent-toggle" role="tablist" aria-label="Messages">
+      <button type="button" class="admin-messages-inbox-sent-btn${inboxActive ? " active" : ""}" data-admin-messages-workspace-tab="messages-conversations" role="tab" aria-selected="${inboxActive}">Inbox</button>
+      <button type="button" class="admin-messages-inbox-sent-btn${sentActive ? " active" : ""}" data-admin-messages-workspace-tab="messages-sent" role="tab" aria-selected="${sentActive}">Sent</button>
+    </div>
+  `;
+}
+
+function formatAdminSentDate(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return raw;
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+function formatAdminSentDateTime(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return raw;
+  return date.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
 
 function adminMessageChannelLabel(message) {
   const via = String(message?.deliverVia || message?.channel || "in_app");
@@ -18823,6 +18861,7 @@ function adminConversationItemHtml(c) {
       </span>
       <span class="admin-conversation-plan">${escapeHtml(c.plan || "Free")}${c.businessName ? ` · ${escapeHtml(c.businessName)}` : ""}</span>
       <span class="admin-conversation-preview">${escapeHtml(c.lastMessagePreview || "")}</span>
+      ${c.replyToCampaignLabel ? `<span class="admin-conversation-reply-to">Reply to: ${escapeHtml(c.replyToCampaignLabel)}</span>` : ""}
       <span class="admin-conversation-meta-row">
         <span class="admin-conversation-time">${escapeHtml(timeLabel)}</span>
         <span class="admin-conversation-bucket-tag">${escapeHtml(bucketLabel)}</span>
@@ -19301,23 +19340,101 @@ function filteredAdminConversations() {
   });
 }
 
+function adminSentCampaignCardHtml(campaign) {
+  const sentLabel = campaign.sentAt ? `Sent ${formatAdminSentDate(campaign.sentAt)}` : "Sent date on file";
+  return `
+    <button type="button" class="admin-sent-campaign-card" data-admin-open-sent-campaign="${escapeHtml(campaign.campaignId)}">
+      <div class="admin-messages-list-head">
+        <strong>${escapeHtml(campaign.displayName || campaign.title || "Campaign")}</strong>
+        <span class="admin-message-channel-badge">${escapeHtml(campaign.channel || "In-app")}</span>
+      </div>
+      <p class="muted-copy">${escapeHtml(sentLabel)} · ${escapeHtml(String(campaign.recipientCount || 0))} recipients · ${escapeHtml(String(campaign.successCount || 0))} delivered · ${escapeHtml(String(campaign.failureCount || 0))} failed</p>
+      <p><strong>${escapeHtml(campaign.title || "")}</strong></p>
+      <p class="admin-sent-campaign-preview">${escapeHtml(campaign.preview || campaign.body || "")}</p>
+    </button>
+  `;
+}
+
+function adminSentCampaignDetailHtml(campaign) {
+  const recipients = Array.isArray(campaign.recipients) ? campaign.recipients : [];
+  const recipientHtml = recipients.length
+    ? recipients.map((row) => `
+        <article class="admin-sent-recipient-card">
+          <strong>${escapeHtml(row.firstName || row.email || "Member")}</strong>
+          <p class="muted-copy">${escapeHtml(row.email || "")}${row.userId && row.userId !== row.email ? ` · ${escapeHtml(row.userId)}` : ""}</p>
+          <p class="muted-copy">${row.delivered ? "Delivered in-app" : "Delivery not confirmed"}</p>
+        </article>
+      `).join("")
+    : `<p class="messages-empty">No recipient records stored for this send.</p>`;
+  return `
+    <div class="admin-sent-campaign-detail">
+      <button type="button" class="ghost-button admin-sent-campaign-back" data-admin-sent-back>Back to Sent</button>
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Sent</p>
+          <h3>${escapeHtml(campaign.displayName || campaign.title || "Campaign")}</h3>
+          <p class="muted-copy">${campaign.sentAt ? `Sent ${escapeHtml(formatAdminSentDateTime(campaign.sentAt))}` : "Sent date on file"}</p>
+        </div>
+      </div>
+      <dl class="admin-sent-campaign-facts">
+        <div><dt>Campaign ID</dt><dd>${escapeHtml(campaign.campaignId || "")}</dd></div>
+        <div><dt>Title</dt><dd>${escapeHtml(campaign.title || "")}</dd></div>
+        <div><dt>Body</dt><dd>${escapeHtml(campaign.body || "")}</dd></div>
+        <div><dt>CTA label</dt><dd>${escapeHtml(campaign.ctaLabel || "None")}</dd></div>
+        <div><dt>CTA destination</dt><dd>${escapeHtml(campaign.ctaDestination || "")}</dd></div>
+        <div><dt>Recipients</dt><dd>${escapeHtml(String(campaign.recipientCount || 0))}</dd></div>
+        <div><dt>Successful</dt><dd>${escapeHtml(String(campaign.successCount || 0))}</dd></div>
+        <div><dt>Failed</dt><dd>${escapeHtml(String(campaign.failureCount || 0))}</dd></div>
+        <div><dt>Channel</dt><dd>${escapeHtml(campaign.channel || "In-app")}</dd></div>
+        <div><dt>Email</dt><dd>${escapeHtml(campaign.emailLabel || "Not sent")}</dd></div>
+        <div><dt>Web push</dt><dd>${escapeHtml(campaign.webPushLabel || "Not sent")}</dd></div>
+      </dl>
+      <h4 class="admin-sent-recipients-heading">Recipients</h4>
+      <div class="admin-sent-recipient-list">${recipientHtml}</div>
+    </div>
+  `;
+}
+
 async function renderAdminMessagesSent(container) {
-  container.innerHTML = `${adminMessagesWorkspaceNavHtml("messages-sent")}${llhLoadingHtml("Loading sent messages…")}`;
+  const shell = `${adminMessagesInboxSentToggleHtml("sent")}${adminMessagesWorkspaceNavHtml("messages-sent")}`;
+  container.innerHTML = `${shell}${llhLoadingHtml("Loading sent messages…")}`;
   const token = adminSession()?.token || "";
   const q = encodeURIComponent(adminMessagesState.sentSearch || "");
   try {
-    const res = await fetch(`/api/admin/messages/sent?q=${q}`, { cache: "no-store", headers: { Authorization: `Bearer ${token}` } });
-    const data = await res.json().catch(() => ({}));
-    if (!assertAdminApiResponse(res, data, { render: false })) {
-      container.innerHTML = `${adminMessagesWorkspaceNavHtml("messages-sent")}<p class="messages-empty">Admin session expired. Unlock Admin again.</p>`;
+    const [messagesRes, historyRes] = await Promise.all([
+      fetch(`/api/admin/messages/sent?q=${q}`, { cache: "no-store", headers: { Authorization: `Bearer ${token}` } }),
+      fetch("/api/admin/messages/sent-history", { cache: "no-store", headers: { Authorization: `Bearer ${token}` } }),
+    ]);
+    const messagesData = await messagesRes.json().catch(() => ({}));
+    const historyData = await historyRes.json().catch(() => ({}));
+    if (!assertAdminApiResponse(messagesRes, messagesData, { render: false }) || !assertAdminApiResponse(historyRes, historyData, { render: false })) {
+      container.innerHTML = `${shell}<p class="messages-empty">Admin session expired. Unlock Admin again.</p>`;
       return;
     }
-    adminMessagesState.sentMessages = Array.isArray(data.messages) ? data.messages : [];
+    adminMessagesState.sentMessages = Array.isArray(messagesData.messages) ? messagesData.messages : [];
+    adminMessagesState.sentCampaigns = Array.isArray(historyData.campaigns) ? historyData.campaigns : [];
   } catch {
-    container.innerHTML = `${adminMessagesWorkspaceNavHtml("messages-sent")}<p class="messages-empty">Could not load sent messages.</p>`;
+    container.innerHTML = `${shell}<p class="messages-empty">Could not load sent messages.</p>`;
     return;
   }
+
+  const activeId = String(adminMessagesState.activeSentCampaignId || "");
+  const activeCampaign = activeId
+    ? (adminMessagesState.sentCampaigns || []).find((row) => row.campaignId === activeId)
+    : null;
+  if (activeCampaign) {
+    container.innerHTML = `
+      ${shell}
+      ${adminSentCampaignDetailHtml(activeCampaign)}
+    `;
+    return;
+  }
+
+  const campaigns = adminMessagesState.sentCampaigns;
   const rows = adminMessagesState.sentMessages;
+  const campaignHtml = campaigns.length
+    ? `<div class="admin-sent-campaign-list">${campaigns.map(adminSentCampaignCardHtml).join("")}</div>`
+    : "";
   const listHtml = rows.length
     ? rows.map((m) => `
       <article class="admin-messages-list-item">
@@ -19332,21 +19449,26 @@ async function renderAdminMessagesSent(container) {
         <button type="button" class="ghost-button" data-admin-open-sent-thread="${escapeHtml(m.userEmail || m.conversationEmail || "")}">Open thread</button>
       </article>
     `).join("")
-    : `<p class="messages-empty">No sent messages yet.</p>`;
+    : "";
+  const emptyHtml = !campaigns.length && !rows.length
+    ? `<p class="messages-empty">No sent messages yet.</p>`
+    : "";
   container.innerHTML = `
-    ${adminMessagesWorkspaceNavHtml("messages-sent")}
+    ${shell}
     <div class="section-heading">
       <div>
-        <p class="eyebrow">Member Messaging</p>
+        <p class="eyebrow">Messages</p>
         <h3>Sent</h3>
-        <p class="muted-copy">Messages you have sent to members, newest first.</p>
+        <p class="muted-copy">Broadcasts, campaign messages, and one-to-one notes you have already sent. This list is history only — opening it does not send anything.</p>
       </div>
     </div>
+    ${campaignHtml ? `<h4 class="admin-sent-section-heading">Broadcasts &amp; campaigns</h4>${campaignHtml}` : ""}
+    ${rows.length ? `<h4 class="admin-sent-section-heading">Direct messages</h4>` : ""}
     <div class="admin-conversations-toolbar">
       <label class="admin-conversations-search-label" for="adminSentSearch">Search sent</label>
       <input type="search" id="adminSentSearch" class="admin-conversations-search" placeholder="Search by user, email, or subject…" value="${escapeHtml(adminMessagesState.sentSearch || "")}" />
     </div>
-    <div class="admin-messages-list">${listHtml}</div>
+    <div class="admin-messages-list">${listHtml}${emptyHtml}</div>
   `;
 }
 
@@ -19458,20 +19580,21 @@ function renderAdminConversationsBody(container, options = {}) {
     ? "No automatic welcome messages waiting without a member reply."
     : unreadCount
       ? "No conversations match that search."
-      : "No new member messages yet. Welcome automations stay in Welcome Sent until someone replies.";
+      : "No replies yet.";
   const listHtml = conversations.length
     ? conversations.map(adminConversationItemHtml).join("")
     : `<div class="admin-messages-empty-state"><p class="messages-empty">${total ? "No conversations match that name." : emptyCopy}</p></div>`;
   const navTab = mode === "welcome" ? "messages-automations" : "messages-conversations";
   container.innerHTML = `
+    ${adminMessagesInboxSentToggleHtml(mode === "welcome" ? "" : "inbox")}
     ${adminMessagesWorkspaceNavHtml(navTab)}
     <div class="admin-new-messages-hero" aria-live="polite">
       <div>
-        <p class="eyebrow">${mode === "welcome" ? "Sent Automations" : "Inbox"}</p>
-        <h3>${mode === "welcome" ? "Welcome Sent" : "New Messages"}</h3>
+        <p class="eyebrow">${mode === "welcome" ? "Sent Automations" : "Messages"}</p>
+        <h3>${mode === "welcome" ? "Welcome Sent" : "Inbox"}</h3>
         <p class="muted-copy">${mode === "welcome"
           ? "Automatic welcome messages only. They do not count as New Messages until the member replies. Full history stays together after they write back."
-          : "Member replies and new inbound messages. Unread threads stay highlighted at the top until you open or mark them read."}</p>
+          : "Replies and messages from members. Broadcasts you already sent are in Sent — an empty inbox does not mean a campaign failed."}</p>
       </div>
       <div class="admin-new-messages-count${unreadCount ? " has-unread" : ""}">
         <strong>${mode === "welcome" ? Number(summary.welcomeOnly || total || 0) : unreadCount}</strong>
@@ -19597,6 +19720,7 @@ function renderAdminConversationThread() {
     : `<p class="messages-empty">No messages yet.</p>`;
   threadEl.innerHTML = `
     ${adminConversationProfileHtml(user)}
+    ${row?.replyToCampaignLabel ? `<p class="admin-conversation-reply-to">Reply to: ${escapeHtml(row.replyToCampaignLabel)}</p>` : ""}
     <div class="admin-conversation-actions">
       <button type="button" class="ghost-button" data-admin-mark-read="${escapeHtml(email)}" ${unread ? "" : "disabled"}>Mark as read</button>
       <button type="button" class="ghost-button" data-admin-mark-unread="${escapeHtml(email)}">Mark as unread</button>
@@ -19767,6 +19891,22 @@ document.addEventListener("click", async (event) => {
     event.preventDefault();
     const tab = workspaceTab.dataset.adminMessagesWorkspaceTab;
     if (tab) setAdminSectionTab(tab);
+    return;
+  }
+  const sentCampaignBtn = event.target.closest("[data-admin-open-sent-campaign]");
+  if (sentCampaignBtn) {
+    event.preventDefault();
+    adminMessagesState.activeSentCampaignId = sentCampaignBtn.getAttribute("data-admin-open-sent-campaign") || "";
+    const sentContainer = document.querySelector("#adminMessagesApp");
+    if (sentContainer) renderAdminMessagesSent(sentContainer);
+    return;
+  }
+  const sentBackBtn = event.target.closest("[data-admin-sent-back]");
+  if (sentBackBtn) {
+    event.preventDefault();
+    adminMessagesState.activeSentCampaignId = "";
+    const sentContainer = document.querySelector("#adminMessagesApp");
+    if (sentContainer) renderAdminMessagesSent(sentContainer);
     return;
   }
   const sentThreadBtn = event.target.closest("[data-admin-open-sent-thread], [data-admin-open-archived-thread]");

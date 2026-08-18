@@ -26,6 +26,7 @@ const { createFreeUserWelcomeEmail } = require("./free-user-welcome-email.js");
 const { createFreeUserThankYou6Email } = require("./free-user-thankyou6-email.js");
 const { createThankYou6InApp } = require("./thankyou6-in-app.js");
 const { createPaidUserCheckin } = require("./paid-user-checkin.js");
+const adminSentCampaignHistory = require("./admin-sent-campaign-history.js");
 const thankYou6Checkout = require("./thankyou6-checkout.js");
 const billingLifecycleEmail = require("./billing-lifecycle-email.js");
 const { createPushService } = require("./push-lib.js");
@@ -28023,6 +28024,27 @@ function handleAdminMessagesSentList(request, response, url) {
   jsonResponse(response, 200, { messages });
 }
 
+function handleAdminMessagesSentHistory(request, response, url) {
+  const adminToken = extractAdminToken(request, url) || "";
+  if (!validAdminToken(adminToken)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const store = readStore();
+  const campaignId = String(url.searchParams.get("campaignId") || "").trim();
+  if (campaignId) {
+    const campaign = adminSentCampaignHistory.getOwnerSentCampaign(store, campaignId);
+    if (!campaign) {
+      jsonResponse(response, 404, { error: "Sent campaign not found." });
+      return;
+    }
+    jsonResponse(response, 200, { campaign, mutated: false });
+    return;
+  }
+  const campaigns = adminSentCampaignHistory.listOwnerSentCampaigns(store);
+  jsonResponse(response, 200, { campaigns, mutated: false });
+}
+
 function handleAdminMessagesArchivedList(request, response, url) {
   const adminToken = extractAdminToken(request, url) || "";
   if (!validAdminToken(adminToken)) {
@@ -28125,6 +28147,7 @@ function handleAdminConversationsList(request, response, url) {
       const profile = publicConversationUserProfile(store, c.userEmail);
       const classification = adminMessagingInbox.classifyConversation(store, c.userEmail);
       const unread = unreadFromUser.get(normalizeEmail(c.userEmail)) || 0;
+      const replyTo = adminSentCampaignHistory.inferInboxReplyTo(store, c.userEmail);
       return {
         ...c,
         userName: profile.name || c.userEmail,
@@ -28137,6 +28160,8 @@ function handleAdminConversationsList(request, response, url) {
         bucket: classification.bucket,
         // New Messages = member has written (or has unread inbound). Welcome automations stay out.
         inNewMessages: classification.hasUserReply || unread > 0,
+        replyToCampaignId: replyTo?.campaignId || "",
+        replyToCampaignLabel: replyTo?.displayName || "",
       };
     });
 
@@ -28346,6 +28371,7 @@ async function handleMemberMessageReply(request, response) {
   const store = ensureMessagingStore(readStore());
   const user = store.users?.[identity.email] || { email: identity.email };
   const now = new Date().toISOString();
+  const inReplyToCampaign = adminSentCampaignHistory.sanitizeInReplyToCampaign(body.inReplyToCampaign);
   const message = {
     id: messagingRandomId("msg"),
     kind: "message",
@@ -28362,6 +28388,7 @@ async function handleMemberMessageReply(request, response) {
     sentAt: now,
     status: "sent",
     pushSummary: null,
+    inReplyToCampaign,
   };
   store.messages.unshift(message);
   store.messages = capArray(store.messages, MAX_MESSAGES);
@@ -30232,6 +30259,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "GET" && url.pathname === "/api/admin/messages/drafts") return handleAdminMessageDraftsList(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/messages/draft-delete") return await handleAdminMessageDraftDelete(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/messages/sent") return handleAdminMessagesSentList(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/admin/messages/sent-history") return handleAdminMessagesSentHistory(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/messages/archived") return handleAdminMessagesArchivedList(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/conversations") return handleAdminConversationsList(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/messages/conversation") return await handleAdminConversationMessages(request, response, url);
