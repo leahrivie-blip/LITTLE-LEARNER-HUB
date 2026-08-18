@@ -78,6 +78,19 @@ function text(value) {
   return String(value == null ? "" : value).trim();
 }
 
+function sortedResourceIds(resources) {
+  return (Array.isArray(resources) ? resources : [])
+    .map((item) => text(item && item.id))
+    .filter(Boolean)
+    .sort();
+}
+
+function assertUnchangedResourceCatalog(beforeResources, afterResources) {
+  if (JSON.stringify(sortedResourceIds(beforeResources)) !== JSON.stringify(sortedResourceIds(afterResources))) {
+    throw new Error("Resource IDs changed unexpectedly");
+  }
+}
+
 function argValue(flag) {
   const hit = process.argv.find((arg) => arg.startsWith(`${flag}=`));
   return hit ? hit.slice(flag.length + 1) : "";
@@ -126,6 +139,29 @@ function requestJson(baseUrl, method, route, body, headers = {}) {
     if (payload) req.write(payload);
     req.end();
   });
+}
+
+async function adminLogin(baseUrl) {
+  const email = text(process.env.ADMIN_EMAIL);
+  const password = text(process.env.ADMIN_PASSWORD);
+  const code = text(process.env.ADMIN_ACCESS_CODE);
+  if (!text(baseUrl) || !email || !password || !code) {
+    throw new Error("Remote apply requires SITE_URL, ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_ACCESS_CODE");
+  }
+  const login = await requestJson(baseUrl, "POST", "/api/admin/login", {
+    email,
+    password,
+    code,
+  });
+  const token = login.json?.token || login.json?.adminToken || "";
+  if (login.status !== 200 || !token) {
+    throw new Error(`Admin login failed: ${login.status} ${String(login.text || "").slice(0, 200)}`);
+  }
+  return token;
+}
+
+function adminAuthHeaders(token) {
+  return { Authorization: `Bearer ${token}` };
 }
 
 function extractActivityMultilineFields(pasteText) {
@@ -808,46 +844,54 @@ function applyToStore(storePath, parsed) {
 
 async function applyRemote(parsed) {
   const baseUrl = text(process.env.SITE_URL || process.env.LLH_PROD_URL);
-  const email = text(process.env.ADMIN_EMAIL);
-  const password = text(process.env.ADMIN_PASSWORD);
-  const code = text(process.env.ADMIN_ACCESS_CODE);
-  if (!baseUrl || !email || !password || !code) {
-    throw new Error("Remote apply requires SITE_URL, ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_ACCESS_CODE");
-  }
-  const login = await requestJson(baseUrl, "POST", "/api/admin/session", {
-    email,
-    password,
-    code,
-  });
-  if (login.status !== 200 || !login.json?.token) {
-    throw new Error(`Admin login failed: ${login.status} ${login.text.slice(0, 200)}`);
-  }
-  const token = login.json.token;
-  const site = await requestJson(baseUrl, "POST", "/api/admin/site-content", { adminToken: token });
+  const token = await adminLogin(baseUrl);
+  const auth = adminAuthHeaders(token);
+  const site = await requestJson(baseUrl, "GET", `/api/admin/site-content?t=${Date.now()}`, null, auth);
   if (site.status !== 200) {
-    throw new Error(`site-content load failed: ${site.status}`);
+    throw new Error(`site-content load failed: ${site.status} ${String(site.text || "").slice(0, 200)}`);
   }
-  const curriculum = site.json.curriculum || site.json.siteContent?.curriculum;
-  const expectedUpdatedAt = site.json.updatedAt || site.json.siteContentUpdatedAt || "";
+  const siteContent = site.json.siteContent || site.json;
+  const curriculum = siteContent.curriculum || site.json.curriculum || {};
+  const expectedUpdatedAt = siteContent.updatedAt || site.json.updatedAt || site.json.siteContentUpdatedAt || "";
   const existing = (curriculum?.lessonPlans || []).find((plan) => plan.id === LESSON_ID);
   if (!existing) throw new Error(`Remote lesson ${LESSON_ID} not found`);
-  const resourcesBefore = JSON.stringify(curriculum.resources || []);
+  if (text(existing.title) !== OLD_TITLE && text(existing.title) !== NEW_TITLE) {
+    throw new Error(`Refusing to overwrite unexpected title "${existing.title}"`);
+  }
+  const tinyDup = (curriculum.lessonPlans || []).filter(
+    (plan) => plan.id !== LESSON_ID && text(plan.title).toLowerCase() === NEW_TITLE.toLowerCase(),
+  );
+  if (tinyDup.length) {
+    throw new Error("Another Tiny Artist Studio lesson already exists — aborting");
+  }
+  if (text(existing.plan) !== "Free") throw new Error(`Refusing to change plan from ${existing.plan}`);
+  if (text(existing.status) !== "published") throw new Error(`Refusing to change status from ${existing.status}`);
+  const resourcesBefore = curriculum.resources || [];
+  const otherPlansBefore = (curriculum.lessonPlans || [])
+    .filter((plan) => plan.id !== LESSON_ID)
+    .map((plan) => ({ id: plan.id, title: plan.title, updatedAt: plan.updatedAt }));
   const before = snapshotLesson(existing, curriculum);
   const merged = mergeOntoExisting(existing, parsed);
+  if (merged.id !== LESSON_ID) throw new Error("Refusing to change lesson ID");
+  if (text(merged.plan) !== "Free") throw new Error("Refusing to change Free/Pro");
+  if (text(merged.status) !== "published") throw new Error("Refusing to change publish status");
   if (JSON.stringify(merged.resourceIds || []) !== JSON.stringify(existing.resourceIds || [])) {
     throw new Error("Refusing to change resourceIds");
   }
   const save = await requestJson(baseUrl, "POST", "/api/admin/curriculum/lesson-plans", {
-    adminToken: token,
     expectedUpdatedAt,
     lessonPlan: merged,
-  });
+  }, auth);
   if (save.status !== 200) {
-    throw new Error(`Save failed: ${save.status} ${save.text.slice(0, 400)}`);
+    throw new Error(`Save failed: ${save.status} ${String(save.text || "").slice(0, 400)}`);
   }
   const afterCurriculum = save.json.curriculum || curriculum;
-  if (JSON.stringify(afterCurriculum.resources || []) !== resourcesBefore) {
-    throw new Error("Remote resources changed unexpectedly");
+  assertUnchangedResourceCatalog(resourcesBefore, afterCurriculum.resources || []);
+  const otherPlansAfter = (afterCurriculum.lessonPlans || [])
+    .filter((plan) => plan.id !== LESSON_ID)
+    .map((plan) => ({ id: plan.id, title: plan.title, updatedAt: plan.updatedAt }));
+  if (JSON.stringify(otherPlansBefore) !== JSON.stringify(otherPlansAfter)) {
+    throw new Error("Another lesson changed unexpectedly");
   }
   const afterPlan = (afterCurriculum.lessonPlans || []).find((plan) => plan.id === LESSON_ID)
     || save.json.lessonPlan;
@@ -939,30 +983,18 @@ function applyImagesOnlyToStore(storePath) {
 async function applyImagesOnlyRemote() {
   verifyTinyArtistStudioImageFiles();
   const baseUrl = text(process.env.SITE_URL || process.env.LLH_PROD_URL);
-  const email = text(process.env.ADMIN_EMAIL);
-  const password = text(process.env.ADMIN_PASSWORD);
-  const code = text(process.env.ADMIN_ACCESS_CODE);
-  if (!baseUrl || !email || !password || !code) {
-    throw new Error("Remote apply requires SITE_URL, ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_ACCESS_CODE");
-  }
-  const login = await requestJson(baseUrl, "POST", "/api/admin/session", {
-    email,
-    password,
-    code,
-  });
-  if (login.status !== 200 || !login.json?.token) {
-    throw new Error(`Admin login failed: ${login.status} ${login.text.slice(0, 200)}`);
-  }
-  const token = login.json.token;
-  const site = await requestJson(baseUrl, "POST", "/api/admin/site-content", { adminToken: token });
+  const token = await adminLogin(baseUrl);
+  const auth = adminAuthHeaders(token);
+  const site = await requestJson(baseUrl, "GET", `/api/admin/site-content?t=${Date.now()}`, null, auth);
   if (site.status !== 200) {
     throw new Error(`site-content load failed: ${site.status}`);
   }
-  const curriculum = site.json.curriculum || site.json.siteContent?.curriculum;
-  const expectedUpdatedAt = site.json.updatedAt || site.json.siteContentUpdatedAt || "";
+  const siteContent = site.json.siteContent || site.json;
+  const curriculum = siteContent.curriculum || site.json.curriculum || {};
+  const expectedUpdatedAt = siteContent.updatedAt || site.json.updatedAt || site.json.siteContentUpdatedAt || "";
   const existing = (curriculum?.lessonPlans || []).find((plan) => plan.id === LESSON_ID);
   if (!existing) throw new Error(`Remote lesson ${LESSON_ID} not found`);
-  const resourcesBefore = JSON.stringify(curriculum.resources || []);
+  const resourcesBefore = curriculum.resources || [];
   const before = snapshotLesson(existing, curriculum);
   const merged = JSON.parse(JSON.stringify(existing));
   const imageReport = assignTinyArtistStudioImages(merged);
@@ -972,17 +1004,14 @@ async function applyImagesOnlyRemote() {
     throw new Error("Refusing to change resourceIds");
   }
   const save = await requestJson(baseUrl, "POST", "/api/admin/curriculum/lesson-plans", {
-    adminToken: token,
     expectedUpdatedAt,
     lessonPlan: merged,
-  });
+  }, auth);
   if (save.status !== 200) {
     throw new Error(`Save failed: ${save.status} ${save.text.slice(0, 400)}`);
   }
   const afterCurriculum = save.json.curriculum || curriculum;
-  if (JSON.stringify(afterCurriculum.resources || []) !== resourcesBefore) {
-    throw new Error("Remote resources changed unexpectedly");
-  }
+  assertUnchangedResourceCatalog(resourcesBefore, afterCurriculum.resources || []);
   const afterPlan = (afterCurriculum.lessonPlans || []).find((plan) => plan.id === LESSON_ID)
     || save.json.lessonPlan;
   const after = snapshotLesson(afterPlan, afterCurriculum);
