@@ -54,6 +54,18 @@ test("free starter library is exactly 10 plans (3/3/4)", () => {
     title: "Letters & Sounds",
     age: "Preschool",
   }), false);
+  assert.equal(freeSample.effectivePlanTier({
+    id: "cur-lp-preschool-letters-and-sounds",
+    title: "Letters & Sounds",
+    age: "Preschool",
+    plan: "Free",
+  }), "Free");
+  assert.equal(freeSample.effectivePlanTier({
+    id: "cur-lp-toddler-construction-crew",
+    title: "Construction Crew",
+    age: "Toddler",
+    plan: "Pro",
+  }), "Pro");
   assert.match(freeSample.MARKETING.freeCore, /10 complete starter lesson plans/);
   assert.match(freeSample.MARKETING.recommendationSummary, /exactly 10 complete starter/i);
 });
@@ -205,7 +217,7 @@ async function browserMain() {
       theme: "Literacy",
       plan: "Free",
       status: "published",
-      weeklyOverview: "Should be locked for Free users even if tagged Free.",
+      weeklyOverview: "Canonical plan=Free unlocks even when the id is outside the starter list.",
       learningDomains: ["Language & Literacy"],
       dailyPlans: {},
       updatedAt: new Date().toISOString(),
@@ -217,7 +229,7 @@ async function browserMain() {
       theme: "Construction",
       plan: "Pro",
       status: "published",
-      weeklyOverview: "Curated free showcase despite Pro tag.",
+      weeklyOverview: "Canonical plan=Pro stays locked even when the id is in the starter list.",
       learningDomains: ["Physical Development"],
       dailyPlans: {},
       updatedAt: new Date().toISOString(),
@@ -239,14 +251,14 @@ async function browserMain() {
       title: "Letters & Sounds",
       age: "Preschool",
       plan: "Free",
-    }), "Pro");
+    }), "Free");
     assert.equal(freeSample.effectivePlanTier({
       id: "cur-lp-toddler-construction-crew",
       title: "Construction Crew",
       age: "Toddler",
       plan: "Pro",
-    }), "Free");
-    console.log("PASS  effectivePlanTier curated override");
+    }), "Pro");
+    console.log("PASS  effectivePlanTier follows canonical plan, not starter IDs");
 
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
     await page.goto(`http://127.0.0.1:${PORT}/`, { waitUntil: "domcontentloaded", timeout: 90000 });

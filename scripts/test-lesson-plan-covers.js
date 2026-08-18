@@ -279,8 +279,8 @@ async function seedPlans(token) {
   });
   const freeId = `cur-lp-cover-free-${crypto.randomBytes(3).toString("hex")}`;
   const proId = `cur-lp-cover-pro-${crypto.randomBytes(3).toString("hex")}`;
-  // Title must match the curated Free sample matcher so Free users can open/use it
-  // (non-curated Free-tagged plans are public Pro teasers).
+  // Title is long on purpose so card actions stay visible. Access follows plan=Free;
+  // starter IDs are merchandising only and must not be required to unlock.
   const freeTitle = "All About Me: A Very Long Lesson Plan Title That Still Keeps Every Card Action Visible Cover Test";
   const proTitle = "Ocean Explorers Cover Test";
   const freeSave = await requestJson("POST", "/api/admin/curriculum/lesson-plans", {
@@ -303,20 +303,7 @@ async function seedPlans(token) {
   assert(freeSave.status === 200, `free save failed: ${freeSave.status} ${freeSave.text?.slice(0, 200)}`);
   const expectedUpdatedAt = freeSave.json.siteContentUpdatedAt || freeSave.json.siteContent?.updatedAt;
   assert(expectedUpdatedAt, "missing siteContentUpdatedAt after free save");
-  // Free entitlement is ID-authoritative (exactly 10 starter IDs). Swap the
-  // Preschool All About Me slot for this test plan so Use This Plan stays available.
-  const freeSample = require("./free-curriculum-sample.js");
-  const starterIds = freeSample.DEFAULT_FREE_STARTER_LESSON_IDS.map((id) => (
-    id === "cur-lp-preschool-all-about-me" ? freeId : id
-  ));
-  const starterSave = await requestJson("POST", "/api/admin/free-starter-library", {
-    adminToken: token,
-    lessonPlanIds: starterIds,
-    confirm: true,
-  });
-  if (!(starterSave.status === 200 && starterSave.json?.saved)) {
-    throw new Error(`free starter save failed: ${starterSave.status} ${JSON.stringify(starterSave.json || {}).slice(0, 500)}`);
-  }
+  // Access follows lesson.plan === "Free". Do not swap historical starter IDs.
   const proSave = await requestJson("POST", "/api/admin/curriculum/lesson-plans", {
     adminToken: token,
     expectedUpdatedAt,

@@ -467,11 +467,12 @@ async function main() {
     const afterFail = await request("GET", "/api/trial-curriculum-exports", null, wmFailHeaders);
     assert.equal(afterFail.json.used, 0, "verified server-side generation failure restores allowance");
 
-    // Existing Free unlocks exactly the 10 starters (no legacy bypass extras)
+    // Existing Free unlocks published plan===Free records in this fixture (10 Free starters).
+    // Count is canonical plan, not starter-ID authorization.
     const freeLib = await request("GET", "/api/site-content", null, authHeaders("free.user@test.local"));
     const freePlans = freeLib.json?.siteContent?.curriculumLibrary?.lessonPlans || [];
     const freeUnlocked = freePlans.filter((p) => p && p.locked !== true);
-    assert.equal(freeUnlocked.length, 10, `existing Free must unlock exactly 10 plans (got ${freeUnlocked.length})`);
+    assert.equal(freeUnlocked.length, 10, `existing Free must unlock published plan===Free records (got ${freeUnlocked.length})`);
     const legacyLib = await request("GET", "/api/site-content", null, authHeaders("free.legacy.labeled@test.local"));
     const legacyUnlocked = (legacyLib.json?.siteContent?.curriculumLibrary?.lessonPlans || [])
       .filter((p) => p && p.locked !== true);
@@ -521,6 +522,8 @@ async function main() {
     const site = await request("GET", "/api/site-content");
     assert.equal(site.json.siteContent.freeStarterLibrary.count, 10);
     assert.equal(site.json.siteContent.freeStarterLibrary.lessonPlanIds.length, 10);
+    assert.equal(site.json.siteContent.freeStarterLibrary.notEntitlement, true);
+    assert.equal(site.json.siteContent.canonicalFreePublishedCount, 10);
     assert.match(site.json.siteContent.membershipCopy.freeCore, /10 complete starter/);
     assert.match(site.json.siteContent.membershipCopy.trialCore, /up to 3 premium curriculum/);
 

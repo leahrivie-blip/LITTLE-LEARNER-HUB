@@ -2696,6 +2696,7 @@ function freePlanAccessContextFromUser(user, siteContent = null) {
   };
 }
 
+/** Historical/merchandising starter ID defaults. Not customer entitlement. */
 function defaultFreeStarterLibrary() {
   return {
     lessonPlanIds: [...freeCurriculumSample.DEFAULT_FREE_STARTER_LESSON_IDS],
@@ -19019,8 +19020,9 @@ async function handlePublicSiteContent(request, response, url) {
     ? defaults.upgradeMessaging
     : content.upgradeMessaging;
   const { featureFlags, curriculum, lessonPlans, customLessonPlans, activities, ...publicSiteContent } = content;
-  // Paid users get the full unlocked library. Grandfathered Free get legacy Free.
-  // Guests / new Free get the curated sample.
+  // Paid users get the full unlocked library.
+  // Guests / Free users unlock published lessons where lesson.plan === "Free".
+  // Starter Library IDs are merchandising only and never grant or deny access.
   let curriculumLibrary = {
     lessonPlans: [],
     activities: [],
@@ -19084,7 +19086,12 @@ async function handlePublicSiteContent(request, response, url) {
         lessonPlanIds: resolveFreeStarterLibrary(store).lessonPlanIds,
         count: freeCurriculumSample.REQUIRED_COUNT,
         distribution: freeCurriculumSample.REQUIRED_DISTRIBUTION,
+        purpose: "marketing-inventory",
+        notEntitlement: true,
       },
+      canonicalFreePublishedCount: freeCurriculumSample.countCanonicalPublishedFreePlans(
+        readSiteCurriculum(store).lessonPlans || [],
+      ),
       membershipCopy: publicMembershipCopyPayload(store),
       curriculumLibrary,
     },
@@ -25649,6 +25656,7 @@ function publicMembershipCopyPayload(store = peekStore()) {
   };
 }
 
+/** Merchandising inventory for homepage/admin starter set. Does not authorize lessons. */
 function resolveFreeStarterLibrary(store = peekStore()) {
   const override = freeStarterOverrideIds(store);
   const ids = override || [...freeCurriculumSample.DEFAULT_FREE_STARTER_LESSON_IDS];
@@ -26050,6 +26058,9 @@ function handleAdminFreeStarterLibraryGet(request, response, url) {
   }
   jsonResponse(response, 200, {
     ok: true,
+    purpose: "marketing-inventory",
+    notEntitlement: true,
+    entitlementSource: "lesson.plan",
     freeStarterLibrary: resolveFreeStarterLibrary(readStore()),
     requiredCount: freeCurriculumSample.REQUIRED_COUNT,
     requiredDistribution: freeCurriculumSample.REQUIRED_DISTRIBUTION,
@@ -26057,6 +26068,11 @@ function handleAdminFreeStarterLibraryGet(request, response, url) {
   });
 }
 
+/**
+ * Save merchandising starter IDs only.
+ * Never mutates lesson.plan, publication status, or curriculum content.
+ * Customer access continues to follow Admin Set Free / Set Pro (lesson.plan).
+ */
 async function handleAdminFreeStarterLibrarySave(request, response) {
   let body = {};
   try {
@@ -26101,7 +26117,7 @@ async function handleAdminFreeStarterLibrarySave(request, response) {
         ageCounts: validation.ageCounts,
         plans: plans.map((p) => ({ id: p.id, title: p.title, age: p.age, status: p.status })),
       },
-      message: "Preview only — set confirm:true to save.",
+      message: "Preview only — set confirm:true to save. This list is merchandising inventory, not lesson entitlement.",
     });
     return;
   }

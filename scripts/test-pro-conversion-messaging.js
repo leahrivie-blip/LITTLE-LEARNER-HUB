@@ -157,7 +157,7 @@ async function main() {
     const library = site.json?.curriculumLibrary || site.json?.siteContent?.curriculumLibrary || {};
     const plans = Array.isArray(library.lessonPlans) ? library.lessonPlans : [];
     const freeSample = require("./free-curriculum-sample.js");
-    // Store tags can remain Pro while the curated Free allowlist unlocks seasonal samples.
+    // Store tags can remain Pro; starter IDs must not unlock them.
     plans.filter((p) => p.plan === "Pro" && !freeSample.isCuratedFreeLessonPlan(p)).forEach((plan) => {
       assert.equal(plan.locked, true, `${plan.id} should be locked`);
       assert.equal(plan.dailyPlans, undefined, `${plan.id} must not leak dailyPlans`);
