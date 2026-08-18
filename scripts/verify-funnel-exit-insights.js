@@ -632,7 +632,7 @@ function scopeGuard() {
   check("no Stripe/auth/curriculum/billing file changes", forbidden.length === 0, forbidden.join(", ") || "clean");
   // Scope guard is advisory for pre-merge of #429; later analytics-only PRs may touch the same surface.
   const disallowed = files.filter((f) =>
-    !/admin-insights|verify-marketing-funnel|verify-funnel-exit|test-admin-insights|llh-admin-workspace|service-worker|index\.html|package\.json|server\/index\.js/.test(f));
+    !/admin-insights|verify-marketing-funnel|verify-funnel-exit|test-admin-insights|test-admin-metric-accuracy|test-free-signup-funnel|admin-metrics-accuracy-audit|llh-admin-workspace|service-worker|index\.html|package\.json|server\/index\.js/.test(f));
   check("diff limited to analytics/insights surface", disallowed.length === 0, disallowed.join(", ") || files.join(", "));
   console.log("PASS scope guard");
 }

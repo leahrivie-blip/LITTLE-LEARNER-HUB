@@ -196,12 +196,30 @@
     `;
   }
 
+  function renderAdvisorEvidence(evidence) {
+    if (!evidence || typeof evidence !== "object") return "";
+    const parts = [];
+    if (evidence.startingPopulation != null && evidence.resultingPopulation != null) {
+      parts.push(`${evidence.startingPopulation} → ${evidence.resultingPopulation}`);
+    }
+    if (evidence.lost != null) parts.push(`lost ${evidence.lost}`);
+    if (evidence.conversionRateLabel) parts.push(evidence.conversionRateLabel);
+    else if (evidence.conversionRate != null) parts.push(`${evidence.conversionRate}%`);
+    if (evidence.uniqueViewers != null && evidence.views != null) {
+      parts.push(`${evidence.views} views · ${evidence.uniqueViewers} unique`);
+    }
+    if (evidence.timeWindow) parts.push(evidence.timeWindow);
+    if (!parts.length) return "";
+    return `<p class="muted-copy admin-insights-rec-evidence">${esc(parts.join(" · "))}</p>`;
+  }
+
   function renderAdvisor(data) {
     const recs = (data.recommendations || []).map((rec, idx) => `
       <article class="admin-home-card admin-insights-rec" data-insights-open-hub="${esc(rec.hub || "advisor")}" data-rec-category="${esc(rec.category || "conversion")}">
         <p class="eyebrow">${esc(String(rec.category || "opportunity").replace(/_/g, " "))} · ${esc(String(rec.priority || "medium").toUpperCase())} · ${idx + 1}</p>
         <h4>${esc(rec.title || "")}</h4>
         <p class="muted-copy">${esc(rec.detail || "")}</p>
+        ${renderAdvisorEvidence(rec.evidence)}
         <button type="button" class="ghost-button" data-insights-open-hub="${esc(rec.hub || "advisor")}">Open</button>
       </article>
     `).join("");
@@ -264,7 +282,7 @@
       <div class="admin-insights-split">
         <section>
           <h4>Most viewed lessons</h4>
-          ${table(["Lesson", "Views"], (data.mostViewedLessons || []).map((r) => [r.key, r.count]))}
+          ${table(["Lesson", "Views (events)"], (data.mostViewedLessons || []).map((r) => [r.key, r.count]))}
         </section>
         <section>
           <h4>Most viewed activities</h4>
@@ -476,10 +494,11 @@
       ` : ""}
       ${data.worstDropOff && !data.worstDropOff.informational && data.worstDropOff.fromCount > 0 ? `
         <div class="admin-insights-pending">
-          Largest drop-off: <strong>${esc(data.worstDropOff.advisorLabel || `${data.worstDropOff.fromLabel} → ${data.worstDropOff.toLabel}`)}</strong>
-          — ${esc(data.worstDropOff.dropOffRateLabel)} drop-off
-          (${esc(data.worstDropOff.dropOffCount)} people).
-          ${data.worstDropOff.from === "visitors" && data.worstDropOff.to === "signupStarts"
+          Largest drop-off: <strong>${esc(data.worstDropOff.narrative?.advisorLabel || data.worstDropOff.advisorLabel || `${data.worstDropOff.fromLabel} → ${data.worstDropOff.toLabel}`)}</strong>
+          — ${esc(data.worstDropOff.narrative?.evidence?.conversionSentence || `${data.worstDropOff.dropOffRateLabel} continued`)}.
+          ${esc(data.worstDropOff.narrative?.evidence?.lostSentence || `${data.worstDropOff.dropOffCount} of ${data.worstDropOff.fromCount} did not continue`)}.
+          ${data.worstDropOff.narrative?.evidence?.timeWindow ? `Time window: ${esc(data.worstDropOff.narrative.evidence.timeWindow)}.` : ""}
+          ${data.worstDropOff.from === "visitors" && (data.worstDropOff.to === "signupStarts")
             ? " This includes people who never clicked Start Free — not form abandonment. Use the Free signup funnel for the click vs submit split."
             : ""}
         </div>
@@ -510,7 +529,7 @@
               <strong class="${t.informational ? "muted-copy" : "admin-insights-funnel-drop"}">${
                 t.informational
                   ? `raw ${esc(t.rawDropOffRateLabel || "0%")} (not a drop-off)`
-                  : `${esc(t.dropOffRateLabel)} drop-off (${esc(t.dropOffCount)})`
+                  : `${esc(t.conversionRateLabel)} continued · ${esc(t.dropOffCount)} of ${esc(t.fromCount)} did not continue`
               }</strong>
             </div>
           `).join("") || `<p class="muted-copy">Not enough stages to compare yet.</p>`}

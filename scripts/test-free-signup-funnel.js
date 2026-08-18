@@ -180,10 +180,10 @@ function testZeroDenominator() {
   assert.equal(stageById(empty, "accountCreated").uniqueActors, 0);
   assert.equal(stageById(empty, "accountCreated").dropOffCount, null, "previous gated step is unavailable, not a 0% edge");
   assert.equal(stageById(empty, "startFreeClicks").conversionFromPrev, 0);
-  assert.equal(stageById(empty, "startFreeClicks").conversionFromPrevLabel, "0%");
-  assert.equal(stageById(empty, "startFreeClicks").dropOffRateLabel, "0%");
+  assert.equal(stageById(empty, "startFreeClicks").conversionFromPrevLabel, "Insufficient data");
+  assert.equal(stageById(empty, "startFreeClicks").dropOffRateLabel, "Insufficient data");
   assert.equal(leakById(empty, "A").count, 0);
-  assert.equal(leakById(empty, "A").percentLabel, "0%");
+  assert.equal(leakById(empty, "A").percentLabel, "Insufficient data");
   assert.equal(empty.largestLeak, null);
   assert.match(empty.largestLeakLabel, /none in this range/i);
   console.log("PASS zero-denominator cases are safe");

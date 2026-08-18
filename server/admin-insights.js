@@ -4,6 +4,7 @@
  */
 
 const testAccountGuard = require("./test-account-guard.js");
+const membershipAccess = require("../scripts/membership-access.js");
 
 const HUBS = Object.freeze([
   "advisor",
@@ -32,7 +33,7 @@ const FUNNEL_STAGE_DEFS = Object.freeze([
   { id: "visitors", label: "Visitors", role: "required" },
   { id: "landingPageViews", label: "Landing page views", role: "supporting" },
   { id: "ctaClicks", label: "CTA clicks", role: "supporting" },
-  { id: "signupStarts", label: "Signup started", role: "required" },
+  { id: "signupStarts", label: "Started signup", role: "required" },
   { id: "signupCompletions", label: "Signup completed", role: "required" },
   { id: "emailVerified", label: "Email verified", role: "optional" },
   { id: "trialStarts", label: "Trial started", role: "required" },
@@ -43,8 +44,8 @@ const FUNNEL_STAGE_DEFS = Object.freeze([
 
 /** Advisor focuses on these required edges (skips optional/supporting noise). */
 const ADVISOR_FUNNEL_EDGES = Object.freeze([
-  { from: "visitors", to: "signupStarts", label: "Visitor → Signup started" },
-  { from: "signupStarts", to: "signupCompletions", label: "Signup started → Signup completed" },
+  { from: "visitors", to: "signupStarts", label: "Visitor → Started signup" },
+  { from: "signupStarts", to: "signupCompletions", label: "Started signup → Signup completed" },
   { from: "signupCompletions", to: "trialStarts", label: "Signup completed → Trial started" },
   { from: "trialStarts", to: "paidConversions", label: "Trial started → Paid" },
 ]);
@@ -130,8 +131,189 @@ function countBy(list, keyFn) {
 }
 
 function rate(part, whole) {
-  if (!whole) return "0%";
+  if (!whole) return "Insufficient data";
   return `${((part / whole) * 100).toFixed(1)}%`;
+}
+
+const RANGE_WINDOW_LABELS = Object.freeze({
+  today: "Today (UTC)",
+  "7d": "Last 7 days",
+  "30d": "Last 30 days",
+  all: "All time",
+});
+
+function rangeWindowLabel(rangeKey = "") {
+  const key = String(rangeKey || "").toLowerCase();
+  return RANGE_WINDOW_LABELS[key] || (key ? String(rangeKey) : "Current range");
+}
+
+/**
+ * Honest advisor/funnel copy for a required conversion edge.
+ * Does not change drop-off math — only labels starting vs resulting populations.
+ * Visitor → Started signup must never be phrased as "people dropped out of signup".
+ */
+function describeAdvisorFunnelOpportunity(transition = {}, rangeKey = "") {
+  const fromCount = Number(transition.fromCount || 0);
+  const toCount = Number(transition.toCount || 0);
+  const lost = Math.max(fromCount - toCount, 0);
+  const from = String(transition.from || "");
+  const to = String(transition.to || "");
+  const advisorLabel = String(
+    transition.advisorLabel
+    || (from === "visitors" && to === "signupStarts"
+      ? "Visitor → Started signup"
+      : `${transition.fromLabel || from} → ${transition.toLabel || to}`),
+  );
+  const windowLabel = rangeWindowLabel(rangeKey);
+
+  if (!fromCount) {
+    return {
+      available: false,
+      advisorLabel,
+      title: `Conversion Opportunity: ${advisorLabel}`,
+      detail: `Insufficient data — no starting population in this window (${windowLabel}).`,
+      summaryLine: null,
+      bannerText: null,
+      evidence: {
+        startingPopulation: 0,
+        resultingPopulation: 0,
+        lost: 0,
+        conversionRate: null,
+        dropOffRate: null,
+        conversionRateLabel: "Insufficient data",
+        dropOffRateLabel: "Insufficient data",
+        timeWindow: windowLabel,
+        unit: "unknown",
+        lostSentence: "Insufficient data",
+        conversionSentence: "Insufficient data",
+      },
+    };
+  }
+
+  const converted = Math.min(toCount, fromCount);
+  const conversionRate = Number(((converted / fromCount) * 100).toFixed(1));
+  const dropOffRate = Number(((lost / fromCount) * 100).toFixed(1));
+  const conversionLabel = `${conversionRate.toFixed(1)}%`;
+  const dropOffLabel = `${dropOffRate.toFixed(1)}%`;
+
+  let startingNoun = "people who reached the previous step";
+  let resultingNoun = "people who reached the next step";
+  let lostSentence = `${lost} of ${fromCount} did not continue`;
+  let conversionSentence = `${conversionLabel} continued`;
+  let neverEnteredSignup = false;
+  let unit = "unique_actors";
+
+  if (from === "visitors" && to === "signupStarts") {
+    startingNoun = "unique visitors";
+    resultingNoun = "started signup";
+    lostSentence = `${lost} of ${fromCount} visitors did not start signup`;
+    conversionSentence = `${conversionLabel} started signup`;
+    neverEnteredSignup = true;
+    unit = "unique_visitors";
+  } else if (from === "signupStarts" && to === "signupCompletions") {
+    startingNoun = "people who started signup";
+    resultingNoun = "completed accounts";
+    lostSentence = `${lost} of ${fromCount} people who started signup did not complete an account`;
+    conversionSentence = `${conversionLabel} completed signup`;
+  } else if (from === "signupCompletions" && to === "trialStarts") {
+    startingNoun = "new accounts";
+    resultingNoun = "trial starts";
+    lostSentence = `${lost} of ${fromCount} new accounts did not start a trial`;
+    conversionSentence = `${conversionLabel} started a trial`;
+  } else if (from === "trialStarts" && to === "paidConversions") {
+    startingNoun = "trial starts";
+    resultingNoun = "paid conversions";
+    lostSentence = `${lost} of ${fromCount} trial starts did not convert to paid`;
+    conversionSentence = `${conversionLabel} converted to paid`;
+  }
+
+  const lines = [
+    `Starting population: ${fromCount} ${startingNoun}.`,
+    `Resulting population: ${toCount} ${resultingNoun}.`,
+    `Number lost: ${lost}.`,
+    `Conversion: ${conversionLabel}.`,
+    `Time window: ${windowLabel}.`,
+    lostSentence + ".",
+  ];
+  if (neverEnteredSignup) {
+    lines.push("These visitors never entered the signup flow. Started signup includes Start Free CTA clicks and signup form opens.");
+  }
+
+  return {
+    available: true,
+    advisorLabel,
+    title: `Conversion Opportunity: ${advisorLabel}`,
+    detail: lines.join(" "),
+    summaryLine: `Largest drop-off: ${advisorLabel} — ${conversionSentence}; ${lostSentence} (${rangeKey || windowLabel})`,
+    bannerText: `${advisorLabel} — ${conversionSentence}. ${lostSentence}. Time window: ${windowLabel}.`,
+    evidence: {
+      startingPopulation: fromCount,
+      resultingPopulation: toCount,
+      lost,
+      conversionRate,
+      dropOffRate,
+      conversionRateLabel: conversionLabel,
+      dropOffRateLabel: dropOffLabel,
+      timeWindow: windowLabel,
+      unit,
+      lostSentence,
+      conversionSentence,
+    },
+  };
+}
+
+function summarizeLessonViewEvidence(events = [], title = "") {
+  const wanted = String(title || "").trim().toLowerCase();
+  const views = (Array.isArray(events) ? events : []).filter((event) => {
+    if (!isLessonView(event)) return false;
+    if (!wanted) return false;
+    return String(contentTitle(event) || "").trim().toLowerCase() === wanted;
+  });
+  const unique = new Set();
+  for (const event of views) {
+    const key = actorKey(event) || normalizeEmail(event.user || event.detail?.email || "");
+    if (key) unique.add(key);
+  }
+  return {
+    title,
+    views: views.length,
+    uniqueViewers: unique.size,
+    upgradeAssociationMeasured: false,
+  };
+}
+
+function isExcludedAdvisorAccount(user = {}, env = process.env) {
+  const email = String(user?.email || "").trim().toLowerCase();
+  if (testAccountGuard.shouldExcludeFromCustomerAnalytics(email, env)) return true;
+  if (user?.internalAccessOverride === true || user?.systemAccount === true) return true;
+  const configured = new Set(
+    [env.ADMIN_EMAIL, env.ADMIN_EMAILS]
+      .flatMap((value) => String(value || "").split(/[,;\s]+/))
+      .map((value) => String(value || "").trim().toLowerCase())
+      .filter(Boolean),
+  );
+  return Boolean(email && configured.has(email));
+}
+
+function isTrialEndingSoonForAdvisor(user = {}, now = Date.now(), hours = 48) {
+  if (isExcludedAdvisorAccount(user)) return false;
+  if (!membershipAccess.membershipUserInTrial(user, now)) return false;
+  if (user.metaPurchaseAt || user.firstPaidInvoiceAt) return false;
+  const end = new Date(user.trialEnd).getTime();
+  if (!Number.isFinite(end) || end <= 0) return false;
+  const hoursLeft = (end - now) / 3600000;
+  return hoursLeft >= 0 && hoursLeft <= hours;
+}
+
+function isInactivePaidMemberForAdvisor(user = {}, now = Date.now(), days = 14) {
+  if (isExcludedAdvisorAccount(user)) return false;
+  const plan = String(user?.plan || "").toLowerCase();
+  if (!plan.includes("pro") && !plan.includes("found")) return false;
+  const lastRaw = user.lastSeenAt || user.lastLoginAt || "";
+  if (!lastRaw) return false;
+  const last = new Date(lastRaw).getTime();
+  if (!Number.isFinite(last) || last <= 0) return false;
+  return (now - last) > days * 86400000;
 }
 
 function detectDevice(ua = "") {
@@ -1842,8 +2024,14 @@ function buildMarketingFunnel(store, events, range, { source = "", stage = "", e
   });
   const transitions = buildStageTransitions(stages, { emailVerificationRequired });
   const advisorTransitions = buildAdvisorFunnelTransitions(stages);
-  const worstDrop = pickWorstActionableDropOff(advisorTransitions)
+  const worstDropBase = pickWorstActionableDropOff(advisorTransitions)
     || pickWorstActionableDropOff(transitions);
+  const worstDropNarrative = worstDropBase
+    ? describeAdvisorFunnelOpportunity(worstDropBase, range.key)
+    : null;
+  const worstDrop = worstDropBase
+    ? { ...worstDropBase, narrative: worstDropNarrative }
+    : null;
 
   const bySource = FUNNEL_SOURCES.map((src) => {
     const sourceStages = FUNNEL_STAGE_DEFS.map((def) => ({
@@ -1994,7 +2182,7 @@ function buildMarketingFunnel(store, events, range, { source = "", stage = "", e
     overallConversionRate: rate(paidCount, stages[0]?.count || 0),
     note: emailVerificationRequired
       ? "Active subscribers is a current snapshot. Email verification is required in this environment, so verify→next-step drop-off counts toward recommendations."
-      : "Active subscribers is a current snapshot. Email verified and Trial ended are informational (optional) — skipping them is not counted as drop-off. Recommendations focus on Visitor→Signup→Trial→Paid.",
+      : "Active subscribers is a current snapshot. Email verified and Trial ended are informational (optional) — skipping them is not counted as drop-off. Recommendations focus on Visitor→Started signup→Trial→Paid. Started signup includes Start Free CTA clicks and signup form opens — visitors who never start signup are not form drop-offs.",
   };
 }
 
@@ -2050,7 +2238,9 @@ function buildAdvisor(store, events, range, extras = {}) {
     revenueMonth ? `Revenue this month: $${revenueMonth.toFixed(2)}` : (revenueToday ? `Revenue today: $${revenueToday.toFixed(2)}` : "Revenue: awaiting paid invoices in range"),
   ];
   if (bestSource) {
-    summaryLines.push(`${bestSource.source} leads conversions (signups ${bestSource.signups || 0}, paid ${bestSource.paid || 0})`);
+    const sourceVisitors = Number(bestSource.visitors || 0);
+    const sampleNote = sourceVisitors > 0 && sourceVisitors < 10 ? "; small sample" : "";
+    summaryLines.push(`${bestSource.source} leads conversions (visitors ${sourceVisitors}, signups ${bestSource.signups || 0}, paid ${bestSource.paid || 0}${sampleNote})`);
   }
   if (topNoResult) {
     summaryLines.push(`${topNoResult.count} search${topNoResult.count === 1 ? "" : "es"} for “${topNoResult.key}” returned no results`);
@@ -2071,13 +2261,11 @@ function buildAdvisor(store, events, range, extras = {}) {
   const actionableWorst = pickWorstActionableDropOff(advisorEdges) || (
     funnel.worstDropOff && !funnel.worstDropOff.informational ? funnel.worstDropOff : null
   );
-  // dropOffRateLabel is DROP-OFF math (fromCount - toCount) / fromCount — label it honestly.
-  if (actionableWorst && actionableWorst.fromCount > 0 && actionableWorst.dropOffCount > 0) {
-    const edgeLabel = actionableWorst.advisorLabel
-      || `${actionableWorst.fromLabel} → ${actionableWorst.toLabel}`;
-    summaryLines.push(
-      `Largest drop-off: ${edgeLabel} (${actionableWorst.dropOffRateLabel} drop-off)`,
-    );
+  const worstNarrative = actionableWorst
+    ? describeAdvisorFunnelOpportunity(actionableWorst, range.key)
+    : null;
+  if (worstNarrative?.summaryLine) {
+    summaryLines.push(worstNarrative.summaryLine);
   }
   if (funnel.freeSignupFunnel?.largestLeak?.fromCount > 0 && funnel.freeSignupFunnel.largestLeak.dropOffCount > 0) {
     summaryLines.push(funnel.freeSignupFunnel.largestLeakLabel);
@@ -2087,8 +2275,10 @@ function buildAdvisor(store, events, range, extras = {}) {
   }
 
   const recommendations = [];
-  const addRec = (priority, title, detail, hub, category = "conversion") => {
-    recommendations.push({ priority, title, detail, hub, category });
+  const addRec = (priority, title, detail, hub, category = "conversion", evidence = null) => {
+    const rec = { priority, title, detail, hub, category };
+    if (evidence && typeof evidence === "object") rec.evidence = evidence;
+    recommendations.push(rec);
   };
 
   const scopedEvents = customerScoped;
@@ -2139,62 +2329,92 @@ function buildAdvisor(store, events, range, extras = {}) {
     && actionableWorst.from !== "trialEnded"
     && actionableWorst.to !== "trialEnded"
   ) {
-    const edgeLabel = actionableWorst.advisorLabel || `${actionableWorst.fromLabel} → ${actionableWorst.toLabel}`;
-    const isTrialEdge = /trial/i.test(edgeLabel);
+    const narrative = worstNarrative || describeAdvisorFunnelOpportunity(actionableWorst, range.key);
     addRec(
       "high",
-      isTrialEdge
-        ? `Conversion Opportunity: ${edgeLabel}`
-        : `Largest drop-off: ${edgeLabel}`,
-      `${actionableWorst.dropOffRateLabel} drop-off before ${actionableWorst.toLabel}. Focus on required steps (Visitor→Signup→Trial→Paid) — optional steps are informational only.`,
+      narrative.title,
+      narrative.detail,
       "marketing-funnel",
       "conversion",
+      narrative.evidence,
     );
   }
   const secondary = advisorEdges
     .filter((t) => t !== actionableWorst && t.dropOffRate >= 40 && t.fromCount >= 5)
     .sort((a, b) => b.dropOffRate - a.dropOffRate || b.dropOffCount - a.dropOffCount)[0];
   if (secondary && recommendations.length < 3) {
+    const secondaryNarrative = describeAdvisorFunnelOpportunity(secondary, range.key);
     addRec(
       "medium",
-      `Conversion Opportunity: ${secondary.advisorLabel}`,
-      `${secondary.dropOffRateLabel} drop-off on a required conversion step (${secondary.dropOffCount} people).`,
+      secondaryNarrative.title,
+      secondaryNarrative.detail,
       "marketing-funnel",
       "conversion",
+      secondaryNarrative.evidence,
     );
   }
   if (topNoResult) {
     addRec("high", `Content Opportunity: build “${topNoResult.key}”`, `${topNoResult.count} no-result searches in this range.`, "search-analytics", "content");
   }
   if (topLesson) {
+    const lessonEvidence = summarizeLessonViewEvidence(scopedEvents, topLesson.key);
     addRec(
       "high",
       `Content Opportunity: improve “${topLesson.key}”`,
-      "Highest viewed lesson — many users open this before upgrading. Feature it and polish the trial presentation around it.",
+      `Highest viewed lesson in this range: ${lessonEvidence.views} lesson-view event${lessonEvidence.views === 1 ? "" : "s"} from ${lessonEvidence.uniqueViewers} unique viewer${lessonEvidence.uniqueViewers === 1 ? "" : "s"} (${rangeWindowLabel(range.key)}). Upgrade association after viewing is not measured — this does not mean the lesson causes upgrades.`,
       "feature-usage",
       "content",
+      {
+        startingPopulation: lessonEvidence.uniqueViewers,
+        resultingPopulation: null,
+        lost: null,
+        views: lessonEvidence.views,
+        uniqueViewers: lessonEvidence.uniqueViewers,
+        conversionRate: null,
+        timeWindow: rangeWindowLabel(range.key),
+        unit: "lesson_view_events",
+        upgradeAssociationMeasured: false,
+      },
     );
   }
   if (topRequest && ["New", "Under Review", "Planned"].includes(topRequest.status)) {
     addRec("medium", `Retention Opportunity: advance “${topRequest.title}”`, `${topRequest.votes} votes — update status or estimate a release.`, "feature-requests", "retention");
   }
-  const trialEnding = Object.values(store.users || {}).filter((u) => {
-    if (!u.trialEnd) return false;
-    const end = new Date(u.trialEnd).getTime();
-    const days = (end - Date.now()) / 86400000;
-    return days >= 0 && days <= 2;
-  });
+  const trialEnding = Object.values(store.users || {}).filter((u) => isTrialEndingSoonForAdvisor(u));
   if (trialEnding.length) {
-    addRec("high", `Conversion Opportunity: email ${trialEnding.length} trial user${trialEnding.length === 1 ? "" : "s"} ending within 48 hours`, "Convert while intent is highest.", "advisor", "conversion");
+    addRec(
+      "high",
+      `Conversion Opportunity: email ${trialEnding.length} trial user${trialEnding.length === 1 ? "" : "s"} ending within 48 hours`,
+      `${trialEnding.length} current trial account${trialEnding.length === 1 ? "" : "s"} ${trialEnding.length === 1 ? "has" : "have"} a trialEnd within 48 hours, are still in trial, and have no recorded paid conversion. Test, admin, and system accounts are excluded.`,
+      "advisor",
+      "conversion",
+      {
+        startingPopulation: trialEnding.length,
+        resultingPopulation: 0,
+        lost: trialEnding.length,
+        conversionRate: null,
+        timeWindow: "Next 48 hours",
+        unit: "current_trial_accounts",
+      },
+    );
   }
-  const inactivePro = Object.values(store.users || {}).filter((u) => {
-    const plan = String(u.plan || "").toLowerCase();
-    if (!plan.includes("pro") && !plan.includes("found")) return false;
-    const last = new Date(u.lastSeenAt || u.lastLoginAt || 0).getTime();
-    return !last || (Date.now() - last) > 14 * 86400000;
-  });
+  const inactivePro = Object.values(store.users || {}).filter((u) => isInactivePaidMemberForAdvisor(u));
   if (inactivePro.length) {
-    addRec("medium", `Retention Opportunity: reach ${Math.min(inactivePro.length, 25)} inactive Pro/Founding members`, "No activity in 14+ days — win-back message.", "churn-dashboard", "retention");
+    addRec(
+      "medium",
+      `Retention Opportunity: reach ${Math.min(inactivePro.length, 25)} inactive Pro/Founding members`,
+      `${inactivePro.length} Pro/Founding account${inactivePro.length === 1 ? "" : "s"} ${inactivePro.length === 1 ? "has" : "have"} no tracked lastSeen/lastLogin in 14+ days. Members with no activity timestamps are excluded (incomplete data).`,
+      "churn-dashboard",
+      "retention",
+      {
+        startingPopulation: inactivePro.length,
+        resultingPopulation: 0,
+        lost: inactivePro.length,
+        conversionRate: null,
+        timeWindow: "14+ days since lastSeen or lastLogin",
+        unit: "paid_accounts_with_tracked_activity",
+      },
+    );
   }
   if (errors.serverMonitor && errors.serverMonitor.ok === false) {
     addRec("high", "Investigate 5xx error spike", errors.serverMonitor.detail || "Error rate check is failing.", "error-center", "retention");
@@ -2203,7 +2423,31 @@ function buildAdvisor(store, events, range, extras = {}) {
     addRec("medium", `Content Opportunity: update “${content.updateRecommendations[0].title}”`, content.updateRecommendations[0].reason, "content-health", "content");
   }
   if (bestSource && String(bestSource.source).toLowerCase().includes("tiktok") === false && (bestSource.signups || 0) > 0) {
-    addRec("low", `Conversion Opportunity: double down on ${bestSource.source}`, "Best converting source in marketing attribution for this snapshot.", "advisor", "conversion");
+    const sourceVisitors = Number(bestSource.visitors || 0);
+    const sourceSignups = Number(bestSource.signups || 0);
+    const sourcePaid = Number(bestSource.paid || 0);
+    const sampleNote = sourceVisitors > 0 && sourceVisitors < 10
+      ? `Sample size is small (${sourceVisitors} visitors).`
+      : `${sourceVisitors} visitors · ${sourceSignups} signups · ${sourcePaid} paid.`;
+    addRec(
+      "low",
+      `Conversion Opportunity: double down on ${bestSource.source}`,
+      `${bestSource.source} has the most paid conversions among attributed sources in this snapshot. ${sampleNote} Ranking is not causal.`,
+      "advisor",
+      "conversion",
+      {
+        startingPopulation: sourceVisitors,
+        resultingPopulation: sourcePaid,
+        lost: Math.max(sourceVisitors - sourcePaid, 0),
+        conversionRate: sourceVisitors ? Number(((sourcePaid / sourceVisitors) * 100).toFixed(1)) : null,
+        timeWindow: "Owner Analytics attribution snapshot (not Insights range)",
+        unit: "attributed_visits_and_conversions",
+        source: bestSource.source,
+        signups: sourceSignups,
+        paid: sourcePaid,
+        sampleSizeSmall: sourceVisitors > 0 && sourceVisitors < 10,
+      },
+    );
   }
   if (!recommendations.length) {
     addRec("low", "Keep collecting usage signals", "Not enough conversion pressure today — review Feature Usage and Content Health.", "feature-usage", "onboarding");
@@ -2320,4 +2564,10 @@ module.exports = {
   countOpenFeatureRequests,
   funnelStageCount,
   CLOSED_FEATURE_REQUEST_STATUSES,
+  rate,
+  rangeWindowLabel,
+  describeAdvisorFunnelOpportunity,
+  summarizeLessonViewEvidence,
+  isTrialEndingSoonForAdvisor,
+  isInactivePaidMemberForAdvisor,
 };
