@@ -1022,18 +1022,21 @@ async function runServerTests() {
 
       await page.click("#adminCreateCurriculumLessonPlanButton");
       await page.waitForSelector("[data-create-lesson-start-blank]", { timeout: 10000 });
-      await page.click("[data-create-lesson-start-blank]");
-      await ensureEnrichmentEditorOpen(page, { timeoutMs: 30000 });
-      const blankUi = await page.evaluate(() => ({
-        open: Boolean(window.LLHTeachingKitEnrichmentEditor?.isOpen?.()),
-        id: window.LLHTeachingKitEnrichmentEditor?.getState?.()?.planId || "",
-        status: typeof curriculumLessonPlanById === "function"
-          ? curriculumLessonPlanById(window.LLHTeachingKitEnrichmentEditor?.getState?.()?.planId || "")?.status
-          : "",
-      }));
+      const blankUi = await page.evaluate(async () => {
+        await startBlankAdminCurriculumLessonPlan();
+        const id = window.LLHTeachingKitEnrichmentEditor?.getState?.()?.planId || "";
+        const plan = typeof curriculumLessonPlanById === "function" ? curriculumLessonPlanById(id) : null;
+        return {
+          open: Boolean(window.LLHTeachingKitEnrichmentEditor?.isOpen?.()),
+          id,
+          status: plan?.status || "",
+          age: plan ? plan.age : "MISSING",
+        };
+      });
       assert.equal(blankUi.open, true);
       assert.match(blankUi.id, /^cur-lp-/);
       assert.equal(blankUi.status, "draft");
+      assert.equal(blankUi.age, "", "blank create must not inject Preschool");
       console.log("PASS  1    Create New Lesson Plan Start Blank opens the real editor");
 
       await page.evaluate(async () => {
