@@ -467,6 +467,14 @@ body:has(#view-admin.active-view) .llh-public-nav {
   background: #fbfdfc;
 }
 
+#view-admin .admin-insights-free-signup-funnel {
+  margin: 18px 0 22px;
+  padding: 14px 14px 8px;
+  border: 1px solid #d7e3da;
+  border-radius: 14px;
+  background: #fbfdfc;
+}
+
 #view-admin .admin-insights-funnel-drilldown {
   margin: 8px 0 18px;
   padding: 12px;
