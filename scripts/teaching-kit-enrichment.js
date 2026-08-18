@@ -441,6 +441,27 @@
     return text(publishedValue);
   }
 
+  /**
+   * Master-paste seeds enrichmentDraft.activities by itemId. After persist, store
+   * activities are keyed by cur-act-* ids. Merge both so editor hydration cannot
+   * miss parsed fields that survived on either key.
+   */
+  function resolveActivityDraftPatch(activity, draftActivities) {
+    const draft = draftActivities && typeof draftActivities === "object" && !Array.isArray(draftActivities)
+      ? draftActivities
+      : {};
+    const idKey = text(activity && activity.id);
+    const itemKey = text(activity && activity.itemId);
+    const byId = idKey && draft[idKey] && typeof draft[idKey] === "object" && !Array.isArray(draft[idKey])
+      ? draft[idKey]
+      : {};
+    const byItem = itemKey && draft[itemKey] && typeof draft[itemKey] === "object" && !Array.isArray(draft[itemKey])
+      ? draft[itemKey]
+      : {};
+    if (!Object.keys(byId).length && !Object.keys(byItem).length) return {};
+    return { ...byItem, ...byId };
+  }
+
   /** Materials may be multiline string or legacy array — editor always uses text. */
   function materialsToEditorText(value) {
     if (Array.isArray(value)) {
@@ -891,8 +912,8 @@
   function firstIncompleteActivityIndex(activities, draftActivities) {
     const draft = draftActivities && typeof draftActivities === "object" ? draftActivities : {};
     for (let i = 0; i < activities.length; i += 1) {
-      const key = text(activities[i].id) || text(activities[i].itemId);
-      if (activityStatus(activities[i], draft[key]) !== ACTIVITY_STATUS.complete) return i;
+      const patch = resolveActivityDraftPatch(activities[i], draft);
+      if (activityStatus(activities[i], patch) !== ACTIVITY_STATUS.complete) return i;
     }
     return 0;
   }
@@ -2338,6 +2359,7 @@
     OWNER_CORE_ACTIVITY_REQUIRED_FIELDS,
     getCoreActivityFieldValue,
     mapActivityToOwnerEditorModel,
+    resolveActivityDraftPatch,
     applyOwnerActivityCorePatch,
     computeActivityCompletion,
     renderActivityMissingItems,

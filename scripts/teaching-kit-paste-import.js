@@ -545,6 +545,12 @@
         pendingNeed = "";
         return;
       }
+      if (useMatch && !pendingNeed) {
+        const use = text(useMatch[1]);
+        if (use) out.push({ need: "listed material", use });
+        pendingNeed = "";
+        return;
+      }
       if (pendingNeed && cleaned) {
         // Second line without explicit "use instead" — treat as use value.
         out.push({ need: pendingNeed, use: cleaned });

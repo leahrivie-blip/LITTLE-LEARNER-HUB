@@ -162,7 +162,8 @@
     indoor: "indoorAlternatives",
     "outdoor option": "outdoorAlternatives",
     outdoor: "outdoorAlternatives",
-    "indoor/outdoor options": "indoorAlternatives",
+    "indoor/outdoor options": "indoorOutdoorOptions",
+    "indoor outdoor options": "indoorOutdoorOptions",
     "teacher tips": "teacherTips",
     tips: "teacherTips",
     "supply substitutions": "substitutions",
@@ -652,6 +653,34 @@
     return map[cleaned] || "";
   }
 
+  /** Canonical need label for unstructured "Use X" substitution lines. Schema requires need+use. */
+  const UNSTRUCTURED_SUBSTITUTION_NEED = "listed material";
+
+  /**
+   * Parse supply substitutions without inventing "If missing" as a need value.
+   * Structured "If missing: X → Use instead: Y" keeps X/Y. Plain "Use liquid watercolor drops."
+   * becomes { need: "listed material", use: "liquid watercolor drops." }.
+   */
+  function parseActivitySubstitutions(raw) {
+    const subs = [];
+    listLines(raw).forEach((line) => {
+      const cleaned = text(line);
+      if (!cleaned) return;
+      const arrow = cleaned.match(/^(.+?)\s*(?:→|->|=>|—)\s*(.+)$/);
+      if (arrow) {
+        let need = text(arrow[1].replace(/^(?:no\s+)?(?:if\s+missing:?\s*)?/i, ""));
+        const use = text(arrow[2].replace(/^(?:use\s+instead:?\s*|use:?\s*)/i, ""));
+        if (/^if missing$/i.test(need)) need = UNSTRUCTURED_SUBSTITUTION_NEED;
+        if (need && use) subs.push({ need, use });
+        return;
+      }
+      const useOnly = cleaned.match(/^(?:use(?:\s+instead)?:?\s+)(.+)$/i);
+      const use = text(useOnly ? useOnly[1] : cleaned);
+      if (use) subs.push({ need: UNSTRUCTURED_SUBSTITUTION_NEED, use });
+    });
+    return subs;
+  }
+
   function parseStructuredActivities(body, weekday) {
     const source = String(body || "");
     if (!hasExplicitActivityStart(source)) {
@@ -681,19 +710,13 @@
       if (text(raw.dayOfWeek)) out.dayOfWeek = parseWeekdayName(raw.dayOfWeek) || weekday;
       const durationMatch = text(raw.durationMinutes).match(/(\d+)/);
       if (durationMatch) out.durationMinutes = Number(durationMatch[1]);
+      if (multiline(raw.indoorOutdoorOptions)) {
+        const combined = multiline(raw.indoorOutdoorOptions);
+        if (!out.indoorAlternatives) out.indoorAlternatives = combined;
+        if (!out.outdoorAlternatives) out.outdoorAlternatives = combined;
+      }
       if (multiline(raw.substitutions)) {
-        const subs = [];
-        listLines(raw.substitutions).forEach((line) => {
-          const arrow = line.match(/^(.+?)\s*(?:→|->|=>|—)\s*(.+)$/);
-          if (arrow) {
-            const need = text(arrow[1].replace(/^if\s+missing:?\s*/i, ""));
-            const use = text(arrow[2].replace(/^use\s+instead:?\s*/i, ""));
-            if (need && use) subs.push({ need, use });
-            return;
-          }
-          const use = text(line.replace(/^use(?:\s+instead)?:?\s*/i, ""));
-          if (use) subs.push({ need: "If missing", use });
-        });
+        const subs = parseActivitySubstitutions(raw.substitutions);
         if (subs.length) out.substitutions = subs;
       }
       const imageReq = parseImageRequirement(raw.imageRequirement);
@@ -780,6 +803,8 @@
     parseSongsSection,
     parsePrintableIdeasSection,
     parseStructuredActivities,
+    parseActivitySubstitutions,
+    UNSTRUCTURED_SUBSTITUTION_NEED,
     parseWeekdayName,
     isPlaceholderPasteValue,
     matchLabeledHeading,

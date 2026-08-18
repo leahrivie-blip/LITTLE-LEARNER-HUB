@@ -1012,6 +1012,24 @@
     return String(act.id || act.itemId || "").trim();
   }
 
+  function activityDraftRecord(act) {
+    const enrich = api();
+    if (enrich && typeof enrich.resolveActivityDraftPatch === "function") {
+      return enrich.resolveActivityDraftPatch(act, state.draft.activities || {});
+    }
+    const activities = state.draft.activities && typeof state.draft.activities === "object"
+      ? state.draft.activities
+      : {};
+    const byId = activities[draftKey(act)] && typeof activities[draftKey(act)] === "object"
+      ? activities[draftKey(act)]
+      : {};
+    const itemKey = String(act?.itemId || "").trim();
+    const byItem = itemKey && activities[itemKey] && typeof activities[itemKey] === "object"
+      ? activities[itemKey]
+      : {};
+    return { ...byItem, ...byId };
+  }
+
   function ensureDraftActivity(key) {
     if (!state.draft.activities[key]) state.draft.activities[key] = {};
     return state.draft.activities[key];
@@ -1019,8 +1037,7 @@
 
   function activityDraftDisplayTitle(act) {
     if (!act) return "Untitled activity";
-    const key = draftKey(act);
-    const view = api().activityEnrichmentView(act, (state.draft.activities || {})[key] || {});
+    const view = api().activityEnrichmentView(act, activityDraftRecord(act));
     return view.title || act.title || "Untitled activity";
   }
 
@@ -2892,6 +2909,7 @@
             </div>
           </div>
           <div class="tk-enrich-chrome-actions">
+            <button type="button" class="ghost-button" data-replace-from-master-paste title="Replace this lesson’s authored curriculum from a master lesson paste">Replace From Master Paste</button>
             <button type="button" class="primary-button" data-ai-suggest="lesson">Prepare AI Draft</button>
             <button type="button" class="ghost-button" data-summary-toggle>Optional quality details</button>
             <button type="button" class="primary-button" data-enrich-save-draft>Save draft</button>
@@ -2929,6 +2947,7 @@
           </div>
           <p class="tk-enrich-status">${esc(state.statusText || "Draft autosave on")}</p>
         </div>
+        <p class="muted-copy tk-replace-master-paste-help">Paste a complete master lesson to replace this lesson’s curriculum content. Linked resources, access plan, and lesson identity stay unchanged.</p>
         ${isPublished ? `
           <div class="tk-enrich-published-banner" role="status">
             Your changes are being saved as a draft. The published lesson will remain unchanged until you choose Publish.
@@ -3021,7 +3040,7 @@
     let stage = `<div class="empty-state">No activities on this lesson yet.</div>`;
     if (current) {
       const key = draftKey(current);
-      const draftAct = state.draft.activities[key] || {};
+      const draftAct = activityDraftRecord(current);
       const view = enrich.activityEnrichmentView(current, draftAct);
       const model = enrich.mapActivityToOwnerEditorModel
         ? enrich.mapActivityToOwnerEditorModel(current, draftAct, plan)
@@ -3131,7 +3150,9 @@
               <div class="tk-enrich-sub-list">
                 ${view.substitutions.map((sub, i) => `
                   <div class="tk-enrich-tip-card">
-                    <span>No <strong>${esc(sub.need)}</strong> → use <strong>${esc(sub.use)}</strong></span>
+                    <span>${sub && String(sub.need || "").trim() && String(sub.need).trim().toLowerCase() !== "listed material"
+                      ? `No <strong>${esc(sub.need)}</strong> → use <strong>${esc(sub.use)}</strong>`
+                      : `Use <strong>${esc(sub?.use || "")}</strong>`}</span>
                     <button type="button" data-sub-remove="${i}" aria-label="Remove substitution">×</button>
                   </div>
                 `).join("") || `<p class="muted-copy">Add classroom-friendly swaps.</p>`}
@@ -3278,7 +3299,7 @@
           <ul class="tk-enrich-queue-list">
             ${queue.map((act) => {
               const key = draftKey(act);
-              const status = enrich.activityStatus(act, state.draft.activities[key]);
+              const status = enrich.activityStatus(act, activityDraftRecord(act));
               const globalIndex = activities.findIndex((a) => draftKey(a) === key);
               return `
                 <li>
@@ -5274,6 +5295,16 @@
         } catch (error) {
           state.statusText = `Rollback failed: ${error.message || error}`;
           render();
+        }
+        return;
+      }
+      if (event.target.closest("[data-replace-from-master-paste]")) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (typeof globalThis.openAdminReplaceLessonFromMasterPaste === "function") {
+          globalThis.openAdminReplaceLessonFromMasterPaste(state.planId);
+        } else if (typeof showActionFeedback === "function") {
+          showActionFeedback("Master paste replacement is not available on this page.");
         }
         return;
       }
