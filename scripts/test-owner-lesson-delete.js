@@ -352,18 +352,11 @@ async function runServerTests() {
         if (typeof setAdminSectionTab === "function") setAdminSectionTab("curriculum-lesson-plans");
       });
       await page.waitForSelector("#adminCreateCurriculumLessonPlanButton", { timeout: 20000 });
-
-      await page.evaluate((id) => {
-        adminCurriculumLessonEditorId = id;
-        if (typeof renderAdminCurriculumLessonPlanManager === "function") {
-          renderAdminCurriculumLessonPlanManager();
-        }
-      }, UI_ID);
-      await page.waitForSelector("[data-curriculum-lesson-delete]", { timeout: 15000 });
       await page.waitForFunction((id) => (
-        typeof curriculumLessonPlanById === "function" && Boolean(curriculumLessonPlanById(id))
+        typeof curriculumLessonPlanById === "function"
+        && Boolean(curriculumLessonPlanById(id))
         && typeof deleteAdminCurriculumLessonPlan === "function"
-      ), UI_ID, { timeout: 15000 });
+      ), UI_ID, { timeout: 20000 });
       const cancelResult = await page.evaluate(async (id) => {
         const pending = deleteAdminCurriculumLessonPlan(id);
         await new Promise((resolve) => requestAnimationFrame(resolve));
@@ -377,38 +370,46 @@ async function runServerTests() {
           shown,
           cancelled: result?.cancelled === true,
           stillThere: Boolean(curriculumLessonPlanById(id)),
-          stillInEditor: Boolean(document.querySelector("[data-curriculum-lesson-delete]")),
+          stillOnList: Boolean(document.querySelector("#adminCreateCurriculumLessonPlanButton")),
         };
       }, UI_ID);
       assert.equal(cancelResult.shown, true, "one confirmation dialog is shown");
       assert.match(cancelResult.title, /Delete “Delete Me UI Draft”/);
       assert.equal(cancelResult.cancelled, true);
       assert.equal(cancelResult.stillThere, true);
-      assert.equal(cancelResult.stillInEditor, true);
+      assert.equal(cancelResult.stillOnList, true);
       console.log("PASS  cancel confirmation performs no mutation");
 
+      const deleteWatch = page.waitForResponse((res) => (
+        /\/api\/admin\/curriculum\/lesson-plans\/delete(?:\?|$)/.test(new URL(res.url()).pathname)
+        && res.request().method() === "POST"
+      ), { timeout: 30000 });
       const okResult = await page.evaluate(async (id) => {
         const pending = deleteAdminCurriculumLessonPlan(id);
         await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-        const okBtn = document.querySelector("[data-llh-confirm-dialog]:not([hidden]) [data-llh-confirm-ok]");
+        const okBtn = document.querySelector("[data-llh-confirm-dialog]:not([hidden]) .llh-confirm-panel [data-llh-confirm-ok]");
         if (okBtn) okBtn.click();
         const result = await pending;
-        const listText = document.querySelector("#adminCurriculumLessonPlanManager")?.textContent || "";
+        const listText = document.body?.textContent || "";
         return {
           ok: result?.ok === true,
           code: result?.code || "",
           gone: !curriculumLessonPlanById(id),
-          listed: listText.includes("Delete Me UI Draft"),
-          keepVisible: listText.includes("Keep Lesson Plan"),
+          listed: listText.includes("Delete Me UI Draft") && Boolean(curriculumLessonPlanById(id)),
+          keepVisible: Boolean(curriculumLessonPlanById("cur-lp-owner-delete-keep")),
+          extraVisible: Boolean(curriculumLessonPlanById("cur-lp-owner-delete-extra")),
           list: Boolean(document.querySelector("#adminCreateCurriculumLessonPlanButton")),
           banner: document.querySelector("#adminCurriculumLessonPlanBanner")?.textContent || "",
           clicked: Boolean(okBtn),
         };
       }, UI_ID);
+      const deleteRes = await deleteWatch;
+      assert.equal(deleteRes.ok(), true, `delete HTTP ${deleteRes.status()}`);
       assert.equal(okResult.ok, true, JSON.stringify(okResult));
       assert.equal(okResult.gone, true, JSON.stringify(okResult));
       assert.equal(okResult.listed, false, JSON.stringify(okResult));
       assert.equal(okResult.keepVisible, true, JSON.stringify(okResult));
+      assert.equal(okResult.extraVisible, true, JSON.stringify(okResult));
       assert.equal(okResult.list, true, JSON.stringify(okResult));
       assert.match(okResult.banner, /Deleted “Delete Me UI Draft”/);
       console.log("PASS  UI returns to the lesson list after delete");
@@ -417,20 +418,31 @@ async function runServerTests() {
       await page.waitForFunction(() => typeof setView === "function", null, { timeout: 45000 });
       await page.evaluate(() => {
         if (typeof setView === "function") setView("admin");
+      });
+      await page.waitForSelector("#adminProtectedContent:not([hidden]), #adminUnlockForm", { timeout: 20000 });
+      if (await page.locator("#adminUnlockForm").isVisible()) {
+        await page.fill('input[name="adminEmail"]', ADMIN.email);
+        await page.fill('input[name="adminPassword"]', ADMIN.password);
+        await page.fill('input[name="adminCode"]', ADMIN.code);
+        await page.click("#adminUnlockForm button[type='submit']");
+        await page.waitForSelector("#adminProtectedContent:not([hidden])", { timeout: 20000 });
+      }
+      await page.evaluate(() => {
         if (typeof setAdminSectionTab === "function") setAdminSectionTab("curriculum-lesson-plans");
       });
       await page.waitForSelector("#adminCreateCurriculumLessonPlanButton", { timeout: 20000 });
-      const afterReload = await page.evaluate((id) => {
-        const listText = document.querySelector("#adminCurriculumLessonPlanManager")?.textContent || "";
-        return {
-          present: typeof curriculumLessonPlanById === "function" ? Boolean(curriculumLessonPlanById(id)) : true,
-          listed: listText.includes("Delete Me UI Draft"),
-          keepVisible: listText.includes("Keep Lesson Plan"),
-        };
-      }, UI_ID);
+      await page.waitForFunction(() => (
+        typeof curriculumLessonPlanById === "function"
+        && Boolean(curriculumLessonPlanById("cur-lp-owner-delete-keep"))
+      ), null, { timeout: 20000 });
+      const afterReload = await page.evaluate((id) => ({
+        present: typeof curriculumLessonPlanById === "function" ? Boolean(curriculumLessonPlanById(id)) : true,
+        keepVisible: typeof curriculumLessonPlanById === "function" ? Boolean(curriculumLessonPlanById("cur-lp-owner-delete-keep")) : false,
+        extraVisible: typeof curriculumLessonPlanById === "function" ? Boolean(curriculumLessonPlanById("cur-lp-owner-delete-extra")) : false,
+      }), UI_ID);
       assert.equal(afterReload.present, false);
-      assert.equal(afterReload.listed, false);
       assert.equal(afterReload.keepVisible, true);
+      assert.equal(afterReload.extraVisible, true);
       console.log("PASS  browser refresh does not restore the deleted draft");
       await page.close();
     } finally {

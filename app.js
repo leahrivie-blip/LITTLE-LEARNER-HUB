@@ -10546,28 +10546,26 @@ async function deleteAdminCurriculumLessonPlan(planId) {
     if (data.curriculum && typeof applyCurriculumState === "function") {
       applyCurriculumState(data.curriculum, { siteContentUpdatedAt: data.siteContentUpdatedAt });
     }
-    if (typeof LLHTeachingKitEnrichmentEditor !== "undefined" && LLHTeachingKitEnrichmentEditor.isOpen?.()) {
-      await LLHTeachingKitEnrichmentEditor.close({ force: true, abandonUnsaved: true });
-    }
-    if (typeof loadAdminSiteContent === "function") {
-      try { await loadAdminSiteContent(); } catch (_error) { /* local drop already applied */ }
-    }
-    adminCurriculumLessonEditorId = "";
-    if (typeof renderAdminCurriculumLessonPlanManager === "function") {
-      renderAdminCurriculumLessonPlanManager();
-    }
-    if (typeof applyAdminSectionVisibility === "function") {
-      applyAdminSectionVisibility();
-    }
     const success = `Deleted “${data.deletedTitle || title}”.`;
     if (typeof setAdminCurriculumLessonSaveBanner === "function") {
       setAdminCurriculumLessonSaveBanner(success, true);
     }
     if (typeof showActionFeedback === "function") showActionFeedback(success);
+    if (typeof LLHTeachingKitEnrichmentEditor !== "undefined" && LLHTeachingKitEnrichmentEditor.isOpen?.()) {
+      await LLHTeachingKitEnrichmentEditor.close({ force: true, abandonUnsaved: true });
+    }
+    adminCurriculumLessonEditorId = "";
     if (typeof renderAdminCurriculumLessonPlanManager === "function") {
       renderAdminCurriculumLessonPlanManager();
     }
-    return { ok: true, deletedPlanId: data.deletedPlanId || record.id };
+    if (typeof loadAdminSiteContent === "function") {
+      void loadAdminSiteContent().then(() => {
+        if (typeof renderAdminCurriculumLessonPlanManager === "function") {
+          renderAdminCurriculumLessonPlanManager();
+        }
+      }).catch(() => { /* local drop already applied */ });
+    }
+    return { ok: true, deletedPlanId: deletedId };
   } catch (error) {
     const msg = error.message || "Lesson delete failed.";
     if (typeof showActionFeedback === "function") showActionFeedback(msg);
