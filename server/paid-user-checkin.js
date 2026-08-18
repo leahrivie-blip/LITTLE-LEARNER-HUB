@@ -52,6 +52,16 @@ function looksLikeProdFlagEmail(email) {
   return /^llh\.prod\.flag(?:[._+-]|$)/i.test(local);
 }
 
+function looksLikeDisposableEmail(email) {
+  const domain = normalizeEmail(email).split("@")[1] || "";
+  return /(mailinator|tempmail|guerrillamail|yopmail|trashmail)/i.test(domain);
+}
+
+function looksLikePersonaQaEmail(email) {
+  const local = normalizeEmail(email).split("@")[0] || "";
+  return /^llh\.(?:tkpersona|persona)(?:[._+-]|$)/i.test(local);
+}
+
 function buildBody(firstName) {
   const name = sanitizeFirstName(firstName);
   const greeting = name ? `Hi ${name}!` : "Hi!";
@@ -152,7 +162,10 @@ function validatePaidCheckinRecipient(user, options = {}) {
   const state = options.state || (store ? ensureState(store) : null);
   const email = normalizeEmail(user?.email);
   const disabled = String(user?.accountStatus || "").toLowerCase() === "disabled" || user?.disabled === true;
-  const testEmail = looksLikeTestEmail(email) || testAccountGuard.isEphemeralTestAccountEmail(email);
+  const testEmail = looksLikeTestEmail(email)
+    || testAccountGuard.isEphemeralTestAccountEmail(email)
+    || looksLikeDisposableEmail(email)
+    || looksLikePersonaQaEmail(email);
   const malformed = !email || looksMalformedEmail(email);
   const internal = isInternalAccount(user, email);
   const admin = adminEmails.has(email) || OWNER_ADMIN_ALIASES.includes(email);

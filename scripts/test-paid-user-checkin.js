@@ -119,6 +119,13 @@ function sampleStore() {
         stripeSubscriptionStatus: "active",
         lastSuccessfulPaymentAt: isoDaysAgo(2),
       },
+      "llh.tkpersona.pro.1@mailinator.com": {
+        email: "llh.tkpersona.pro.1@mailinator.com",
+        firstName: "TK",
+        plan: "Pro",
+        stripeSubscriptionStatus: "active",
+        lastSuccessfulPaymentAt: isoDaysAgo(2),
+      },
     },
     notifications: [],
     emailEngagement: {
@@ -226,6 +233,12 @@ async function main() {
       stripeSubscriptionStatus: "active",
       lastSuccessfulPaymentAt: isoDaysAgo(2),
     }, { adminEmails: ["admin.owner@providermail.com"] }).qualifies, false);
+    assert.equal(validatePaidCheckinRecipient({
+      email: "llh.tkpersona.pro.1@mailinator.com",
+      plan: "Pro",
+      stripeSubscriptionStatus: "active",
+      lastSuccessfulPaymentAt: isoDaysAgo(2),
+    }).qualifies, false);
   });
 
   await test("no-name user gets a safe greeting", () => {
@@ -259,6 +272,8 @@ async function main() {
     assert.ok(!preview.recipients.some((row) => row.email === "former.paid@providermail.com"));
     assert.ok(!preview.recipients.some((row) => row.email === "trial.only@providermail.com"));
     assert.ok(!preview.recipients.some((row) => row.email === "admin.owner@providermail.com"));
+    assert.ok(!preview.recipients.some((row) => row.email.includes("mailinator.com")));
+    assert.ok(!preview.recipients.some((row) => row.email.includes("tkpersona")));
     assert.equal(JSON.stringify(store.emailEngagement.settings.freeUserThankYou6), thankYou6Before);
   });
 
