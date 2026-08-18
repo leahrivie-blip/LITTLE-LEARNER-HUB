@@ -91,6 +91,27 @@ function countEvents(list, name) {
   return (list || []).filter((event) => event && event.name === name).length;
 }
 
+function readStoreSafe() {
+  try {
+    return JSON.parse(fs.readFileSync(STORE_PATH, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+async function waitForStoreUser(email, { timeoutMs = 4000 } = {}) {
+  const started = Date.now();
+  let store = null;
+  let user = null;
+  while (Date.now() - started < timeoutMs) {
+    store = readStoreSafe();
+    user = store?.users?.[email] || null;
+    if (user?.signupAt) return { store, user };
+    await new Promise((r) => setTimeout(r, 200));
+  }
+  return { store, user };
+}
+
 function staticChecks() {
   const appJs = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
   const insights = fs.readFileSync(path.join(ROOT, "server/admin-insights.js"), "utf8");
@@ -231,17 +252,10 @@ async function main() {
     assert.match(session.view, /view-lessons|view-calendar/);
     console.log("PASS  free signup authenticates and lands on Free destination");
 
-    let user = null;
-    for (let i = 0; i < 12; i += 1) {
-      const store = JSON.parse(fs.readFileSync(STORE_PATH, "utf8"));
-      user = store.users?.["jordan.provider.dropoff@example.com"] || null;
-      if (user?.signupAt) break;
-      await new Promise((r) => setTimeout(r, 200));
-    }
-    assert.ok(user, "server created the Free account");
-    assert.equal(user.plan || "Free", "Free");
-    const storeAfterFirst = JSON.parse(fs.readFileSync(STORE_PATH, "utf8"));
-    assert.equal(Object.keys(storeAfterFirst.users || {}).length, 1, "exactly one account after first signup");
+    const first = await waitForStoreUser("jordan.provider.dropoff@example.com");
+    assert.ok(first.user, "server created the Free account");
+    assert.equal(first.user.plan || "Free", "Free");
+    assert.equal(Object.keys(first.store.users || {}).length, 1, "exactly one account after first signup");
     console.log("PASS  successful signup creates one Free server account");
 
     const ctx2 = await browser.newContext();
@@ -270,8 +284,28 @@ async function main() {
     console.log("PASS  duplicate email handled clearly");
     await ctx2.close();
 
-    const storeFinal = JSON.parse(fs.readFileSync(STORE_PATH, "utf8"));
-    assert.equal(Object.keys(storeFinal.users || {}).length, 1, "duplicate submit did not create a second account");
+    const finalRead = await waitForStoreUser("jordan.provider.dropoff@example.com");
+    assert.equal(Object.keys(finalRead.store?.users || {}).length, 1, "duplicate submit did not create a second account");
+
+    const ctx3 = await browser.newContext();
+    const page3 = await ctx3.newPage();
+    await page3.setViewportSize({ width: 1280, height: 800 });
+    await page3.goto(`http://127.0.0.1:${PORT}/`, { waitUntil: "domcontentloaded", timeout: 60000 });
+    await page3.waitForFunction(() => typeof openAuthModal === "function", null, { timeout: 30000 });
+    await page3.evaluate(() => {
+      try { sessionStorage.removeItem("llhSignupPreferredPlan"); } catch { /* ignore */ }
+      openAuthModal("signup");
+    });
+    await page3.fill("#fullNameInput", "Casey Neutral");
+    await page3.fill("#emailInput", `casey.neutral.${Date.now()}@example.com`);
+    await page3.fill("#passwordInput", "TestPass123!");
+    await page3.click("#authSubmitButton");
+    await page3.waitForFunction(() => {
+      const program = document.querySelector("#signupStepProgram");
+      return program && !program.classList.contains("hidden-field");
+    }, { timeout: 20000 });
+    console.log("PASS  non-Free signup still reaches program step");
+    await ctx3.close();
 
     console.log("\nAll signup drop-off fix tests passed.");
   } catch (error) {
