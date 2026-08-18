@@ -86,7 +86,7 @@ function assertGiantFloorDrawing(parsed, label) {
   assert.equal(item.title, "Giant Floor Drawing", label);
   assert.match(item.activityCategory || "", /Creative Arts/, label);
   assert.match(item.ageModifications || "", /Toddler 12–24 Months/, label);
-  assert.equal(item.durationMinutes, 8, label);
+  assert.equal(item.durationMinutes, "8–12 minutes", label);
   assert.match(item.objective || "", /whole-arm movement/, label);
   const materials = listLines(item.materials);
   assert.equal(materials.length, 3, `${label} materials ${item.materials}`);

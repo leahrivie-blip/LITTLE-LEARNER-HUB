@@ -292,18 +292,51 @@ async function createDraftFromPaste(token, stamp, pasteText) {
   return { parsed, plan, saved: saved.json };
 }
 
+function durationOnlyPaste(title, duration) {
+  return `Lesson title
+${title}
+
+Age band
+Toddler 12–24 Months
+
+Activity name
+Duration Check
+Activity weekday
+Wednesday
+Estimated duration
+${duration}
+`;
+}
+
 function runParserAndPreviewGuards() {
   runStructuredActivityParserRegressionTests();
   const parsed = parseFullLessonStructurePaste(DOT_MARKER_PASTE);
   assert.equal(parsed.ok, true, parsed.errors.join("; "));
   assert.equal(parsed.activityCount, 1);
+  assert.equal(parsed.dailyPlans.monday.items[0].durationMinutes, "8–10 minutes");
   assertPreviewUnchanged(parsed, {
     Monday: 1, Tuesday: 0, Wednesday: 0, Thursday: 0, Friday: 0,
   });
   const structure = buildStructurePreview(parsed);
   assert.equal(structure.activityCount, 1);
   assert.equal(structure.recognized.weeklyOverview, true);
+  assert.equal(
+    parseFullLessonStructurePaste(durationOnlyPaste("Duration Parser 10-15", "10–15 minutes"))
+      .dailyPlans.wednesday.items[0].durationMinutes,
+    "10–15 minutes",
+  );
+  assert.equal(
+    parseFullLessonStructurePaste(durationOnlyPaste("Duration Parser 8 minutes", "8 minutes"))
+      .dailyPlans.wednesday.items[0].durationMinutes,
+    "8 minutes",
+  );
+  assert.equal(
+    parseFullLessonStructurePaste(durationOnlyPaste("Duration Parser bare 8", "8"))
+      .dailyPlans.wednesday.items[0].durationMinutes,
+    8,
+  );
   console.log("PASS  14  existing preview parser still groups activities (Dot Marker Monday 1)");
+  console.log("PASS  duration parser keeps ranges and single-number durations");
 }
 
 async function runWriteTests() {
@@ -334,7 +367,7 @@ async function runWriteTests() {
     assert.equal(dot.dayOfWeek, "monday");
     assert.equal(dot.activityCategory, "Art");
     assert.match(dot.ageModifications, /Toddler 12–24 Months/);
-    assert.equal(dot.durationMinutes, 8);
+    assert.equal(dot.durationMinutes, "8–10 minutes");
     assert.match(dot.objective, /cause-and-effect/);
     assert.match(dot.description, /press large washable dot markers/);
     console.log("PASS  1   one-activity write mapping (title/weekday/category/age/duration/objective/description)");
@@ -394,6 +427,8 @@ async function runWriteTests() {
     const view = enrich.activityEnrichmentView(dot, {});
     const model = enrich.mapActivityToOwnerEditorModel(dot, {}, one.saved.lessonPlan);
     assert.match(model.preparation, /dot markers are intact/);
+    assert.equal(model.durationMinutes, "8–10 minutes");
+    assert.equal(view.durationMinutesDisplay, "8–10 minutes");
     assert.deepEqual(view.observationPrompts, dot.observationPrompts);
     assert.match(view.imageBriefExample, /toddler hand pressing a large dot marker/);
     assert.equal(view.imageRequirement, "example_only");
@@ -411,7 +446,33 @@ async function runWriteTests() {
     assert.match(reloadedDot.preparation, /dot markers are intact/);
     assert.deepEqual(reloadedDot.observationPrompts, dot.observationPrompts);
     assert.match(reloadedDot.imageBriefExample, /toddler hand pressing a large dot marker/);
+    assert.equal(reloadedDot.durationMinutes, "8–10 minutes");
+    const reloadedModel = enrich.mapActivityToOwnerEditorModel(reloadedDot, {}, reloadedPlan);
+    assert.equal(reloadedModel.durationMinutes, "8–10 minutes");
     console.log("PASS  1b  one-activity persisted result reloads from Admin GET");
+    console.log("PASS  duration 8–10 minutes persists and rehydrates");
+
+    const extraDurations = [
+      ["LLH QA Duration 10-15 — DO NOT PUBLISH", "10–15 minutes", "10–15 minutes"],
+      ["LLH QA Duration 8 minutes — DO NOT PUBLISH", "8 minutes", "8 minutes"],
+      ["LLH QA Duration bare 8 — DO NOT PUBLISH", "8", 8],
+    ];
+    for (const [title, pasted, expected] of extraDurations) {
+      const extra = await createDraftFromPaste(token, stamp, durationOnlyPaste(title, pasted));
+      stamp = extra.saved.siteContentUpdatedAt;
+      const extraId = extra.saved.lessonPlan.id;
+      const extraAct = persistedActivities(extra.saved, extraId)[0];
+      assert.equal(extraAct.durationMinutes, expected, `${pasted} POST`);
+      const extraReload = await requestJson("GET", "/api/admin/site-content", null, token);
+      const extraReloaded = (extraReload.json.siteContent?.curriculum?.activities || [])
+        .find((item) => item.lessonPlanId === extraId && item.status !== "archived");
+      assert.equal(extraReloaded.durationMinutes, expected, `${pasted} GET`);
+      const extraPlan = (extraReload.json.siteContent?.curriculum?.lessonPlans || [])
+        .find((item) => item.id === extraId);
+      const extraModel = enrich.mapActivityToOwnerEditorModel(extraReloaded, {}, extraPlan);
+      assert.equal(extraModel.durationMinutes, String(expected), `${pasted} editor`);
+    }
+    console.log("PASS  duration 10–15 minutes / 8 minutes / bare 8 persist and rehydrate");
 
     // 13 top-level week fields
     assert.match(reloadedPlan.weeklyOverview, /master importer write path/);

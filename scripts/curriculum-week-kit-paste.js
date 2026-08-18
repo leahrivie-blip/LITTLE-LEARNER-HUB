@@ -639,8 +639,11 @@
         out.observationPrompts = listLines(raw.observationPrompts);
       }
       if (text(raw.dayOfWeek)) out.dayOfWeek = parseWeekdayName(raw.dayOfWeek) || weekday;
-      const durationMatch = text(raw.durationMinutes).match(/(\d+)/);
-      if (durationMatch) out.durationMinutes = Number(durationMatch[1]);
+      const durationRaw = text(raw.durationMinutes);
+      if (durationRaw) {
+        // Keep human-readable ranges/labels. Bare integers stay numeric for existing records.
+        out.durationMinutes = /^\d+$/.test(durationRaw) ? Number(durationRaw) : durationRaw;
+      }
       if (multiline(raw.substitutions)) {
         const subs = [];
         listLines(raw.substitutions).forEach((line) => {

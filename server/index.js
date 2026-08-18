@@ -1967,6 +1967,22 @@ function normalizedOptionalMinutes(value) {
   return Math.max(0, Math.min(180, Math.round(n)));
 }
 
+/**
+ * Duration already supports a string in the owner editor (`parseDurationInput`
+ * keeps non-integer text such as "8–10 minutes"). Preserve that on write.
+ * Bare numbers / numeric strings stay numeric so existing records are unchanged.
+ */
+function normalizedOptionalDuration(value) {
+  if (value == null || value === "") return null;
+  if (typeof value === "boolean" || typeof value === "object") return null;
+  if (typeof value === "number") return normalizedOptionalMinutes(value);
+  const raw = String(value).trim();
+  if (!raw) return null;
+  if (/^\d+$/.test(raw)) return normalizedOptionalMinutes(raw);
+  if (raw.length > 80 || !/\d/.test(raw)) return null;
+  return raw;
+}
+
 function normalizedCurriculumDailyPlanItem(value) {
   const entry = value && typeof value === "object" ? value : {};
   const title = normalizedShortText(entry.title, 180);
@@ -2035,7 +2051,7 @@ function normalizedCurriculumDailyPlanItem(value) {
   normalized.familyConnection = normalizedMultilineText(entry.familyConnection, 4000);
   normalized.printableInstructions = normalizedMultilineText(entry.printableInstructions, 4000);
   normalized.setupMinutes = normalizedOptionalMinutes(entry.setupMinutes);
-  normalized.durationMinutes = normalizedOptionalMinutes(
+  normalized.durationMinutes = normalizedOptionalDuration(
     entry.durationMinutes != null ? entry.durationMinutes : entry.activityDurationMinutes,
   );
   normalized.groupSize = normalizedShortText(entry.groupSize, 80);
@@ -2339,7 +2355,7 @@ function normalizedCurriculumActivity(value) {
     extraSupport: normalizedMultilineText(entry.extraSupport || entry.differentiation, 4000),
     familyConnection: normalizedMultilineText(entry.familyConnection, 4000),
     setupMinutes: normalizedOptionalMinutes(entry.setupMinutes),
-    durationMinutes: normalizedOptionalMinutes(
+    durationMinutes: normalizedOptionalDuration(
       entry.durationMinutes != null ? entry.durationMinutes : entry.activityDurationMinutes,
     ),
     groupSize: normalizedShortText(entry.groupSize, 80),
