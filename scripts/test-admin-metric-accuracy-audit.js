@@ -50,8 +50,20 @@ function visitorEvents(count, { startedSignup = 0, completedSignup = 0, prefix =
         email,
         signupAt: iso(1000 + i),
         createdAt: iso(1000 + i),
-        plan: "Free",
+        plan: "Pro",
+        stripeSubscriptionStatus: "active",
+        metaStartTrialAt: iso(900 + i),
+        trialStart: iso(900 + i),
+        metaPurchaseAt: iso(800 + i),
+        firstPaidInvoiceAt: iso(800 + i),
       };
+      events.push({
+        name: "checkout_success",
+        visitorId,
+        user: email,
+        createdAt: iso(800 + i),
+        detail: { plan: "monthly" },
+      });
     }
   }
   return { events, users };

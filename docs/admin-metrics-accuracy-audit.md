@@ -336,3 +336,27 @@ Do **not** decide from:
 - A Today Advisor card without reading the window
 - Adding Free + Trial + Pro + Founding + Early User
 - Any number that would require refunds, ARR, or form-submit steps
+
+---
+
+## 15. Tests run
+
+| Suite | Result |
+|---|---|
+| `npm run check` | **PASS** |
+| `npm run test:admin-insights` | **PASS** |
+| `npm run test:admin-metric-accuracy-audit` | **PASS** (new) |
+| `npm run test:marketing-funnel-flow` | **PASS** |
+| `npm run test:funnel-exit-insights` | **PASS** |
+| `npm run test:test-account-guard` | **PASS** |
+| `npm run test:billing-membership` | **PASS** (Playwright browser checks skipped — not installed) |
+| `npm run test:membership-billing-phase5` | **PASS** |
+| `npm run test:account-access` | **PASS** |
+| `npm run test:admin-analytics-diagnostics-phase8` | **PASS** |
+| `npm run test:admin-analytics-accuracy` | **FAIL (pre-existing)** — stale `app.js` comment and cache-bust version pins (`20260722-lesson-empty-hotfix` vs current `20260817-linked-preview-keep-editor-r2`). Not caused by this audit. |
+| `npm run test:marketing-analytics` | **FAIL (pre-existing)** — looks for `data-admin-landing-tab="marketing-analytics"` in `admin-workspace.js`; that tab id is not on Admin Home. Unrelated static wiring. |
+| `npm run test:analytics-event-cap` | **FAIL (pre-existing)** — `runtime cap exceeded: 60`. Event-cap script, not metric wording. |
+
+Live Stripe invoice/refund totals were not verified (no production Stripe calls; no mutations).
+
+**Confirmations:** no emails sent; no Stripe records/prices/subscriptions modified; no user plans or access modified.

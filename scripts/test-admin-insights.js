@@ -581,11 +581,11 @@ function phase1Trust() {
   assert.equal(paidAdvisor.data.metrics.paid, 1);
   assert.equal(paidAdvisor.data.metrics.paid, paidFunnel.data.stages.find((s) => s.id === "paidConversions").count);
 
-  // Drop-off wording
+  // Drop-off wording — honest starting/resulting population, not "people dropped out of signup"
   assert.ok(
-    stampAdvisor.data.summaryLines.some((line) => /Largest drop-off:/.test(line) && /drop-off\)/.test(line))
+    stampAdvisor.data.summaryLines.some((line) => /Largest drop-off:/.test(line) && /did not /.test(line))
       || !stampAdvisor.data.summaryLines.some((line) => /Largest drop-off:/.test(line)),
-    "drop-off lines must say drop-off when present",
+    "drop-off lines must name who did not continue when present",
   );
   // Force a drop-off summary with known edge
   const dropStore = {
@@ -598,6 +598,12 @@ function phase1Trust() {
       createdAt: iso(1000 + i),
       path: "/",
     })).concat(
+      Array.from({ length: 10 }, (_, i) => ({
+        name: "signup_start",
+        visitorId: `v${i}`,
+        sessionId: `s${i}`,
+        createdAt: iso(700 + i),
+      })),
       Array.from({ length: 10 }, (_, i) => ({
         name: "account_signup_complete",
         user: `u${i}@provider.com`,
@@ -621,7 +627,8 @@ function phase1Trust() {
   const dropLine = dropAdvisor.data.summaryLines.find((line) => /Largest drop-off:/.test(line));
   assert.ok(dropLine, "expected largest drop-off summary line");
   assert.match(dropLine, /Largest drop-off:/);
-  assert.match(dropLine, /of 10 new accounts did not start a trial|did not start a trial/);
+  assert.match(dropLine, /10 of 10 new accounts did not start a trial/);
+  assert.match(dropLine, /0\.0% started a trial/);
   assert.doesNotMatch(dropLine, /dropped out of signup/i);
   assert.doesNotMatch(dropLine, /^Biggest Opportunity:/);
 
