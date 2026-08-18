@@ -5,6 +5,8 @@
 **Method:** Read-only inventory of UI + API + store/Stripe sources, then minimal wording and data-quality corrections where the source of truth was already clear.  
 **No emails were sent. No Stripe records, prices, or subscriptions were modified. No user plans or access were changed.**
 
+**PR #680 (merged to main as `8623f497`)** already shipped the dedicated **FREE SIGNUP FUNNEL**, leak types A–E, and `Historical step data unavailable` for `signup_form_submit` / `signup_landed_free` when those events have never been recorded. This audit is rebased onto that merge. It does **not** replace #680. It still fixes the general Marketing Funnel / Advisor “Visitor → Signup started · 92.5% drop-off · N people” card, plus the other RED/YELLOW items #680 did not touch.
+
 This report is the owner-facing technical record. Status meanings:
 
 | Status | Meaning |
@@ -30,7 +32,8 @@ This report is the owner-facing technical record. Status meanings:
 | **Signup completed** | Insights: unique email/actor ∪ user `signupAt`/`createdAt`. Owner “Signup Completions”: raw `account_signup_complete` **events** | Mixing the two |
 | **Paid conversion (Insights, range)** | Unique `checkout_success` ∪ `metaPurchaseAt`/`firstPaidInvoiceAt` in range | Current paid snapshot |
 | **Paid users (Owner snapshot)** | `membershipHasProAccess` — **includes trials** | Insights paid conversions |
-| **Started signup** | Unique actors on `signup_start`, `signup_click`, plan/persona/free selected, **or** Start Free `cta_click` | Form submit (event does not exist) |
+| **Started signup (Marketing Funnel)** | Unique actors on `signup_start`, `signup_click`, plan/persona/free selected, **or** Start Free `cta_click` | The dedicated Free signup funnel (Start Free vs form submit are separate) |
+| **Free signup funnel (#680)** | Homepage visitors → Start Free → `signup_start` → `signup_form_submit` → `account_signup_complete` → `signup_landed_free` | Treating leak A as form abandonment |
 | **Lesson views** | `lesson_plan_view` / `curriculum_lesson_view` / lesson `resource_view` **event counts** unless the card says unique viewers | Admin/bot exclusion is incomplete |
 
 **Intentionally overlapping account labels**
@@ -84,7 +87,7 @@ This report is the owner-facing technical record. Status meanings:
 | Visitors | Unique `website_visit` actors | Range | Unique actors | **GREEN** |
 | Landing page views | Unique visit or `page_view` actors | Range | Unique actors | **GREEN** |
 | CTA clicks | Unique CTA actors; Start Free / Start Trial KPIs are **event** counts | Range | Mixed | **YELLOW** — KPI cards are events; bar is unique actors |
-| Started signup | Unique actors on signup-start events **or** Start Free CTA | Range | Unique actors | **YELLOW** — includes Start Free clicks, not only form opens. `signup_form_submit` does **not exist**. |
+| Started signup | Unique actors on signup-start events **or** Start Free CTA | Range | Unique actors | **YELLOW** — still includes Start Free clicks. Use the **FREE SIGNUP FUNNEL** (#680) for click vs submit. |
 | Signup completed | Unique complete events ∪ user stamps | Range | Unique accounts | **GREEN** |
 | Email verified | Optional unless env requires verify | Range | Unique | **GREEN** as informational |
 | Trial started | User trial stamps in range | Range | Accounts | **GREEN** |
@@ -98,18 +101,20 @@ This report is the owner-facing technical record. Status meanings:
 | Cost / signup or paid | Configured ad spend / completions | Range | Dollars | **YELLOW** if spend env is missing (shown as —) |
 | Offer breakdown (Early User / annual / founding) | API only — **not rendered** | Snapshot | Accounts | **GRAY** in UI |
 
-**Signup funnel after PR #679**
+**Signup funnel after PR #679 + #680 (now on main)**
 
 | Requested step | Fires? | When | Deduped? |
 |---|---|---|---|
-| Unique visitor | Derived | `website_visit` | Yes, by actor key |
-| Start Free CTA | Yes | Homepage / public `cta_click` `{cta:"start_free"}` | Unique in CTA stage; **also** counts as Started signup |
-| `signup_start` | Yes | Auth modal opens in signup mode | Unique actor |
-| `signup_form_submit` | **No** | — | **GRAY** |
+| Unique homepage visitor | Derived | Homepage `website_visit` / `page_view` | Yes, unique actors |
+| Start Free CTA | Yes | `cta_click` `{cta:"start_free"}` / `signup_click` | Unique in Free funnel; hero vs nav vs other |
+| `signup_start` | Yes | Auth modal opens in signup mode | Unique actor (repeat opens = 1) |
+| `signup_form_submit` | **Yes after #679/#680** | Submit of name/email/password | Unique actor; **Historical step data unavailable** if the event has never existed in the catalog |
 | `account_signup_complete` | Yes | After profile sync succeeds | Unique email; Owner Analytics still counts raw events |
-| `signup_landed_free` | **No** | Closest: `free_plan_selected` / confirm events | **GRAY** |
+| `signup_landed_free` | **Yes after #679/#680** | Free path reaches lessons | Unique actor; same historical-unavailable rule |
 
-Historical visits from before these events existed cannot be backfilled. Empty older stages are measured 0 in-range, not “unknown history.”
+Leak types (Free signup funnel only): **A** never clicked Start Free (homepage bounce, not form abandonment) · **B** clicked but did not submit · **C** submitted but account failed · **D** account created but Free landing failed · **E** successful Free signup.
+
+The general Marketing Funnel still has a Visitor → Started signup edge that includes Start Free clicks. This audit keeps that math but forces honest wording and points owners to the Free signup funnel for click vs submit.
 
 ---
 
@@ -293,13 +298,13 @@ Farm Animals (`cur-lp-preschool-farm-animals`) has **no special backend counter*
 9. Zero-denominator Insights rates → **Insufficient data**.
 10. Advisor cards render evidence (numerator/denominator/window) when present.
 
-**Not changed:** Stripe, prices, subscriptions, user plans, emails, Owner Analytics formulas, membership-access math, event emission (no `signup_form_submit` / `signup_landed_free` invented).
+**Not changed:** Stripe, prices, subscriptions, user plans, emails, Owner Analytics formulas, membership-access math, or #680’s Free signup funnel math. `signup_form_submit` / `signup_landed_free` already exist on main from #679/#680.
 
 ---
 
 ## 13. Still cannot measure (GRAY)
 
-- `signup_form_submit` and `signup_landed_free`
+- Historical `signup_form_submit` / `signup_landed_free` before #679/#680 (shown as unavailable, not 0)
 - ARR and annual-subscriber KPI
 - Refunds / net collected
 - Recurring invoice cash (unless a billing row exists)
