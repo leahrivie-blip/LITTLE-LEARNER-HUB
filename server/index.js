@@ -1845,6 +1845,8 @@ function normalizedPlayActivityCategory(value) {
     open_ended_exploration: "Open-Ended Exploration",
     small_group: "Open-Ended Exploration",
     large_group: "Open-Ended Exploration",
+    creative_arts: "Art",
+    creative_art: "Art",
   };
   if (aliases[key]) return aliases[key];
   const humanized = raw
@@ -2289,7 +2291,7 @@ function normalizedCurriculumActivity(value) {
     itemId: itemId || "",
     sourceKey,
     dayOfWeek: CURRICULUM_WEEKDAYS.has(dayOfWeek) ? dayOfWeek : "",
-    activityCategory: PLAY_ACTIVITY_CATEGORIES.has(category) ? category : "Open-Ended Exploration",
+    activityCategory: normalizedPlayActivityCategory(category || entry.activityCategory),
     title: normalizedShortText(entry.title, 180) || "Activity",
     objective: normalizedMultilineText(entry.objective, 4000),
     description: normalizedMultilineText(entry.description, 4000),
@@ -2326,6 +2328,11 @@ function normalizedCurriculumActivity(value) {
     indoorAlternatives: normalizedMultilineText(entry.indoorAlternatives, 4000),
     outdoorAlternatives: normalizedMultilineText(entry.outdoorAlternatives, 4000),
     cleanupTips: normalizedMultilineText(entry.cleanupTips, 4000),
+    preparation: normalizedMultilineText(entry.preparation || entry.prep, 4000),
+    mixedAgeAdaptations: normalizedMultilineText(entry.mixedAgeAdaptations || entry.mixedAge, 4000),
+    observationPrompts: normalizedList(entry.observationPrompts, 8, (item) => normalizedShortText(item, 280)).filter(Boolean),
+    imageBriefSetup: normalizedMultilineText(entry.imageBriefSetup, 4000),
+    imageBriefExample: normalizedMultilineText(entry.imageBriefExample, 4000),
     // Teaching Kit activity meta — keep in sync with daily-plan items so the
     // viewer does not lose authored timing / grouping / differentiation.
     purpose: normalizedMultilineText(entry.purpose, 4000),
@@ -3904,6 +3911,13 @@ function syncCurriculumActivitiesForLessonPlan(curriculum, lessonPlanInput) {
       indoorAlternatives: item.indoorAlternatives || existing?.indoorAlternatives || "",
       outdoorAlternatives: item.outdoorAlternatives || existing?.outdoorAlternatives || "",
       cleanupTips: item.cleanupTips || existing?.cleanupTips || "",
+      preparation: item.preparation || item.prep || existing?.preparation || "",
+      mixedAgeAdaptations: item.mixedAgeAdaptations || item.mixedAge || existing?.mixedAgeAdaptations || "",
+      observationPrompts: Array.isArray(item.observationPrompts) && item.observationPrompts.length
+        ? item.observationPrompts
+        : (existing?.observationPrompts || []),
+      imageBriefSetup: item.imageBriefSetup || existing?.imageBriefSetup || "",
+      imageBriefExample: item.imageBriefExample || existing?.imageBriefExample || "",
       status: activityStatus,
       createdAt: existing?.createdAt || now,
       updatedAt: now,

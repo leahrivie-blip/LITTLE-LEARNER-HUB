@@ -773,11 +773,14 @@
     const settingTags = Object.prototype.hasOwnProperty.call(d, "settingTags")
       ? asArray(d.settingTags).map(text).filter(Boolean)
       : asArray(activity?.settingTags).map(text).filter(Boolean);
+    const catalogObservationPrompts = asArray(activity?.observationPrompts).map(text).filter(Boolean);
     const observationPrompts = Object.prototype.hasOwnProperty.call(d, "observationPrompts")
       ? asArray(d.observationPrompts).map(text).filter(Boolean)
-      : (text(activity?.observationOpportunities)
-        ? text(activity.observationOpportunities).split(/\n+/).map(text).filter(Boolean)
-        : []);
+      : (catalogObservationPrompts.length
+        ? catalogObservationPrompts
+        : (text(activity?.observationOpportunities)
+          ? text(activity.observationOpportunities).split(/\n+/).map(text).filter(Boolean)
+          : []));
     const vocabulary = Object.prototype.hasOwnProperty.call(d, "vocabulary")
       ? vocabularyListFrom(d.vocabulary)
       : vocabularyListFrom(activity?.vocabulary);
@@ -844,8 +847,12 @@
       ),
       safetyNotes: pickOwnedDraftText(d, "safetyNotes", activity?.safetyNotes),
       cleanupTips: cleanupToEditorText(activity, d),
-      imageBriefSetup: text(d.imageBriefSetup),
-      imageBriefExample: text(d.imageBriefExample),
+      imageBriefSetup: Object.prototype.hasOwnProperty.call(d, "imageBriefSetup")
+        ? text(d.imageBriefSetup)
+        : text(activity?.imageBriefSetup),
+      imageBriefExample: Object.prototype.hasOwnProperty.call(d, "imageBriefExample")
+        ? text(d.imageBriefExample)
+        : text(activity?.imageBriefExample),
     };
   }
 

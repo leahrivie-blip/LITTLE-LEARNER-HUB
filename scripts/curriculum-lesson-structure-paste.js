@@ -917,6 +917,21 @@
     };
   }
 
+  function looksLikeImageUploadRef(raw) {
+    const value = text(raw);
+    if (!value) return false;
+    if (/^https?:\/\//i.test(value)) return true;
+    if (/^\/[A-Za-z0-9._~:/?#\[\]@!$&'()*+,;=%-]+$/.test(value)) return true;
+    return /\.(png|jpe?g|gif|webp|heic|bmp|svg)(?:\?.*)?$/i.test(value);
+  }
+
+  function briefFromUploadRef(uploadRef) {
+    if (!uploadRef || typeof uploadRef !== "object") return "";
+    const raw = text(uploadRef.raw);
+    if (!raw || looksLikeImageUploadRef(raw) || isPlaceholderPasteValue(raw)) return "";
+    return raw;
+  }
+
   function cloneDailyPlansWithoutUploadRefs(dailyPlans) {
     const source = dailyPlans && typeof dailyPlans === "object" ? dailyPlans : emptyDailyPlans();
     const next = emptyDailyPlans();
@@ -927,6 +942,10 @@
         items: (dayPlan.items || []).map((item) => {
           if (!item || typeof item !== "object") return item;
           const cloned = { ...item };
+          const setupBrief = briefFromUploadRef(cloned.setupImageUpload);
+          const exampleBrief = briefFromUploadRef(cloned.exampleImageUpload);
+          if (setupBrief && !text(cloned.imageBriefSetup)) cloned.imageBriefSetup = setupBrief;
+          if (exampleBrief && !text(cloned.imageBriefExample)) cloned.imageBriefExample = exampleBrief;
           delete cloned.setupImageUpload;
           delete cloned.exampleImageUpload;
           return cloned;
