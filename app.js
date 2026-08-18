@@ -6316,6 +6316,35 @@ function requireBillingAccount() {
   return false;
 }
 
+const THANKYOU6_CAMPAIGN_ID = "FREE_USER_THANKYOU6_AUG2026";
+
+function thankYou6CampaignActive() {
+  try {
+    const params = new URLSearchParams(window.location.search || "");
+    const fromQuery = String(params.get("campaign") || params.get("offer") || "").trim();
+    if (fromQuery === THANKYOU6_CAMPAIGN_ID || fromQuery === "thankyou6") {
+      sessionStorage.setItem("llhThankYou6Campaign", THANKYOU6_CAMPAIGN_ID);
+      return true;
+    }
+    return sessionStorage.getItem("llhThankYou6Campaign") === THANKYOU6_CAMPAIGN_ID;
+  } catch {
+    return false;
+  }
+}
+
+function resumeThankYou6CheckoutIfRequested() {
+  if (!thankYou6CampaignActive() || !currentUser) return;
+  try {
+    if (sessionStorage.getItem("llhThankYou6CheckoutStarted") === "1") return;
+    sessionStorage.setItem("llhThankYou6CheckoutStarted", "1");
+  } catch {
+    return;
+  }
+  window.setTimeout(() => {
+    if (typeof startCheckout === "function") startCheckout("early_user", "thankyou6");
+  }, 400);
+}
+
 const searchInput = document.querySelector("#searchInput");
 const currentPlanLabel = document.querySelector("#currentPlanLabel");
 const homeViewTemplate = document.querySelector("#view-home").innerHTML;
@@ -16500,6 +16529,7 @@ function loadAccountState(email) {
   localStorage.setItem("llhDownloads", JSON.stringify(savedDownloads));
   updateAuthButtons();
   updatePlanLabel();
+  resumeThankYou6CheckoutIfRequested();
 }
 
 function markAccountLogin(email) {
@@ -50527,6 +50557,8 @@ async function renderAdminEmailEngagement() {
     const cachedFoundingReport = window.__adminFoundingEmailReport || null;
     const cachedFreeWelcomePreview = window.__adminFreeWelcomeEmailPreview || null;
     const cachedFreeWelcomeReport = window.__adminFreeWelcomeEmailReport || null;
+    const cachedThankYou6Preview = window.__adminThankYou6Preview || null;
+    const cachedThankYou6Report = window.__adminThankYou6Report || null;
     const auditChecks = Array.isArray(cachedAudit?.checks) ? cachedAudit.checks : [];
     const sendReady = Boolean(cachedAudit?.sendUnlocked || (oneTime.sendUnlocked && cachedAudit?.auditToken));
     const providerReady = Boolean(support.ready || cachedPrepare?.emailProvider?.ready || cachedAudit?.emailProvider?.ready);
@@ -50719,6 +50751,51 @@ async function renderAdminEmailEngagement() {
           ${cachedFreeWelcomePreview?.alreadySent
             ? `Already sent ${escapeHtml(cachedFreeWelcomePreview.sentAt || "")}. Duplicate sends are blocked.`
             : "Review the Final Confirmation Screen above, then type SEND_FREE_USER_WELCOME_EMAIL to send. Nothing has been sent yet."}
+        </p>
+      </div>
+
+      <div class="admin-email-controls panel-form">
+        <h4>Free User Thank You — THANKYOU6</h4>
+        <p class="form-note"><strong>Campaign:</strong> Free User Thank You — THANKYOU6 · <strong>Offer:</strong> $6 off first month · <strong>Recipients:</strong> ${cachedThankYou6Preview?.counts?.selected ?? 25} · <strong>Expiration:</strong> August 25, 2026 at 11:59 PM CDT</p>
+        <p class="form-note">Targets the 25 most active eligible Free users. Checkout uses the existing $13.99 Early User price (not $19.99). Production send never runs automatically.</p>
+        <div class="aup-insight-grid">
+          <div class="aup-insight-card"><strong>${cachedThankYou6Preview?.counts?.totalFreeUsers ?? "—"}</strong><span>Total Free users</span></div>
+          <div class="aup-insight-card aup-insight--pro"><strong>${cachedThankYou6Preview?.counts?.totalEligible ?? "—"}</strong><span>Eligible</span></div>
+          <div class="aup-insight-card aup-insight--trial"><strong>${cachedThankYou6Preview?.counts?.selected ?? "—"}</strong><span>Selected</span></div>
+          <div class="aup-insight-card"><strong>${cachedThankYou6Preview?.counts?.measurableActivity ?? "—"}</strong><span>With activity</span></div>
+        </div>
+        ${cachedThankYou6Preview ? `
+          <div class="admin-email-preview">
+            <h4>Recipient preview (not sent)</h4>
+            <p class="form-note"><strong>Highest score:</strong> ${escapeHtml(String(cachedThankYou6Preview.counts?.highestActivityScore ?? ""))} · <strong>Lowest selected:</strong> ${escapeHtml(String(cachedThankYou6Preview.counts?.lowestSelectedActivityScore ?? ""))}</p>
+            <ul class="admin-email-step-list">
+              ${(cachedThankYou6Preview.recipients || []).map((row) => `
+                <li>✓ <strong>${escapeHtml(row.email)}</strong> · ${escapeHtml(row.firstName || "")} · score ${escapeHtml(String(row.activityScore ?? ""))}
+                  <br><span class="form-note">Last active ${escapeHtml(row.lastActiveAt || "n/a")} · ${escapeHtml(row.rankWhy || "")}</span>
+                </li>
+              `).join("") || "<li>No qualifying recipients</li>"}
+            </ul>
+            ${cachedThankYou6Preview.insufficientActivityData ? `<p class="form-note"><strong>Stopped:</strong> ${escapeHtml(cachedThankYou6Preview.stopReason || "Not enough activity data.")}</p>` : ""}
+            <p class="form-note"><strong>Subject:</strong> ${escapeHtml(cachedThankYou6Preview.email?.subject || "")}</p>
+            <pre class="admin-email-text-preview" style="white-space:pre-wrap;max-height:320px;overflow:auto;background:#f7f3ec;padding:12px;border-radius:8px;">${escapeHtml(cachedThankYou6Preview.email?.textPreview || "")}</pre>
+          </div>
+        ` : `<p class="form-note">Run Preview recipients to load the live top 25 from production accounts. Nothing has been sent.</p>`}
+        ${cachedThankYou6Report ? `
+          <div class="admin-email-preview">
+            <h4>Post-send report</h4>
+            <p class="form-note">Attempted ${Number(cachedThankYou6Report.totalAttempted) || 0} · Delivered ${Number(cachedThankYou6Report.totalDelivered) || 0} · Failed ${Number(cachedThankYou6Report.totalFailed) || 0}</p>
+          </div>
+        ` : ""}
+        <div class="account-actions-row">
+          <button class="primary-button" type="button" id="adminThankYou6Preview">Preview recipients</button>
+          <button class="ghost-button" type="button" id="adminThankYou6PreviewEmail">Preview email</button>
+          <button class="ghost-button" type="button" id="adminThankYou6Test">Send test to owner</button>
+          <button class="ghost-button" type="button" id="adminThankYou6Send" ${cachedThankYou6Preview?.sendUnlocked && !cachedThankYou6Preview?.alreadySent ? "" : "disabled"}>Send to selected 25</button>
+        </div>
+        <p class="form-note" id="adminThankYou6Message">
+          ${cachedThankYou6Preview?.alreadySent
+            ? `Already sent ${escapeHtml(cachedThankYou6Preview.sentAt || "")}. Duplicate sends are blocked.`
+            : "Preview first. Production send requires typing SEND_THANKYOU6_CAMPAIGN after the warning. Nothing has been sent yet."}
         </p>
       </div>
 
@@ -65911,6 +65988,7 @@ async function startCheckout(type, trackingContext = "checkout") {
           fbp: metaIds.fbp,
           fbc: metaIds.fbc,
           eventSourceUrl: window.location.href,
+          ...(thankYou6CampaignActive() ? { campaign: THANKYOU6_CAMPAIGN_ID } : {}),
         }),
       });
       const data = await response.json();
@@ -67035,6 +67113,80 @@ document.addEventListener("click", async (event) => {
       await renderAdminEmailEngagement();
     } catch (error) {
       if (msg) msg.textContent = error.message || "Free User welcome send failed.";
+    }
+    return;
+  }
+  if (event.target.closest("#adminThankYou6Preview") || event.target.closest("#adminThankYou6PreviewEmail")) {
+    event.preventDefault();
+    const msg = document.querySelector("#adminThankYou6Message");
+    try {
+      const data = await adminEmailEngagementPost("/api/admin/thankyou6-email/dry-run", {});
+      window.__adminThankYou6Preview = data.preview || null;
+      if (msg) {
+        const count = data.preview?.counts?.selected || 0;
+        msg.textContent = data.preview?.insufficientActivityData
+          ? (data.preview.stopReason || "Not enough activity data to rank recipients.")
+          : `Preview ready: ${count} selected. Nothing was sent.`;
+      }
+      await renderAdminEmailEngagement();
+    } catch (error) {
+      if (msg) msg.textContent = error.message || "THANKYOU6 preview failed.";
+    }
+    return;
+  }
+  if (event.target.closest("#adminThankYou6Test")) {
+    event.preventDefault();
+    const msg = document.querySelector("#adminThankYou6Message");
+    try {
+      const data = await adminEmailEngagementPost("/api/admin/thankyou6-email/test", {});
+      if (msg) msg.textContent = data.result?.sent
+        ? `Test sent to owner only (${data.result.recipient || ""}). Production campaign was not sent.`
+        : (data.result?.reason || "Owner test was not sent.");
+    } catch (error) {
+      if (msg) msg.textContent = error.message || "THANKYOU6 owner test failed.";
+    }
+    return;
+  }
+  if (event.target.closest("#adminThankYou6Send")) {
+    event.preventDefault();
+    const msg = document.querySelector("#adminThankYou6Message");
+    const preview = window.__adminThankYou6Preview;
+    if (!preview?.dryRunToken || !preview?.confirmationToken) {
+      if (msg) msg.textContent = "Run Preview recipients first.";
+      return;
+    }
+    const recipientCount = Number(preview.counts?.selected) || 0;
+    const warning = `You are about to send the THANKYOU6 promotion to ${recipientCount} Free users.`;
+    if (!window.confirm(warning)) {
+      if (msg) msg.textContent = "Send canceled.";
+      return;
+    }
+    const phrase = window.prompt(
+      `${warning}\n\nType SEND_THANKYOU6_CAMPAIGN to send once.\nMemberships will not be modified.`,
+      "",
+    );
+    if (String(phrase || "").trim() !== "SEND_THANKYOU6_CAMPAIGN") {
+      if (msg) msg.textContent = "Send canceled — confirmation phrase did not match.";
+      return;
+    }
+    try {
+      const data = await adminEmailEngagementPost("/api/admin/thankyou6-email/send", {
+        confirm: true,
+        confirmPhrase: "SEND_THANKYOU6_CAMPAIGN",
+        dryRunToken: preview.dryRunToken,
+        confirmationToken: preview.confirmationToken,
+      });
+      window.__adminThankYou6Report = data.report || data.result?.report || null;
+      window.__adminThankYou6Preview = {
+        ...preview,
+        alreadySent: true,
+        sentAt: data.result?.sentAt || "",
+        sendUnlocked: false,
+      };
+      if (msg) msg.textContent = `Sent ${data.result?.sent || 0} of ${recipientCount}.`;
+      await renderAdminEmailEngagement();
+    } catch (error) {
+      if (msg) msg.textContent = error.message || "THANKYOU6 send failed.";
     }
     return;
   }
@@ -77984,6 +78136,7 @@ function initialViewFromLocation() {
   // notificationclick) and by "Open Little Learner Hub" copy — routes
   // straight to the right conversation/tab instead of the default landing.
   const viewParam = String(params.get("view") || "").trim().toLowerCase();
+  if (viewParam === "upgrade" || thankYou6CampaignActive()) return "upgrade";
   if (viewParam === "messages" && (isLoggedIn() || hasAdminFullAccess())) return "messages";
   // Recognize Admin before owner/session hydration. Unlock + server auth still gate content.
   // Case-insensitive so Chromebook / PWA rewrites of ?view=Admin still land correctly.

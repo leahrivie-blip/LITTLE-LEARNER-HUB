@@ -23,6 +23,8 @@ const { createEmailEngagement, defaultEmailEngagementStore } = require("./email-
 const { createOnboardingWelcome, defaultOnboardingWelcomeStore } = require("./onboarding-welcome.js");
 const { createFoundingMemberEmail } = require("./founding-member-email.js");
 const { createFreeUserWelcomeEmail } = require("./free-user-welcome-email.js");
+const { createFreeUserThankYou6Email } = require("./free-user-thankyou6-email.js");
+const thankYou6Checkout = require("./thankyou6-checkout.js");
 const billingLifecycleEmail = require("./billing-lifecycle-email.js");
 const { createPushService } = require("./push-lib.js");
 const messagingLib = require("./messaging-lib.js");
@@ -7267,6 +7269,8 @@ async function stripeRequest(pathname, params) {
       if (trialDays) query.set("trial_days", String(trialDays));
       if (promoTrialDays) query.set("promo_trial_days", String(promoTrialDays));
       if (paymentMethodCollection) query.set("payment_method_collection", String(paymentMethodCollection));
+      if (params.allow_promotion_codes) query.set("allow_promotion_codes", String(params.allow_promotion_codes));
+      if (params["metadata[campaign]"]) query.set("campaign", String(params["metadata[campaign]"]));
       if (trialMissingPm) query.set("trial_missing_pm", String(trialMissingPm));
       return {
         id: `cs_sim_${crypto.randomBytes(8).toString("hex")}`,
@@ -10039,9 +10043,11 @@ async function handleCheckout(request, response) {
   let requestedPlan = body.plan || "monthly";
   // Early User is acquisition-only. Existing $13.99 subs keep working via price ID
   // mapping even when the promo flag is later disabled.
-  if (requestedPlan === "early_user" && !earlyUserPricingAvailable()) {
-    requestedPlan = "monthly";
-  }
+  // THANKYOU6 is the only exception: it must keep the $13.99 Early User price.
+  requestedPlan = thankYou6Checkout.resolveCheckoutPlanKey(requestedPlan, {
+    earlyUserAvailable: earlyUserPricingAvailable(),
+    body,
+  });
   if (requestedPlan === "founding" && foundingSpotsRemaining(store) <= 0) {
     jsonResponse(response, 409, {
       error: foundingSoldOutMessage(store),
@@ -10220,6 +10226,8 @@ async function handleCheckout(request, response) {
       success_url: body.successUrl || `${SITE_URL}?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: body.cancelUrl || `${SITE_URL}?checkout=cancel`,
     };
+    thankYou6Checkout.applyPromotionCodeCheckoutParams(sessionParams);
+    thankYou6Checkout.applyThankYou6CheckoutMetadata(sessionParams, body);
     if (STRIPE_AUTOMATIC_TAX) {
       sessionParams["automatic_tax[enabled]"] = "true";
       sessionParams.billing_address_collection = "required";
@@ -19793,6 +19801,20 @@ const freeUserWelcomeEmail = createFreeUserWelcomeEmail({
   foundingSpotsRemaining,
 });
 
+const freeUserThankYou6Email = createFreeUserThankYou6Email({
+  sendEmail,
+  readStore,
+  writeStore,
+  htmlEscape,
+  getAdminEmail: () => ADMIN_EMAIL,
+  getAdminEmails: () => ADMIN_EMAILS,
+  getSupportEmailStatus: () => supportEmailConfigStatus(),
+  unsubscribeUrlForEmail,
+  postalAddress: SUPPORT_POSTAL_ADDRESS,
+  siteUrl: SITE_URL,
+  fetchResendEmailStatus,
+});
+
 function pauseEmailAutomationsInStore(reason = "EMAIL_AUTOMATIONS_ENABLED=false") {
   const store = readStore();
   const eng = emailEngagement.ensureEmailEngagement(store);
@@ -29141,7 +29163,8 @@ async function handleResendEmailWebhook(request, response) {
   }
   const foundingResult = foundingMemberEmail.handleResendWebhook(event, { persistAlways: false });
   const freeResult = freeUserWelcomeEmail.handleResendWebhook(event, { persistAlways: false });
-  if (foundingResult.updated || freeResult.updated) {
+  const thankYou6Result = freeUserThankYou6Email.handleResendWebhook(event, { persistAlways: false });
+  if (foundingResult.updated || freeResult.updated || thankYou6Result.updated) {
     // Persist whichever campaign matched (handlers write when updated).
   } else {
     // Still persist webhook audit on founding campaign store path when neither matches.
@@ -29151,6 +29174,7 @@ async function handleResendEmailWebhook(request, response) {
     received: true,
     founding: foundingResult,
     freeUserWelcome: freeResult,
+    thankYou6: thankYou6Result,
   });
 }
 
@@ -29256,6 +29280,97 @@ async function handleAdminFreeUserWelcomeEmailReport(request, response, url) {
     return;
   }
   jsonResponse(response, 200, freeUserWelcomeEmail.getReport());
+}
+
+async function handleAdminThankYou6DryRun(request, response, url) {
+  let token = "";
+  if (request.method === "GET") {
+    token = extractAdminToken(request, url) || "";
+  } else {
+    const body = await readJson(request);
+    token = extractAdminTokenFromBody(request, body);
+  }
+  if (!validAdminToken(token)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const preview = freeUserThankYou6Email.dryRun({ persist: true });
+  jsonResponse(response, 200, {
+    ok: true,
+    sent: false,
+    willSend: false,
+    preview,
+    note: "Preview only. Nothing was sent.",
+  });
+}
+
+async function handleAdminThankYou6Test(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const result = await freeUserThankYou6Email.sendTestToOwner({
+    adminEmail: ADMIN_EMAIL,
+  });
+  jsonResponse(response, result.sent ? 200 : 400, {
+    ok: Boolean(result.sent),
+    productionCampaignSent: false,
+    result,
+  });
+}
+
+async function handleAdminThankYou6Send(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const result = await freeUserThankYou6Email.send({
+    adminEmail: ADMIN_EMAIL,
+    confirm: body.confirm === true,
+    confirmPhrase: body.confirmPhrase || "",
+    dryRunToken: body.dryRunToken || "",
+    confirmationToken: body.confirmationToken || "",
+    forceResend: false,
+  });
+  if (result.skipped && result.reason === "confirmation_required") {
+    jsonResponse(response, 400, {
+      error: "Confirmation required. Type SEND_THANKYOU6_CAMPAIGN after the warning.",
+      result,
+    });
+    return;
+  }
+  if (result.skipped) {
+    jsonResponse(response, result.reason === "already_sent" ? 409 : 400, {
+      error: result.detail || result.reason,
+      result,
+    });
+    return;
+  }
+  jsonResponse(response, 200, {
+    ok: true,
+    result,
+    report: result.report || null,
+    membershipRecordsModified: false,
+    billingRecordsModified: false,
+    accountAccessModified: false,
+  });
+}
+
+async function handleAdminThankYou6Report(request, response, url) {
+  const token = extractAdminToken(request, url) || "";
+  if (!validAdminToken(token)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const refresh = url.searchParams.get("refresh") === "1" || url.searchParams.get("refresh") === "true";
+  if (refresh) {
+    const refreshed = await freeUserThankYou6Email.refreshDeliveryStatuses();
+    jsonResponse(response, 200, { ok: true, refreshed: true, ...refreshed });
+    return;
+  }
+  jsonResponse(response, 200, freeUserThankYou6Email.getReport());
 }
 
 async function handleAdminEmailEngagementSettings(request, response) {
@@ -29877,6 +29992,18 @@ const server = http.createServer(async (request, response) => {
     }
     if (request.method === "GET" && url.pathname === "/api/admin/free-user-welcome-email/report") {
       return await handleAdminFreeUserWelcomeEmailReport(request, response, url);
+    }
+    if ((request.method === "GET" || request.method === "POST") && url.pathname === "/api/admin/thankyou6-email/dry-run") {
+      return await handleAdminThankYou6DryRun(request, response, url);
+    }
+    if (request.method === "POST" && url.pathname === "/api/admin/thankyou6-email/test") {
+      return await handleAdminThankYou6Test(request, response);
+    }
+    if (request.method === "POST" && url.pathname === "/api/admin/thankyou6-email/send") {
+      return await handleAdminThankYou6Send(request, response);
+    }
+    if (request.method === "GET" && url.pathname === "/api/admin/thankyou6-email/report") {
+      return await handleAdminThankYou6Report(request, response, url);
     }
     if (request.method === "POST" && url.pathname === "/api/webhooks/resend") {
       return await handleResendEmailWebhook(request, response);
