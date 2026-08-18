@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Owner/admin draft lesson delete + Name-block parser regression.
+ * Owner/admin lesson delete (draft + published/live) + Name-block parser regression.
  * Run: npm run test:owner-lesson-delete
  */
 const assert = require("node:assert/strict");
@@ -13,6 +13,7 @@ const { spawn } = require("node:child_process");
 const { parseFullLessonStructurePaste } = require("./curriculum-lesson-structure-paste.js");
 const weekKit = require("./curriculum-week-kit-paste.js");
 const { largeNameBlockMasterPaste } = require("./test-master-lesson-activity-import-parser.js");
+const { unlockAdminInBrowser } = require("./lib/admin-browser-unlock.js");
 
 const ROOT = path.join(__dirname, "..");
 const PORT = 20610 + Math.floor(Math.random() * 80);
@@ -27,9 +28,11 @@ const KEEP_ID = "cur-lp-owner-delete-keep";
 const JUNK_ID = "cur-lp-owner-delete-junk";
 const UI_ID = "cur-lp-owner-delete-ui";
 const EXTRA_ID = "cur-lp-owner-delete-extra";
+const LIVE_ID = "cur-lp-owner-delete-live";
 const SHARED_RES_ID = "cur-res-owner-delete-shared";
 const JUNK_TITLE = "Things That Go: Art in Motion";
 const UI_TITLE = "Delete Me UI Draft";
+const LIVE_TITLE = "Delete Me Published Live";
 
 function requestJson(method, urlPath, body, token) {
   return new Promise((resolve, reject) => {
@@ -147,6 +150,8 @@ function assertStaticContract() {
   assert.match(appJs, /function dropDeletedAdminCurriculumLessonFromLocalStore/);
   assert.match(appJs, /data-curriculum-lesson-delete/);
   assert.match(appJs, /This permanently deletes this lesson plan and its lesson-owned activity records/);
+  assert.match(appJs, /disappears from the live library/);
+  assert.doesNotMatch(serverJs, /Only draft lesson plans can be permanently deleted/);
   assert.match(appJs, /if \(!confirmed\) return \{ cancelled: true, ok: false \}/);
   assert.match(enrichJs, /data-enrich-delete-lesson/);
   assert.match(pasteJs, /looksLikeStructuredActivityFields/);
@@ -195,6 +200,16 @@ async function deleteLesson(token, lessonPlanId, confirmTitle, expectedUpdatedAt
   }, token);
 }
 
+async function publicLibrary() {
+  const res = await requestJson("GET", "/api/site-content");
+  assert.equal(res.status, 200, res.text);
+  return res.json.siteContent?.curriculumLibrary || { lessonPlans: [], activities: [] };
+}
+
+function libraryHasPlan(library, id) {
+  return (library?.lessonPlans || []).some((item) => item && item.id === id);
+}
+
 async function runServerTests() {
   const child = startServer();
   try {
@@ -225,6 +240,18 @@ async function runServerTests() {
     }, stamp);
     assert.equal(extra.status, 200, extra.text);
     stamp = extra.json.siteContentUpdatedAt;
+
+    const live = await saveLesson(token, {
+      id: LIVE_ID,
+      title: LIVE_TITLE,
+      age: "Preschool",
+      status: "published",
+      plan: "Free",
+      weeklyOverview: "Published lesson that must leave the live library when deleted.",
+      dailyPlans: dailyItems("live", 5),
+    }, stamp);
+    assert.equal(live.status, 200, live.text);
+    stamp = live.json.siteContentUpdatedAt;
 
     const junk = await saveLesson(token, {
       id: JUNK_ID,
@@ -295,10 +322,10 @@ async function runServerTests() {
     assert.ok(findPlan(afterDenied.curriculum, JUNK_ID), "denied delete left the draft in place");
     stamp = afterDenied.stamp;
 
-    const publishedConflict = await deleteLesson(token, KEEP_ID, "Keep Lesson Plan", stamp);
-    assert.equal(publishedConflict.status, 409);
-    assert.equal(publishedConflict.json?.code, "deletion_conflict");
-    console.log("PASS  published lesson is not deleted");
+    const publicBefore = await publicLibrary();
+    assert.equal(libraryHasPlan(publicBefore, KEEP_ID), true, "published keep lesson is live before delete");
+    assert.equal(libraryHasPlan(publicBefore, LIVE_ID), true, "published delete target is live before delete");
+    assert.equal(libraryHasPlan(publicBefore, JUNK_ID), false, "draft is not live");
 
     const missing = await deleteLesson(token, "cur-lp-does-not-exist", "Nope", stamp);
     assert.equal(missing.status, 404);
@@ -311,6 +338,7 @@ async function runServerTests() {
     assert.ok(!findPlan(deleted.json.curriculum, JUNK_ID));
     assert.ok(findPlan(deleted.json.curriculum, KEEP_ID));
     assert.ok(findPlan(deleted.json.curriculum, EXTRA_ID));
+    assert.ok(findPlan(deleted.json.curriculum, LIVE_ID));
     assert.ok(findPlan(deleted.json.curriculum, UI_ID));
     const afterJunkActs = (deleted.json.curriculum.activities || []).filter((act) => act.lessonPlanId === JUNK_ID);
     const afterKeepActs = (deleted.json.curriculum.activities || []).filter((act) => act.lessonPlanId === KEEP_ID);
@@ -333,9 +361,40 @@ async function runServerTests() {
     const reload = await siteStamp(token);
     assert.ok(!findPlan(reload.curriculum, JUNK_ID), "refresh does not restore deleted lesson");
     assert.ok(findPlan(reload.curriculum, KEEP_ID));
+    assert.ok(findPlan(reload.curriculum, LIVE_ID));
     assert.ok(findResource(reload.curriculum, SHARED_RES_ID));
     stamp = reload.stamp;
     console.log("PASS  reload keeps the deletion");
+
+    const liveDetailBefore = await requestJson("GET", `/api/curriculum/lesson-plans/${LIVE_ID}`);
+    assert.equal(liveDetailBefore.status, 200, liveDetailBefore.text);
+    assert.equal(liveDetailBefore.json?.lessonPlan?.id, LIVE_ID);
+
+    const deletedLive = await deleteLesson(token, LIVE_ID, LIVE_TITLE, stamp);
+    assert.equal(deletedLive.status, 200, deletedLive.text);
+    assert.equal(deletedLive.json.deletedPlanId, LIVE_ID);
+    assert.ok(!findPlan(deletedLive.json.curriculum, LIVE_ID));
+    assert.ok(findPlan(deletedLive.json.curriculum, KEEP_ID));
+    assert.ok(findPlan(deletedLive.json.curriculum, EXTRA_ID));
+    assert.ok(findPlan(deletedLive.json.curriculum, UI_ID));
+    stamp = deletedLive.json.siteContentUpdatedAt;
+
+    const publicAfter = await publicLibrary();
+    assert.equal(libraryHasPlan(publicAfter, LIVE_ID), false, "deleted published lesson left the live library");
+    assert.equal(libraryHasPlan(publicAfter, KEEP_ID), true, "other published lessons stay live");
+    assert.equal(libraryHasPlan(publicAfter, EXTRA_ID), true, "extra published lesson stays live");
+
+    const liveDetailAfter = await requestJson("GET", `/api/curriculum/lesson-plans/${LIVE_ID}`);
+    assert.equal(liveDetailAfter.status, 404, liveDetailAfter.text);
+    const keepDetailAfter = await requestJson("GET", `/api/curriculum/lesson-plans/${KEEP_ID}`);
+    assert.equal(keepDetailAfter.status, 200, keepDetailAfter.text);
+    assert.equal(keepDetailAfter.json?.lessonPlan?.id, KEEP_ID);
+
+    const reloadLive = await siteStamp(token);
+    assert.ok(!findPlan(reloadLive.curriculum, LIVE_ID), "refresh does not restore deleted published lesson");
+    assert.ok(findPlan(reloadLive.curriculum, KEEP_ID));
+    stamp = reloadLive.stamp;
+    console.log("PASS  published delete removes the lesson from admin and the live library");
 
     const { chromium } = require("playwright");
     const browser = await chromium.launch({ headless: true });
@@ -344,15 +403,7 @@ async function runServerTests() {
       await page.addInitScript(() => {
         try { localStorage.setItem("llhMetaCookieNoticeDismissed", "1"); } catch { /* ignore */ }
       });
-      await page.goto(`${BASE}/`, { waitUntil: "domcontentloaded", timeout: 60000 });
-      await page.waitForFunction(() => typeof setView === "function", null, { timeout: 45000 });
-      await page.evaluate(() => setView("admin"));
-      await page.waitForSelector("#adminUnlockForm", { timeout: 20000 });
-      await page.fill('input[name="adminEmail"]', ADMIN.email);
-      await page.fill('input[name="adminPassword"]', ADMIN.password);
-      await page.fill('input[name="adminCode"]', ADMIN.code);
-      await page.click("#adminUnlockForm button[type='submit']");
-      await page.waitForSelector("#adminProtectedContent:not([hidden])", { timeout: 20000 });
+      await unlockAdminInBrowser(page, BASE, ADMIN);
       await page.evaluate(() => {
         if (typeof setAdminSectionTab === "function") setAdminSectionTab("curriculum-lesson-plans");
       });
