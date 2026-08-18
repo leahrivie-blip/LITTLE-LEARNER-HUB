@@ -25,6 +25,12 @@ const {
 } = require("../server/free-user-thankyou6-email.js");
 const { scoreThankYou6Activity } = require("../server/thankyou6-activity-score.js");
 const thankYou6Checkout = require("../server/thankyou6-checkout.js");
+const thankYou6Eligibility = require("../server/thankyou6-eligibility.js");
+const {
+  createThankYou6InApp,
+  buildInAppContent,
+  IN_APP_CONFIRM_PHRASE,
+} = require("../server/thankyou6-in-app.js");
 
 const PORT = 19840 + Math.floor(Math.random() * 40);
 const STORE_PATH = path.join(os.tmpdir(), `llh-thankyou6-${crypto.randomBytes(4).toString("hex")}.json`);
@@ -288,6 +294,28 @@ function sampleUsers() {
       lastSeenAt: isoDaysAgo(1),
       featureUsage: { lesson_plan_view: 9 },
     },
+    "llh.prod.flag.free.1785770260@littlelearnershubbyleah.com": {
+      email: "llh.prod.flag.free.1785770260@littlelearnershubbyleah.com",
+      plan: "Free",
+      lastSeenAt: isoDaysAgo(1),
+      lastLoginAt: isoDaysAgo(1),
+      featureUsage: { lesson_plan_view: 20, page_view: 40 },
+    },
+    "andvarvele22@gmil.com": {
+      email: "andvarvele22@gmil.com",
+      plan: "Free",
+      lastSeenAt: isoDaysAgo(1),
+      lastLoginAt: isoDaysAgo(1),
+      featureUsage: { lesson_plan_view: 12, page_view: 18 },
+    },
+    "provider.real@littlelearnershubbyleah.com": {
+      email: "provider.real@littlelearnershubbyleah.com",
+      firstName: "Real",
+      plan: "Free",
+      lastSeenAt: isoDaysAgo(1),
+      lastLoginAt: isoDaysAgo(1),
+      featureUsage: { lesson_plan_view: 7, page_view: 11 },
+    },
   };
   for (let i = 0; i < 30; i += 1) {
     const email = `batch${String(i).padStart(2, "0")}@providermail.com`;
@@ -322,6 +350,10 @@ async function main() {
     assert.match(serverJs, /allow_promotion_codes/);
     assert.match(appJs, /adminThankYou6Preview/);
     assert.match(appJs, /SEND_THANKYOU6_CAMPAIGN/);
+    assert.match(appJs, /SEND_THANKYOU6_IN_APP/);
+    assert.match(appJs, /adminThankYou6InAppPreview/);
+    assert.match(serverJs, /thankyou6-in-app\/dry-run/);
+    assert.match(serverJs, /SEND_THANKYOU6_IN_APP/);
     assert.equal(CHECKOUT_PLAN, "early_user");
     assert.equal(CHECKOUT_PRICE_ENV, "STRIPE_PRICE_EARLY_USER_MONTHLY");
     assert.equal(thankYou6Checkout.EXCLUDED_PRICE_ENV, "STRIPE_PRICE_PRO_MONTHLY");
@@ -379,6 +411,17 @@ async function main() {
     assert.ok(!emails.includes("canceling.paid@providermail.com"));
     assert.ok(!emails.includes("center.paid@providermail.com"));
     assert.ok(!emails.includes("system.user@providermail.com"));
+    assert.ok(!emails.includes("llh.prod.flag.free.1785770260@littlelearnershubbyleah.com"));
+    assert.ok(!emails.includes("andvarvele22@gmil.com"));
+    assert.ok(emails.includes("provider.real@littlelearnershubbyleah.com"));
+    assert.ok(report.exclusionTotals.prodFlagAccounts >= 1);
+    assert.ok(report.exclusionTotals.suspiciousEmailDomains >= 1);
+    assert.ok(report.exclusionTotals.currentlyPaid >= 1);
+    assert.ok(report.exclusionTotals.historicallyPaid >= 1);
+    const flagTrack = (report.trackedExclusions || []).find((row) => row.email === "llh.prod.flag.free.1785770260@littlelearnershubbyleah.com");
+    const gmilTrack = (report.trackedExclusions || []).find((row) => row.email === "andvarvele22@gmil.com");
+    assert.ok(flagTrack?.excludeReasons.includes("internal_prod_flag_account"));
+    assert.ok(gmilTrack?.excludeReasons.includes("suspicious_email_domain"));
     assert.equal(report.recipients[0].email, "active.hot@providermail.com");
     assert.ok(report.recipients.every((row) => row.noActivePaidSubscription));
     assert.ok(report.recipients.every((row) => row.currentPlan === "Free"));
@@ -463,6 +506,56 @@ async function main() {
     assert.ok(system.excludeReasons.includes("system_account"));
   });
 
+  await test("prod-flag, owner-test, and QA accounts are excluded; real LLH domain users stay eligible", () => {
+    const flag = validateThankYou6Recipient({
+      email: "llh.prod.flag.free.1785770260@littlelearnershubbyleah.com",
+      plan: "Free",
+    });
+    assert.equal(flag.qualifies, false);
+    assert.ok(flag.excludeReasons.includes("internal_prod_flag_account"));
+    assert.equal(thankYou6Eligibility.looksLikeProdFlagEmail(flag.email), true);
+
+    const override = validateThankYou6Recipient({
+      email: "override.tester@providermail.com",
+      plan: "Free",
+      internalAccessOverride: true,
+    });
+    assert.equal(override.qualifies, false);
+    assert.ok(override.excludeReasons.includes("system_account"));
+
+    const qa = validateThankYou6Recipient({
+      email: "qa.runner@providermail.com",
+      plan: "Free",
+      qaAccount: true,
+    });
+    assert.equal(qa.qualifies, false);
+
+    const real = validateThankYou6Recipient({
+      email: "provider.real@littlelearnershubbyleah.com",
+      plan: "Free",
+    });
+    assert.equal(real.qualifies, true);
+    assert.equal(real.excludeReasons.includes("internal_prod_flag_account"), false);
+  });
+
+  await test("gmil.com is excluded unless a delivered-status proof already exists", () => {
+    const suspicious = validateThankYou6Recipient({
+      email: "andvarvele22@gmil.com",
+      plan: "Free",
+    });
+    assert.equal(suspicious.qualifies, false);
+    assert.ok(suspicious.excludeReasons.includes("suspicious_email_domain"));
+
+    const proven = validateThankYou6Recipient({
+      email: "andvarvele22@gmil.com",
+      plan: "Free",
+      emailDeliveryStatus: "delivered",
+      emailDeliveredAt: isoDaysAgo(2),
+    });
+    assert.equal(proven.qualifies, true);
+    assert.equal(proven.excludeReasons.includes("suspicious_email_domain"), false);
+  });
+
   let store = { users: sampleUsers(), emailEngagement: { settings: {}, events: [] } };
   const sent = [];
   const api = createFreeUserThankYou6Email({
@@ -544,6 +637,145 @@ async function main() {
     assert.deepEqual(localSent, ["owner@providermail.com"]);
   });
 
+  await test("in-app dry-run writes zero notifications and no channel receipts", async () => {
+    const localStore = {
+      users: sampleUsers(),
+      notifications: [],
+      emailEngagement: { settings: {}, events: [] },
+    };
+    const inApp = createThankYou6InApp({
+      readStore: () => localStore,
+      writeStore: (next) => { Object.assign(localStore, next); },
+      fanOutNotificationsAndPush: async () => {
+        throw new Error("fanOut should not run during dry-run");
+      },
+      getAdminEmail: () => "admin.owner@providermail.com",
+      siteUrl: "https://littlelearnershubbyleah.com",
+    });
+    const preview = inApp.dryRun({ persist: true, adminEmails: ["admin.owner@providermail.com"] });
+    assert.equal(preview.willSend, false);
+    assert.equal(preview.notificationsWritten, 0);
+    assert.equal(localStore.notifications.length, 0);
+    assert.equal(preview.channel, "in_app");
+    assert.match(preview.inApp.ctaPath, /campaign=FREE_USER_THANKYOU6_AUG2026/);
+    assert.match(preview.inApp.ctaPath, /plan=early_user/);
+    assert.ok(!preview.recipients.some((row) => row.email === "llh.prod.flag.free.1785770260@littlelearnershubbyleah.com"));
+    assert.ok(!preview.recipients.some((row) => row.email === "andvarvele22@gmil.com"));
+    assert.ok(!preview.recipients.some((row) => row.email === "unsub.user@providermail.com"));
+    assert.ok(preview.recipients.some((row) => row.email === "provider.real@littlelearnershubbyleah.com"));
+    assert.ok(preview.recipients.every((row) => row.inAppReceipt === false));
+    assert.equal(Boolean(localStore.emailEngagement.settings.freeUserThankYou6.inAppSentAt), false);
+    const receipts = localStore.emailEngagement.settings.freeUserThankYou6.recipientReceipts || {};
+    assert.equal(Object.keys(receipts).length, 0);
+  });
+
+  await test("email and in-app receipts are independent and sending one channel does not send the other", async () => {
+    const localStore = {
+      users: {
+        "active.hot@providermail.com": sampleUsers()["active.hot@providermail.com"],
+      },
+      notifications: [],
+      emailEngagement: { settings: {}, events: [] },
+    };
+    const sent = [];
+    const emailApi = createFreeUserThankYou6Email({
+      sendEmail: async ({ to, subject }) => {
+        sent.push({ to, subject });
+        return { sent: true, configured: true, provider: "resend", messageId: `re_${sent.length}` };
+      },
+      readStore: () => localStore,
+      writeStore: (next) => { Object.assign(localStore, next); },
+      getAdminEmail: () => "admin.owner@providermail.com",
+      getSupportEmailStatus: () => ({ ready: true, provider: "resend" }),
+      unsubscribeUrlForEmail: () => "https://littlelearnershubbyleah.com/unsubscribe",
+      siteUrl: "https://littlelearnershubbyleah.com",
+    });
+    const inApp = createThankYou6InApp({
+      readStore: () => localStore,
+      writeStore: (next) => { Object.assign(localStore, next); },
+      fanOutNotificationsAndPush: async (store, payload) => {
+        const now = new Date().toISOString();
+        store.notifications = Array.isArray(store.notifications) ? store.notifications : [];
+        for (const email of payload.recipients) {
+          store.notifications.unshift({
+            id: `notif_${email}`,
+            email,
+            type: payload.type,
+            refId: payload.refId,
+            title: payload.title,
+            preview: payload.preview,
+            deepLink: payload.deepLink,
+            createdAt: now,
+            read: false,
+          });
+        }
+        return { targeted: payload.recipients.length, sent: payload.recipients.length };
+      },
+      getAdminEmail: () => "admin.owner@providermail.com",
+      siteUrl: "https://littlelearnershubbyleah.com",
+    });
+
+    const emailDry = emailApi.dryRun({ persist: true });
+    const emailResult = await emailApi.send({
+      confirm: true,
+      confirmPhrase: CONFIRM_PHRASE,
+      dryRunToken: emailDry.dryRunToken,
+      confirmationToken: emailDry.confirmationToken,
+      allowTestHarnessSend: true,
+    });
+    assert.equal(emailResult.skipped, false);
+    assert.equal(sent.length, 1);
+    assert.equal(localStore.notifications.length, 0);
+    assert.equal(Boolean(localStore.emailEngagement.settings.freeUserThankYou6.inAppSentAt), false);
+
+    const inAppDry = inApp.dryRun({ persist: true });
+    assert.equal(inAppDry.recipients[0].emailReceipt, true);
+    assert.equal(inAppDry.recipients[0].inAppReceipt, false);
+    assert.equal(inAppDry.notificationsWritten, 0);
+    const denied = await inApp.send({
+      confirm: true,
+      confirmPhrase: "WRONG",
+      dryRunToken: inAppDry.dryRunToken,
+      confirmationToken: inAppDry.confirmationToken,
+      allowTestHarnessSend: true,
+    });
+    assert.equal(denied.reason, "confirmation_required");
+    assert.equal(localStore.notifications.length, 0);
+
+    const inAppResult = await inApp.send({
+      confirm: true,
+      confirmPhrase: IN_APP_CONFIRM_PHRASE,
+      dryRunToken: inAppDry.dryRunToken,
+      confirmationToken: inAppDry.confirmationToken,
+      allowTestHarnessSend: true,
+    });
+    assert.equal(inAppResult.skipped, false);
+    assert.equal(inAppResult.emailSent, false);
+    assert.equal(localStore.notifications.length, 1);
+    assert.equal(localStore.notifications[0].deepLink, thankYou6Checkout.checkoutCtaPath());
+    assert.equal(sent.length, 1);
+
+    const replay = await inApp.send({
+      confirm: true,
+      confirmPhrase: IN_APP_CONFIRM_PHRASE,
+      dryRunToken: inAppDry.dryRunToken,
+      confirmationToken: inAppDry.confirmationToken,
+      allowTestHarnessSend: true,
+    });
+    assert.equal(replay.reason, "already_sent");
+    assert.equal(localStore.notifications.length, 1);
+  });
+
+  await test("in-app content uses only the isolated THANKYOU6 checkout path", () => {
+    const content = buildInAppContent({ siteUrl: "https://littlelearnershubbyleah.com" });
+    assert.match(content.title, /thank-you/i);
+    assert.match(content.body, /THANKYOU6/);
+    assert.match(content.ctaPath, /view=upgrade/);
+    assert.match(content.ctaPath, /plan=early_user/);
+    assert.match(content.ctaPath, /campaign=FREE_USER_THANKYOU6_AUG2026/);
+    assert.doesNotMatch(content.ctaPath, /sk_live|cs_live|price_/);
+  });
+
   const child = startServer();
   try {
     await test("test server becomes healthy for checkout checks", async () => {
@@ -580,6 +812,51 @@ async function main() {
       assert.equal(monthly.status, 200);
       assert.equal(monthly.json.plan, "monthly");
       assert.match(String(monthly.json.url || ""), /price_sim_pro_monthly/);
+    });
+
+    await test("unauthorized users cannot preview or send THANKYOU6 channels", async () => {
+      const emailDry = await requestJson("POST", "/api/admin/thankyou6-email/dry-run", {});
+      const inAppDry = await requestJson("POST", "/api/admin/thankyou6-in-app/dry-run", {});
+      const emailSend = await requestJson("POST", "/api/admin/thankyou6-email/send", {
+        confirm: true,
+        confirmPhrase: CONFIRM_PHRASE,
+      });
+      const inAppSend = await requestJson("POST", "/api/admin/thankyou6-in-app/send", {
+        confirm: true,
+        confirmPhrase: IN_APP_CONFIRM_PHRASE,
+      });
+      assert.equal(emailDry.status, 401);
+      assert.equal(inAppDry.status, 401);
+      assert.equal(emailSend.status, 401);
+      assert.equal(inAppSend.status, 401);
+    });
+
+    await test("admin in-app dry-run writes zero notifications even when authorized", async () => {
+      const login = await requestJson("POST", "/api/admin/login", {
+        email: "owner@providermail.com",
+        password: "thankyou6-admin-pass",
+        code: "thankyou6-admin-code",
+      });
+      assert.equal(login.status, 200);
+      const token = login.json?.token || "";
+      const preview = await requestJson("POST", "/api/admin/thankyou6-in-app/dry-run", { adminToken: token }, {
+        Authorization: `Bearer ${token}`,
+      });
+      assert.equal(preview.status, 200);
+      assert.equal(preview.json.sent, false);
+      assert.equal(preview.json.preview?.notificationsWritten, 0);
+      const blocked = await requestJson("POST", "/api/admin/thankyou6-in-app/send", {
+        adminToken: token,
+        confirm: true,
+        confirmPhrase: IN_APP_CONFIRM_PHRASE,
+        dryRunToken: preview.json.preview?.dryRunToken,
+        confirmationToken: preview.json.preview?.confirmationToken,
+      }, {
+        Authorization: `Bearer ${token}`,
+      });
+      assert.ok(blocked.status === 400 || blocked.status === 409);
+      assert.equal(blocked.json?.result?.reason, "test_mode_blocked");
+      assert.equal(blocked.json?.result?.notificationsWritten, 0);
     });
   } finally {
     await stopServer(child);

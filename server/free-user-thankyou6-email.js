@@ -22,6 +22,7 @@ const {
 } = require("./free-user-welcome-email.js");
 const thankYou6Checkout = require("./thankyou6-checkout.js");
 const activityScore = require("./thankyou6-activity-score.js");
+const thankYou6Eligibility = require("./thankyou6-eligibility.js");
 
 const CONFIRM_PHRASE = "SEND_THANKYOU6_CAMPAIGN";
 const CAMPAIGN_ID = thankYou6Checkout.CAMPAIGN_ID;
@@ -70,6 +71,15 @@ function defaultCampaignState() {
     lastConfirmationScreen: null,
     lastPostSendReport: null,
     webhookEvents: [],
+    inAppPreparedAt: "",
+    inAppDryRunToken: "",
+    inAppDryRunAt: "",
+    inAppConfirmationToken: "",
+    inAppSentAt: "",
+    inAppRecipientCount: 0,
+    inAppDeliveries: [],
+    lastInAppDryRunSummary: null,
+    lastInAppPostSendReport: null,
   };
 }
 
@@ -139,9 +149,20 @@ function ensureCampaignState(store) {
   return state;
 }
 
-function alreadyReceived(state, email) {
+function channelReceiptOf(state, email, channel = "email") {
   const receipt = state?.recipientReceipts?.[normalizeEmail(email)];
-  return Boolean(receipt?.sentAt || receipt?.messageId);
+  if (!receipt || typeof receipt !== "object") return null;
+  if (channel === "in_app") {
+    return receipt.in_app && typeof receipt.in_app === "object" ? receipt.in_app : null;
+  }
+  if (receipt.email && typeof receipt.email === "object") return receipt.email;
+  return receipt;
+}
+
+function alreadyReceived(state, email, channel = "email") {
+  if (!state || channel === "none") return false;
+  const receipt = channelReceiptOf(state, email, channel);
+  return Boolean(receipt?.sentAt || receipt?.messageId || receipt?.notificationId);
 }
 
 function hasActivePaidStripe(user) {
@@ -212,7 +233,10 @@ function validateThankYou6Recipient(user, options = {}) {
   const emailValid = Boolean(email)
     && !looksMalformedEmail(email)
     && !looksDisposableEmail(email);
+  const channel = options.channel || "email";
   const isTest = looksLikeTestEmail(email) || testAccountGuard.isEphemeralTestAccountEmail(email);
+  const isInternalFlag = thankYou6Eligibility.isInternalThankYou6Account(user, email);
+  const suspiciousDomain = thankYou6Eligibility.isSuspiciousThankYou6Domain(user, email, store);
   const hasPro = membershipAccess.membershipHasProAccess(user, nowMs);
   const inTrial = membershipAccess.membershipUserInTrial(user, nowMs);
   const foundingActive = membershipAccess.membershipFoundingActive(user, nowMs);
@@ -223,9 +247,9 @@ function validateThankYou6Recipient(user, options = {}) {
     Boolean(user?.cancelAtPeriodEnd)
     || String(user?.subscriptionStatus || "").toLowerCase().includes("access ends")
   ) && hasPro;
-  const isSystem = user?.systemAccount === true || user?.internalAccessOverride === true;
+  const isSystem = isInternalFlag;
   const isFreeAccess = accessKey === "free" && !hasPro && planDisplay === "Free" && !billingReview && !cancelingPaid;
-  const alreadyGot = state ? alreadyReceived(state, email) : false;
+  const alreadyGot = state ? alreadyReceived(state, email, channel) : false;
   const isAdmin = adminEmails.has(email);
   const prefs = emailPrefs(user);
   const unsubscribed = Boolean(prefs.unsubscribedAt) || prefs.marketing === false;
@@ -249,6 +273,7 @@ function validateThankYou6Recipient(user, options = {}) {
     notAdmin: !isAdmin,
     notTestAccount: !isTest,
     notSystemAccount: !isSystem,
+    notSuspiciousDomain: !suspiciousDomain,
     notBounced: !bounced,
     notUnsubscribed: !unsubscribed,
     notAlreadyReceived: !alreadyGot,
@@ -272,7 +297,8 @@ function validateThankYou6Recipient(user, options = {}) {
   if (hasPro) excludeReasons.push("has_pro_access");
   if (inTrial) excludeReasons.push("in_trial");
   if (isAdmin) excludeReasons.push("admin_account");
-  if (isSystem) excludeReasons.push("system_account");
+  if (isSystem) excludeReasons.push(thankYou6Eligibility.looksLikeProdFlagEmail(email) ? "internal_prod_flag_account" : "system_account");
+  if (suspiciousDomain) excludeReasons.push("suspicious_email_domain");
   if (bounced) excludeReasons.push("bounced_email");
   if (unsubscribed) excludeReasons.push("unsubscribed");
   if (alreadyGot) excludeReasons.push("already_received_thankyou6");
@@ -385,7 +411,7 @@ function buildEmailContent(options = {}) {
   };
 }
 
-function previewRow(row) {
+function previewRow(row, state = null) {
   return {
     userId: row.userId,
     firstName: row.firstName || "",
@@ -397,6 +423,8 @@ function previewRow(row) {
     lastSeenAt: row.signals?.lastSeenAt || "",
     lastLoginAt: row.signals?.lastLoginAt || "",
     noActivePaidSubscription: row.noActivePaidSubscription === true,
+    emailReceipt: alreadyReceived(state, row.email, "email"),
+    inAppReceipt: alreadyReceived(state, row.email, "in_app"),
     activityScore: row.score,
     rankWhy: row.rankWhy || "",
     signals: {
@@ -441,6 +469,7 @@ function buildThankYou6RecipientDryRun(store, options = {}) {
       adminEmails,
       store,
       state,
+      channel: options.channel || "email",
     });
     if (row.qualifies) eligible.push(row);
     else excluded.push(row);
@@ -491,7 +520,7 @@ function buildThankYou6RecipientDryRun(store, options = {}) {
       lowestSelectedActivityScore: ranked.lowestSelectedScore,
     },
     activityDateRange: ranked.activityDateRange,
-    recipients: ranked.selected.map(previewRow),
+    recipients: ranked.selected.map((row) => previewRow(row, state)),
     eligibleUnranked: eligible.length,
     excluded: excluded.slice(0, 80),
     duplicatesRemoved: [...new Set(duplicatesRemoved)],
@@ -501,8 +530,55 @@ function buildThankYou6RecipientDryRun(store, options = {}) {
       htmlPreview: content.html,
       ctaUrl: content.ctaUrl,
     },
+    exclusionTotals: excluded.reduce((totals, row) => {
+      const reasons = Array.isArray(row.excludeReasons) ? row.excludeReasons : [];
+      const bump = (key) => { totals[key] += 1; };
+      if (reasons.includes("active_paid_stripe") || reasons.includes("has_pro_access") || reasons.includes("early_user_paid") || reasons.includes("founding_member") || reasons.includes("annual_subscriber") || reasons.includes("center_paid") || reasons.includes("billing_review_or_past_due") || reasons.includes("canceling_with_paid_access")) bump("currentlyPaid");
+      if (reasons.includes("already_converted_to_paid") || reasons.includes("grandfathered_paid")) bump("historicallyPaid");
+      if (reasons.includes("admin_account")) bump("ownerAdmin");
+      if (reasons.includes("system_account") || reasons.includes("test_email")) bump("systemInternalQaTest");
+      if (reasons.includes("internal_prod_flag_account")) bump("prodFlagAccounts");
+      if (reasons.includes("suspicious_email_domain")) bump("suspiciousEmailDomains");
+      if (reasons.includes("invalid_email") || reasons.includes("missing_email")) bump("invalidDisposable");
+      if (reasons.includes("bounced_email")) bump("bounced");
+      if (reasons.includes("unsubscribed")) bump("unsubscribed");
+      if (reasons.includes("disabled_account")) bump("disabledAccounts");
+      if (reasons.includes("already_received_thankyou6")) bump("alreadyReceipted");
+      if (reasons.includes("not_free_access") && !reasons.includes("has_pro_access") && !reasons.includes("active_paid_stripe") && !reasons.includes("already_converted_to_paid")) bump("notFreeAccessOther");
+      return totals;
+    }, {
+      currentlyPaid: 0,
+      historicallyPaid: 0,
+      ownerAdmin: 0,
+      systemInternalQaTest: 0,
+      prodFlagAccounts: 0,
+      suspiciousEmailDomains: 0,
+      invalidDisposable: 0,
+      bounced: 0,
+      unsubscribed: 0,
+      disabledAccounts: 0,
+      alreadyReceipted: 0,
+      notFreeAccessOther: 0,
+    }),
+    trackedExclusions: ["llh.prod.flag.free.1785770260@littlelearnershubbyleah.com", "andvarvele22@gmil.com"].map((email) => {
+      const row = excluded.find((item) => item.email === email);
+      return row
+        ? { email, found: true, qualifies: false, excludeReasons: row.excludeReasons }
+        : { email, found: false, qualifies: null, excludeReasons: [] };
+    }),
+    notableExcluded: excluded.filter((row) => (
+      row.excludeReasons.includes("internal_prod_flag_account")
+      || row.excludeReasons.includes("suspicious_email_domain")
+      || row.excludeReasons.includes("system_account")
+    )).map((row) => ({
+      email: row.email,
+      userId: row.userId,
+      excludeReasons: row.excludeReasons,
+    })),
     notes: [
       "Paid, Stripe-active, Early User, Founding, annual, center-paid, admin, test, bounced, and unsubscribed accounts are excluded.",
+      "Internal/system/QA/automation accounts and llh.prod.flag.* production-flag emails are excluded. The Little Learner Hub domain alone is not enough to exclude a customer.",
+      "Unverified gmil.com addresses are excluded as suspicious_email_domain unless a delivered-status proof already exists.",
       "Selection uses lastSeenAt/lastLoginAt + featureUsage only. Account age is a tie-breaker.",
       "Sending does not modify memberships, subscriptions, billing, or account access.",
       "Production send never runs automatically.",
@@ -622,6 +698,7 @@ function createFreeUserThankYou6Email(deps = {}) {
       htmlEscape: htmlEscapeFn,
       siteUrl: options.siteUrl || siteUrl,
       postalAddress: options.postalAddress || postalAddress,
+      channel: options.channel || "email",
     });
     const state = ensureCampaignState(store);
     const alreadySent = Boolean(state.sentAt);
@@ -897,8 +974,19 @@ function createFreeUserThankYou6Email(deps = {}) {
       if (emailResult.sent) {
         sentCount += 1;
         deliveries.push({ email: row.email, messageId, sentAt: nowIso, deliveryStatus: "accepted" });
+        const prior = state.recipientReceipts[row.email] && typeof state.recipientReceipts[row.email] === "object"
+          ? state.recipientReceipts[row.email]
+          : {};
         state.recipientReceipts[row.email] = {
-          email: row.email,
+          ...prior,
+          email: {
+            campaignId: CAMPAIGN_ID,
+            channel: "email",
+            messageId,
+            sentAt: nowIso,
+            apiAccepted: true,
+            deliveryStatus: "accepted",
+          },
           campaignId: CAMPAIGN_ID,
           messageId,
           sentAt: nowIso,
@@ -975,4 +1063,6 @@ module.exports = {
   buildConfirmationScreen,
   validateThankYou6Recipient,
   defaultCampaignState,
+  alreadyReceived,
+  channelReceiptOf,
 };

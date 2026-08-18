@@ -6364,6 +6364,33 @@ function thankYou6CampaignActive() {
   }
 }
 
+function safeSameOriginAppPath(deepLink) {
+  const raw = String(deepLink || "").trim();
+  if (!raw.startsWith("/") || raw.startsWith("//")) return "";
+  try {
+    const url = new URL(raw, window.location.origin);
+    if (url.origin !== window.location.origin) return "";
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch {
+    return "";
+  }
+}
+
+function applyMemberNotificationDeepLink(notification) {
+  const path = safeSameOriginAppPath(notification?.deepLink);
+  if (!path) return false;
+  try {
+    const url = new URL(path, window.location.origin);
+    const view = String(url.searchParams.get("view") || "").trim();
+    window.history.replaceState({}, "", path);
+    if (view && typeof setView === "function") setView(view);
+    if (typeof thankYou6CampaignActive === "function") thankYou6CampaignActive();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function resumeThankYou6CheckoutIfRequested() {
   if (!thankYou6CampaignActive() || !currentUser) return;
   try {
@@ -50599,6 +50626,7 @@ async function renderAdminEmailEngagement() {
     const cachedFreeWelcomeReport = window.__adminFreeWelcomeEmailReport || null;
     const cachedThankYou6Preview = window.__adminThankYou6Preview || null;
     const cachedThankYou6Report = window.__adminThankYou6Report || null;
+    const cachedThankYou6InAppPreview = window.__adminThankYou6InAppPreview || null;
     const auditChecks = Array.isArray(cachedAudit?.checks) ? cachedAudit.checks : [];
     const sendReady = Boolean(cachedAudit?.sendUnlocked || (oneTime.sendUnlocked && cachedAudit?.auditToken));
     const providerReady = Boolean(support.ready || cachedPrepare?.emailProvider?.ready || cachedAudit?.emailProvider?.ready);
@@ -50796,17 +50824,20 @@ async function renderAdminEmailEngagement() {
 
       <div class="admin-email-controls panel-form">
         <h4>Free User Thank You — THANKYOU6</h4>
-        <p class="form-note"><strong>Campaign:</strong> Free User Thank You — THANKYOU6 · <strong>Offer:</strong> $6 off first month · <strong>Recipients:</strong> ${cachedThankYou6Preview?.counts?.selected ?? 25} · <strong>Expiration:</strong> August 25, 2026 at 11:59 PM CDT</p>
-        <p class="form-note">Targets the 25 most active eligible Free users. Checkout uses the existing $13.99 Early User price (not $19.99). Production send never runs automatically.</p>
+        <p class="form-note"><strong>Campaign:</strong> Free User Thank You — THANKYOU6 · <strong>Offer:</strong> $6 off first month · <strong>Recipients:</strong> ${cachedThankYou6Preview?.counts?.selected ?? cachedThankYou6InAppPreview?.counts?.selected ?? 25} · <strong>Expiration:</strong> August 25, 2026 at 11:59 PM CDT</p>
+        <p class="form-note">Email and in-app use the <strong>same canonical recipient list</strong>. Checkout uses the existing $13.99 Early User price (not $19.99). Neither channel sends automatically or from the other channel.</p>
         <div class="aup-insight-grid">
-          <div class="aup-insight-card"><strong>${cachedThankYou6Preview?.counts?.totalFreeUsers ?? "—"}</strong><span>Total Free users</span></div>
-          <div class="aup-insight-card aup-insight--pro"><strong>${cachedThankYou6Preview?.counts?.totalEligible ?? "—"}</strong><span>Eligible</span></div>
-          <div class="aup-insight-card aup-insight--trial"><strong>${cachedThankYou6Preview?.counts?.selected ?? "—"}</strong><span>Selected</span></div>
-          <div class="aup-insight-card"><strong>${cachedThankYou6Preview?.counts?.measurableActivity ?? "—"}</strong><span>With activity</span></div>
+          <div class="aup-insight-card"><strong>${cachedThankYou6Preview?.counts?.totalFreeUsers ?? cachedThankYou6InAppPreview?.counts?.totalFreeUsers ?? "—"}</strong><span>Total Free users</span></div>
+          <div class="aup-insight-card aup-insight--pro"><strong>${cachedThankYou6Preview?.counts?.totalEligible ?? cachedThankYou6InAppPreview?.counts?.totalEligible ?? "—"}</strong><span>Eligible</span></div>
+          <div class="aup-insight-card aup-insight--trial"><strong>${cachedThankYou6Preview?.counts?.selected ?? cachedThankYou6InAppPreview?.counts?.selected ?? "—"}</strong><span>Selected</span></div>
+          <div class="aup-insight-card"><strong>${cachedThankYou6Preview?.counts?.measurableActivity ?? cachedThankYou6InAppPreview?.counts?.measurableActivity ?? "—"}</strong><span>With activity</span></div>
         </div>
+
+        <h5>Email</h5>
+        <p class="form-note"><strong>Status:</strong> ${cachedThankYou6Preview?.alreadySent ? `Sent ${escapeHtml(cachedThankYou6Preview.sentAt || "")}` : "Not sent"}</p>
         ${cachedThankYou6Preview ? `
           <div class="admin-email-preview">
-            <h4>Recipient preview (not sent)</h4>
+            <h4>Email recipient preview (not sent)</h4>
             <p class="form-note"><strong>Highest score:</strong> ${escapeHtml(String(cachedThankYou6Preview.counts?.highestActivityScore ?? ""))} · <strong>Lowest selected:</strong> ${escapeHtml(String(cachedThankYou6Preview.counts?.lowestSelectedActivityScore ?? ""))}</p>
             <ul class="admin-email-step-list">
               ${(cachedThankYou6Preview.recipients || []).map((row) => `
@@ -50817,12 +50848,13 @@ async function renderAdminEmailEngagement() {
             </ul>
             ${cachedThankYou6Preview.insufficientActivityData ? `<p class="form-note"><strong>Stopped:</strong> ${escapeHtml(cachedThankYou6Preview.stopReason || "Not enough activity data.")}</p>` : ""}
             <p class="form-note"><strong>Subject:</strong> ${escapeHtml(cachedThankYou6Preview.email?.subject || "")}</p>
+            <p class="form-note"><strong>CTA:</strong> ${escapeHtml(cachedThankYou6Preview.email?.ctaUrl || "")}</p>
             <pre class="admin-email-text-preview" style="white-space:pre-wrap;max-height:320px;overflow:auto;background:#f7f3ec;padding:12px;border-radius:8px;">${escapeHtml(cachedThankYou6Preview.email?.textPreview || "")}</pre>
           </div>
-        ` : `<p class="form-note">Run Preview recipients to load the live top 25 from production accounts. Nothing has been sent.</p>`}
+        ` : `<p class="form-note">Run Email → Preview recipients to load the live top 25. Nothing has been sent.</p>`}
         ${cachedThankYou6Report ? `
           <div class="admin-email-preview">
-            <h4>Post-send report</h4>
+            <h4>Email post-send report</h4>
             <p class="form-note">Attempted ${Number(cachedThankYou6Report.totalAttempted) || 0} · Delivered ${Number(cachedThankYou6Report.totalDelivered) || 0} · Failed ${Number(cachedThankYou6Report.totalFailed) || 0}</p>
           </div>
         ` : ""}
@@ -50830,12 +50862,41 @@ async function renderAdminEmailEngagement() {
           <button class="primary-button" type="button" id="adminThankYou6Preview">Preview recipients</button>
           <button class="ghost-button" type="button" id="adminThankYou6PreviewEmail">Preview email</button>
           <button class="ghost-button" type="button" id="adminThankYou6Test">Send test to owner</button>
-          <button class="ghost-button" type="button" id="adminThankYou6Send" ${cachedThankYou6Preview?.sendUnlocked && !cachedThankYou6Preview?.alreadySent ? "" : "disabled"}>Send to selected 25</button>
+          <button class="ghost-button" type="button" id="adminThankYou6Send" ${cachedThankYou6Preview?.sendUnlocked && !cachedThankYou6Preview?.alreadySent ? "" : "disabled"}>Send email (phrase required)</button>
         </div>
         <p class="form-note" id="adminThankYou6Message">
           ${cachedThankYou6Preview?.alreadySent
             ? `Already sent ${escapeHtml(cachedThankYou6Preview.sentAt || "")}. Duplicate sends are blocked.`
-            : "Preview first. Production send requires typing SEND_THANKYOU6_CAMPAIGN after the warning. Nothing has been sent yet."}
+            : "Email preview only. Production email send requires typing SEND_THANKYOU6_CAMPAIGN after the warning. Nothing has been sent yet."}
+        </p>
+
+        <h5>In-app</h5>
+        <p class="form-note"><strong>Status:</strong> ${cachedThankYou6InAppPreview?.alreadySent ? `Sent ${escapeHtml(cachedThankYou6InAppPreview.sentAt || "")}` : "Not sent"} · Same audience as email unless a channel receipt already exists.</p>
+        ${cachedThankYou6InAppPreview ? `
+          <div class="admin-email-preview">
+            <h4>In-app recipient preview (not sent)</h4>
+            <p class="form-note"><strong>Selected:</strong> ${escapeHtml(String(cachedThankYou6InAppPreview.counts?.selected ?? 0))}</p>
+            <ul class="admin-email-step-list">
+              ${(cachedThankYou6InAppPreview.recipients || []).map((row) => `
+                <li>✓ <strong>${escapeHtml(row.email)}</strong> · score ${escapeHtml(String(row.activityScore ?? ""))} · last active ${escapeHtml(row.lastActiveAt || "n/a")}
+                  <br><span class="form-note">Email receipt: ${row.emailReceipt ? "yes" : "no"} · In-app receipt: ${row.inAppReceipt ? "yes" : "no"}</span>
+                </li>
+              `).join("") || "<li>No qualifying recipients</li>"}
+            </ul>
+            <p class="form-note"><strong>Title:</strong> ${escapeHtml(cachedThankYou6InAppPreview.inApp?.title || "")}</p>
+            <p class="form-note"><strong>CTA:</strong> ${escapeHtml(cachedThankYou6InAppPreview.inApp?.ctaLabel || "")} → ${escapeHtml(cachedThankYou6InAppPreview.inApp?.ctaPath || "")}</p>
+            <pre class="admin-email-text-preview" style="white-space:pre-wrap;max-height:240px;overflow:auto;background:#f7f3ec;padding:12px;border-radius:8px;">${escapeHtml(cachedThankYou6InAppPreview.inApp?.body || "")}</pre>
+          </div>
+        ` : `<p class="form-note">Run In-app → Preview recipients to load the same eligibility list. No in-app messages have been created.</p>`}
+        <div class="account-actions-row">
+          <button class="primary-button" type="button" id="adminThankYou6InAppPreview">Preview recipients</button>
+          <button class="ghost-button" type="button" id="adminThankYou6InAppPreviewMessage">Preview message</button>
+          <button class="ghost-button" type="button" id="adminThankYou6InAppSend" ${cachedThankYou6InAppPreview?.sendUnlocked && !cachedThankYou6InAppPreview?.alreadySent ? "" : "disabled"}>Send in-app (phrase required)</button>
+        </div>
+        <p class="form-note" id="adminThankYou6InAppMessage">
+          ${cachedThankYou6InAppPreview?.alreadySent
+            ? `Already delivered ${escapeHtml(cachedThankYou6InAppPreview.sentAt || "")}. Duplicate in-app sends are blocked.`
+            : "In-app preview only. Production in-app send requires typing SEND_THANKYOU6_IN_APP after the warning. No notifications have been created."}
         </p>
       </div>
 
@@ -67230,6 +67291,64 @@ document.addEventListener("click", async (event) => {
     }
     return;
   }
+  if (event.target.closest("#adminThankYou6InAppPreview") || event.target.closest("#adminThankYou6InAppPreviewMessage")) {
+    event.preventDefault();
+    const msg = document.querySelector("#adminThankYou6InAppMessage");
+    try {
+      const data = await adminEmailEngagementPost("/api/admin/thankyou6-in-app/dry-run", {});
+      window.__adminThankYou6InAppPreview = data.preview || null;
+      if (msg) {
+        const count = data.preview?.counts?.selected || 0;
+        msg.textContent = `In-app preview ready: ${count} selected. No notifications were created.`;
+      }
+      await renderAdminEmailEngagement();
+    } catch (error) {
+      if (msg) msg.textContent = error.message || "THANKYOU6 in-app preview failed.";
+    }
+    return;
+  }
+  if (event.target.closest("#adminThankYou6InAppSend")) {
+    event.preventDefault();
+    const msg = document.querySelector("#adminThankYou6InAppMessage");
+    const preview = window.__adminThankYou6InAppPreview;
+    if (!preview?.dryRunToken || !preview?.confirmationToken) {
+      if (msg) msg.textContent = "Run In-app Preview recipients first.";
+      return;
+    }
+    const recipientCount = Number(preview.counts?.selected) || 0;
+    const warning = `You are about to create in-app THANKYOU6 messages for ${recipientCount} Free users.`;
+    if (!window.confirm(warning)) {
+      if (msg) msg.textContent = "In-app send canceled.";
+      return;
+    }
+    const phrase = window.prompt(
+      `${warning}\n\nType SEND_THANKYOU6_IN_APP to deliver in-app only.\nThis does not send email. Memberships will not be modified.`,
+      "",
+    );
+    if (String(phrase || "").trim() !== "SEND_THANKYOU6_IN_APP") {
+      if (msg) msg.textContent = "In-app send canceled — confirmation phrase did not match.";
+      return;
+    }
+    try {
+      const data = await adminEmailEngagementPost("/api/admin/thankyou6-in-app/send", {
+        confirm: true,
+        confirmPhrase: "SEND_THANKYOU6_IN_APP",
+        dryRunToken: preview.dryRunToken,
+        confirmationToken: preview.confirmationToken,
+      });
+      window.__adminThankYou6InAppPreview = {
+        ...preview,
+        alreadySent: true,
+        sentAt: data.result?.sentAt || "",
+        sendUnlocked: false,
+      };
+      if (msg) msg.textContent = `In-app delivered ${data.result?.sent || 0} of ${recipientCount}. Email was not sent.`;
+      await renderAdminEmailEngagement();
+    } catch (error) {
+      if (msg) msg.textContent = error.message || "THANKYOU6 in-app send failed.";
+    }
+    return;
+  }
 
   const localOwnerUnlockButton = event.target.closest("#localOwnerAdminUnlock");
   if (localOwnerUnlockButton) {
@@ -78790,6 +78909,8 @@ document.addEventListener("click", async (event) => {
     const conversationEmail = bellItem.dataset.notificationConversation || "";
     toggleNotificationBellPanel(false);
     await markNotificationRead(conversationEmail ? { conversationEmail } : { id });
+    const notification = (notificationBellState.items || []).find((row) => String(row?.id || "") === String(id || ""));
+    if (notification && applyMemberNotificationDeepLink(notification)) return;
     setView("messages", conversationEmail ? { conversation: conversationEmail } : {});
     return;
   }
@@ -78829,6 +78950,9 @@ document.addEventListener("click", async (event) => {
   if (updateItem) {
     event.preventDefault();
     await markNotificationRead({ id: updateItem.dataset.notificationId });
+    const updateId = updateItem.dataset.notificationId;
+    const updateNotification = (messagesViewState.inbox || []).find((row) => String(row?.notification?.id || "") === String(updateId || ""))?.notification;
+    if (updateNotification && applyMemberNotificationDeepLink(updateNotification)) return;
     return;
   }
 });
