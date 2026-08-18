@@ -414,6 +414,14 @@ async function main() {
     assert.ok(!emails.includes("llh.prod.flag.free.1785770260@littlelearnershubbyleah.com"));
     assert.ok(!emails.includes("andvarvele22@gmil.com"));
     assert.ok(emails.includes("provider.real@littlelearnershubbyleah.com"));
+    assert.ok(report.exclusionTotals.prodFlagAccounts >= 1);
+    assert.ok(report.exclusionTotals.suspiciousEmailDomains >= 1);
+    assert.ok(report.exclusionTotals.currentlyPaid >= 1);
+    assert.ok(report.exclusionTotals.historicallyPaid >= 1);
+    const flagTrack = (report.trackedExclusions || []).find((row) => row.email === "llh.prod.flag.free.1785770260@littlelearnershubbyleah.com");
+    const gmilTrack = (report.trackedExclusions || []).find((row) => row.email === "andvarvele22@gmil.com");
+    assert.ok(flagTrack?.excludeReasons.includes("internal_prod_flag_account"));
+    assert.ok(gmilTrack?.excludeReasons.includes("suspicious_email_domain"));
     assert.equal(report.recipients[0].email, "active.hot@providermail.com");
     assert.ok(report.recipients.every((row) => row.noActivePaidSubscription));
     assert.ok(report.recipients.every((row) => row.currentPlan === "Free"));

@@ -530,6 +530,42 @@ function buildThankYou6RecipientDryRun(store, options = {}) {
       htmlPreview: content.html,
       ctaUrl: content.ctaUrl,
     },
+    exclusionTotals: excluded.reduce((totals, row) => {
+      const reasons = Array.isArray(row.excludeReasons) ? row.excludeReasons : [];
+      const bump = (key) => { totals[key] += 1; };
+      if (reasons.includes("active_paid_stripe") || reasons.includes("has_pro_access") || reasons.includes("early_user_paid") || reasons.includes("founding_member") || reasons.includes("annual_subscriber") || reasons.includes("center_paid") || reasons.includes("billing_review_or_past_due") || reasons.includes("canceling_with_paid_access")) bump("currentlyPaid");
+      if (reasons.includes("already_converted_to_paid") || reasons.includes("grandfathered_paid")) bump("historicallyPaid");
+      if (reasons.includes("admin_account")) bump("ownerAdmin");
+      if (reasons.includes("system_account") || reasons.includes("test_email")) bump("systemInternalQaTest");
+      if (reasons.includes("internal_prod_flag_account")) bump("prodFlagAccounts");
+      if (reasons.includes("suspicious_email_domain")) bump("suspiciousEmailDomains");
+      if (reasons.includes("invalid_email") || reasons.includes("missing_email")) bump("invalidDisposable");
+      if (reasons.includes("bounced_email")) bump("bounced");
+      if (reasons.includes("unsubscribed")) bump("unsubscribed");
+      if (reasons.includes("disabled_account")) bump("disabledAccounts");
+      if (reasons.includes("already_received_thankyou6")) bump("alreadyReceipted");
+      if (reasons.includes("not_free_access") && !reasons.includes("has_pro_access") && !reasons.includes("active_paid_stripe") && !reasons.includes("already_converted_to_paid")) bump("notFreeAccessOther");
+      return totals;
+    }, {
+      currentlyPaid: 0,
+      historicallyPaid: 0,
+      ownerAdmin: 0,
+      systemInternalQaTest: 0,
+      prodFlagAccounts: 0,
+      suspiciousEmailDomains: 0,
+      invalidDisposable: 0,
+      bounced: 0,
+      unsubscribed: 0,
+      disabledAccounts: 0,
+      alreadyReceipted: 0,
+      notFreeAccessOther: 0,
+    }),
+    trackedExclusions: ["llh.prod.flag.free.1785770260@littlelearnershubbyleah.com", "andvarvele22@gmil.com"].map((email) => {
+      const row = excluded.find((item) => item.email === email);
+      return row
+        ? { email, found: true, qualifies: false, excludeReasons: row.excludeReasons }
+        : { email, found: false, qualifies: null, excludeReasons: [] };
+    }),
     notableExcluded: excluded.filter((row) => (
       row.excludeReasons.includes("internal_prod_flag_account")
       || row.excludeReasons.includes("suspicious_email_domain")
