@@ -1168,7 +1168,7 @@ function parseCurriculumLessonPlanImportV1(text, { existingItemIds = new Map(), 
     data: {
       _formatVersion: 1,
       title: title || "Untitled Lesson Plan",
-      age: age || "Preschool",
+      age: age || ageRaw || "",
       theme,
       plan,
       status,
@@ -1511,14 +1511,7 @@ function parseCurriculumLessonPlanImportV3(text, options = {}) {
   });
   if (emptyWeekdays.length) {
     const labels = emptyWeekdays.map((day) => day.toUpperCase()).join(", ");
-    const message = `Missing activities on: ${labels}. Every weekday (MONDAY–FRIDAY) needs at least one ACTIVITY_NAME block.`;
-    const publishing = String(status || "").toLowerCase() === "published" || String(status || "").toLowerCase() === "featured";
-    // Repair/completion tooling may parse known-truncated sources with allowIncompleteWeekdays.
-    if (publishing && !options.allowIncompleteWeekdays) {
-      errors.push(message);
-    } else {
-      warnings.push(message);
-    }
+    warnings.push(`Optional weekday sections not included: ${labels}. Empty weekday containers are kept; no placeholder activities were added.`);
   }
 
   const data = {

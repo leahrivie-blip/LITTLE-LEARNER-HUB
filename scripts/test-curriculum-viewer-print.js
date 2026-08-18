@@ -155,6 +155,35 @@ function testRenderModel() {
   assert(screenHtml.includes("sorting strategy"), "observations");
   assert(screenHtml.includes("water spills"), "safety notes");
 
+  console.log("4a) Empty age does not render as Preschool; actual Preschool still does");
+  const ageFixture = {
+    title: "Age Display Fixture",
+    age: "",
+    theme: "Vehicles",
+    plan: "Free",
+    dailyPlans: { monday: { items: [{ title: "Paint Tracks" }] } },
+  };
+  const emptyAgeHtml = renderCurriculumLessonPlanHtml(ageFixture, { mode: "screen" });
+  assert(!emptyAgeHtml.includes("Preschool"), "public empty age must not display Preschool");
+  assert(!emptyAgeHtml.includes("Age not set"), "public renderer omits missing age");
+  const preschoolHtml = renderCurriculumLessonPlanHtml({ ...ageFixture, age: "Preschool" }, { mode: "screen" });
+  assert(preschoolHtml.includes("Preschool"), "actual Preschool still renders");
+  const adminEmptyHtml = renderCurriculumLessonPlanHtml(ageFixture, { mode: "screen", showAdminStatus: true });
+  assert(adminEmptyHtml.includes("Age not set"), "admin preview can say Age not set");
+  assert(!/>Preschool</.test(adminEmptyHtml), "admin empty age must not display Preschool");
+  const lockedEmpty = lockedCurriculumLessonPreviewHtml({
+    title: "Age Display Fixture",
+    age: "",
+    _curriculumLessonPlan: { age: "", theme: "Vehicles" },
+  });
+  assert(!String(lockedEmpty.html || "").includes("Preschool"), "public teaser must not invent Preschool");
+  const lockedPreschool = lockedCurriculumLessonPreviewHtml({
+    title: "Age Display Fixture",
+    age: "Preschool",
+    _curriculumLessonPlan: { age: "Preschool", theme: "Vehicles" },
+  });
+  assert(String(lockedPreschool.html || "").includes("Preschool"), "public teaser still shows real Preschool");
+
   console.log("4) Premium activity fields display with exact wording");
   assert(screenHtml.includes("Invite children to scoop and feel the soil."), "numbered directions preserved");
   assert(screenHtml.includes("I notice the soil feels damp"), "teacher language preserved");

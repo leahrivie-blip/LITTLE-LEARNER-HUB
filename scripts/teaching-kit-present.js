@@ -288,13 +288,13 @@
     const lines = [];
     const title = presentCopy(options.title || entry.title) || "Full Lesson Plan";
     const theme = presentCopy(options.theme || entry.theme);
-    const age = presentCopy(options.age || entry.age) || "Preschool";
+    const age = presentCopy(options.age || entry.age) || "";
     const weekOf = presentCopy(options.weekOfLabel || "");
 
     lines.push("Little Learner Hub · Full Lesson Plan");
     lines.push(title);
     if (theme) lines.push(`Theme: ${theme}`);
-    lines.push(`Age group: ${age}`);
+    if (age) lines.push(`Age group: ${age}`);
     if (weekOf) lines.push(`Week of: ${weekOf}`);
 
     const weeklyBits = [];

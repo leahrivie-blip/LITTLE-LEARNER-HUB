@@ -508,6 +508,7 @@ async function main() {
     });
 
     await page.goto(`http://127.0.0.1:${PORT}/`, { waitUntil: "domcontentloaded", timeout: 60000 });
+    await page.waitForLoadState("networkidle").catch(() => {});
     await page.waitForFunction(
       () => typeof window.LLHTeachingKitEnrichmentEditor !== "undefined"
         && typeof window.LLHTeachingKitEnrichment !== "undefined"
@@ -568,9 +569,9 @@ async function main() {
         trayOpen: Boolean(document.querySelector("[data-ai-tray]")),
         statusText: document.querySelector(".tk-enrich-status")?.textContent || "",
         prepareCta: Boolean(document.querySelector('[data-ai-suggest="lesson"]')),
-        completionLabel: document.querySelector(".tk-enrich-percent-row strong")?.textContent || "",
-        readinessLabel: document.querySelector("[data-premium-readiness-chrome]")?.textContent || "",
-        workflow: document.querySelector("[data-workflow-status-chrome]")?.textContent || "",
+        completionLabel: document.querySelector("[data-owner-workspace-status] strong")?.textContent || "",
+        readinessLabel: document.querySelector("[data-owner-workspace-status] .tag")?.textContent || "",
+        workflow: document.querySelector("[data-owner-workspace-status] .tag")?.textContent || "",
         premium: summary.premiumReadinessPercent,
         structural: summary.completionPercent,
         imageBriefs: summary.imageBriefsNotImages,

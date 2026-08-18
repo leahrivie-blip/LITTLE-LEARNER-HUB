@@ -208,7 +208,7 @@ function normalizeScheduleItem(raw = {}) {
       lessonPlanTitle: clampString(raw.lessonPlanTitle || raw.title, 200) || "Untitled Lesson Plan",
       lessonPlanPlan: clampString(raw.lessonPlanPlan, 20) || "Free",
       lessonPlanUpdatedAt: clampString(raw.lessonPlanUpdatedAt, 40),
-      ageGroup: clampString(raw.ageGroup, 40) || "Preschool",
+      ageGroup: clampString(raw.ageGroup, 40),
       childIds,
       rosterLabel: clampString(raw.rosterLabel, 200),
       snapshot: raw.snapshot && typeof raw.snapshot === "object"

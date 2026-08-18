@@ -208,7 +208,7 @@
   });
 
   const NESTED_BODY_HEADINGS = Object.freeze(new Set([
-    "activity name", "weekday", "activity weekday", "category", "developmental domain",
+    "activity name", "name", "weekday", "activity weekday", "category", "developmental domain",
     "category/domain", "category domain",
     "category/developmental domain", "category / developmental domain", "category developmental domain",
     "recommended age", "age",
@@ -258,7 +258,8 @@
   }
 
   function isActivityStartHeading(label) {
-    return normalizePasteHeading(label) === "activity name";
+    const key = normalizePasteHeading(label);
+    return key === "activity name" || key === "name";
   }
 
   function isNestedBodyHeading(label) {
@@ -746,7 +747,13 @@
         else if (text(body)) unrecognized.push({ heading: section.headingRaw, body: text(body) });
       } else if (fieldId.startsWith("weekday:")) {
         const day = fieldId.slice("weekday:".length);
-        if (kit && typeof kit.parseStructuredActivities === "function" && /\bactivity\s*name\b/i.test(body)) {
+        const useStructured = kit && typeof kit.parseStructuredActivities === "function"
+          && (
+            (typeof kit.looksLikeStructuredActivityFields === "function" && kit.looksLikeStructuredActivityFields(body))
+            || (typeof kit.hasExplicitActivityStart === "function" && kit.hasExplicitActivityStart(body))
+            || /\bactivity\s*name\b/i.test(body)
+          );
+        if (useStructured) {
           const parsedDay = kit.parseStructuredActivities(body, day);
           (parsedDay.records || []).forEach((record) => addActivity(day, record));
           (parsedDay.unsupported || []).forEach((row) => kitUnsupported.push(row));
@@ -978,7 +985,7 @@
 
     const plan = {
       title: lesson.title || "Untitled Lesson Plan",
-      age: lesson.age || "Preschool",
+      age: lesson.age || "",
       theme: lesson.theme || "",
       plan: "Free",
       status: "draft",
@@ -1019,7 +1026,7 @@
     const now = options.now || new Date().toISOString();
     const plan = {
       title: text(options.title) || "New Lesson Plan",
-      age: text(options.age) || "Preschool",
+      age: text(options.age) || "",
       theme: "",
       plan: "Free",
       status: "draft",

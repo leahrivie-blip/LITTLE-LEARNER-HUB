@@ -8,6 +8,7 @@ const {
   parseFullLessonStructurePaste,
   buildStructurePreview,
 } = require("./curriculum-lesson-structure-paste.js");
+const weekKit = require("./curriculum-week-kit-paste.js");
 
 const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 
@@ -494,6 +495,213 @@ Activity only crayons
   assert.ok(!countGuard.activities.some((row) => row.title === "Giant Floor Drawing paper"));
   assert.ok(!countGuard.activities.some((row) => row.title === "Not An Activity Line"));
   console.log("PASS  9  Activity count comes only from explicit Activity name blocks");
+
+  const namePaste = largeNameBlockMasterPaste();
+  const expectedNameCount = weekKit.countExplicitActivityNameStarts(namePaste);
+  assert.ok(expectedNameCount >= 8, `fixture must declare multiple Name blocks, got ${expectedNameCount}`);
+  const nameParsed = parseFullLessonStructurePaste(namePaste);
+  assert.equal(nameParsed.ok, true, nameParsed.errors.join("; "));
+  assert.equal(nameParsed.activityCount, expectedNameCount, JSON.stringify({
+    activityCount: nameParsed.activityCount,
+    titles: flattenActivityTitles(nameParsed),
+    unrecognized: nameParsed.unrecognized,
+  }));
+  assert.ok(nameParsed.activityCount < 30, "Name-block paste must not explode into dozens of fake activities");
+  const fakeTitles = [
+    "15 minutes", "Age", "Duration", "Materials", "Teacher prep", "Setup", "Steps",
+    "Questions", "Observation focus", "Safety", "Cleanup", "Tips", "Substitutions",
+    "Support adaptations", "Added challenge", "Mixed-age", "Observation prompts",
+    "Vocabulary", "Image request", "Example images", "Check every vehicle for loose parts.",
+  ];
+  const titles = flattenActivityTitles(nameParsed);
+  fakeTitles.forEach((title) => {
+    assert.equal(titles.includes(title), false, `field/value became an activity: ${title}`);
+  });
+  const nameMondayFirst = nameParsed.dailyPlans.monday.items[0];
+  assert.equal(nameMondayFirst.title, "Monday Wheel Painting");
+  assert.ok(
+    String(nameMondayFirst.durationMinutes) === "15"
+    || String(nameMondayFirst.durationMinutes) === "15 minutes",
+    `duration should keep the pasted minutes, got ${nameMondayFirst.durationMinutes}`,
+  );
+  assert.match(nameMondayFirst.ageModifications || "", /Preschool/);
+  assert.match(nameMondayFirst.safetyNotes || "", /Check every vehicle for loose parts/);
+  assert.match(nameMondayFirst.materials || "", /Paper plates/);
+  assert.match(nameMondayFirst.steps || "", /Invite children to roll/);
+  assert.match(nameMondayFirst.teacherLanguage || "", /Which vehicle moves/);
+  assert.equal(nameMondayFirst.imageRequirement, "required");
+  const nameFridayLast = nameParsed.dailyPlans.friday.items[nameParsed.dailyPlans.friday.items.length - 1];
+  assert.equal(nameFridayLast.title, "Friday Quiet Track Draw");
+  assert.match(nameFridayLast.objective || "", /Friday Quiet Track Draw|quiet mark making/);
+  assert.equal(
+    titles.filter((title) => title === "Monday Wheel Painting").length,
+    1,
+  );
+  console.log(`PASS  10 Name-block master paste creates ${expectedNameCount} real activities only`);
+
+  function weekdaySpanMasterPaste(days) {
+    const blocks = days.map((day, index) => activityBlock(`${day} Span Activity`, day, index === 0 ? "Weekday" : "Activity weekday"));
+    return `Lesson title
+Weekday Span ${days.length}-Day Fixture
+
+Age band
+Toddler 12–24 Months
+
+Weekly overview
+Intentional ${days.length}-day lesson.
+
+${blocks.join("\n\n")}
+`;
+  }
+
+  function assertWeekdaySpanImport(days, label) {
+    const parsed = parseFullLessonStructurePaste(weekdaySpanMasterPaste(days));
+    assert.equal(parsed.ok, true, parsed.errors.join("; "));
+    assert.equal(parsed.activityCount, days.length, `${label} activity count`);
+    const titles = flattenActivityTitles(parsed);
+    assert.equal(titles.length, days.length);
+    days.forEach((day) => {
+      const key = day.toLowerCase();
+      assert.deepEqual(parsed.dailyPlans[key].items.map((item) => item.title), [`${day} Span Activity`]);
+    });
+    WEEKDAYS.filter((day) => !days.includes(day)).forEach((day) => {
+      const key = day.toLowerCase();
+      assert.ok(parsed.dailyPlans[key], `${label} keeps ${day} container`);
+      assert.equal(parsed.dailyPlans[key].items.length, 0, `${label} ${day} stays empty`);
+    });
+    assert.equal(titles.some((title) => /no activity scheduled/i.test(title)), false, `${label} no fake placeholders`);
+    console.log(`PASS  11 ${label} master paste imports; missing days stay empty`);
+  }
+
+  assertWeekdaySpanImport(["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"], "5-day");
+  assertWeekdaySpanImport(["Monday", "Tuesday", "Wednesday", "Thursday"], "4-day");
+  assertWeekdaySpanImport(["Monday", "Tuesday", "Wednesday"], "3-day");
+
+  const zeroActivity = parseFullLessonStructurePaste(`Lesson title
+Zero Activity Fixture
+
+Age band
+Toddler 12–24 Months
+
+Weekly overview
+Title and age only.
+`);
+  assert.equal(zeroActivity.activityCount, 0, "zero-activity paste creates no activities");
+  assert.equal(flattenActivityTitles(zeroActivity).length, 0);
+  WEEKDAYS.forEach((day) => {
+    assert.equal(zeroActivity.dailyPlans[day.toLowerCase()].items.length, 0);
+  });
+  assert.equal(
+    flattenActivityTitles(zeroActivity).some((title) => /no activity scheduled/i.test(title)),
+    false,
+  );
+  console.log("PASS  12 zero-activity master paste does not fabricate weekday activities");
+}
+
+function flattenActivityTitles(parsed) {
+  return ["monday", "tuesday", "wednesday", "thursday", "friday"].flatMap((day) => (
+    (parsed.dailyPlans?.[day]?.items || []).map((item) => item.title)
+  ));
+}
+
+function nameBlockActivity(name, { objective, safety } = {}) {
+  return [
+    "Name",
+    name,
+    "Duration",
+    "15 minutes",
+    "Age",
+    "Preschool",
+    "Category / developmental domain",
+    "Creative Arts",
+    "Objective",
+    objective || `Children will explore ${name} with paint and movement.`,
+    "What children will do",
+    `Children will try ${name}. They will notice texture, color, and motion.`,
+    "Materials",
+    "Paper plates",
+    "Washable paint",
+    "Toy vehicles",
+    "Teacher prep",
+    "Cover the table. Set out one tray per pair.",
+    "Setup",
+    "Place paper and vehicles on a low table.",
+    "Steps",
+    "Invite children to roll a vehicle through paint.",
+    "Ask what tracks they notice.",
+    "Questions",
+    "Which vehicle moves fastest? What sound does it make?",
+    "Observation focus",
+    `Watch grip, language, and turn-taking during ${name}.`,
+    "Safety",
+    safety || "Check every vehicle for loose parts.",
+    "Cleanup",
+    "Wash vehicles and wipe the table.",
+    "Indoor/Outdoor options",
+    "Indoor: table trays. Outdoor: driveway chalk tracks.",
+    "Tips",
+    "Keep groups small. Narrate the tracks.",
+    "Substitutions",
+    "If missing toy cars → use bottle caps.",
+    "Support adaptations",
+    "Offer a chunky handle or hand-over-hand help.",
+    "Added challenge",
+    "Invite a second color or a longer track.",
+    "Mixed-age",
+    "Toddlers stamp; preschoolers compare track shapes.",
+    "Observation prompts",
+    "Did the child name a vehicle? Did they wait for a turn?",
+    "Vocabulary",
+    "track",
+    "roll",
+    "vehicle",
+    "Image request",
+    "Setup + finished example",
+    "Example images",
+    "None yet",
+  ].join("\n");
+}
+
+function largeNameBlockMasterPaste() {
+  const byDay = {
+    Monday: ["Monday Wheel Painting", "Monday Garage Collage"],
+    Tuesday: ["Tuesday Ramp Rolling", "Tuesday Traffic Prints"],
+    Wednesday: ["Wednesday Box Bus", "Wednesday Horn Painting"],
+    Thursday: ["Thursday Map Marks", "Thursday Cargo Collage"],
+    Friday: ["Friday Wash Station", "Friday Quiet Track Draw"],
+  };
+  const days = Object.keys(byDay).map((day) => (
+    `${day}\n${byDay[day].map((name) => nameBlockActivity(name)).join("\n\n")}`
+  )).join("\n\n");
+  return `Lesson title
+Things That Go: Art in Motion
+
+Age band
+Preschool
+
+Weekly overview
+Children explore vehicles through art, motion, and pretend play.
+
+Learning objectives
+Notice how wheels make tracks.
+Practice sharing art tools.
+
+Materials
+Washable paint
+Toy vehicles
+Paper
+
+Teacher preparation
+Inspect every vehicle before the week begins. Keep paint covered until setup.
+
+Observation focus
+Watch how children describe motion and take turns.
+
+Family connection
+Ask families to notice wheels on the way to school.
+
+${days}
+`;
 }
 
 if (require.main === module) {
@@ -506,4 +714,6 @@ module.exports = {
   formatActivityPreview,
   giantFloorDrawingPaste,
   fifteenActivityFixture,
+  largeNameBlockMasterPaste,
+  nameBlockActivity,
 };

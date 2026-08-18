@@ -191,8 +191,8 @@ async function main() {
     assertCompleteWeek(repaired, "startup-repaired");
     console.log("PASS startup seed repairs truncated weekday plans");
 
-    // Saving a published plan with an empty Friday must be rejected.
-    const badSave = await request("POST", "/api/admin/curriculum/lesson-plans", {
+    // A published 4-day week is allowed; empty Friday is not a publish blocker.
+    const shortWeekSave = await request("POST", "/api/admin/curriculum/lesson-plans", {
       body: {
         adminToken: login.json.token,
         expectedUpdatedAt: site.json.siteContent.updatedAt,
@@ -205,9 +205,11 @@ async function main() {
         },
       },
     });
-    assert.equal(badSave.status, 400, `expected 400, got ${badSave.status} ${badSave.text?.slice(0, 200)}`);
-    assert.match(String(badSave.json?.error || ""), /every weekday|Missing/i);
-    console.log("PASS admin save blocks published plans with empty weekdays");
+    assert.equal(shortWeekSave.status, 200, `expected 200, got ${shortWeekSave.status} ${shortWeekSave.text?.slice(0, 200)}`);
+    const shortPlan = shortWeekSave.json?.lessonPlan;
+    assert.ok(shortPlan?.dailyPlans?.friday, "empty Friday container is preserved");
+    assert.equal((shortPlan.dailyPlans.friday.items || []).length, 0);
+    console.log("PASS admin save allows published plans with an empty weekday");
 
     // Valid save still works and does not wipe days.
     const site2 = await request("GET", `/api/admin/site-content?adminToken=${encodeURIComponent(login.json.token)}`);

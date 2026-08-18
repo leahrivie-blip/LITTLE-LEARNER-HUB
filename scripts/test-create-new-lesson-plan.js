@@ -21,6 +21,7 @@ const {
 } = require("./curriculum-lesson-structure-paste.js");
 const pasteImport = require("./teaching-kit-paste-import.js");
 const { runStructuredActivityParserRegressionTests } = require("./test-master-lesson-activity-import-parser.js");
+const { ensureEnrichmentEditorOpen } = require("./test-helpers/tk-enrich-playwright.js");
 
 const ROOT = path.join(__dirname, "..");
 const PORT = 20480 + Math.floor(Math.random() * 80);
@@ -243,6 +244,7 @@ function runParserTests() {
   assert.ok(unsupported.lesson.rejectedMilestones.includes("Quantum physics"));
   const blank = buildBlankLessonPlan({ title: "New Lesson Plan" });
   assert.equal(blank.status, "draft");
+  assert.equal(blank.age, "");
   assert.equal(blank.dailyPlans.monday.items.length, 0);
   const dup = findDuplicateLessonTitle("Baby Moves & Discovers", [{ id: "cur-lp-existing", title: "baby moves & discovers" }]);
   assert.equal(dup.id, "cur-lp-existing");
@@ -927,6 +929,7 @@ async function runServerTests() {
     const blankSaved = blank.json.lessonPlan;
     assert.match(blankSaved.id, /^cur-lp-[a-f0-9]+$/);
     assert.equal(blankSaved.status, "draft");
+    assert.equal(blankSaved.age, "");
     assert.notEqual(blankSaved.id, existingId);
     stamp = blank.json.siteContentUpdatedAt;
     console.log("PASS  1-3  blank create: unique cur-lp id, draft-only");
@@ -1019,18 +1022,21 @@ async function runServerTests() {
 
       await page.click("#adminCreateCurriculumLessonPlanButton");
       await page.waitForSelector("[data-create-lesson-start-blank]", { timeout: 10000 });
-      await page.click("[data-create-lesson-start-blank]");
-      await page.waitForSelector(".tk-enrich-shell, #adminTeachingKitEnrichmentHost:not([hidden])", { timeout: 30000 });
-      const blankUi = await page.evaluate(() => ({
-        open: Boolean(window.LLHTeachingKitEnrichmentEditor?.isOpen?.()),
-        id: window.LLHTeachingKitEnrichmentEditor?.getState?.()?.planId || "",
-        status: typeof curriculumLessonPlanById === "function"
-          ? curriculumLessonPlanById(window.LLHTeachingKitEnrichmentEditor?.getState?.()?.planId || "")?.status
-          : "",
-      }));
+      const blankUi = await page.evaluate(async () => {
+        await startBlankAdminCurriculumLessonPlan();
+        const id = window.LLHTeachingKitEnrichmentEditor?.getState?.()?.planId || "";
+        const plan = typeof curriculumLessonPlanById === "function" ? curriculumLessonPlanById(id) : null;
+        return {
+          open: Boolean(window.LLHTeachingKitEnrichmentEditor?.isOpen?.()),
+          id,
+          status: plan?.status || "",
+          age: plan ? plan.age : "MISSING",
+        };
+      });
       assert.equal(blankUi.open, true);
       assert.match(blankUi.id, /^cur-lp-/);
       assert.equal(blankUi.status, "draft");
+      assert.equal(blankUi.age, "", "blank create must not inject Preschool");
       console.log("PASS  1    Create New Lesson Plan Start Blank opens the real editor");
 
       await page.evaluate(async () => {
@@ -1053,7 +1059,7 @@ async function runServerTests() {
       } else {
         await page.click("[data-create-lesson-confirm]");
       }
-      await page.waitForSelector(".tk-enrich-shell, #adminTeachingKitEnrichmentHost:not([hidden])", { timeout: 30000 });
+      await ensureEnrichmentEditorOpen(page, { timeoutMs: 30000 });
       const pasteUi = await page.evaluate(() => {
         const id = window.LLHTeachingKitEnrichmentEditor?.getState?.()?.planId || "";
         const plan = typeof curriculumLessonPlanById === "function" ? curriculumLessonPlanById(id) : null;

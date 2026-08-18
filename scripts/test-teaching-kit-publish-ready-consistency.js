@@ -650,30 +650,25 @@ async function browserProof(ownerToken) {
         window.LLHTeachingKitEnrichmentEditor.getDraft(),
         { resources: payload.resources },
       );
-      const workflow = document.querySelector("[data-workflow-status-chrome]")?.textContent || "";
-      const library = document.querySelector("[data-library-status-chrome]")?.textContent || "";
-      const publishStep = document.querySelector("[data-publish-ready-step]");
-      const publishStepLabel = publishStep?.textContent?.trim() || "";
-      const publishStepActive = Boolean(publishStep?.classList.contains("is-active"));
-      const publishStepBlocked = Boolean(publishStep?.classList.contains("is-blocked"));
+      const workspaceStatus = document.querySelector("[data-owner-workspace-status] .tag")?.textContent || "";
+      const coreLine = document.querySelector("[data-owner-workspace-status] strong")?.textContent || "";
       const publishBtn = document.querySelector("[data-enrich-publish]");
       // Open publish dialog
       publishBtn?.click();
       await new Promise((r) => setTimeout(r, 200));
       const blockerLis = [...document.querySelectorAll("[data-publish-blocker-list] li")].map((li) => li.textContent.trim());
       const readiness = document.querySelector("[data-publish-readiness-label]")?.textContent || "";
+      const previewLabel = document.querySelector("[data-public-lesson-preview-label]")?.textContent || "";
       return {
         evaluatedWorkflow: evaluated.workflow,
         evaluatedBlocking: evaluated.blocking,
-        chromeWorkflow: workflow,
-        chromeLibrary: library,
-        publishStepLabel,
-        publishStepActive,
-        publishStepBlocked,
+        workspaceStatus,
+        coreLine,
         publishBtnText: publishBtn?.textContent?.trim() || "",
         canPublishAttr: publishBtn?.getAttribute("data-can-publish") || "",
         blockerLis,
         readiness,
+        previewLabel,
         blocksPublish: evaluated.blocksPublish,
         codes: (evaluated.blockingIssues || []).map((b) => b.code),
       };
@@ -685,18 +680,14 @@ async function browserProof(ownerToken) {
       ownerEmail: OWNER.email,
     });
 
-    ok(result.blocksPublish === true, "browser evaluation blocks");
-    ok(result.evaluatedWorkflow !== "Publish Ready", "browser workflow not Publish Ready");
-    ok(/Blocked/i.test(result.chromeLibrary), `chrome library Blocked (got ${result.chromeLibrary})`);
-    ok(!/Publish Ready/i.test(result.chromeWorkflow), `chrome workflow not Publish Ready (got ${result.chromeWorkflow})`);
-    ok(result.publishStepLabel !== "Publish Ready", `stepper label not Publish Ready (got ${result.publishStepLabel})`);
-    ok(/Needs Changes|Incomplete|Not Ready/i.test(result.publishStepLabel), `stepper shows blocked state (got ${result.publishStepLabel})`);
-    ok(result.publishStepBlocked === true || !/Publish Ready/i.test(result.publishStepLabel), "blocked stepper marked is-blocked or relabeled");
-    ok(result.canPublishAttr === "false", "Publish button data-can-publish=false while blocked");
-    ok(/blocked/i.test(result.publishBtnText), `Publish button text reflects blocked (got ${result.publishBtnText})`);
-    ok(result.blockerLis.length > 0, "publish dialog lists blockers");
-    ok(result.blockerLis.every((m) => m.length > 8), "blocker messages plain language");
-    ok(/Blocked/i.test(result.readiness), `publish readiness Blocked (got ${result.readiness})`);
+    ok(result.blocksPublish === true, "quality evaluation still reports optional gaps");
+    ok(result.evaluatedWorkflow !== "Publish Ready", "quality workflow not Publish Ready");
+    ok(/Ready to publish/i.test(result.workspaceStatus), `owner chrome Ready to publish (got ${result.workspaceStatus})`);
+    ok(/title|weekday|activit/i.test(result.coreLine), `core lesson line present (got ${result.coreLine})`);
+    ok(result.canPublishAttr === "true", "draft printables do not set data-can-publish=false");
+    ok(/^Apply enrichment$/i.test(result.publishBtnText), `Apply enrichment stays distinct from Publish lesson (got ${result.publishBtnText})`);
+    ok(result.blockerLis.length === 0, "publish dialog lists no true blockers for a valid core lesson");
+    ok(/Ready to publish/i.test(result.readiness), `publish readiness Ready to publish (got ${result.readiness})`);
 
     fs.mkdirSync(ARTIFACT_DIR, { recursive: true });
     await page.screenshot({

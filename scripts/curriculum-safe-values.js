@@ -135,6 +135,19 @@ function normalizeCurriculumDailyDayForRender(dayPlan = {}) {
   };
 }
 
+function curriculumLessonAgeText(value) {
+  return curriculumAsString(value);
+}
+
+function curriculumAssignmentAgeText(explicitAge, snapshotOrPlan) {
+  const requested = curriculumAsString(explicitAge);
+  if (requested) return requested;
+  if (snapshotOrPlan && typeof snapshotOrPlan === "object") {
+    return curriculumAsString(snapshotOrPlan.age || snapshotOrPlan.ageGroup);
+  }
+  return curriculumAsString(snapshotOrPlan);
+}
+
 function normalizeCurriculumLessonPlanForRender(plan = {}) {
   const entry = curriculumAsObject(plan);
   const dailyPlans = emptyCurriculumDailyPlansForRender();
@@ -145,7 +158,7 @@ function normalizeCurriculumLessonPlanForRender(plan = {}) {
   const out = {
     id: curriculumAsString(entry.id),
     title: curriculumAsString(entry.title),
-    age: curriculumAsString(entry.age) || "Preschool",
+    age: curriculumLessonAgeText(entry.age),
     theme: curriculumAsString(entry.theme),
     plan: curriculumAsString(entry.plan) || "Free",
     status: curriculumAsString(entry.status) || "draft",
@@ -187,18 +200,27 @@ function normalizeCurriculumLessonPlanForRender(plan = {}) {
 }
 
 function curriculumAgeSelectOptions(selectedAge = "") {
-  const age = curriculumAsString(selectedAge) || "Preschool";
+  const age = curriculumAsString(selectedAge);
   const base = ["Infant", "Toddler", "Preschool"];
-  const options = base.includes(age) ? base : [...base, age];
-  return options.map((option) => ({
-    value: option,
-    selected: option === age,
-  }));
+  const options = [{ value: "", label: "Choose an age band", selected: !age }];
+  if (age && !base.includes(age)) {
+    options.push({ value: age, label: age, selected: true });
+  }
+  base.forEach((option) => {
+    options.push({
+      value: option,
+      label: option,
+      selected: option === age,
+    });
+  });
+  return options;
 }
 
 const api = {
   CURRICULUM_WEEKDAYS,
   curriculumAsString,
+  curriculumLessonAgeText,
+  curriculumAssignmentAgeText,
   curriculumAsStringArray,
   curriculumAsObject,
   curriculumAsBookList,

@@ -160,8 +160,8 @@ function weakPlan() {
       },
     },
     dailyPlans: {
-      monday: [{ id: "act-q1", title: "Color Sort", category: "table" }],
-      tuesday: [{ id: "act-q2", title: "Color Sort Again", category: "table" }],
+      monday: { items: [{ itemId: "act-q1", title: "Color Sort", category: "table" }] },
+      tuesday: { items: [{ itemId: "act-q2", title: "Color Sort Again", category: "table" }] },
     },
   };
 }
@@ -212,7 +212,7 @@ function strongerPlan() {
       },
     },
     dailyPlans: {
-      monday: [{ id: "act-g1", title: "Seed Sensory Tray", category: "sensory" }],
+      monday: { items: [{ itemId: "act-g1", title: "Seed Sensory Tray", category: "sensory" }] },
     },
   };
 }
@@ -390,31 +390,15 @@ async function main() {
     assert(res.status === 200 && res.json.libraryHealth, "library health");
     assert(res.json.libraryHealth.dataQuality?.analyticsLabel, "analytics label present");
 
-    // Publish blocked while quality flag on + blocking issues
+    // Owner workspace: quality findings stay informational. A valid core lesson publishes.
     res = await requestJson("POST", "/api/admin/curriculum/lesson-plans", {
       adminToken,
       expectedUpdatedAt,
       saveMode: "publish_enrichment",
       lessonPlan: { id: weak.id, enrichmentDraft: weak.enrichmentDraft },
     }, auth);
-    assert(res.status === 409 && res.json.code === "quality_review_blocked", "publish blocked by quality gate");
-    assert(res.json.ownerOverrideRequired === true, "owner override required when blocked");
-    assert(res.json.autoPublished !== true, "blocked publish did not publish");
-
-    // Owner override with reason must succeed and be logged on the fixture only
-    res = await requestJson("POST", "/api/admin/curriculum/lesson-plans", {
-      adminToken,
-      expectedUpdatedAt,
-      saveMode: "publish_enrichment",
-      publishedBy: ADMIN.email,
-      ownerPublishOverride: {
-        confirmed: true,
-        reason: "QA fixture override for quality-gate regression only.",
-      },
-      lessonPlan: { id: weak.id, enrichmentDraft: weak.enrichmentDraft },
-    }, auth);
-    assert(res.status === 200 && res.json.ok, `owner override publish: ${res.status} ${res.json?.error || ""}`);
-    assert(res.json.ownerOverrideApplied === true, "owner override flagged on response");
+    assert(res.status === 200 && res.json.ok, `valid core lesson publishes despite quality findings: ${res.status} ${res.json?.code || res.json?.error || ""}`);
+    assert(res.json.autoPublished !== true, "publish stays explicit — never auto-published");
     expectedUpdatedAt = res.json.siteContentUpdatedAt || expectedUpdatedAt;
 
     // Fresh weak-like draft for ignore-path coverage (do not reuse published weak)
@@ -441,7 +425,8 @@ async function main() {
       saveMode: "publish_enrichment",
       lessonPlan: { id: weak2.id, enrichmentDraft: weak.enrichmentDraft },
     }, auth);
-    assert(res.status === 409 && res.json.code === "quality_review_blocked", "weak2 still blocked");
+    assert(res.status === 200 && res.json.ok, `weak2 publishes without quality override: ${res.status} ${res.json?.code || ""}`);
+    expectedUpdatedAt = res.json.siteContentUpdatedAt || expectedUpdatedAt;
 
     // Ignore all blockers via draft ignored codes, then publish should succeed
     const blockCodes = (res.json.qualityReport?.blockingIssues || []).map((b) => b.code);
@@ -502,6 +487,7 @@ async function main() {
     browser = await chromium.launch({ headless: true });
     const page = await browser.newPage({ viewport: { width: 1440, height: 1100 } });
     await page.goto(`http://127.0.0.1:${PORT}/`, { waitUntil: "domcontentloaded", timeout: 60000 });
+    await page.waitForLoadState("networkidle").catch(() => {});
     await page.waitForFunction(
       () => typeof window.LLHTeachingKitQualityReview !== "undefined"
         && typeof window.LLHTeachingKitQualityReviewUI !== "undefined"
@@ -556,7 +542,7 @@ async function main() {
         qualityReport: Boolean(document.querySelector("[data-quality-report]")),
         improveBtn: Boolean(document.querySelector("[data-quality-improve]")),
         ignoreBtn: Boolean(document.querySelector("[data-quality-ignore]")),
-        readinessBlocked: /Blocked/i.test(document.querySelector("[data-publish-readiness]")?.textContent || ""),
+        readiness: document.querySelector("[data-publish-readiness-label]")?.textContent || "",
         overrideUi: Boolean(document.querySelector("[data-publish-override]")),
         confirmLabel: document.querySelector("[data-publish-confirm]")?.textContent || "",
         features: window.LLHTeachingKitEnrichmentEditor.sliceFeatures?.() || {},
@@ -576,11 +562,11 @@ async function main() {
     assert(ui.healthPanel, "library health panel");
     assert(ui.kpis >= 3, "health kpis");
     assert(ui.publishModal, "publish modal opens");
-    assert(ui.qualityReport, "quality report in publish modal");
+    assert(ui.qualityReport, "quality report stays informational in publish modal");
     assert(ui.improveBtn && ui.ignoreBtn, "improve/ignore actions");
-    assert(ui.readinessBlocked, "publish readiness shows Blocked");
-    assert(ui.overrideUi, "owner override UI shown when blocked");
-    assert(/override/i.test(ui.confirmLabel), "confirm requires owner override when blocked");
+    assert(/Ready to publish/i.test(ui.readiness), `owner publish state Ready to publish (got ${ui.readiness})`);
+    assert(!ui.overrideUi, "optional quality gaps do not require owner override");
+    assert(/^Apply enrichment$/i.test(ui.confirmLabel), `confirm is Apply enrichment (got ${ui.confirmLabel})`);
     assert(ui.features.aiQualityReview === true, "slice feature");
 
     await page.screenshot({

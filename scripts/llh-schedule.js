@@ -455,7 +455,7 @@
       lessonPlanTitle: payload.lessonPlanTitle || payload.title || "Untitled Lesson Plan",
       lessonPlanPlan: payload.lessonPlanPlan || "Free",
       lessonPlanUpdatedAt: payload.lessonPlanUpdatedAt || "",
-      ageGroup: payload.ageGroup || "Preschool",
+      ageGroup: String(payload.ageGroup || "").trim(),
       snapshot: payload.snapshot || null,
       assignedBy: email || "",
       execution: payload.execution || {
@@ -579,7 +579,7 @@
     return {
       id: String(item.id || "").startsWith("cwa-") ? item.id : `cwa-${String(item.id || "").replace(/^sch-/, "")}`,
       weekStartDate: item.weekStartDate,
-      ageGroup: item.ageGroup || "Preschool",
+      ageGroup: String(item.ageGroup || "").trim(),
       classroomLabel: classroomName || "",
       lessonPlanId: item.lessonPlanId,
       lessonPlanTitle: item.lessonPlanTitle,
@@ -622,7 +622,7 @@
     });
     return {
       weekOf: item.weekStartDate,
-      ageGroup: item.ageGroup || "Preschool",
+      ageGroup: String(item.ageGroup || "").trim(),
       theme: item.lessonPlanTitle || snapshot.theme || "Untitled Week",
       focus: snapshot.theme || "",
       notes: item.execution?.teacherNotes || "",

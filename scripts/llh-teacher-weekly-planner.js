@@ -123,7 +123,7 @@
       : {
         title: cleanText(normalized.title) || "Weekly Lesson Plan",
         theme: cleanText(normalized.theme) || "Classroom Theme",
-        age: cleanText(normalized.age) || "Preschool",
+        age: cleanText(normalized.age) || "",
         weeklyOverview: cleanText(normalized.weeklyOverview),
         vocabularyWords: cleanText(normalized.vocabularyWords).replace(/\n+/g, ", "),
         books: (Array.isArray(normalized.books) ? normalized.books : []).map(formatBook).filter(Boolean),
