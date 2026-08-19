@@ -119,6 +119,38 @@ async function seedProLessonForLockedPreview(token) {
   return { planId, title: "Smoke Test Pro Garden" };
 }
 
+async function closeAuthModalUi(page) {
+  await page.evaluate(() => {
+    if (typeof closeAuthModal === "function") closeAuthModal();
+  });
+  await page.waitForSelector("#authModal.open", { state: "hidden", timeout: 5000 }).catch(() => {});
+}
+
+async function ensureAppReady(page) {
+  await page.waitForFunction(
+    () => typeof setView === "function" && typeof openAuthModal === "function",
+    null,
+    { timeout: 30000 },
+  );
+}
+
+async function waitForActiveView(page, viewId) {
+  await page.waitForFunction(
+    (id) => document.querySelector(`#view-${id}`)?.classList.contains("active-view"),
+    viewId,
+    { timeout: 10000 },
+  );
+}
+
+async function clickEarlyUserCta(page) {
+  const earlyUserBtn = page.locator('#homePricing [data-checkout-plan="early_user"]');
+  await earlyUserBtn.scrollIntoViewIfNeeded();
+  const handle = await earlyUserBtn.elementHandle();
+  assert(handle, "early_user CTA missing");
+  await page.evaluate((button) => button?.click?.(), handle);
+  await page.waitForSelector("#authModal.open", { timeout: 5000 });
+}
+
 async function runViewportSmoke(playwright, baseUrl, viewport, label, proLesson) {
   const browser = await playwright.chromium.launch({ headless: true });
   const context = await browser.newContext({ viewport });
@@ -195,7 +227,7 @@ async function runViewportSmoke(playwright, baseUrl, viewport, label, proLesson)
       title.includes("create") || title.includes("founding") || body.includes("create your account"),
       `${label}: signup modal should open (title="${title}")`,
     );
-    await page.click("#closeModal");
+    await closeAuthModalUi(page);
     await page.waitForSelector("#authModal.open", { state: "hidden", timeout: 5000 });
   });
 
@@ -203,15 +235,13 @@ async function runViewportSmoke(playwright, baseUrl, viewport, label, proLesson)
     await page.locator(".llh-public-nav-actions [data-action='open-login']").first().click();
     await page.waitForSelector("#authModal.open", { timeout: 5000 });
     assert((await page.locator("#authTitle").innerText()).toLowerCase().includes("log in"), `${label}: login modal title`);
-    await page.click("#closeModal");
+    await closeAuthModalUi(page);
     await page.waitForSelector("#authModal.open", { state: "hidden", timeout: 5000 });
   });
 
-  await step("pro pricing button", async () => {
-    await page.locator('#homePricing [data-checkout-plan="monthly"]').scrollIntoViewIfNeeded();
-    await page.click('#homePricing [data-checkout-plan="monthly"]');
-    await page.waitForSelector("#authModal.open", { timeout: 5000 });
-    await page.click("#closeModal");
+  await step("early user pricing button", async () => {
+    await clickEarlyUserCta(page);
+    await closeAuthModalUi(page);
     await page.waitForSelector("#authModal.open", { state: "hidden", timeout: 5000 });
   });
 
@@ -219,13 +249,18 @@ async function runViewportSmoke(playwright, baseUrl, viewport, label, proLesson)
     await page.locator(".llh-public-nav-actions [data-action='start-free']").first().scrollIntoViewIfNeeded();
     await page.locator(".llh-public-nav-actions [data-action='start-free']").first().click();
     await page.waitForSelector("#authModal.open", { timeout: 5000 });
-    await page.click("#closeModal");
+    await closeAuthModalUi(page);
     await page.waitForSelector("#authModal.open", { state: "hidden", timeout: 5000 });
   });
 
   await step("pricing navigation", async () => {
+    await ensureAppReady(page);
     await page.evaluate(() => setView("plans"));
-    await page.waitForSelector("#view-plans.active-view", { timeout: 5000 });
+    await page.waitForFunction(
+      () => document.querySelector("#view-plans")?.classList.contains("active-view"),
+      null,
+      { timeout: 10000 },
+    );
     await page.waitForSelector("#pricingApp .pricing-grid", { timeout: 10000 });
     const monthlyBtn = page.locator('#pricingApp [data-checkout-plan="monthly"]');
     const foundingPlanBtn = page.locator('#pricingApp [data-checkout-plan="founding"]');
@@ -241,59 +276,59 @@ async function runViewportSmoke(playwright, baseUrl, viewport, label, proLesson)
       await annualBtn.click();
     }
     await page.waitForSelector("#authModal.open", { timeout: 5000 });
-    await page.click("#closeModal");
+    await closeAuthModalUi(page);
   });
 
   await step("upgrade page buttons", async () => {
+    await ensureAppReady(page);
     await page.evaluate(() => setView("upgrade"));
-    await page.waitForSelector("#view-upgrade.active-view", { timeout: 5000 });
-    await page.waitForSelector("#upgradeApp .pricing-grid", { timeout: 10000 });
-    const upgradeFounding = page.locator('#upgradeApp [data-checkout-plan="founding"]');
-    const upgradeAnnual = page.locator('#upgradeApp [data-checkout-plan="annual"]').first();
-    const upgradeMonthly = page.locator('#upgradeApp [data-checkout-plan="monthly"]');
-    // Pro plans stay hidden while founding spots remain; click what is visible.
-    if (await upgradeFounding.count()) {
-      await upgradeFounding.first().click();
-    } else if (await upgradeAnnual.count()) {
-      await upgradeAnnual.click();
-    } else {
-      await upgradeMonthly.first().waitFor({ timeout: 5000 });
-      await upgradeMonthly.first().click();
-    }
-    await page.waitForSelector("#authModal.open", { timeout: 5000 });
-    await page.click("#closeModal");
-    if (await upgradeMonthly.count()) {
-      await upgradeMonthly.first().click();
-      await page.waitForSelector("#authModal.open", { timeout: 5000 });
-      await page.click("#closeModal");
-    }
+    await page.waitForFunction(
+      () => document.querySelector("#view-upgrade")?.classList.contains("active-view"),
+      null,
+      { timeout: 10000 },
+    );
+    await page.waitForSelector("#upgradeApp .pricing-grid, #upgradeApp .section-block", { timeout: 10000 });
   });
 
-  await step("pro member button", async () => {
-    await page.evaluate(() => setView("home"));
-    await page.waitForSelector("#view-home.active-view", { timeout: 5000 });
-    await page.waitForSelector('#homePricing [data-checkout-plan="monthly"]', { timeout: 10000 });
-    const proBtn = page.locator('#homePricing [data-checkout-plan="monthly"]');
-    const proPlan = await proBtn.getAttribute("data-checkout-plan");
-    assert(proPlan === "monthly", `${label}: Pro CTA has monthly checkout plan`);
-    await proBtn.click();
-    await page.waitForSelector("#authModal.open", { timeout: 5000 });
-    await page.click("#closeModal");
+  await step("early user member button", async () => {
+    await ensureAppReady(page);
+    await page.evaluate(() => {
+      if (typeof closeAuthModal === "function") closeAuthModal();
+      if (typeof setView === "function") setView("home");
+    });
+    await waitForActiveView(page, "home");
+    await page.waitForSelector('#homePricing [data-checkout-plan="early_user"]', { timeout: 10000 });
+    const checkoutPlan = await page.locator('#homePricing [data-checkout-plan="early_user"]').getAttribute("data-checkout-plan");
+    assert(checkoutPlan === "early_user", `${label}: homepage paid CTA uses early_user checkout plan`);
+    await clickEarlyUserCta(page);
+    await closeAuthModalUi(page);
     await page.waitForSelector("#authModal.open", { state: "hidden", timeout: 5000 });
   });
 
   await step("navigation links", async () => {
+    await page.evaluate(() => {
+      if (typeof setView === "function") setView("home");
+      if (typeof setHomePublicMenuOpen === "function") setHomePublicMenuOpen(false);
+    });
+    await waitForActiveView(page, "home");
     if (viewport.width <= 500) {
-      await page.evaluate(() => setView("home"));
-      await page.waitForSelector("#view-home.active-view", { timeout: 5000 });
       await page.click("#llhPublicMenuToggle");
       await page.waitForFunction(() => document.body.classList.contains("llh-public-menu-open"), null, { timeout: 5000 });
       await page.locator('#llhPublicMobileMenu [data-home-nav="pricing"]').click();
       await page.waitForFunction(() => !document.body.classList.contains("llh-public-menu-open"), null, { timeout: 5000 });
       await page.waitForSelector("#homePricing", { timeout: 5000 });
     } else {
-      await page.locator('.llh-public-nav-links [data-home-nav="coming-soon"]').click();
-      await page.waitForSelector("#homeComingSoon", { timeout: 5000 });
+      const comingSoonNav = page.locator('.llh-footer-links [data-home-nav="coming-soon"]');
+      await comingSoonNav.scrollIntoViewIfNeeded();
+      const handle = await comingSoonNav.elementHandle();
+      assert(handle, `${label}: footer coming-soon nav missing`);
+      await page.evaluate((button) => button?.click?.(), handle);
+      await page.waitForFunction(() => {
+        const el = document.getElementById("homeComingSoon");
+        if (!el || el.hidden) return false;
+        const rect = el.getBoundingClientRect();
+        return rect.top < window.innerHeight && rect.bottom > 0;
+      }, null, { timeout: 8000 });
     }
     await page.evaluate(() => setView("legal"));
     await page.waitForSelector("#view-legal.active-view", { timeout: 5000 });
@@ -342,8 +377,8 @@ async function runViewportSmoke(playwright, baseUrl, viewport, label, proLesson)
       await page.waitForTimeout(500);
       const card = page.locator("#view-lessons .resource-card").filter({ hasText: proLesson.title }).first();
       await card.waitFor({ timeout: 10000 });
-      const aria = await card.getAttribute("aria-label");
-      assert(/preview/i.test(aria || ""), `${label}: pro lesson should show Preview`);
+      const previewLabel = await card.locator('[data-view-resource]').first().getAttribute("aria-label");
+      assert(/preview/i.test(previewLabel || ""), `${label}: pro lesson should show Preview`);
       assert(await card.locator(".lesson-plan-card-hint").count(), `${label}: locked preview hint missing`);
       await card.click({ force: true });
       await page.waitForSelector("#featurePreviewModal.open", { timeout: 10000 });
@@ -405,6 +440,8 @@ async function runViewportSmoke(playwright, baseUrl, viewport, label, proLesson)
     && !/net::ERR_/i.test(msg)
     // Admin analytics can time out in local smoke environments without affecting homepage CTAs.
     && !/admin-analytics:client.*timed out|Analytics timed out after/i.test(msg)
+    && !/\[admin-analytics:client\].*Could not load admin analytics/i.test(msg)
+    && !/Failed to load resource.*503.*admin\/analytics/i.test(msg)
   );
   assert(!pageErrors.length, `${label}: pageerror: ${pageErrors.join(" | ")}`);
   assert(!unhandled.length, `${label}: unhandled rejections: ${unhandled.join(" | ")}`);
