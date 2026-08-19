@@ -444,7 +444,11 @@ async function browserTinyArtistProof() {
     ok(mobileRun.mergeOk === true, `iPhone Entire Binder completed (${mobileRun.reason})`);
     ok(mobileRun.validationOk === true && mobileRun.pdfHead === "%PDF-", "iPhone PDF starts with %PDF- before viewer handoff");
     ok(mobileRun.blobType === "application/pdf", "iPhone Blob type is application/pdf");
-    ok(mobileRun.totalPages === desktop.expectedTotal, `iPhone page count matches expected total (${mobileRun.totalPages})`);
+    ok(mobileRun.attachmentPages === printablePages, `iPhone merged all ${printablePages} keepsake pages`);
+    ok(mobileRun.totalPages === mobileRun.binderPages + mobileRun.attachmentPages,
+      `iPhone total is binder + printables (${mobileRun.totalPages} === ${mobileRun.binderPages}+${mobileRun.attachmentPages})`);
+    ok(mobileRun.binderPages >= desktop.afterPages,
+      `iPhone binder pages are complete vs desktop reflow (${mobileRun.binderPages} >= ${desktop.afterPages})`);
     ok(mobileRun.prefersViewer === true && mobileRun.delivery === "viewer" && mobileRun.openedOk === true,
       "iPhone opens finished PDF in viewer rather than failing download");
     ok(Boolean(mobileRun.objectUrl), "iPhone object URL is created");
