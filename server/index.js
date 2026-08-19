@@ -52,6 +52,7 @@ const {
 const enrichmentAi = require("./enrichment-ai.js");
 const lessonCoverMedia = require("./lesson-cover-media.js");
 const seo = require("./seo.js");
+const earlyUserOffer = require("./early-user-offer.js");
 const metaCapi = require("./meta-capi.js");
 const testAccountGuard = require("./test-account-guard.js");
 const { createProductionMonitoring } = require("./production-monitoring.js");
@@ -529,7 +530,8 @@ const EARLY_USER_PRICING_ENABLED = ["1", "true", "yes", "on"].includes(
 );
 
 function earlyUserPricingAvailable() {
-  return EARLY_USER_PRICING_ENABLED && isConfiguredValue(process.env.STRIPE_PRICE_EARLY_USER_MONTHLY);
+  return earlyUserOffer.earlyUserPublicPromoActive()
+    && isConfiguredValue(process.env.STRIPE_PRICE_EARLY_USER_MONTHLY);
 }
 
 function isConfiguredValue(value) {
@@ -6468,14 +6470,16 @@ function foundingStatusPayload(store = readStore()) {
     earlyUserPricingEnabled: earlyUserEnabled,
     earlyUserPrice: "$13.99/month",
     earlyUserPriceAmount: "13.99",
-    earlyUserOfferName: "Limited-Time Early User Price",
+    earlyUserOfferName: "Early User Special",
+    earlyUserOfferExpiresAt: earlyUserOffer.EARLY_USER_OFFER_EXPIRES_AT_MS,
+    earlyUserOfferExpiresLabel: earlyUserOffer.EARLY_USER_OFFER_EXPIRES_FULL_LABEL,
     earlyUserLockCopy: "Lock in $13.99/month while your subscription remains active.",
-    earlyUserSupportingCopy: "Join Little Learner Hub early and lock in discounted access while we continue building the complete childcare provider platform.",
-    earlyUserAvailabilityCopy: "Limited-Time Early User Price – $13.99/month",
+    earlyUserSupportingCopy: `Temporary promotional rate through ${earlyUserOffer.EARLY_USER_OFFER_EXPIRES_FULL_LABEL}, then $19.99/month.`,
+    earlyUserAvailabilityCopy: `Early User Special: $13.99/month through ${earlyUserOffer.EARLY_USER_OFFER_EXPIRES_LABEL}`,
     primaryPaidOffer: earlyUserEnabled ? "early_user" : "monthly",
     primaryMonthlyPrice: earlyUserEnabled ? "$13.99/month" : "$19.99/month",
     spotsLeftMessage: earlyUserEnabled
-      ? "Limited-Time Early User Price – $13.99/month (regularly $19.99/month)."
+      ? `Early User Special: $13.99/month through ${earlyUserOffer.EARLY_USER_OFFER_EXPIRES_LABEL} — then $19.99/month.`
       : "Pro is $19.99/month.",
     acquisitionClosed: true,
   };
@@ -6490,7 +6494,7 @@ function foundingMemberNumberForEmail(store, email) {
 
 function foundingSoldOutMessage(store = peekStore()) {
   if (earlyUserPricingAvailable()) {
-    return "Choose Limited-Time Early User Price ($13.99/month), Pro Monthly ($19.99/month), or Pro Annual ($199/year).";
+    return `Choose Early User Special ($13.99/month through ${earlyUserOffer.EARLY_USER_OFFER_EXPIRES_LABEL}), Pro Monthly ($19.99/month), or Pro Annual ($199/year).`;
   }
   return "Choose Pro Monthly ($19.99/month) or Pro Annual ($199/year).";
 }

@@ -146,7 +146,7 @@ async function captureViews(page, prefix) {
 function analyzeBodyText(text, expectEarlyUser) {
   const has1999 = /\$19\.99/.test(text);
   const has1399 = /\$13\.99/.test(text);
-  const hasLimited = /Limited-Time Early User Price/i.test(text);
+  const hasLimited = /Early User Special|Limited-Time Early User Price/i.test(text);
   const hasLegacyOffer = /Early User Special/i.test(text);
   return { has1999, has1399, hasLimited, hasLegacyOffer, length: text.length };
 }
@@ -184,7 +184,7 @@ async function runFlagOffUi() {
         const a = analyzeBodyText(texts[view], false);
         record("1-flag-off", `${view}: shows $19.99`, a.has1999 || view === "billing", `1399=${a.has1399}`);
         record("1-flag-off", `${view}: no $13.99`, !a.has1399);
-        record("1-flag-off", `${view}: no Limited-Time Early User offer`, !a.hasLimited);
+        record("1-flag-off", `${view}: no Early User Special offer`, !a.hasLimited);
       }
       // Open upgrade modal text
       await page.evaluate(() => {
@@ -217,7 +217,8 @@ async function runFlagOnUi() {
     const status = await requestJson("GET", "/api/founding-status");
     const founding = status.json?.founding || status.json || {};
     record("4-flag-on", "API earlyUserPricingEnabled=true", founding.earlyUserPricingEnabled === true);
-    record("4-flag-on", "API limited-time copy", /Limited-Time Early User Price/i.test(String(founding.earlyUserAvailabilityCopy || founding.spotsLeftMessage || "")));
+    record("4-flag-on", "API early user special copy", /Early User Special/i.test(String(founding.earlyUserAvailabilityCopy || founding.spotsLeftMessage || "")));
+    record("4-flag-on", "API expires August 25, 2026", String(founding.earlyUserOfferExpiresLabel || "").includes("August 25, 2026"));
     record("4-flag-on", "API primaryMonthlyPrice=$13.99", founding.primaryMonthlyPrice === "$13.99/month");
     record("4-flag-on", "API regular still $19.99", founding.regularMonthlyPrice === "$19.99/month");
 
@@ -250,7 +251,7 @@ async function runFlagOnUi() {
         const text = await page.locator("body").innerText();
         const a = analyzeBodyText(text, true);
         record("4-flag-on", `${view}: shows $13.99`, a.has1399);
-        record("4-flag-on", `${view}: shows Limited-Time Early User Price`, a.hasLimited);
+        record("4-flag-on", `${view}: shows Early User Special`, a.hasLimited);
         record("4-flag-on", `${view}: still shows regular $19.99`, a.has1999);
       }
 

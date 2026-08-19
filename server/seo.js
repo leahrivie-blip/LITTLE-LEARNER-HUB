@@ -36,6 +36,7 @@ function loadCurriculumSnapshot() {
 const BUSINESS_NAME = "Little Learner Hub by Leah";
 const SHORT_NAME = "Little Learner Hub";
 const DEFAULT_SITE_URL = "https://littlelearnershubbyleah.com";
+const earlyUserOffer = require("./early-user-offer.js");
 function supportEmailAddress() {
   const raw = String(process.env.SUPPORT_EMAIL_TO || "support@littlelearnershubbyleah.com").trim();
   const match = raw.match(/<([^>]+)>/);
@@ -507,9 +508,44 @@ function renderFaqPage() {
 }
 
 function renderPricingPage() {
+  const earlyUserActive = earlyUserOffer.earlyUserPublicPromoActive();
+  const earlyUserBlock = earlyUserActive ? `
+      <h2>Early User Special — $13.99/month</h2>
+      <p>Temporary promotional rate through ${earlyUserOffer.EARLY_USER_OFFER_EXPIRES_FULL_LABEL}. Then $19.99/month.</p>
+      <ul>
+        <li>Full curriculum library</li>
+        <li>Planning and documentation tools</li>
+        <li>Unlimited curriculum printing and downloads</li>
+        <li>Child profiles</li>
+        <li>Cancel anytime</li>
+      </ul>
+      <h2>Regular Pro Monthly — $19.99/month</h2>
+      <ul>
+        <li>Hundreds of lesson plans and thousands of classroom activities</li>
+        <li>Curriculum Calendar and Lesson Planner</li>
+        <li>AI Documentation Helpers with expanded limits</li>
+        <li>Child Profiles and developmental observations</li>
+        <li>Unlimited curriculum printing and downloads</li>
+        <li>Customizable and saved lesson-plan copies</li>
+        <li>In-app lesson plan, activity, and feature requests</li>
+        <li>New content added regularly based on provider feedback</li>
+      </ul>` : `
+      <h2>Pro Monthly — $19.99/month</h2>
+      <ul>
+        <li>Hundreds of lesson plans and thousands of classroom activities</li>
+        <li>Curriculum Calendar and Lesson Planner</li>
+        <li>AI Documentation Helpers with expanded limits</li>
+        <li>Child Profiles and developmental observations</li>
+        <li>Unlimited curriculum printing and downloads</li>
+        <li>Customizable and saved lesson-plan copies</li>
+        <li>In-app lesson plan, activity, and feature requests</li>
+        <li>New content added regularly based on provider feedback</li>
+      </ul>`;
   return renderPublicPage({
     title: `Pricing | ${BUSINESS_NAME}`,
-    description: "Simple pricing for Little Learner Hub: Free starter lesson plans, Pro Monthly at $19.99/month, or Pro Annual at $199/year for the full all-in-one childcare platform.",
+    description: earlyUserActive
+      ? `Simple pricing for Little Learner Hub: Free starter lesson plans, Early User Special at $13.99/month through ${earlyUserOffer.EARLY_USER_OFFER_EXPIRES_FULL_LABEL}, then Pro Monthly at $19.99/month, or Pro Annual at $199/year.`
+      : "Simple pricing for Little Learner Hub: Free starter lesson plans, Pro Monthly at $19.99/month, or Pro Annual at $199/year for the full all-in-one childcare platform.",
     canonicalPath: "/pricing",
     bodyHtml: `
       <h1>Pricing</h1>
@@ -522,17 +558,7 @@ function renderPricingPage() {
         <li>AI Documentation Helper starter limits</li>
         <li>No credit card required</li>
       </ul>
-      <h2>Pro Monthly — $19.99/month</h2>
-      <ul>
-        <li>Hundreds of lesson plans and thousands of classroom activities</li>
-        <li>Curriculum Calendar and Lesson Planner</li>
-        <li>AI Documentation Helpers with expanded limits</li>
-        <li>Child Profiles and developmental observations</li>
-        <li>Unlimited curriculum printing and downloads</li>
-        <li>Customizable and saved lesson-plan copies</li>
-        <li>In-app lesson plan, activity, and feature requests</li>
-        <li>New content added regularly based on provider feedback</li>
-      </ul>
+      ${earlyUserBlock}
       <h2>Pro Annual — $199/year</h2>
       <p>Same Pro platform access as Pro Monthly, billed annually.</p>
       <p class="muted">This page describes membership pricing only. Little Learner Hub is an online platform and does not operate as a physical childcare location.</p>
@@ -565,8 +591,46 @@ function injectHomeHtmlHead(html) {
     `<meta name="twitter:image" content="${escapeHtml(ogImageUrl())}" />`,
     verificationMetaTags(),
   ].filter(Boolean).join("\n    ");
-  if (!tags) return html;
-  return html.replace("</head>", `    ${tags}\n  </head>`);
+  let next = html;
+  // When Early User Special is off (flag) or expired (date), strip $13.99 promo
+  // from the static homepage shell so crawlers and no-JS loads match live offer.
+  if (!earlyUserOffer.earlyUserPublicPromoActive()) {
+    next = next
+      .replace(
+        /(<div class="llh-announce-banner" id="llhFoundingAnnounceBanner"[^>]*)(>)/,
+        '$1 hidden$2',
+      )
+      .replace(
+        /Early User Special: \$13\.99\/month through August 25[\s\S]*?— then \$19\.99\/month/,
+        "Pro is $19.99/month",
+      )
+      .replace(
+        /<h3>Early User Special<\/h3>/,
+        "<h3>Pro Monthly</h3>",
+      )
+      .replace(
+        /(<div class="lp-price-amount"><strong>)\$13\.99(<\/strong>)/,
+        "$1$19.99$2",
+      )
+      .replace(
+        /<p class="lp-price-compare">Regular Pro Monthly: \$19\.99\/month<\/p>\s*<p class="lp-price-note lp-price-promo-note">[^<]*<\/p>/,
+        "",
+      )
+      .replace(
+        /data-checkout-plan="early_user"/g,
+        'data-checkout-plan="monthly"',
+      )
+      .replace(
+        />Choose Early User</g,
+        ">Choose Pro Monthly<",
+      )
+      .replace(
+        /\bllh-early-user-card\b/g,
+        "",
+      );
+  }
+  if (!tags) return next;
+  return next.replace("</head>", `    ${tags}\n  </head>`);
 }
 
 function handleSeoRoute(request, response, pathname) {
