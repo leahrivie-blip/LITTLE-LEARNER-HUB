@@ -601,15 +601,8 @@
           pageEl.style.minHeight = prevMinHeight;
           pageEl.style.width = prevWidth;
           pageEl.style.boxSizing = prevBox;
-          return {
-            ok: false,
-            reason: err?.reason === "html2canvas_timeout" ? "html2canvas_timeout" : "binder_pdf_render_failed",
-            bytes: null,
-            pageErrors,
-            message: err?.reason === "html2canvas_timeout"
-              ? "We couldn't finish this binder download. Nothing was changed. Try again, or download a smaller section."
-              : "Could not render binder pages to PDF. Please try Print selection, or retry Download PDF.",
-          };
+          // One optional page must not abort the rest of the binder after the cover.
+          continue;
         }
         pageEl.style.minHeight = prevMinHeight;
         pageEl.style.width = prevWidth;
@@ -652,13 +645,9 @@
           }
         }
         if (!added) {
-          return {
-            ok: false,
-            reason: "binder_pdf_render_failed",
-            bytes: null,
-            pageErrors: pageErrors + 1,
-            message: "Could not render binder pages to PDF. Please try Print selection, or retry Download PDF.",
-          };
+          pageErrors += 1;
+          console.warn("[llh-tk-pdf] binder page produced no PDF bytes; skipping");
+          continue;
         }
       }
       if (!pdfDoc.getPageCount()) {

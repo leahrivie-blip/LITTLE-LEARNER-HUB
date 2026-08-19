@@ -19,6 +19,92 @@ const Present = require("./teaching-kit-present.js");
 const Model = require("./teaching-kit-printable-model.js");
 const Print = require("./teaching-kit-print.js");
 const Mapper = require("./teaching-kit-mapper.js");
+const {
+  parseFullLessonStructurePaste,
+  buildCanonicalLessonPlan,
+} = require("./curriculum-lesson-structure-paste.js");
+const { parseCurriculumLessonPlanImport } = require("./curriculum-lesson-import-parser.js");
+
+const WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday"];
+
+const TINY_ARTIST_PASTE = `Lesson Plan Title
+Tiny Artist Studio
+
+Age Group
+Infant 0–6 Months
+
+Theme
+Art, Color, Sensory Exploration, Movement and Caregiver Connection
+
+Weekly overview
+Tiny Artist Studio introduces young infants to art through safe sensory exploration.
+
+Learning objectives
+Notice and visually track bold colors and moving objects
+Reach toward interesting colors, textures and objects
+
+Materials list
+Large resealable bags
+Infant safe mirrors
+
+Teacher preparation / Toolkit
+Prepare all paint experiences before bringing infants to the activity area.
+
+Books
+Mix It Up by Hervé Tullet
+Mouse Paint by Ellen Stoll Walsh
+
+Songs
+The Colors Song
+Twinkle Twinkle Little Star
+
+Activity name
+Tummy Time Art Gallery
+
+Weekday
+Monday
+
+Activity objective
+Support visual tracking, head lifting and early language while infants view simple artwork during tummy time.
+
+What children will do
+Infants will lie on their tummy or in another comfortable supported position and look at bold art cards.
+
+Materials
+Tummy time mat
+High contrast art cards
+
+Step-by-step directions
+Place one bold art card in front of baby.
+Allow time for baby to notice the picture.
+
+Activity name
+Mess Free Canvas Smush
+
+Weekday
+Monday
+
+Activity objective
+Allow infants to safely explore color movement through a sealed paint experience.
+
+Activity name
+Color Kick Painting
+
+Weekday
+Tuesday
+
+Activity objective
+Encourage leg movement by allowing babies to kick against a sealed paint bag.
+
+Activity name
+Baby Art Gallery Walk
+
+Weekday
+Friday
+
+Activity objective
+Celebrate the week's exploration while encouraging visual attention.
+`;
 
 const FORBIDDEN = [
   /ACTIVITY_NAME\s*:/i,
@@ -127,8 +213,11 @@ function testLegacyAndPartial() {
   const emptyKit = mapFixture(empty);
   const emptyBinder = Print.buildBinderPrintHtml(emptyKit, { preset: "week_binder", plan: empty.lessonPlan });
   ok(emptyBinder.ok === true, "legacy/empty kit still prints");
+  ok(emptyBinder.pageCount <= 2, `empty lesson stays cover-only (${emptyBinder.pageCount} pages)`);
   ok(!/Coming Soon/i.test(emptyBinder.html), "no coming-soon filler");
   ok(!/No printables available/i.test(emptyBinder.html), "no empty printable placeholder");
+  ok(!/Farm Animal Discovery Basket/i.test(emptyBinder.html), "empty binder does not leak Farm Animals");
+  ok(!/Tummy Time Art Gallery/i.test(emptyBinder.html), "empty binder does not leak Tiny Artist");
   assertNoForbidden(emptyBinder.html, "empty binder");
 
   const mini = loadFixture("enriched-mini.json");
@@ -146,6 +235,9 @@ function testLegacyAndPartial() {
   const bugsKit = mapFixture(bugs);
   const bugsWeekly = Print.buildFullWeeklyLessonPlanHtml(bugsKit, { plan: bugs.lessonPlan });
   ok(bugsWeekly.ok === true, "bugs weekly builds");
+  const bugsBinder = Print.buildEntireBinderKitHtml(bugsKit, { plan: bugs.lessonPlan });
+  ok(bugsBinder.ok === true && bugsBinder.pageCount > 1, `bugs Entire Binder is not cover-only (${bugsBinder.pageCount})`);
+  ok(/Bug Discovery Table/i.test(bugsBinder.html), "bugs binder uses Bugs & Butterflies activities");
   assertNoForbidden(bugsWeekly.html, "bugs weekly");
 }
 
@@ -296,6 +388,202 @@ function testPrintModesLimitSections() {
     "selected resources never embeds Teaching Kit UI chrome");
 }
 
+function arrayShapedDailyPlans(plan) {
+  const dailyPlans = {};
+  WEEKDAYS.forEach((day) => {
+    const raw = plan.dailyPlans && plan.dailyPlans[day];
+    dailyPlans[day] = Array.isArray(raw) ? raw : ((raw && raw.items) || []);
+  });
+  return { ...plan, dailyPlans };
+}
+
+function kitFromImportFile(relPath, id) {
+  const parsed = parseCurriculumLessonPlanImport(fs.readFileSync(path.join(ROOT, relPath), "utf8"));
+  ok(parsed.ok === true, `${relPath} parses (${(parsed.errors || []).join("; ") || "ok"})`);
+  const plan = { ...parsed.data, id };
+  const kit = Mapper.mapLessonPlanToTeachingKit(plan, [], [], { day: "monday" });
+  ok(kit.ok === true, `${plan.title || id} maps`);
+  return { plan, kit, parsed };
+}
+
+function entireBinderFor(label, kit, plan) {
+  const binder = Print.buildEntireBinderKitHtml(kit, { plan, paperSize: "letter" });
+  ok(binder.ok === true, `${label}: Entire Binder builds`);
+  return binder;
+}
+
+function testArrayShapedDaysAreNotCoverOnly() {
+  console.log("\nArray-shaped weekday plans (production store shape)");
+  const farm = loadFixture("farm-animals-enrichment-slice2.json");
+  const objectKit = mapFixture(farm);
+  const objectBinder = entireBinderFor("farm object days", objectKit, farm.lessonPlan);
+  const arrayPlan = arrayShapedDailyPlans(farm.lessonPlan);
+  const arrayKit = Mapper.mapLessonPlanToTeachingKit(
+    arrayPlan,
+    farm.activities || [],
+    farm.resources || [],
+    { day: "monday" },
+  );
+  const arrayBinder = entireBinderFor("farm array days", arrayKit, arrayPlan);
+  ok((arrayKit.companion.activities || []).length === (objectKit.companion.activities || []).length,
+    "array-shaped days keep the same activities as object-shaped days");
+  ok(arrayBinder.pageCount > 1, `array-shaped Farm Animals is not cover-only (${arrayBinder.pageCount})`);
+  ok(/Farm Animal Discovery Basket/i.test(arrayBinder.html), "array-shaped farm keeps Discovery Basket");
+  ok(objectBinder.pageCount > 1, "object-shaped farm remains complete");
+
+  const parsed = parseFullLessonStructurePaste(TINY_ARTIST_PASTE);
+  ok(parsed.ok === true, `Tiny Artist paste parses (${(parsed.errors || []).join("; ") || "ok"})`);
+  const tinyObject = buildCanonicalLessonPlan(parsed, { id: "cur-lp-tiny-artist-studio" });
+  const tinyArray = arrayShapedDailyPlans(tinyObject);
+  const tinyObjectKit = Mapper.mapLessonPlanToTeachingKit(tinyObject, [], [], { day: "monday" });
+  const tinyArrayKit = Mapper.mapLessonPlanToTeachingKit(tinyArray, [], [], { day: "monday" });
+  const tinyObjectBinder = entireBinderFor("tiny object days", tinyObjectKit, tinyObject);
+  const tinyArrayBinder = entireBinderFor("tiny array days", tinyArrayKit, tinyArray);
+  ok(tinyObjectBinder.pageCount > 1, `Tiny Artist object days not cover-only (${tinyObjectBinder.pageCount})`);
+  ok(tinyArrayBinder.pageCount > 1, `Tiny Artist array days not cover-only (${tinyArrayBinder.pageCount})`);
+  ok(/Tummy Time Art Gallery/i.test(tinyArrayBinder.html), "array-shaped Tiny Artist keeps Tummy Time Art Gallery");
+  ok((tinyArrayKit.companion.activities || []).length === (tinyObjectKit.companion.activities || []).length,
+    "Tiny Artist array/object activity counts match");
+}
+
+function testArchivedAndForeignContentStayOut() {
+  console.log("\nArchived activities + foreign printables stay out of the binder");
+  const farm = loadFixture("farm-animals-enrichment-slice2.json");
+  const archived = farm.activities[0];
+  const activities = (farm.activities || []).map((activity) => (
+    activity.id === archived.id ? { ...activity, status: "archived" } : activity
+  ));
+  const kit = Mapper.mapLessonPlanToTeachingKit(farm.lessonPlan, activities, farm.resources || [], { day: "monday" });
+  ok(!(kit.companion.activities || []).some((activity) => activity.id === archived.id),
+    `archived ${archived.title} excluded from mapped kit`);
+  ok((kit.companion.activities || []).length === (farm.activities || []).length - 1,
+    "archived activity is not replaced by a daily-item clone");
+  const binder = entireBinderFor("farm minus archived", kit, farm.lessonPlan);
+  const archivedPattern = new RegExp(String(archived.title).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+  ok(!archivedPattern.test(binder.html), "archived activity title absent from Entire Binder");
+
+  const foreign = {
+    id: "cur-res-other-lesson-butterfly",
+    title: "Butterfly Life Cycle Poster",
+    lessonPlanIds: ["cur-lp-toddler-bugs-and-butterflies"],
+    status: "published",
+    fileName: "butterfly.pdf",
+    mimeType: "application/pdf",
+    fileUrl: "/api/media/curriculum-resources/butterfly-life-cycle",
+  };
+  const farmWithForeign = Mapper.mapLessonPlanToTeachingKit(
+    farm.lessonPlan,
+    farm.activities || [],
+    [foreign],
+    { day: "monday" },
+  );
+  ok(!(farmWithForeign.companion.printables || []).some((item) => item.id === foreign.id),
+    "foreign lesson printable is not linked via the resource bag");
+  const farmBinder = entireBinderFor("farm without foreign printable", farmWithForeign, farm.lessonPlan);
+  ok(!/Butterfly Life Cycle Poster/i.test(farmBinder.html), "foreign printable title not in Farm Animals binder");
+}
+
+function testCurActIdsAndActivityNameFallback() {
+  console.log("\nStore cur-act-* ids + activityName titles still map");
+  const farm = loadFixture("farm-animals-enrichment-slice2.json");
+  const stripped = (farm.activities || []).map((activity) => ({ ...activity, sourceKey: "" }));
+  const kit = Mapper.mapLessonPlanToTeachingKit(farm.lessonPlan, stripped, farm.resources || [], { day: "monday" });
+  ok((kit.companion.activities || []).length === (farm.activities || []).length,
+    "itemId matches cur-act-* store rows when sourceKey is blank");
+  ok((kit.companion.activities || []).every((activity) => /^cur-act-/.test(activity.id)),
+    "mapped cards keep cur-act-* ids");
+
+  const namePlan = {
+    id: "cur-lp-name-fallback",
+    title: "Name Fallback Week",
+    weeklyOverview: "Infants explore color names through movement.",
+    dailyPlans: {
+      monday: [{ itemId: "kick", activityName: "Color Kick Painting" }],
+    },
+  };
+  const nameKit = Mapper.mapLessonPlanToTeachingKit(namePlan, [], [], { day: "monday" });
+  const nameBinder = entireBinderFor("activityName fallback", nameKit, namePlan);
+  ok(/Color Kick Painting/i.test(nameBinder.html), "activityName becomes the card title");
+  ok(nameBinder.pageCount > 1, "activityName-only day is not cover-only");
+}
+
+function testCoverLikeFingerprintsStayLessonSpecific() {
+  console.log("\nCover-like binders do not share a cache fingerprint");
+  const empty = loadFixture("empty-plan.json");
+  const otherEmpty = {
+    lessonPlan: { ...empty.lessonPlan, id: "cur-lp-tk-empty-b", title: "Another Empty Draft" },
+    activities: [],
+    resources: [],
+  };
+  const a = entireBinderFor("empty A", mapFixture(empty), empty.lessonPlan);
+  const b = entireBinderFor("empty B", mapFixture(otherEmpty), otherEmpty.lessonPlan);
+  ok(a.contentFingerprint !== b.contentFingerprint, "two empty lessons do not share a fingerprint");
+  ok(String(a.contentFingerprint).includes("cur-lp-tk-empty"), "fingerprint includes lessonPlanId");
+  ok(String(a.contentFingerprint).includes("Empty Draft Plan"), "fingerprint includes lesson title");
+}
+
+function testCrossLessonEntireBinders() {
+  console.log("\nCross-lesson Entire Binder uniqueness");
+  const tinyParsed = parseFullLessonStructurePaste(TINY_ARTIST_PASTE);
+  ok(tinyParsed.ok === true, "Tiny Artist Studio paste parses");
+  const tinyPlan = buildCanonicalLessonPlan(tinyParsed, { id: "cur-lp-tiny-artist-studio" });
+  const tinyKit = Mapper.mapLessonPlanToTeachingKit(tinyPlan, [], [], { day: "monday" });
+
+  const colors = kitFromImportFile(
+    "scripts/curriculum-infant-core-imports/infant-colors-all-around-us.txt",
+    "cur-lp-infant-colors-all-around-us",
+  );
+  const zoo = kitFromImportFile(
+    "scripts/curriculum-preschool-pro-batch2-imports/20-preschool-zoo-adventure-pro.txt",
+    "cur-lp-preschool-zoo-adventure",
+  );
+  const helpers = kitFromImportFile(
+    "scripts/curriculum-preschool-free-imports/06-preschool-community-helpers-free.txt",
+    "cur-lp-preschool-community-helpers",
+  );
+  const bugs = loadFixture("bugs-and-butterflies.json");
+  const farm = loadFixture("farm-animals-enrichment-slice2.json");
+
+  const snapshots = [
+    { label: "Tiny Artist Studio", kit: tinyKit, plan: tinyPlan, markers: [/Tiny Artist Studio/i, /Tummy Time Art Gallery/i], leaks: [/Farm Animal Discovery Basket/i, /Bug Discovery Table/i] },
+    { label: "Colors All Around Us", kit: colors.kit, plan: colors.plan, markers: [/Colors All Around Us/i, /Bright Scarf Slow Track/i], leaks: [/Farm Animal Discovery Basket/i, /Tummy Time Art Gallery/i] },
+    { label: "Zoo Adventure", kit: zoo.kit, plan: zoo.plan, markers: [/Zoo Adventure/i, /Zoo Discovery Sensory Bin/i], leaks: [/Farm Animal Discovery Basket/i, /Tummy Time Art Gallery/i] },
+    { label: "Community Helpers", kit: helpers.kit, plan: helpers.plan, markers: [/Community Helpers/i, /Community Helper Discovery Basket/i], leaks: [/Farm Animal Discovery Basket/i, /Tummy Time Art Gallery/i] },
+    { label: "Bugs & Butterflies", kit: mapFixture(bugs), plan: bugs.lessonPlan, markers: [/Bugs (&amp;|&) Butterflies/i, /Bug Discovery Table/i], leaks: [/Farm Animal Discovery Basket/i, /Tummy Time Art Gallery/i] },
+    { label: "Farm Animals", kit: mapFixture(farm), plan: farm.lessonPlan, markers: [/Farm Animals/i, /Farm Animal Discovery Basket/i], leaks: [/Tummy Time Art Gallery/i, /Bug Discovery Table/i] },
+  ].map((entry) => {
+    const binder = entireBinderFor(entry.label, entry.kit, entry.plan);
+    ok(binder.pageCount > 1, `${entry.label}: Entire Binder is not cover-only (${binder.pageCount} pages)`);
+    entry.markers.forEach((pattern) => {
+      ok(pattern.test(binder.html), `${entry.label}: contains ${pattern}`);
+    });
+    entry.leaks.forEach((pattern) => {
+      ok(!pattern.test(binder.html), `${entry.label}: does not leak ${pattern}`);
+    });
+    ok(String(binder.contentFingerprint).includes(entry.kit.lessonPlanId || entry.plan.id),
+      `${entry.label}: fingerprint includes lesson id`);
+    return {
+      label: entry.label,
+      pageCount: binder.pageCount,
+      fingerprint: binder.contentFingerprint,
+      title: entry.kit.title,
+    };
+  });
+
+  snapshots.forEach((left, index) => {
+    snapshots.slice(index + 1).forEach((right) => {
+      ok(left.fingerprint !== right.fingerprint, `${left.label} vs ${right.label}: fingerprints differ`);
+    });
+  });
+
+  fs.mkdirSync(ARTIFACT, { recursive: true });
+  fs.writeFileSync(
+    path.join(ARTIFACT, "cross-lesson-entire-binder.json"),
+    JSON.stringify(snapshots, null, 2),
+  );
+  console.log("  cross-lesson page counts:", snapshots.map((row) => `${row.label}=${row.pageCount}`).join(", "));
+}
+
 function testPresentLabels() {
   console.log("\nLabels");
   ok(Present.presentLabel("week_binder") === "Entire Binder Kit", "week_binder label");
@@ -372,6 +660,11 @@ async function main() {
   testFarmAnimalsCompleteBinder();
   testLegacyAndPartial();
   testPrintModesLimitSections();
+  testArrayShapedDaysAreNotCoverOnly();
+  testArchivedAndForeignContentStayOut();
+  testCurActIdsAndActivityNameFallback();
+  testCoverLikeFingerprintsStayLessonSpecific();
+  testCrossLessonEntireBinders();
   await maybeRenderPdfScreenshots();
   console.log("\nAll teaching-kit print system checks passed.");
 }

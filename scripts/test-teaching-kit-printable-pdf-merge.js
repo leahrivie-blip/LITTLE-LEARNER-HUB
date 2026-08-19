@@ -312,6 +312,24 @@ async function runCases() {
     ok(/no attached PDF|missing/i.test(merged.message || merged.report?.summary || ""), "useful missing message");
   }
 
+  console.log("\n7b) Entire Binder keeps lesson pages when one printable is missing");
+  {
+    const merged = await Print.buildMergedTeachingKitPdf(ctx.kit, {
+      preset: "week_binder",
+      plan: ctx.plan,
+      stylesHref,
+      skipArtifactCache: true,
+    });
+    ok(merged.ok === true, "Entire Binder still succeeds when a linked printable has no PDF");
+    ok(merged.report.binderPageCount >= 5, `Entire Binder lesson pages remain (${merged.report.binderPageCount})`);
+    const includedIds = (merged.report.included || []).map((item) => item.id);
+    ok(includedIds.includes("cur-res-farm-cards"), "valid Farm Animal Cards still merged");
+    ok(!includedIds.includes("cur-res-farm-missing"), "missing printable is skipped, not fatal");
+    ok(!includedIds.includes("cur-res-farm-invalid"), "invalid printable is skipped, not fatal");
+    ok((merged.report.missing || []).some((item) => item.id === "cur-res-farm-missing"),
+      "missing printable is reported without aborting");
+  }
+
   console.log("\n8) Invalid attachment fails closed");
   {
     const merged = await Print.buildMergedTeachingKitPdf(ctx.kit, {

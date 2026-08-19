@@ -21,6 +21,8 @@ const ROOT = path.join(__dirname, "..");
 const ARTIFACT = "/opt/cursor/artifacts/tk-entire-binder-durable";
 const PORT = allocateSafeTestPort(5491, 400);
 const LIVE_SHAPE = path.join(__dirname, "fixtures/teaching-kit/farm-animals-entire-binder-live-shape.json");
+const INDEX_HTML = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
+const SHELL_VERSION = (INDEX_HTML.match(/var SHELL_VERSION = "([^"]+)"/) || [])[1] || "test-shell";
 
 require("./teaching-kit-present.js");
 const Print = require("./teaching-kit-print.js");
@@ -174,9 +176,25 @@ async function browserEntireBinderProof() {
 
   const browser = await chromium.launch({ headless: true, args: ["--no-sandbox", "--disable-dev-shm-usage"] });
   try {
-    const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    // Block SW / shell-recovery reloads that destroy long binder PDF evaluates.
+    const context = await browser.newContext({
+      viewport: { width: 1280, height: 900 },
+      serviceWorkers: "block",
+    });
+    const page = await context.newPage();
     page.on("console", (msg) => {
       if (/llh-tk|error|fail/i.test(msg.text())) console.log(`[browser:${msg.type()}]`, msg.text().slice(0, 240));
+    });
+    await page.addInitScript((shellVersion) => {
+      try { sessionStorage.setItem("llhShellCssRecovery", shellVersion); } catch (_err) { /* ignore */ }
+      window.__LLH_SW_RELOADING = true;
+    }, SHELL_VERSION);
+    await page.route("**/llh-shell-manifest.json**", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ version: SHELL_VERSION, cacheName: "llh-shell-test" }),
+      });
     });
     await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "domcontentloaded", timeout: 60000 });
     await page.waitForFunction(() => (
@@ -321,7 +339,12 @@ async function browserEntireBinderProof() {
 
     // Mobile delivery path: finished blob opens via viewer, not false failure.
     const iPhone = devices["iPhone 13"];
-    const mobile = await browser.newPage({ ...iPhone });
+    const mobileContext = await browser.newContext({ ...iPhone, serviceWorkers: "block" });
+    const mobile = await mobileContext.newPage();
+    await mobile.addInitScript((shellVersion) => {
+      try { sessionStorage.setItem("llhShellCssRecovery", shellVersion); } catch (_err) { /* ignore */ }
+      window.__LLH_SW_RELOADING = true;
+    }, SHELL_VERSION);
     await mobile.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "domcontentloaded", timeout: 60000 });
     await mobile.waitForFunction(() => window.LLHTeachingKitBinderJob && window.PDFLib, null, { timeout: 30000 });
     const mobileDelivery = await mobile.evaluate(async () => {
@@ -337,16 +360,17 @@ async function browserEntireBinderProof() {
       };
     });
     await mobile.close();
+    await mobileContext.close();
     ok(mobileDelivery.prefersViewer === true, "iPhone UA prefers viewer delivery");
     ok(mobileDelivery.ok === true && mobileDelivery.delivery === "viewer", "mobile handoff opens viewer instead of failing");
 
-    // Missing required printable fails closed (no partial binder success).
+    // Entire Binder must keep lesson pages when one linked printable is missing.
+    // Printable-only packs still fail closed (see test-teaching-kit-printable-pdf-merge.js).
     const missing = await page.evaluate(async (liveKit) => {
       const PrintApi = window.LLHTeachingKitPrint;
       const broken = JSON.parse(JSON.stringify(liveKit));
       broken.companion.printables[0].fileUrl = "/api/media/curriculum-resources/curriculum-resource-does-not-exist";
       broken.companion.printables[0].fileData = "";
-      // Force fresh fingerprint / no cache
       const JobApi = window.LLHTeachingKitBinderJob;
       JobApi.clearBinderArtifactCache?.();
       const merged = await PrintApi.buildMergedTeachingKitPdf(broken, {
@@ -357,10 +381,18 @@ async function browserEntireBinderProof() {
         skipArtifactCache: true,
         fetchBytes: async () => null,
       });
-      return { ok: merged.ok, reason: merged.reason, code: merged.code };
+      return {
+        ok: merged.ok,
+        reason: merged.reason,
+        code: merged.code,
+        binderPageCount: merged.report?.binderPageCount || 0,
+        totalPages: merged.report?.totalPages || 0,
+        missingCount: (merged.report?.missing || []).length,
+      };
     }, kit);
-    ok(missing.ok === false, "missing required printable fails");
-    ok(/missing|PRINTABLE|attachment/i.test(`${missing.reason} ${missing.code}`), `missing printable classified (${missing.reason}/${missing.code})`);
+    ok(missing.ok === true, "Entire Binder still succeeds when a linked printable is missing");
+    ok(missing.binderPageCount >= 5, `Entire Binder lesson pages remain (${missing.binderPageCount})`);
+    ok(missing.totalPages >= missing.binderPageCount, "total pages at least include binder pages");
 
     console.log(`  Farm Animals binder: htmlPages=${first.buildPageCount}, pdfPages=${first.totalPages}, bytes=${first.byteLength}, reflowSplits=${first.reflow.splitCount}`);
     return first;

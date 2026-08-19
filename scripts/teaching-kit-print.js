@@ -2470,6 +2470,8 @@
       .map((key) => `${key}:${selection.parts[key] ? 1 : 0}`)
       .join(",");
     built.contentFingerprint = [
+      text(kit.lessonPlanId || model.lessonPlanId || selection.plan?.id),
+      text(model.title || kit.title),
       selection.documentMode,
       selection.paperSize || "letter",
       selection.inkSaver ? "ink1" : "ink0",
@@ -2522,10 +2524,13 @@
     }
 
     const selectedPdfPrintables = (built.manifest?.printables || []).filter((item) => !item.embedAsImage);
+    const documentMode = text(built.documentMode);
+    // Entire Binder / Full Weekly must keep lesson pages even when one linked
+    // printable is missing. Printable-only packs still fail closed.
+    const printablesOnlyPack = documentMode === "printables" || documentMode === "one_printable";
     const strictPlan = merger.planPrintableAttachments(built.manifest, {
-      // Fail closed when the selection includes PDF printables that must be attached.
-      requireAttachment: selectedPdfPrintables.length > 0,
-      failOnMissing: selectedPdfPrintables.length > 0,
+      requireAttachment: printablesOnlyPack && selectedPdfPrintables.length > 0,
+      failOnMissing: printablesOnlyPack && selectedPdfPrintables.length > 0,
     });
     if (!strictPlan.ok) {
       return {
@@ -2640,7 +2645,7 @@
       manifest: built.manifest,
       attachmentPlan: strictPlan,
       fetchBytes: options.fetchBytes,
-      failOnInvalid: true,
+      failOnInvalid: printablesOnlyPack,
     });
     const mergeMs = Date.now() - mergeStarted;
     if (!merged.ok) {

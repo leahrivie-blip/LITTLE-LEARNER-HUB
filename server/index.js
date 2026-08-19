@@ -2098,13 +2098,22 @@ function normalizedCurriculumDailyPlanItem(value) {
   return normalized;
 }
 
+function coerceCurriculumDayPlanInput(value) {
+  if (Array.isArray(value)) return { items: value };
+  if (value && typeof value === "object") return value;
+  return {};
+}
+
 function normalizedCurriculumDailyPlans(value, lessonPlanId) {
-  const input = value && typeof value === "object" ? value : {};
+  const input = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   const days = {};
   CURRICULUM_WEEKDAYS.forEach((day) => {
-    const dayInput = input[day] && typeof input[day] === "object" ? input[day] : {};
+    const dayInput = coerceCurriculumDayPlanInput(input[day]);
     const normalizedDay = normalizedCurriculumDailyPlanDay(dayInput);
-    normalizedDay.items = normalizedList(dayInput.items, 30, normalizedCurriculumDailyPlanItem).map((item) => ({
+    const rawItems = Array.isArray(dayInput.items)
+      ? dayInput.items
+      : (Array.isArray(dayInput.activities) ? dayInput.activities : []);
+    normalizedDay.items = normalizedList(rawItems, 30, normalizedCurriculumDailyPlanItem).map((item) => ({
       ...item,
       sourceKey: curriculumActivitySourceKey(lessonPlanId, item.itemId),
     }));
