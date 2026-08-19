@@ -962,6 +962,50 @@
     return next;
   }
 
+  function activityDraftPatchFromItem(item, day) {
+    if (!item || typeof item !== "object") return null;
+    const patch = {};
+    [
+      "title", "activityCategory", "ageModifications", "objective", "description",
+      "materials", "preparation", "setup", "steps", "teacherLanguage", "observationOpportunities",
+      "safetyNotes", "cleanupTips", "indoorAlternatives", "outdoorAlternatives", "adaptations",
+      "extensions", "mixedAgeAdaptations", "vocabulary", "imageRequirement",
+      "imageBriefSetup", "imageBriefExample",
+    ].forEach((key) => {
+      if (item[key] != null && String(item[key]).trim() !== "") patch[key] = item[key];
+    });
+    if (item.durationMinutes != null && item.durationMinutes !== "") {
+      patch.durationMinutes = item.durationMinutes;
+    }
+    if (day) patch.dayOfWeek = day;
+    if (Array.isArray(item.teacherTips) && item.teacherTips.length) {
+      patch.teacherTips = item.teacherTips.slice();
+    }
+    if (Array.isArray(item.observationPrompts) && item.observationPrompts.length) {
+      patch.observationPrompts = item.observationPrompts.slice();
+    }
+    if (Array.isArray(item.substitutions) && item.substitutions.length) {
+      patch.substitutions = item.substitutions.slice();
+    }
+    const keys = Object.keys(patch);
+    if (!keys.length) return null;
+    const identityOnly = keys.every((key) => key === "title" || key === "dayOfWeek");
+    return identityOnly ? null : patch;
+  }
+
+  function buildActivityDraftMap(dailyPlans) {
+    const activitiesDraft = {};
+    const source = dailyPlans && typeof dailyPlans === "object" ? dailyPlans : emptyDailyPlans();
+    WEEKDAYS.forEach((day) => {
+      (source[day]?.items || []).forEach((item) => {
+        const id = text(item?.itemId);
+        const patch = activityDraftPatchFromItem(item, day);
+        if (id && patch) activitiesDraft[id] = patch;
+      });
+    });
+    return activitiesDraft;
+  }
+
   function buildCanonicalLessonPlan(parsed, options = {}) {
     const lesson = parsed?.lesson || {};
     const now = options.now || new Date().toISOString();
@@ -1009,9 +1053,10 @@
     if (text(lesson.coverImagePosition)) plan.coverImagePosition = lesson.coverImagePosition;
     if (text(lesson.coverQualityStatus)) plan.coverQualityStatus = lesson.coverQualityStatus;
     if (id) plan.id = id;
-    if (Object.keys(weekDraft).length) {
+    const activitiesDraft = buildActivityDraftMap(plan.dailyPlans);
+    if (Object.keys(weekDraft).length || Object.keys(activitiesDraft).length) {
       plan.enrichmentDraft = {
-        activities: {},
+        activities: activitiesDraft,
         week: weekDraft,
         updatedAt: now,
         lastEditedBy: text(options.lastEditedBy || ""),
@@ -1070,6 +1115,8 @@
     buildStructurePreview,
     buildCanonicalLessonPlan,
     buildBlankLessonPlan,
+    activityDraftPatchFromItem,
+    buildActivityDraftMap,
     findDuplicateLessonTitle,
     generateItemId,
   };

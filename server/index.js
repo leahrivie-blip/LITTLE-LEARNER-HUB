@@ -3795,10 +3795,11 @@ function mergeDailyPlansEnrichmentFromExisting(existingDailyPlans, incomingDaily
  * enrichment. Merge-from-existing when the incoming payload omits enrichment keys
  * or leaves activity enrichment fields empty.
  */
-function mergeEnrichmentPreservingLessonPlan(existingPlan, incomingPlan) {
+function mergeEnrichmentPreservingLessonPlan(existingPlan, incomingPlan, options = {}) {
   if (!incomingPlan || typeof incomingPlan !== "object") return incomingPlan;
   if (!existingPlan || typeof existingPlan !== "object") return incomingPlan;
   const next = { ...incomingPlan };
+  const replaceAuthoredContent = options.replaceAuthoredContent === true;
 
   if (!Object.prototype.hasOwnProperty.call(next, "enrichmentDraft")
     && Object.prototype.hasOwnProperty.call(existingPlan, "enrichmentDraft")) {
@@ -3843,17 +3844,84 @@ function mergeEnrichmentPreservingLessonPlan(existingPlan, incomingPlan) {
     }
   }
 
-  if (next.dailyPlans || existingPlan.dailyPlans) {
+  if (!replaceAuthoredContent && (next.dailyPlans || existingPlan.dailyPlans)) {
     next.dailyPlans = mergeDailyPlansEnrichmentFromExisting(existingPlan.dailyPlans, next.dailyPlans || {});
   }
   return next;
 }
 
-function syncCurriculumActivitiesForLessonPlan(curriculum, lessonPlanInput) {
+/**
+ * Master-paste seeds enrichmentDraft.activities by itemId. Persisted store
+ * activities use cur-act-* ids. Copy patches onto both keys so Admin GET /
+ * editor hydration cannot miss authored fields after write+read-back.
+ */
+function remapEnrichmentDraftActivityKeys(plan, syncedActivities) {
+  if (!plan || typeof plan !== "object") return plan;
+  const draft = plan.enrichmentDraft;
+  if (!draft || typeof draft !== "object" || Array.isArray(draft)) return plan;
+  const activities = draft.activities && typeof draft.activities === "object" && !Array.isArray(draft.activities)
+    ? { ...draft.activities }
+    : {};
+  (Array.isArray(syncedActivities) ? syncedActivities : []).forEach((act) => {
+    if (!act || act.status === "archived") return;
+    const idKey = normalizedShortText(act.id, 160);
+    const itemKey = normalizedShortText(act.itemId, 120);
+    if (!idKey) return;
+    const byId = activities[idKey] && typeof activities[idKey] === "object" && !Array.isArray(activities[idKey])
+      ? activities[idKey]
+      : null;
+    const byItem = itemKey && activities[itemKey] && typeof activities[itemKey] === "object" && !Array.isArray(activities[itemKey])
+      ? activities[itemKey]
+      : null;
+    if (!byId && !byItem) return;
+    activities[idKey] = { ...(byItem || {}), ...(byId || {}) };
+  });
+  return {
+    ...plan,
+    enrichmentDraft: {
+      ...draft,
+      activities,
+    },
+  };
+}
+
+/**
+ * Owner replace: overlay parsed master-paste authored fields onto an existing
+ * lesson while preserving identity, access plan, publish state, and linked resources.
+ */
+function replaceCurriculumLessonContentFromMasterPaste({ existingPlan, incomingPlan, now, id } = {}) {
+  const incoming = incomingPlan && typeof incomingPlan === "object" ? incomingPlan : {};
+  const existing = existingPlan && typeof existingPlan === "object" ? existingPlan : {};
+  const existingId = normalizedShortText(existing.id, 160) || normalizedShortText(id, 160);
+  return {
+    ...incoming,
+    id: existingId,
+    createdAt: existing.createdAt || incoming.createdAt || now,
+    updatedAt: now,
+    publishedAt: existing.publishedAt || "",
+    status: existing.status || "draft",
+    plan: existing.plan === "Pro" ? "Pro" : "Free",
+    resourceIds: Array.isArray(existing.resourceIds) ? existing.resourceIds.slice() : [],
+    teachingKit: existing.teachingKit,
+    enrichmentPublishHistory: existing.enrichmentPublishHistory,
+    enrichmentDraftUndo: existing.enrichmentDraftUndo,
+    ownerWorkspace: existing.ownerWorkspace,
+    coverImageUrl: incoming.coverImageUrl || existing.coverImageUrl || "",
+    coverImageAlt: incoming.coverImageAlt || existing.coverImageAlt || "",
+    coverImageSource: incoming.coverImageSource || existing.coverImageSource || "",
+    coverImagePosition: incoming.coverImagePosition || existing.coverImagePosition || "center",
+    coverQualityStatus: Object.prototype.hasOwnProperty.call(incoming, "coverQualityStatus") && incoming.coverQualityStatus
+      ? incoming.coverQualityStatus
+      : (existing.coverQualityStatus || ""),
+    enrichmentDraft: incoming.enrichmentDraft,
+  };
+}
+
+function syncCurriculumActivitiesForLessonPlan(curriculum, lessonPlanInput, options = {}) {
   const now = new Date().toISOString();
   const store = normalizedCurriculumStore(curriculum);
   const existingPlan = (store.lessonPlans || []).find((item) => item.id === String(lessonPlanInput?.id || "").trim()) || null;
-  const preservedInput = mergeEnrichmentPreservingLessonPlan(existingPlan, lessonPlanInput);
+  const preservedInput = mergeEnrichmentPreservingLessonPlan(existingPlan, lessonPlanInput, options);
   const plan = normalizedCurriculumLessonPlan(preservedInput);
   if (!plan) return null;
 
@@ -3970,13 +4038,14 @@ function syncCurriculumActivitiesForLessonPlan(curriculum, lessonPlanInput) {
     ...plan,
     activityIds,
     updatedAt: now,
-  });
+  }, options);
   if (Object.prototype.hasOwnProperty.call(lessonPlanInput || {}, "teachingKit")) {
     const overlay = teachingKit.normalizedTeachingKitOverlay(lessonPlanInput.teachingKit);
     // Malformed/null explicit teachingKit must stay omitted after re-merge.
     if (!overlay) delete remerged.teachingKit;
   }
-  const updatedPlan = normalizedCurriculumLessonPlan(remerged);
+  const remapped = remapEnrichmentDraftActivityKeys(remerged, normalizedSynced);
+  const updatedPlan = normalizedCurriculumLessonPlan(remapped);
   if (!updatedPlan) return null;
 
   const otherPlans = store.lessonPlans.filter((item) => item.id !== plan.id);
@@ -22754,7 +22823,7 @@ async function handlePublishEnrichment(request, response, ctx) {
   });
 }
 
-async function handleAdminCurriculumLessonPlanSave(request, response) {
+async function handleAdminCurriculumLessonPlanSave(request, response, options = {}) {
   const startedAt = Date.now();
   let step = "received";
   console.log("[curriculum-lesson-save] request received");
@@ -22772,7 +22841,7 @@ async function handleAdminCurriculumLessonPlanSave(request, response) {
       return;
     }
 
-    const saveMode = normalizedShortText(body.saveMode, 40) || "full";
+    const saveMode = normalizedShortText(options.forceSaveMode || body.saveMode, 40) || "full";
     const incomingId = normalizedShortText(incomingPlan.id, 160);
     const id = incomingId || generateCurriculumLessonPlanId();
     const now = new Date().toISOString();
@@ -22985,19 +23054,47 @@ async function handleAdminCurriculumLessonPlanSave(request, response) {
         body,
       });
     }
-    const nextStatus = normalizedShortText(incomingPlan.status, 20);
+
+    const isMasterPasteReplace = saveMode === "replace_from_master_paste";
+    if (isMasterPasteReplace) {
+      if (!requireTeachingKitOwnerAdminSession(request, body, response)) return;
+      if (!existingPlan) {
+        jsonResponse(response, 404, { error: "Lesson plan not found.", code: "lesson_not_found" });
+        return;
+      }
+      if (process.env.NODE_ENV === "test" && body.simulateActivityWriteFailure === true) {
+        jsonResponse(response, 500, {
+          error: "Simulated activity persistence failure. Lesson was not replaced.",
+          code: "simulated_activity_write_failure",
+        });
+        return;
+      }
+    }
+
+    const nextStatus = isMasterPasteReplace
+      ? normalizedShortText(existingPlan.status, 20)
+      : normalizedShortText(incomingPlan.status, 20);
     const wasPublic = isCurriculumLessonPublic(existingPlan?.status || "");
     const willBePublic = isCurriculumLessonPublic(nextStatus);
     let publishedAt = normalizedShortText(existingPlan?.publishedAt, 80)
       || normalizedShortText(incomingPlan.publishedAt, 80)
       || "";
-    if (willBePublic && !wasPublic) {
+    if (isMasterPasteReplace) {
+      publishedAt = normalizedShortText(existingPlan.publishedAt, 80) || "";
+    } else if (willBePublic && !wasPublic) {
       publishedAt = now;
     } else if (willBePublic && !publishedAt) {
       // Legacy public plans: keep a stable stamp so weekly digests don't re-fire on every edit.
       publishedAt = existingPlan?.createdAt || now;
     }
-    const planInput = withAutoAssignedLessonCover({
+    const planInput = isMasterPasteReplace
+      ? replaceCurriculumLessonContentFromMasterPaste({
+        existingPlan,
+        incomingPlan,
+        now,
+        id,
+      })
+      : withAutoAssignedLessonCover({
       ...incomingPlan,
       // Preserve an existing cover when the client omits cover fields on update.
       coverImageUrl: incomingPlan.coverImageUrl || existingPlan?.coverImageUrl || "",
@@ -23013,7 +23110,7 @@ async function handleAdminCurriculumLessonPlanSave(request, response) {
       publishedAt,
     });
 
-    if (willBePublic) {
+    if (willBePublic && !isMasterPasteReplace) {
       let ownerWorkspaceApi = null;
       try { ownerWorkspaceApi = require("../scripts/teaching-kit-owner-workspace.js"); } catch (_error) { ownerWorkspaceApi = null; }
       const storeActsForGate = (existingCurriculum.activities || []).filter((item) => item.lessonPlanId === id);
@@ -23031,15 +23128,18 @@ async function handleAdminCurriculumLessonPlanSave(request, response) {
     }
 
     step = "syncActivities";
-    let syncedCurriculum = syncCurriculumActivitiesForLessonPlan(existingCurriculum, planInput);
+    let syncedCurriculum = syncCurriculumActivitiesForLessonPlan(existingCurriculum, planInput, {
+      replaceAuthoredContent: isMasterPasteReplace,
+    });
     if (!syncedCurriculum) {
       jsonResponse(response, 400, { error: "Lesson plan could not be normalized." });
       return;
     }
     // Public lessons must promote linked draft printables that already have files,
     // otherwise customer Teaching Kit advertises media URLs that 404.
+    // Replace-from-master-paste must not mutate linked printable/resource records.
     let promotedPrintableIds = [];
-    if (willBePublic) {
+    if (willBePublic && !isMasterPasteReplace) {
       const promoted = publishLinkedDraftResourcesForLesson(syncedCurriculum, id, { now });
       syncedCurriculum = promoted.curriculum;
       promotedPrintableIds = promoted.publishedResourceIds;
@@ -30477,6 +30577,9 @@ const server = http.createServer(async (request, response) => {
     }
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/series") return await handleAdminCurriculumSeriesSave(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/lesson-plans") return await handleAdminCurriculumLessonPlanSave(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/curriculum/lesson-plans/replace-from-master-paste") {
+      return await handleAdminCurriculumLessonPlanSave(request, response, { forceSaveMode: "replace_from_master_paste" });
+    }
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/lesson-plans/delete") {
       return await handleAdminCurriculumLessonPlanDelete(request, response);
     }

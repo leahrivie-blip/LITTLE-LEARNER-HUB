@@ -6869,6 +6869,9 @@ const deletedAdminCurriculumLessonIds = new Set();
 let adminCurriculumLessonImportDraft = null;
 let adminCreateLessonPlanUi = {
   step: "",
+  mode: "create",
+  targetLessonId: "",
+  currentSnapshot: null,
   pasteText: "",
   preview: null,
   parsed: null,
@@ -10285,6 +10288,9 @@ function curriculumLessonStructurePasteApi() {
 function resetAdminCreateLessonPlanUi() {
   adminCreateLessonPlanUi = {
     step: "",
+    mode: "create",
+    targetLessonId: "",
+    currentSnapshot: null,
     pasteText: "",
     preview: null,
     parsed: null,
@@ -10293,6 +10299,105 @@ function resetAdminCreateLessonPlanUi() {
     creating: false,
   };
   document.querySelector("#adminCreateLessonPlanOverlay")?.remove();
+}
+
+function masterPasteWeekdayCounts(parsedOrPreview) {
+  const byDay = parsedOrPreview?.byDay || parsedOrPreview?.preview?.byDay || {};
+  const counts = { monday: 0, tuesday: 0, wednesday: 0, thursday: 0, friday: 0 };
+  ["monday", "tuesday", "wednesday", "thursday", "friday"].forEach((day) => {
+    const items = Array.isArray(byDay[day]) ? byDay[day] : (parsedOrPreview?.dailyPlans?.[day]?.items || []);
+    counts[day] = items.length;
+  });
+  counts.total = counts.monday + counts.tuesday + counts.wednesday + counts.thursday + counts.friday;
+  return counts;
+}
+
+function currentLessonMasterPasteSnapshot(planId) {
+  const plan = typeof curriculumLessonPlanById === "function" ? curriculumLessonPlanById(planId) : null;
+  const activities = typeof curriculumActivitiesForLesson === "function"
+    ? curriculumActivitiesForLesson(planId).filter((item) => String(item.status || "") !== "archived")
+    : [];
+  return {
+    id: plan?.id || planId,
+    title: plan?.title || "Untitled Lesson Plan",
+    age: plan?.age || "",
+    status: plan?.status || "draft",
+    plan: plan?.plan === "Pro" ? "Pro" : "Free",
+    activityCount: activities.length,
+    resourceIds: Array.isArray(plan?.resourceIds) ? plan.resourceIds.slice() : [],
+  };
+}
+
+function masterPasteSectionFlags(preview) {
+  const rec = preview?.recognized || {};
+  return [
+    ["Weekly overview", rec.weeklyOverview],
+    ["Learning objectives", rec.objectives],
+    ["Materials", rec.weeklyMaterials],
+    ["Toolkit", rec.teacherPreparation],
+    ["Prep checklist", rec.prepChecklist],
+    ["Observation focus", rec.observationFocus],
+    ["Family connection", rec.familyConnection],
+    ["Milestones", rec.milestones],
+    ["Books", (preview?.books || []).length],
+    ["Songs", (preview?.songs || []).length],
+    ["Printable ideas", (preview?.printableIdeas || []).length],
+  ];
+}
+
+function masterPasteReplacementSummaryHtml(ui) {
+  const snapshot = ui.currentSnapshot || {};
+  const preview = ui.preview || {};
+  const counts = masterPasteWeekdayCounts(preview);
+  const sections = masterPasteSectionFlags(preview);
+  return `
+    <div class="admin-create-lesson-preview" data-replace-master-paste-summary>
+      <p class="eyebrow">CURRENT LESSON</p>
+      <p><strong>${escapeHtml(snapshot.title || "Untitled Lesson Plan")}</strong></p>
+      <p>${escapeHtml(snapshot.age || "Age not set")}</p>
+      <p>Current activities: ${Number(snapshot.activityCount) || 0}</p>
+      <p class="eyebrow">PARSED REPLACEMENT</p>
+      <p><strong>${escapeHtml(preview.title || "Untitled")}</strong></p>
+      <p>${escapeHtml(preview.age || "Age not recognized")}</p>
+      <p>Replacement activities: ${Number(preview.activityCount) || 0}</p>
+      <p class="eyebrow">WEEKDAYS REPRESENTED</p>
+      <ul>
+        <li>Monday — ${counts.monday}</li>
+        <li>Tuesday — ${counts.tuesday}</li>
+        <li>Wednesday — ${counts.wednesday}</li>
+        <li>Thursday — ${counts.thursday}</li>
+        <li>Friday — ${counts.friday}</li>
+        <li><strong>Total activities: ${counts.total}</strong></li>
+      </ul>
+      <p class="eyebrow">MAJOR SECTIONS DETECTED</p>
+      <ul>
+        ${sections.map(([label, value]) => `<li>${escapeHtml(label)} ${value ? "✓" : "—"}</li>`).join("")}
+      </ul>
+      <p class="muted-copy">Linked resources, access plan, lesson ID, and publish status will not change.</p>
+    </div>
+  `;
+}
+
+function openAdminReplaceLessonFromMasterPaste(planId) {
+  const id = String(planId || "").trim();
+  if (!id) {
+    if (typeof showActionFeedback === "function") showActionFeedback("Choose a lesson before replacing from a master paste.");
+    return;
+  }
+  const snapshot = currentLessonMasterPasteSnapshot(id);
+  adminCreateLessonPlanUi = {
+    step: "paste",
+    mode: "replace",
+    targetLessonId: id,
+    currentSnapshot: snapshot,
+    pasteText: "",
+    preview: null,
+    parsed: null,
+    duplicate: null,
+    error: "",
+    creating: false,
+  };
+  renderAdminCreateLessonPlanDialog();
 }
 
 function createAdminCurriculumLessonPlan(options) {
@@ -10304,6 +10409,9 @@ function createAdminCurriculumLessonPlan(options) {
   }
   adminCreateLessonPlanUi = {
     step: "choose",
+    mode: "create",
+    targetLessonId: "",
+    currentSnapshot: null,
     pasteText: "",
     preview: null,
     parsed: null,
@@ -10342,16 +10450,46 @@ function renderAdminCreateLessonPlanDialog() {
       </div>
     `;
   } else if (ui.step === "paste") {
+    const isReplace = ui.mode === "replace";
+    const snapshot = ui.currentSnapshot || {};
     body = `
-      <p class="muted-copy">Paste the lesson title, age group, week fields, and activities. Labels work with or without a colon — Lesson Plan Title, Age Group, and Activity name + Weekday blocks are recognized.</p>
+      <p class="muted-copy">${isReplace
+        ? "Paste a complete master lesson to replace this lesson’s curriculum content. Linked resources, access plan, and lesson identity stay unchanged."
+        : "Paste the lesson title, age group, week fields, and activities. Labels work with or without a colon — Lesson Plan Title, Age Group, and Activity name + Weekday blocks are recognized."}</p>
+      ${isReplace ? `<p class="muted-copy">Replacing: <strong>${escapeHtml(snapshot.title || "Untitled Lesson Plan")}</strong> · ${escapeHtml(snapshot.age || "Age not set")} · ${Number(snapshot.activityCount) || 0} current activities</p>` : ""}
       <label>Paste full lesson plan
         <textarea id="adminCreateLessonPasteText" rows="18" placeholder="Lesson title:&#10;Baby Moves &amp; Discovers&#10;&#10;Age band:&#10;Infant 0–6 Months&#10;&#10;Monday:&#10;Color Scarf Tracking">${escapeHtml(ui.pasteText || "")}</textarea>
       </label>
       ${ui.error ? `<p class="form-message" role="alert">${escapeHtml(ui.error)}</p>` : ""}
       <div class="form-actions">
-        <button type="button" class="ghost-button" data-create-lesson-choose${busy}>Back</button>
-        <button type="button" class="primary-button" data-create-lesson-preview${busy}>Preview</button>
+        ${isReplace ? "" : `<button type="button" class="ghost-button" data-create-lesson-choose${busy}>Back</button>`}
+        <button type="button" class="primary-button" data-create-lesson-preview${busy}>Parse / Preview</button>
         <button type="button" class="ghost-button" data-create-lesson-cancel${busy}>Cancel</button>
+      </div>
+    `;
+  } else if (ui.step === "replace-confirm") {
+    const snapshot = ui.currentSnapshot || {};
+    const preview = ui.preview || {};
+    const currentCount = Number(snapshot.activityCount) || 0;
+    const nextCount = Number(preview.activityCount) || 0;
+    body = `
+      <div class="admin-create-lesson-preview" data-replace-master-paste-confirm>
+        <h4>Replace the curriculum content for “${escapeHtml(snapshot.title || "this lesson")}”?</h4>
+        <p>Current activities: ${currentCount}</p>
+        <p>Replacement activities: ${nextCount}</p>
+        <p>This will replace the lesson’s authored week content and activities.</p>
+        <p>It will NOT change:</p>
+        <ul>
+          <li>lesson ID</li>
+          <li>Free/Pro access</li>
+          <li>publish status</li>
+          <li>linked printable resources</li>
+        </ul>
+      </div>
+      ${ui.error ? `<p class="form-message" role="alert">${escapeHtml(ui.error)}</p>` : ""}
+      <div class="form-actions">
+        <button type="button" class="ghost-button" data-create-lesson-paste${busy}>Cancel</button>
+        <button type="button" class="danger-button" data-replace-lesson-content-confirm${busy}>Replace Lesson Content</button>
       </div>
     `;
   } else if (ui.step === "preview" || ui.step === "duplicate") {
@@ -10423,7 +10561,8 @@ function renderAdminCreateLessonPlanDialog() {
           <p class="muted-copy">Unsupported milestone values (not mapped): ${escapeHtml(rejectedMilestones.join(", "))}</p>
         ` : ""}
       </div>
-      ${ui.step === "duplicate" && ui.duplicate ? `
+      ${ui.mode === "replace" ? masterPasteReplacementSummaryHtml(ui) : ""}
+      ${ui.mode !== "replace" && ui.step === "duplicate" && ui.duplicate ? `
         <p class="form-message" role="alert">A lesson named ‘${escapeHtml(ui.duplicate.title || preview.title || "")}’ already exists.</p>
         <div class="form-actions">
           <button type="button" class="primary-button" data-create-lesson-open-existing${busy}>Open existing lesson</button>
@@ -10433,17 +10572,20 @@ function renderAdminCreateLessonPlanDialog() {
       ` : `
         ${ui.error ? `<p class="form-message" role="alert">${escapeHtml(ui.error)}</p>` : ""}
         <div class="form-actions">
-          <button type="button" class="primary-button" data-create-lesson-confirm${busy}>Create Draft Lesson</button>
+          ${ui.mode === "replace"
+            ? `<button type="button" class="primary-button" data-replace-lesson-confirm-preview${busy}>Confirm Replacement</button>`
+            : `<button type="button" class="primary-button" data-create-lesson-confirm${busy}>Create Draft Lesson</button>`}
           <button type="button" class="ghost-button" data-create-lesson-paste${busy}>Back</button>
           <button type="button" class="ghost-button" data-create-lesson-cancel${busy}>Cancel</button>
         </div>
       `}
     `;
   }
+  const isReplace = ui.mode === "replace";
   host.innerHTML = `
     <div class="admin-create-lesson-dialog" role="dialog" aria-modal="true" aria-labelledby="adminCreateLessonPlanTitle">
       <p class="eyebrow">Owner Admin</p>
-      <h3 id="adminCreateLessonPlanTitle">Create New Lesson Plan</h3>
+      <h3 id="adminCreateLessonPlanTitle">${isReplace ? "Replace From Master Paste" : "Create New Lesson Plan"}</h3>
       ${body}
     </div>
   `;
@@ -10692,6 +10834,12 @@ function previewAdminCreateLessonPaste() {
     renderAdminCreateLessonPlanDialog();
     return;
   }
+  if (adminCreateLessonPlanUi.mode === "replace") {
+    adminCreateLessonPlanUi.duplicate = null;
+    adminCreateLessonPlanUi.step = "preview";
+    renderAdminCreateLessonPlanDialog();
+    return;
+  }
   const existing = typeof curriculumLessonPlansForAdmin === "function" ? curriculumLessonPlansForAdmin() : [];
   const duplicate = api.findDuplicateLessonTitle(parsed.lesson.title, existing);
   adminCreateLessonPlanUi.duplicate = duplicate;
@@ -10741,6 +10889,90 @@ async function confirmAdminCreateLessonPaste({ asCopy = false } = {}) {
   } catch (error) {
     adminCreateLessonPlanUi.creating = false;
     adminCreateLessonPlanUi.error = error.message || "Could not create the draft lesson.";
+    renderAdminCreateLessonPlanDialog();
+  }
+}
+
+async function persistReplaceCurriculumLessonFromMasterPaste(lessonPlan) {
+  const token = adminSession()?.token || "";
+  const targetId = String(adminCreateLessonPlanUi.targetLessonId || lessonPlan?.id || "").trim();
+  if (!curriculumLessonPlanConfig.endpoint || !canUseLaunchBackend() || !token) {
+    throw new Error("Backend server and admin login are required.");
+  }
+  if (!targetId) throw new Error("Choose a lesson before replacing from a master paste.");
+  if (!curriculumExpectedUpdatedAt()) {
+    try { await loadAdminSiteContent(); } catch (_error) { /* stamp may still be empty on a fresh store */ }
+  }
+  const payload = {
+    expectedUpdatedAt: curriculumExpectedUpdatedAt(),
+    saveMode: "replace_from_master_paste",
+    lessonPlan: {
+      ...lessonPlan,
+      id: targetId,
+    },
+  };
+  delete payload.lessonPlan.enrichmentPublished;
+  const response = await fetch("/api/admin/curriculum/lesson-plans/replace-from-master-paste", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (response.status === 409) {
+    await handleCurriculumSaveConflict(data || {});
+    throw new Error(data?.error || "Content was updated elsewhere. Click Replace again.");
+  }
+  if (!response.ok || !data?.lessonPlan?.id) {
+    throw new Error(data?.error || "Could not replace the lesson content.");
+  }
+  applyCurriculumState(data.curriculum || effectiveCurriculum(), {
+    siteContentUpdatedAt: data.siteContentUpdatedAt,
+  });
+  return data.lessonPlan;
+}
+
+function beginAdminReplaceLessonConfirm() {
+  const parsed = adminCreateLessonPlanUi.parsed;
+  if (!parsed?.ok) {
+    adminCreateLessonPlanUi.step = "paste";
+    adminCreateLessonPlanUi.error = parsed?.errors?.join(" ") || "Fix parsing errors before replacing this lesson.";
+    renderAdminCreateLessonPlanDialog();
+    return;
+  }
+  adminCreateLessonPlanUi.step = "replace-confirm";
+  adminCreateLessonPlanUi.error = "";
+  renderAdminCreateLessonPlanDialog();
+}
+
+async function confirmAdminReplaceLessonPaste() {
+  const api = curriculumLessonStructurePasteApi();
+  const parsed = adminCreateLessonPlanUi.parsed;
+  if (!api || !parsed?.ok) {
+    adminCreateLessonPlanUi.error = "Preview the paste before replacing this lesson.";
+    adminCreateLessonPlanUi.step = "paste";
+    renderAdminCreateLessonPlanDialog();
+    return;
+  }
+  adminCreateLessonPlanUi.creating = true;
+  renderAdminCreateLessonPlanDialog();
+  const targetId = String(adminCreateLessonPlanUi.targetLessonId || "").trim();
+  try {
+    const lessonPlan = api.buildCanonicalLessonPlan(parsed, {
+      id: targetId,
+      lastEditedBy: adminSession()?.email || "",
+    });
+    const saved = await persistReplaceCurriculumLessonFromMasterPaste(lessonPlan);
+    resetAdminCreateLessonPlanUi();
+    adminCurriculumLessonEditorId = saved.id;
+    setAdminCurriculumLessonSaveBanner(`Replaced curriculum content for “${saved.title}”. Lesson ID, access plan, publish status, and linked resources were unchanged.`, true);
+    if (typeof LLHTeachingKitEnrichmentEditor !== "undefined" && LLHTeachingKitEnrichmentEditor.isOpen?.()) {
+      LLHTeachingKitEnrichmentEditor.open(saved.id, { source: "edit", initialMode: "activities", ownerWorkspace: true });
+    } else {
+      await openOwnerTeachingKitEditor(saved.id, { source: "edit", initialMode: "activities" });
+    }
+  } catch (error) {
+    adminCreateLessonPlanUi.creating = false;
+    adminCreateLessonPlanUi.error = error.message || "Could not replace the lesson content.";
     renderAdminCreateLessonPlanDialog();
   }
 }
@@ -12647,12 +12879,14 @@ function renderAdminCurriculumLessonPlanForm(plan) {
           <button class="ghost-button" type="button" data-curriculum-lesson-preview-as-user ${adminCurriculumLessonSaving ? "disabled" : ""}>Preview as User</button>
           <button class="ghost-button" type="button" data-curriculum-lesson-view-published ${isPublic ? "" : "disabled"} title="${isPublic ? "Open the live published lesson customers see" : "This lesson is not published yet"}">View Published Version</button>
           <button class="ghost-button" type="button" data-curriculum-lesson-save-draft ${adminCurriculumLessonSaving ? "disabled" : ""}>Save Draft</button>
+          <button class="ghost-button" type="button" data-replace-from-master-paste ${adminCurriculumLessonSaving ? "disabled" : ""}>Replace From Master Paste</button>
           <button class="primary-button" type="button" data-curriculum-lesson-publish ${adminCurriculumLessonSaving ? "disabled" : ""}>Publish lesson</button>
         </div>
       </div>
       <button class="ghost-button back-button" type="button" data-curriculum-lesson-back>← Back to Lesson Plan List</button>
       <h4>Editing: ${escapeHtml(record.title || "New Lesson Plan")}</h4>
       <p class="muted-copy">${escapeHtml(statusSummary)}. Save Draft keeps work unpublished. Publish makes it visible to customers. Preview as User never publishes.</p>
+      <p class="muted-copy">Paste a complete master lesson to replace this lesson’s curriculum content. Linked resources, access plan, and lesson identity stay unchanged.</p>
       ${adminCurriculumLessonJumpNavHtml()}
       <div class="access-notice curriculum-activity-sync-notice" role="status">
         Changes to lesson-plan activities will update linked Activity Library entries when saved.
@@ -12735,6 +12969,7 @@ function renderAdminCurriculumLessonPlanForm(plan) {
         <button class="ghost-button" type="button" data-curriculum-lesson-back>Back to Lesson Plans</button>
         <button class="ghost-button" type="button" data-curriculum-lesson-preview-as-user>Preview as User</button>
         <button class="ghost-button" type="button" data-curriculum-lesson-save-draft ${adminCurriculumLessonSaving ? "disabled" : ""}>Save Draft</button>
+        <button class="ghost-button" type="button" data-replace-from-master-paste ${adminCurriculumLessonSaving ? "disabled" : ""}>Replace From Master Paste</button>
         <button class="primary-button" type="button" data-curriculum-lesson-publish ${adminCurriculumLessonSaving ? "disabled" : ""}>Publish lesson</button>
       </div>
       ${record.id ? `
@@ -73188,6 +73423,15 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  if (event.target.closest("[data-replace-from-master-paste]") && isAdminUnlocked()) {
+    event.preventDefault();
+    const planId = adminCurriculumLessonEditorId
+      || document.querySelector("#adminCurriculumLessonPlanForm input[name='id']")?.value
+      || "";
+    openAdminReplaceLessonFromMasterPaste(planId);
+    return;
+  }
+
   if (event.target.closest("[data-curriculum-lesson-publish]") && isAdminUnlocked()) {
     event.preventDefault();
     const form = document.querySelector("#adminCurriculumLessonPlanForm");
@@ -75558,6 +75802,14 @@ document.addEventListener("click", async (event) => {
   }
   if (event.target.closest("[data-create-lesson-confirm]")) {
     confirmAdminCreateLessonPaste();
+    return;
+  }
+  if (event.target.closest("[data-replace-lesson-confirm-preview]")) {
+    beginAdminReplaceLessonConfirm();
+    return;
+  }
+  if (event.target.closest("[data-replace-lesson-content-confirm]")) {
+    confirmAdminReplaceLessonPaste();
     return;
   }
   if (event.target.closest("[data-create-lesson-as-copy]")) {

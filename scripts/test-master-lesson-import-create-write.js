@@ -20,8 +20,11 @@ const {
 const {
   formatActivityPreview,
   fifteenActivityFixture,
+  rainbowCoffeeFilterArtFixture,
+  weatherWatchersTwentyActivityFixture,
   runStructuredActivityParserRegressionTests,
 } = require("./test-master-lesson-activity-import-parser.js");
+const weekKit = require("./curriculum-week-kit-paste.js");
 const enrich = require("./teaching-kit-enrichment.js");
 
 const ROOT = path.join(__dirname, "..");
@@ -463,14 +466,110 @@ async function runWriteTests() {
     assert.match(mondayMark.teacherLanguage, /What do you notice in Monday Mark Making/);
     assert.match(mondayMark.observationOpportunities, /Watch Monday Mark Making closely/);
     assert.equal(mondayMark.imageRequirement, "required");
+
+    stamp = fifteen.saved.siteContentUpdatedAt;
+    const rainbowFix = rainbowCoffeeFilterArtFixture();
+    const rainbowWrite = await createDraftFromPaste(token, stamp, rainbowFix.paste);
+    stamp = rainbowWrite.saved.siteContentUpdatedAt;
+    const rainbowId = rainbowWrite.saved.lessonPlan.id;
+    const rainbowActs = persistedActivities(rainbowWrite.saved, rainbowId);
+    assert.equal(rainbowActs.length, 1);
+    const rainbow = findActivity(rainbowActs, "Rainbow Coffee Filter Art");
+    assert.ok(rainbow, "POST curriculum.activities must include Rainbow Coffee Filter Art");
+    assert.equal(rainbow.dayOfWeek, "thursday");
+    assert.equal(rainbow.activityCategory, "Art");
+    assert.match(rainbow.ageModifications, /Preschool 3–4 Years/);
+    assert.equal(rainbow.durationMinutes, 20);
+    assert.match(rainbow.objective, /color spreading and blending/);
+    assert.match(rainbow.description, /washable marker colors to a coffee filter/);
+    assert.deepEqual(listLines(rainbow.materials), [
+      "White coffee filters",
+      "Washable markers",
+      "Droppers",
+      "Spray bottles",
+      "Water",
+      "Trays",
+      "Drying rack",
+    ]);
+    assert.match(rainbow.preparation, /Place each filter on a tray/);
+    assert.match(rainbow.setup, /rainbow-colored markers/);
+    assert.match(rainbow.steps, /Draw color marks on the dry filter/);
+    assert.match(rainbow.teacherLanguage, /What happened when water touched the marker/);
+    assert.match(rainbow.observationOpportunities, /fine-motor control/);
+    assert.match(rainbow.safetyNotes, /washable non-toxic markers/);
+    assert.match(rainbow.cleanupTips, /drying rack/);
+    assert.match(rainbow.indoorAlternatives, /indoors or outdoors at an art table/);
+    assert.match(rainbow.outdoorAlternatives, /indoors or outdoors at an art table/);
+    assert.ok(Array.isArray(rainbow.teacherTips) && rainbow.teacherTips.some((tip) => /oversaturating/.test(tip)));
+    assert.equal(rainbow.substitutions.length, 1);
+    assert.equal(rainbow.substitutions[0].need, weekKit.UNSTRUCTURED_SUBSTITUTION_NEED);
+    assert.notEqual(rainbow.substitutions[0].need, "If missing");
+    assert.match(rainbow.substitutions[0].use, /liquid watercolor drops/);
+    assert.match(rainbow.adaptations, /dot markers/);
+    assert.match(rainbow.extensions, /two specific colors meet/);
+    assert.match(rainbow.mixedAgeAdaptations, /Younger children can add random colors/);
+    assert.ok(rainbow.observationPrompts.some((row) => /notice spreading/.test(row)));
+    assert.match(rainbow.vocabulary, /rainbow/);
+    assert.equal(rainbow.imageRequirement, "example_only");
+    assert.ok(!rainbow.exampleImageUrl);
+    const rainbowDraft = rainbowWrite.saved.lessonPlan.enrichmentDraft?.activities || {};
+    const rainbowPatch = enrich.resolveActivityDraftPatch(rainbow, rainbowDraft);
+    const rainbowModel = enrich.mapActivityToOwnerEditorModel(rainbow, rainbowPatch, rainbowWrite.saved.lessonPlan);
+    const rainbowView = enrich.activityEnrichmentView(rainbow, rainbowPatch);
+    assert.equal(rainbowModel.durationMinutes, "20");
+    assert.match(rainbowModel.objective, /color spreading and blending/);
+    assert.match(rainbowModel.description, /washable marker colors/);
+    assert.match(rainbowModel.materials, /White coffee filters/);
+    assert.match(rainbowModel.preparation, /Place each filter on a tray/);
+    assert.match(rainbowModel.setup, /rainbow-colored markers/);
+    assert.match(rainbowModel.steps, /Draw color marks on the dry filter/);
+    assert.match(rainbowModel.teacherLanguage, /What happened when water touched the marker/);
+    assert.match(rainbowModel.observationOpportunities, /fine-motor control/);
+    assert.match(rainbowModel.safetyNotes, /washable non-toxic markers/);
+    assert.match(rainbowModel.cleanupTips, /drying rack/);
+    assert.match(rainbowView.indoorAlternatives, /art table/);
+    assert.match(rainbowView.outdoorAlternatives, /art table/);
+    assert.match(rainbowView.adaptations, /dot markers/);
+    assert.match(rainbowView.extensions, /two specific colors meet/);
+    assert.match(rainbowView.mixedAgeAdaptations, /Younger children/);
+    assert.equal(rainbowView.imageRequirement, "example_only");
+    assert.equal(enrich.imageRequirementLabel(rainbowView.imageRequirement), "Finished example only");
+    assert.match(rainbowView.substitutions[0].use, /liquid watercolor drops/);
+    assert.notEqual(rainbowView.substitutions[0].need, "If missing");
+    const rainbowGet = await requestJson("GET", "/api/admin/site-content", null, token);
+    const rainbowReloaded = (rainbowGet.json.siteContent?.curriculum?.activities || [])
+      .find((item) => item.lessonPlanId === rainbowId && item.title === "Rainbow Coffee Filter Art");
+    assert.ok(rainbowReloaded);
+    assert.equal(rainbowReloaded.durationMinutes, 20);
+    assert.match(rainbowReloaded.objective, /color spreading and blending/);
+    assert.equal(rainbowReloaded.imageRequirement, "example_only");
+    console.log("PASS  Rainbow Coffee Filter Art write+read-back preserves every expected field");
+
+    const twentyFix = weatherWatchersTwentyActivityFixture();
+    const twentyWrite = await createDraftFromPaste(token, stamp, twentyFix.paste);
+    const twentyActs = persistedActivities(twentyWrite.saved, twentyWrite.saved.lessonPlan.id);
+    assert.equal(twentyActs.length, 20);
+    ["monday", "tuesday", "wednesday", "thursday", "friday"].forEach((day) => {
+      assert.equal(twentyActs.filter((item) => item.dayOfWeek === day).length, 4, day);
+    });
+    const rainbowInTwenty = findActivity(twentyActs, "Rainbow Coffee Filter Art");
+    assert.match(rainbowInTwenty.objective, /color spreading and blending/);
+    assert.equal(findActivity(twentyActs, "Monday Cloud Watch").dayOfWeek, "monday");
+    assert.equal(findActivity(twentyActs, "Friday Storm Stories").dayOfWeek, "friday");
+    console.log("PASS  20-activity Weather Watchers write does not overwrite sibling activities");
+
     const pub = await requestJson("GET", "/api/site-content");
     const publicIds = (pub.json.siteContent?.curriculumLibrary?.lessonPlans
       || pub.json.curriculumLibrary?.lessonPlans
       || []).map((item) => item.id);
     assert.ok(!publicIds.includes(lessonId));
     assert.ok(!publicIds.includes(fifteenId));
+    assert.ok(!publicIds.includes(rainbowId));
+    assert.ok(!publicIds.includes(twentyWrite.saved.lessonPlan.id));
     const resourcesAfterFifteen = (fifteen.saved.curriculum?.resources || []).length;
     assert.equal(resourcesAfterFifteen, resourcesBefore);
+    const resourcesAfterRainbow = (rainbowWrite.saved.curriculum?.resources || []).length;
+    assert.equal(resourcesAfterRainbow, resourcesBefore);
     console.log("PASS  12  15-activity persisted draft (3 per weekday); no production publish");
   } finally {
     await stopServer(child);

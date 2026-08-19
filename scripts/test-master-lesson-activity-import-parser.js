@@ -169,6 +169,158 @@ function activityBlock(name, weekday, weekdayHeading) {
   ].join("\n");
 }
 
+const RAINBOW_COFFEE_FILTER_ART_ACTIVITY = `Activity name
+Rainbow Coffee Filter Art
+Weekday
+Thursday
+Category/domain
+Art
+Age
+Preschool 3–4 Years
+Duration
+20 minutes
+Objective
+Children will explore color spreading and blending through process art.
+What children will do
+Children will add washable marker colors to a coffee filter and spray or drop small amounts of water to watch the colors spread.
+Materials
+White coffee filters
+Washable markers
+Droppers
+Spray bottles
+Water
+Trays
+Drying rack
+Teacher prep
+Place each filter on a tray.
+Fill small spray bottles or droppers with water.
+Setup
+Arrange rainbow-colored markers but allow children to choose their own combinations.
+Steps
+Draw color marks on the dry filter.
+Add a small amount of water.
+Watch colors spread.
+Add more water only if needed.
+Observe colors touching and blending.
+Leave filters flat to dry.
+Questions
+What happened when water touched the marker
+Which colors moved
+What new colors do you notice
+What happens where two colors meet
+Observation focus
+Observe fine-motor control, prediction, and color mixing.
+Safety
+Use washable non-toxic markers.
+Supervise water use.
+Cleanup
+Place filters on drying rack and wipe trays.
+Indoor/Outdoor options
+Use indoors or outdoors at an art table.
+Tips
+Avoid oversaturating filters.
+Substitutions
+Use liquid watercolor drops.
+Support adaptations
+Provide dot markers if drawing pressure is difficult.
+Added challenge
+Ask children to predict what will happen when two specific colors meet.
+Mixed-age
+Younger children can add random colors and water.
+Older children can create intentional color sections.
+Observation prompts
+Did the child notice spreading
+Did the child identify a color change
+Did the child control water amount
+Vocabulary
+rainbow
+color
+blend
+spread
+water
+Image request
+example_only
+`;
+
+function rainbowCoffeeFilterArtFixture() {
+  return {
+    title: "Weather Watchers",
+    activityTitle: "Rainbow Coffee Filter Art",
+    paste: `Lesson title
+Weather Watchers
+
+Age band
+Preschool 3–4 Years
+
+Weekly overview
+Children explore weather, color, and water through process art and outdoor noticing.
+
+Learning objectives
+Notice how water moves color.
+Practice careful pouring and spraying.
+
+Materials list
+Coffee filters
+Washable markers
+Water
+
+Teacher preparation/Toolkit
+Set out trays and drying space before inviting children.
+
+Prep checklist
+Fill spray bottles.
+Cover tables.
+
+Observation focus
+Watch how children control water and notice color changes.
+
+Family connection
+Ask families to notice rainbows or wet sidewalk colors.
+
+Milestones
+Fine motor
+Creativity
+
+Books
+Little Cloud by Eric Carle
+
+Songs
+Rain, Rain, Go Away
+
+Printable ideas
+Weather color mixing cards
+
+${RAINBOW_COFFEE_FILTER_ART_ACTIVITY}
+`,
+  };
+}
+
+function weatherWatchersTwentyActivityFixture() {
+  const namesByDay = {
+    Monday: ["Monday Cloud Watch", "Monday Wind Streamers", "Monday Puddle Splash", "Monday Weather Chart"],
+    Tuesday: ["Tuesday Rain Sounds", "Tuesday Storm Drumming", "Tuesday Umbrella Walk", "Tuesday Fog Painting"],
+    Wednesday: ["Wednesday Sun Prints", "Wednesday Shadow Play", "Wednesday Warm Wind Dance", "Wednesday Forecast Talk"],
+    Thursday: ["Rainbow Coffee Filter Art", "Thursday Rain Gauge", "Thursday Cloud Dough", "Thursday Weather Sort"],
+    Friday: ["Friday Rainbow Review", "Friday Weather Walk", "Friday Color Mix Share", "Friday Storm Stories"],
+  };
+  const blocks = [];
+  WEEKDAYS.forEach((day) => {
+    namesByDay[day].forEach((name, index) => {
+      if (name === "Rainbow Coffee Filter Art") {
+        blocks.push(RAINBOW_COFFEE_FILTER_ART_ACTIVITY.trim());
+        return;
+      }
+      blocks.push(activityBlock(name, day, index === 0 ? "Weekday" : "Activity weekday"));
+    });
+  });
+  const rainbow = rainbowCoffeeFilterArtFixture();
+  return {
+    title: "Weather Watchers",
+    namesByDay,
+    paste: rainbow.paste.replace(RAINBOW_COFFEE_FILTER_ART_ACTIVITY, `${blocks.join("\n\n")}\n`),
+  };
+}
+
 function fifteenActivityFixture() {
   const namesByDay = {
     Monday: ["Monday Mark Making", "Monday Tape Paths", "Monday Color Sweep"],
@@ -596,6 +748,59 @@ Title and age only.
     false,
   );
   console.log("PASS  12 zero-activity master paste does not fabricate weekday activities");
+
+  const rainbow = rainbowCoffeeFilterArtFixture();
+  const rainbowParsed = parseFullLessonStructurePaste(rainbow.paste);
+  assert.equal(rainbowParsed.ok, true, rainbowParsed.errors.join("; "));
+  assert.equal(rainbowParsed.lesson.title, "Weather Watchers");
+  assert.equal(rainbowParsed.activityCount, 1);
+  const rainbowItem = rainbowParsed.dailyPlans.thursday.items[0];
+  assert.equal(rainbowItem.title, "Rainbow Coffee Filter Art");
+  assert.equal(rainbowItem.activityCategory, "Art");
+  assert.match(rainbowItem.ageModifications, /Preschool 3–4 Years/);
+  assert.equal(rainbowItem.durationMinutes, 20);
+  assert.match(rainbowItem.objective, /color spreading and blending/);
+  assert.match(rainbowItem.description, /washable marker colors to a coffee filter/);
+  assert.deepEqual(listLines(rainbowItem.materials), [
+    "White coffee filters",
+    "Washable markers",
+    "Droppers",
+    "Spray bottles",
+    "Water",
+    "Trays",
+    "Drying rack",
+  ]);
+  assert.match(rainbowItem.preparation, /Place each filter on a tray/);
+  assert.match(rainbowItem.setup, /rainbow-colored markers/);
+  assert.match(rainbowItem.steps, /Draw color marks on the dry filter/);
+  assert.match(rainbowItem.teacherLanguage, /What happened when water touched the marker/);
+  assert.match(rainbowItem.observationOpportunities, /fine-motor control/);
+  assert.match(rainbowItem.safetyNotes, /washable non-toxic markers/);
+  assert.match(rainbowItem.cleanupTips, /drying rack/);
+  assert.match(rainbowItem.indoorAlternatives, /indoors or outdoors at an art table/);
+  assert.match(rainbowItem.outdoorAlternatives, /indoors or outdoors at an art table/);
+  assert.ok(Array.isArray(rainbowItem.teacherTips) && rainbowItem.teacherTips.some((tip) => /oversaturating/.test(tip)));
+  assert.equal(rainbowItem.substitutions.length, 1);
+  assert.equal(rainbowItem.substitutions[0].need, weekKit.UNSTRUCTURED_SUBSTITUTION_NEED);
+  assert.match(rainbowItem.substitutions[0].use, /liquid watercolor drops/);
+  assert.notEqual(rainbowItem.substitutions[0].need, "If missing");
+  assert.match(rainbowItem.adaptations, /dot markers/);
+  assert.match(rainbowItem.extensions, /two specific colors meet/);
+  assert.match(rainbowItem.mixedAgeAdaptations, /Younger children can add random colors/);
+  assert.ok(rainbowItem.observationPrompts.some((row) => /notice spreading/.test(row)));
+  assert.match(rainbowItem.vocabulary, /rainbow/);
+  assert.equal(rainbowItem.imageRequirement, "example_only");
+  console.log("PASS  Rainbow Coffee Filter Art parser maps every supported field");
+
+  const twenty = weatherWatchersTwentyActivityFixture();
+  const twentyParsed = parseFullLessonStructurePaste(twenty.paste);
+  assert.equal(twentyParsed.ok, true, twentyParsed.errors.join("; "));
+  assert.equal(twentyParsed.activityCount, 20);
+  ["monday", "tuesday", "wednesday", "thursday", "friday"].forEach((day) => {
+    assert.equal(twentyParsed.dailyPlans[day].items.length, 4, day);
+  });
+  assert.equal(twentyParsed.dailyPlans.thursday.items[0].title, "Rainbow Coffee Filter Art");
+  console.log("PASS  Weather Watchers 20-activity parse keeps weekday grouping");
 }
 
 function flattenActivityTitles(parsed) {
@@ -714,6 +919,9 @@ module.exports = {
   formatActivityPreview,
   giantFloorDrawingPaste,
   fifteenActivityFixture,
+  rainbowCoffeeFilterArtFixture,
+  weatherWatchersTwentyActivityFixture,
+  RAINBOW_COFFEE_FILTER_ART_ACTIVITY,
   largeNameBlockMasterPaste,
   nameBlockActivity,
 };
