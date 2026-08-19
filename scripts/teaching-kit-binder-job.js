@@ -108,6 +108,24 @@
     return iOS;
   }
 
+  function isConstrainedCaptureDevice(options = {}) {
+    if (options.constrainedCapture === true) return true;
+    if (options.constrainedCapture === false) return false;
+    const nav = options.navigator || (typeof navigator !== "undefined" ? navigator : null);
+    if (!nav) return false;
+    if (prefersOpenPdfViewer(options)) return true;
+    return /Android/i.test(text(nav.userAgent));
+  }
+
+  let abortGenerationToken = 0;
+  function abortActiveBinderGeneration() {
+    abortGenerationToken += 1;
+    return abortGenerationToken;
+  }
+  function currentBinderAbortToken() {
+    return abortGenerationToken;
+  }
+
   function cacheBinderArtifact(fingerprint, artifact) {
     const key = text(fingerprint);
     if (!key || !artifact?.bytes || !artifact.bytes.byteLength) return false;
@@ -160,8 +178,8 @@
     return 90000;
   }
 
-  function pageCaptureTimeoutMs() {
-    return 20000;
+  function pageCaptureTimeoutMs(options = {}) {
+    return isConstrainedCaptureDevice(options) ? 40000 : 20000;
   }
 
   function fetchTimeoutMs() {
@@ -264,6 +282,10 @@
       mergeMs: Number(safe.mergeMs) || 0,
       byteLength: Number(safe.byteLength) || 0,
       pageCount: Number(safe.pageCount) || 0,
+      captureScale: Number(safe.captureScale) || 0,
+      peakCanvasBytes: Number(safe.peakCanvasBytes) || 0,
+      failedStage: text(safe.failedStage),
+      failedPageIndex: Number.isFinite(Number(safe.failedPageIndex)) ? Number(safe.failedPageIndex) : "",
       status: text(safe.status || (safe.ok ? "ok" : "error")),
       errorCode: text(safe.errorCode || safe.code),
     };
@@ -386,6 +408,9 @@
     openPrintTarget,
     triggerBlobDownload,
     prefersOpenPdfViewer,
+    isConstrainedCaptureDevice,
+    abortActiveBinderGeneration,
+    currentBinderAbortToken,
     cacheBinderArtifact,
     getCachedBinderArtifact,
     clearBinderArtifactCache,

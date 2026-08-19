@@ -1788,6 +1788,8 @@
         }
         const requestId = job?.createBinderRequestId ? job.createBinderRequestId() : `tk-binder-${Date.now()}`;
         const timeoutMs = job?.timeoutForScope ? job.timeoutForScope(payload) : 180000;
+        const abortTokenAtStart = job?.currentBinderAbortToken ? job.currentBinderAbortToken() : 0;
+        let cancelled = false;
         state.surface = "build";
         state.downloadBusy = true;
         state.downloadStatus = "preparing";
@@ -1796,7 +1798,12 @@
         state.lastBinderIntent = intent;
         state.downloadStatusMessage = intent === "print" ? "Preparing print view…" : "Preparing your binder…";
         payload.binderRequestId = requestId;
-        payload.shouldAbort = () => !job?.isActiveRequest || !job.isActiveRequest(state, requestId);
+        payload.shouldAbort = () => (
+          cancelled
+          || (job && job.currentBinderAbortToken && job.currentBinderAbortToken() !== abortTokenAtStart)
+          || (job ? !job.isActiveRequest(state, requestId) : false)
+        );
+        payload.constrainedCapture = job?.isConstrainedCaptureDevice ? job.isConstrainedCaptureDevice() : undefined;
         payload.onProgress = (progress) => {
           if (job && !job.isActiveRequest(state, requestId)) return;
           if (progress?.stage) state.binderStage = progress.stage;
@@ -1845,6 +1852,8 @@
               || "We couldn't finish this binder download. Nothing was changed. Try again, or download a smaller section.";
           }
         }).catch((error) => {
+          cancelled = true;
+          if (job?.abortActiveBinderGeneration) job.abortActiveBinderGeneration();
           if (job && !job.isActiveRequest(state, requestId)) return;
           const code = error?.code || error?.reason || "UNEXPECTED_ERROR";
           state.downloadStatus = "error";
@@ -1853,7 +1862,7 @@
             || job?.ownerMessage?.(code)
             || "We couldn't finish this binder download. Nothing was changed. Try again, or download a smaller section.";
         }).finally(() => {
-          if (job && !job.isActiveRequest(state, requestId)) return;
+          if (job && state.binderRequestId && text(state.binderRequestId) !== text(requestId)) return;
           state.downloadBusy = false;
           rerender({ preserveScroll: true });
         });

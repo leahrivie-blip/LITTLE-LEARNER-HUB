@@ -33,12 +33,84 @@
     return { width: 612, height: 792, css: "Letter", cssWidthPx: 816, cssHeightPx: 1056 };
   }
 
+  let activeBrowserBinderRenders = 0;
+
+  function isConstrainedCaptureDevice(options = {}) {
+    if (options.constrainedCapture === true) return true;
+    if (options.constrainedCapture === false) return false;
+    const nav = options.navigator || (typeof navigator !== "undefined" ? navigator : null);
+    if (!nav) return false;
+    const ua = text(nav.userAgent);
+    const platform = text(nav.platform);
+    const maxTouchPoints = Number(nav.maxTouchPoints) || 0;
+    const iOS = /iPad|iPhone|iPod/i.test(ua)
+      || (platform === "MacIntel" && maxTouchPoints > 1);
+    return iOS || /Android/i.test(ua);
+  }
+
+  /**
+   * Pick an html2canvas scale that stays inside a canvas pixel budget.
+   * Desktop keeps scale 2 (print quality). Constrained mobile devices cap
+   * dimensions so iOS Safari does not OOM mid Entire Binder.
+   */
+  function resolveBinderCaptureScale(sourceWidth, sourceHeight, options = {}) {
+    const constrained = isConstrainedCaptureDevice(options);
+    const requested = Number(options.scale);
+    const defaultScale = constrained ? 1.5 : 2;
+    let scale = Number.isFinite(requested) && requested > 0 ? requested : defaultScale;
+    const maxDimension = Number(options.maxCanvasDimension) || (constrained ? 2048 : 4096);
+    const maxPixels = Number(options.maxCanvasPixels) || (constrained ? 3500000 : 12000000);
+    const width = Math.max(1, Number(sourceWidth) || 816);
+    const height = Math.max(1, Number(sourceHeight) || 1056);
+    const dimScale = Math.min(maxDimension / width, maxDimension / height);
+    const pixelScale = Math.sqrt(maxPixels / (width * height));
+    scale = Math.min(scale, dimScale, pixelScale);
+    const minReadable = constrained ? 1 : 1.25;
+    if (scale < minReadable && (width * minReadable) <= maxDimension && (height * minReadable) <= maxDimension) {
+      const minPixels = width * height * minReadable * minReadable;
+      if (minPixels <= maxPixels) scale = minReadable;
+    }
+    return Math.max(0.75, Math.round(scale * 100) / 100);
+  }
+
+  function approxCanvasBytes(width, height) {
+    return Math.max(0, Math.round(Number(width) || 0) * Math.round(Number(height) || 0) * 4);
+  }
+
+  function releaseCanvas(canvas) {
+    if (!canvas) return;
+    try {
+      const ctx = typeof canvas.getContext === "function" ? canvas.getContext("2d") : null;
+      if (ctx && canvas.width && canvas.height) ctx.clearRect(0, 0, canvas.width, canvas.height);
+    } catch (_err) { /* ignore */ }
+    try {
+      canvas.width = 0;
+      canvas.height = 0;
+    } catch (_err2) { /* ignore */ }
+  }
+
+  function captureImageOptions(options = {}) {
+    const constrained = isConstrainedCaptureDevice(options);
+    if (constrained) {
+      return { mimeType: "image/jpeg", quality: 0.88, pdfEmbed: "jpg" };
+    }
+    return { mimeType: "image/png", quality: undefined, pdfEmbed: "png" };
+  }
+
   /**
    * Draw a captured binder canvas onto one or more Letter/A4 PDF pages.
    * Short pages pad to a full printable page (no contain-shrink / no huge whitespace band).
    * Tall single-item pages are sliced into additional pages instead of shrinking text.
    */
-  async function embedCanvasAsPrintablePages(pdfDoc, canvas, paper, PDFLib) {
+  async function embedCanvasImage(pdfDoc, bytes, mimeType, PDFLib) {
+    if (!pdfDoc || !bytes || !PDFLib) return null;
+    if (mimeType === "image/jpeg" && typeof pdfDoc.embedJpg === "function") {
+      return pdfDoc.embedJpg(bytes);
+    }
+    return pdfDoc.embedPng(bytes);
+  }
+
+  async function embedCanvasAsPrintablePages(pdfDoc, canvas, paper, PDFLib, imageOptions = {}) {
     if (!pdfDoc || !canvas || !paper || !PDFLib) return 0;
     const pageW = paper.width;
     const pageH = paper.height;
@@ -52,9 +124,10 @@
         : null;
       if (!sliceCanvas || typeof sliceCanvas.getContext !== "function") {
         // Fallback: single contain-fit page when Offscreen/DOM canvas is unavailable.
-        const pngBytes = await canvasToPngBytes(canvas);
-        if (!pngBytes) return added;
-        const image = await pdfDoc.embedPng(pngBytes);
+        const encoded = await canvasToImageBytes(canvas, imageOptions);
+        if (!encoded?.bytes) return added;
+        const image = await embedCanvasImage(pdfDoc, encoded.bytes, encoded.mimeType, PDFLib);
+        if (!image) return added;
         const pdfPage = pdfDoc.addPage([pageW, pageH]);
         const imgRatio = image.width / Math.max(image.height, 1);
         const pageRatio = pageW / pageH;
@@ -73,9 +146,11 @@
       ctx.fillStyle = "#ffffff";
       ctx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
       ctx.drawImage(canvas, 0, y, canvas.width, sourceH, 0, 0, canvas.width, sourceH);
-      const pngBytes = await canvasToPngBytes(sliceCanvas);
-      if (!pngBytes) break;
-      const image = await pdfDoc.embedPng(pngBytes);
+      const encoded = await canvasToImageBytes(sliceCanvas, imageOptions);
+      releaseCanvas(sliceCanvas);
+      if (!encoded?.bytes) break;
+      const image = await embedCanvasImage(pdfDoc, encoded.bytes, encoded.mimeType, PDFLib);
+      if (!image) break;
       const pdfPage = pdfDoc.addPage([pageW, pageH]);
       // Full-bleed page mapping — preserve printable Letter/A4 dimensions.
       pdfPage.drawImage(image, { x: 0, y: 0, width: pageW, height: pageH });
@@ -151,14 +226,38 @@
     }
   }
 
-  async function canvasToPngBytes(canvas) {
-    if (typeof canvas.toDataURL !== "function") return null;
-    const dataUrl = canvas.toDataURL("image/png");
+  async function canvasToImageBytes(canvas, options = {}) {
+    if (!canvas) return { bytes: null, mimeType: "" };
+    const mimeType = text(options.mimeType) || "image/png";
+    const quality = Number.isFinite(Number(options.quality)) ? Number(options.quality) : undefined;
+    if (typeof canvas.toBlob === "function") {
+      const blob = await new Promise((resolve) => {
+        try {
+          canvas.toBlob(resolve, mimeType, quality);
+        } catch (_err) {
+          resolve(null);
+        }
+      });
+      if (blob) {
+        const buffer = await blob.arrayBuffer();
+        return {
+          bytes: new Uint8Array(buffer),
+          mimeType: blob.type || mimeType,
+        };
+      }
+    }
+    if (typeof canvas.toDataURL !== "function") return { bytes: null, mimeType };
+    const dataUrl = canvas.toDataURL(mimeType, quality);
     const mergeApi = (typeof globalThis !== "undefined" && globalThis.LLHTeachingKitPrintablePdfMerge)
       || (typeof require === "function" ? (() => { try { return require("./teaching-kit-printable-pdf-merge.js"); } catch (_e) { return null; } })()
       : null);
-    if (mergeApi?.dataUrlToBytes) return mergeApi.dataUrlToBytes(dataUrl);
-    return null;
+    const bytes = mergeApi?.dataUrlToBytes ? mergeApi.dataUrlToBytes(dataUrl) : null;
+    return { bytes, mimeType };
+  }
+
+  async function canvasToPngBytes(canvas) {
+    const encoded = await canvasToImageBytes(canvas, { mimeType: "image/png" });
+    return encoded.bytes || null;
   }
 
   function patchCanvasGradientForHtml2Canvas() {
@@ -190,6 +289,9 @@
 
   function prepareClonedBinderDocument(clonedDoc) {
     if (!clonedDoc) return;
+    clonedDoc.querySelectorAll?.("[data-tk-print-html]").forEach((node) => {
+      try { node.removeAttribute("data-tk-print-html"); } catch (_err) { /* ignore */ }
+    });
     const style = clonedDoc.createElement("style");
     style.setAttribute("data-llh-binder-pdf-safe", "1");
     style.textContent = `
@@ -469,12 +571,76 @@
     });
   }
 
+  async function captureBinderPageCanvas(html2canvas, pageEl, width, height, scale, pageTimeoutMs) {
+    return withPageCaptureTimeout(html2canvas(pageEl, {
+      backgroundColor: "#ffffff",
+      scale,
+      useCORS: true,
+      logging: false,
+      removeContainer: true,
+      windowWidth: width,
+      windowHeight: height,
+      ignoreElements: (el) => shouldIgnoreCaptureElement(el, pageEl),
+      onclone: prepareClonedBinderDocument,
+    }), pageTimeoutMs);
+  }
+
+  async function commitCanvasToPdf(pdfDoc, canvas, paper, PDFLib, needsSlice, imageOptions) {
+    let added = 0;
+    if (needsSlice) {
+      added = await embedCanvasAsPrintablePages(pdfDoc, canvas, paper, PDFLib, imageOptions);
+    } else {
+      const encoded = await canvasToImageBytes(canvas, imageOptions);
+      if (encoded?.bytes) {
+        const image = await embedCanvasImage(pdfDoc, encoded.bytes, encoded.mimeType, PDFLib);
+        if (image) {
+          const pdfPage = pdfDoc.addPage([paper.width, paper.height]);
+          const imgRatio = image.width / Math.max(image.height, 1);
+          const pageRatio = paper.width / paper.height;
+          if (Math.abs(imgRatio - pageRatio) < 0.03) {
+            pdfPage.drawImage(image, {
+              x: 0,
+              y: 0,
+              width: paper.width,
+              height: paper.height,
+            });
+          } else if (imgRatio > pageRatio) {
+            const drawW = paper.width;
+            const drawH = drawW / imgRatio;
+            pdfPage.drawImage(image, {
+              x: 0,
+              y: paper.height - drawH,
+              width: drawW,
+              height: drawH,
+            });
+          } else {
+            const drawH = paper.height;
+            const drawW = drawH * imgRatio;
+            const x = (paper.width - drawW) / 2;
+            pdfPage.drawImage(image, { x, y: 0, width: drawW, height: drawH });
+          }
+          added = 1;
+        }
+      }
+    }
+    return added;
+  }
+
   async function renderBinderPdfInBrowser(hostOrHtml, options = {}) {
     const PDFLib = pdfLibApi();
     const html2canvas = (typeof globalThis !== "undefined" && globalThis.html2canvas) || null;
     if (!PDFLib?.PDFDocument || !html2canvas) {
       return { ok: false, reason: "browser_pdf_deps_missing", bytes: null };
     }
+    if (activeBrowserBinderRenders > 0) {
+      return {
+        ok: false,
+        reason: "busy",
+        bytes: null,
+        message: "This binder request is already in progress.",
+      };
+    }
+    activeBrowserBinderRenders += 1;
 
     let host = null;
     let temporary = false;
@@ -491,6 +657,9 @@
 
     const restoreGradient = patchCanvasGradientForHtml2Canvas();
     const restoreHostVisibility = revealPrintHostForCapture(host);
+    const imageOptions = captureImageOptions(options);
+    const captureTelemetry = [];
+    let htmlSnapshot = "";
     try {
       let pages = Array.from(host.querySelectorAll(".tk-print-page"));
       // If the live print host was cleared (Preview cleanup race), rebuild from
@@ -521,14 +690,17 @@
           message: "No binder pages were available to download. Please try Preview, then Download PDF again.",
         };
       }
-      try { host.setAttribute("data-tk-print-html", host.innerHTML); } catch (_err) { /* ignore */ }
+      try { htmlSnapshot = host.innerHTML; } catch (_err) { htmlSnapshot = ""; }
+      // Do not keep a duplicate HTML snapshot on the live host during capture —
+      // html2canvas clones the document and the attribute doubles memory on iOS.
+      try { host.removeAttribute("data-tk-print-html"); } catch (_err2) { /* ignore */ }
       const pdfDoc = await PDFLib.PDFDocument.create();
       let pageErrors = 0;
       const captureStarted = Date.now();
       const pageTimeoutMs = Number(options.pageTimeoutMs) || 20000;
       notifyBinderProgress(options, {
         stage: "building",
-        message: `Building PDF… page 1 of ${pages.length}`,
+        message: `Building page 1 of ${pages.length}…`,
         pageIndex: 0,
         pageCount: pages.length,
         reflowSplitCount: reflow.splitCount || 0,
@@ -540,12 +712,14 @@
             ok: false,
             reason: "request_timeout",
             bytes: null,
+            failedStage: "page_capture",
+            failedPageIndex: pageIndex,
             message: "We couldn't finish this binder download. Nothing was changed. Try again, or download a smaller section.",
           };
         }
         notifyBinderProgress(options, {
           stage: "building",
-          message: `Building PDF… page ${pageIndex + 1} of ${pages.length}`,
+          message: `Building page ${pageIndex + 1} of ${pages.length}…`,
           pageIndex,
           pageCount: pages.length,
         });
@@ -583,71 +757,98 @@
           Number(pageEl.clientHeight) || 0,
           1,
         );
-        let canvas = null;
-        try {
-          canvas = await withPageCaptureTimeout(html2canvas(pageEl, {
-            backgroundColor: "#ffffff",
-            scale: options.scale || 2,
-            useCORS: true,
-            logging: false,
-            windowWidth: width,
-            windowHeight: height,
-            ignoreElements: (el) => shouldIgnoreCaptureElement(el, pageEl),
-            onclone: prepareClonedBinderDocument,
-          }), pageTimeoutMs);
-        } catch (err) {
-          pageErrors += 1;
-          console.warn("[llh-tk-pdf] html2canvas page failed", err?.message || err);
+        const restorePageBox = () => {
           pageEl.style.minHeight = prevMinHeight;
           pageEl.style.width = prevWidth;
           pageEl.style.boxSizing = prevBox;
-          // One optional page must not abort the rest of the binder after the cover.
-          continue;
-        }
-        pageEl.style.minHeight = prevMinHeight;
-        pageEl.style.width = prevWidth;
-        pageEl.style.boxSizing = prevBox;
-        let added = 0;
-        if (needsSlice) {
-          added = await embedCanvasAsPrintablePages(pdfDoc, canvas, paper, PDFLib);
-        } else {
-          // One printable page. Padded short pages are near Letter aspect → full bleed.
-          // Slightly tall pages get a small contain-fit (not a tiny centered strip).
-          const pngBytes = await canvasToPngBytes(canvas);
-          if (pngBytes) {
-            const image = await pdfDoc.embedPng(pngBytes);
-            const pdfPage = pdfDoc.addPage([paper.width, paper.height]);
-            const imgRatio = image.width / Math.max(image.height, 1);
-            const pageRatio = paper.width / paper.height;
-            if (Math.abs(imgRatio - pageRatio) < 0.03) {
-              pdfPage.drawImage(image, {
-                x: 0,
-                y: 0,
-                width: paper.width,
-                height: paper.height,
-              });
-            } else if (imgRatio > pageRatio) {
-              const drawW = paper.width;
-              const drawH = drawW / imgRatio;
-              pdfPage.drawImage(image, {
-                x: 0,
-                y: paper.height - drawH,
-                width: drawW,
-                height: drawH,
-              });
-            } else {
-              const drawH = paper.height;
-              const drawW = drawH * imgRatio;
-              const x = (paper.width - drawW) / 2;
-              pdfPage.drawImage(image, { x, y: 0, width: drawW, height: drawH });
+        };
+        let scale = resolveBinderCaptureScale(width, height, options);
+        let canvas = null;
+        let captureError = null;
+        const pageStarted = Date.now();
+        try {
+          canvas = await captureBinderPageCanvas(html2canvas, pageEl, width, height, scale, pageTimeoutMs);
+        } catch (err) {
+          captureError = err;
+          const timedOut = text(err?.reason) === "html2canvas_timeout"
+            || /html2canvas_timeout/i.test(text(err?.message));
+          const retryScale = Math.min(scale, 1);
+          const aborted = typeof options.shouldAbort === "function" && options.shouldAbort();
+          if (!timedOut && !aborted && retryScale < scale - 0.05) {
+            try {
+              canvas = await captureBinderPageCanvas(html2canvas, pageEl, width, height, retryScale, pageTimeoutMs);
+              scale = retryScale;
+              captureError = null;
+            } catch (retryErr) {
+              captureError = retryErr;
             }
-            added = 1;
           }
+        }
+        restorePageBox();
+        if (!canvas || captureError) {
+          pageErrors += 1;
+          releaseCanvas(canvas);
+          canvas = null;
+          const timedOut = text(captureError?.reason) === "html2canvas_timeout"
+            || /html2canvas_timeout/i.test(text(captureError?.message));
+          return {
+            ok: false,
+            reason: timedOut ? "html2canvas_timeout" : "binder_pdf_render_failed",
+            bytes: null,
+            failedStage: timedOut ? "html2canvas_timeout" : "page_capture",
+            failedPageIndex: pageIndex,
+            pageCount: pages.length,
+            pageErrors,
+            message: timedOut
+              ? `Page ${pageIndex + 1} of ${pages.length} took too long to capture. Nothing was changed. Please try again.`
+              : `Could not capture page ${pageIndex + 1} of ${pages.length}. Nothing was changed. Please try again.`,
+          };
+        }
+        const canvasWidth = Number(canvas.width) || 0;
+        const canvasHeight = Number(canvas.height) || 0;
+        const approxBytes = approxCanvasBytes(canvasWidth, canvasHeight);
+        captureTelemetry.push({
+          pageIndex,
+          sourceWidth: width,
+          sourceHeight: height,
+          canvasWidth,
+          canvasHeight,
+          renderScale: scale,
+          approxCanvasBytes: approxBytes,
+          durationMs: Date.now() - pageStarted,
+        });
+        notifyBinderProgress(options, {
+          stage: "building",
+          message: `Building page ${pageIndex + 1} of ${pages.length}…`,
+          pageIndex,
+          pageCount: pages.length,
+          sourceWidth: width,
+          sourceHeight: height,
+          canvasWidth,
+          canvasHeight,
+          renderScale: scale,
+          approxCanvasBytes: approxBytes,
+          generationMs: Date.now() - captureStarted,
+        });
+        let added = 0;
+        try {
+          added = await commitCanvasToPdf(pdfDoc, canvas, paper, PDFLib, needsSlice, imageOptions);
+        } finally {
+          releaseCanvas(canvas);
+          canvas = null;
         }
         if (!added) {
           pageErrors += 1;
-          console.warn("[llh-tk-pdf] binder page produced no PDF bytes; skipping");
-          continue;
+          return {
+            ok: false,
+            reason: "binder_pdf_render_failed",
+            bytes: null,
+            failedStage: "page_encode",
+            failedPageIndex: pageIndex,
+            pageCount: pages.length,
+            pageErrors,
+            message: `Could not encode page ${pageIndex + 1} of ${pages.length}. Nothing was changed. Please try again.`,
+          };
         }
       }
       if (!pdfDoc.getPageCount()) {
@@ -655,12 +856,14 @@
           ok: false,
           reason: pageErrors ? "binder_pdf_render_failed" : "no_binder_pages",
           bytes: null,
+          failedStage: "pdf_generation",
           message: pageErrors
             ? "Could not render binder pages to PDF. Please try Print selection, or retry Download PDF."
             : "No binder pages were available to download.",
         };
       }
       const bytes = await pdfDoc.save();
+      const peakCanvasBytes = captureTelemetry.reduce((max, item) => Math.max(max, Number(item.approxCanvasBytes) || 0), 0);
       return {
         ok: true,
         reason: "ok",
@@ -671,18 +874,27 @@
         pageErrors,
         generationMs: Date.now() - captureStarted,
         reflow,
+        captureTelemetry,
+        peakCanvasBytes,
+        constrainedCapture: isConstrainedCaptureDevice(options),
+        imageType: imageOptions.mimeType,
       };
     } catch (error) {
       return {
         ok: false,
         reason: "binder_pdf_failed",
         bytes: null,
+        failedStage: "pdf_generation",
         message: error?.message || "Could not build the Teaching Kit PDF. Please try again.",
       };
     } finally {
+      if (htmlSnapshot) {
+        try { host.setAttribute("data-tk-print-html", htmlSnapshot); } catch (_snapErr) { /* ignore */ }
+      }
       try { restoreHostVisibility(); } catch (_err) { /* ignore */ }
       try { restoreGradient(); } catch (_err2) { /* ignore */ }
       if (temporary && host && host.parentNode) host.parentNode.removeChild(host);
+      activeBrowserBinderRenders = Math.max(0, activeBrowserBinderRenders - 1);
     }
   }
 
@@ -710,5 +922,10 @@
     reflowOverflowingBinderPages,
     flattenBinderFlowUnits,
     pageHeightBudgetPx,
+    resolveBinderCaptureScale,
+    isConstrainedCaptureDevice,
+    releaseCanvas,
+    approxCanvasBytes,
+    captureImageOptions,
   };
 });
