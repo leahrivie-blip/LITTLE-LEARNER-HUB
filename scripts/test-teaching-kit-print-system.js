@@ -549,7 +549,7 @@ function testCrossLessonEntireBinders() {
     { label: "Colors All Around Us", kit: colors.kit, plan: colors.plan, markers: [/Colors All Around Us/i, /Bright Scarf Slow Track/i], leaks: [/Farm Animal Discovery Basket/i, /Tummy Time Art Gallery/i] },
     { label: "Zoo Adventure", kit: zoo.kit, plan: zoo.plan, markers: [/Zoo Adventure/i, /Zoo Discovery Sensory Bin/i], leaks: [/Farm Animal Discovery Basket/i, /Tummy Time Art Gallery/i] },
     { label: "Community Helpers", kit: helpers.kit, plan: helpers.plan, markers: [/Community Helpers/i, /Community Helper Discovery Basket/i], leaks: [/Farm Animal Discovery Basket/i, /Tummy Time Art Gallery/i] },
-    { label: "Bugs & Butterflies", kit: mapFixture(bugs), plan: bugs.lessonPlan, markers: [/Bugs & Butterflies/i, /Bug Discovery Table/i], leaks: [/Farm Animal Discovery Basket/i, /Tummy Time Art Gallery/i] },
+    { label: "Bugs & Butterflies", kit: mapFixture(bugs), plan: bugs.lessonPlan, markers: [/Bugs (&amp;|&) Butterflies/i, /Bug Discovery Table/i], leaks: [/Farm Animal Discovery Basket/i, /Tummy Time Art Gallery/i] },
     { label: "Farm Animals", kit: mapFixture(farm), plan: farm.lessonPlan, markers: [/Farm Animals/i, /Farm Animal Discovery Basket/i], leaks: [/Tummy Time Art Gallery/i, /Bug Discovery Table/i] },
   ].map((entry) => {
     const binder = entireBinderFor(entry.label, entry.kit, entry.plan);
