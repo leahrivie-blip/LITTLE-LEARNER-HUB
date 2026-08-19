@@ -237,14 +237,14 @@
     "placeholder_text",
     "copyright_concern",
     "missing_printables",
-    "missing_example_images",
+    // Visual coverage is soft guidance — missing images never hard-block Ready to Publish alone.
     "incomplete_toolkit",
     "incomplete_books",
     "incomplete_songs",
-    "image_brief_not_image",
     "activities_in_progress",
     "weak_materials",
     "draft_printables_only",
+    "thin_activity_week",
   ]);
 
   const PUBLISH_READINESS = Object.freeze({
@@ -310,7 +310,8 @@
       ? reportBase.premiumReadinessPercent
       : completionPercent) || 0;
     let publishReadiness = PUBLISH_READINESS.BLOCKED;
-    // Publish Ready requires zero hard blockers AND premium asset readiness (real images/printables).
+    // Publish Ready requires zero hard blockers and premium readiness.
+    // Missing activity images alone never block Ready to Publish.
     if (
       !blockingIssues.length
       && premiumReadinessPercent >= 90
@@ -752,50 +753,109 @@
       }));
     }
     if (list.length && (missingRealSetup > 0 || missingRealExample > 0)) {
-      findings.push(finding({
-        code: "missing_example_images",
-        section: "example_images",
-        severity: "blocking",
-        blocking: true,
-        message: `${missingRealSetup} setup photo(s) and ${missingRealExample} finished-example photo(s) still missing as real images.`,
-        suggestion: "Upload or generate actual images with caption + alt text. Image briefs do not count as photos.",
-        navigateTo: "activities:images",
-      }));
+      const visual = enrichApi?.measureVisualCoverage
+        ? enrichApi.measureVisualCoverage(plan, list, draft)
+        : null;
+      const excellentVisual = Boolean(visual?.excellent);
+      if (!excellentVisual) {
+        findings.push(finding({
+          code: "missing_example_images",
+          section: "example_images",
+          severity: visual && visual.percent === 0 ? "medium" : "low",
+          blocking: false,
+          message: visual?.recommendation
+            || `${missingRealSetup} setup photo(s) and ${missingRealExample} finished-example photo(s) could still help where visuals matter.`,
+          suggestion: "Add images where they help a teacher understand the setup or activity. Simple activities do not require an image. Roughly 40–60% visual coverage is excellent.",
+          navigateTo: "activities:images",
+        }));
+      }
+    } else if (list.length && enrichApi?.measureVisualCoverage) {
+      const visual = enrichApi.measureVisualCoverage(plan, list, draft);
+      if (visual.percent === 0) {
+        findings.push(finding({
+          code: "missing_example_images",
+          section: "example_images",
+          severity: "medium",
+          blocking: false,
+          message: visual.recommendation
+            || "No useful activity images yet — add a few where visuals help teachers.",
+          suggestion: "Add images where they help a teacher understand the setup or activity. Simple activities do not require an image.",
+          navigateTo: "activities:images",
+        }));
+      }
     }
     if (imageBriefsOnly > 0) {
       findings.push(finding({
         code: "image_brief_not_image",
         section: "example_images",
-        severity: "blocking",
-        blocking: true,
+        severity: "low",
+        blocking: false,
         message: `${imageBriefsOnly} image brief(s) are present but do not count as setup/finished photos.`,
-        suggestion: "Convert briefs into reviewed, loadable images before publishing.",
+        suggestion: "Convert briefs into real images only where a visual helps. Simple activities can stay image-free.",
         navigateTo: "activities:images",
       }));
     }
 
-    // In Progress / incomplete activities always block Publish Ready.
+    // Activity volume — 10 = full weekly standard. Do not push filler beyond 10–12.
+    const activityVolume = enrichApi?.scoreActivityVolume
+      ? enrichApi.scoreActivityVolume(list.length)
+      : null;
+    if (list.length && activityVolume && !activityVolume.requirementMet) {
+      const thin = list.length <= 4;
+      findings.push(finding({
+        code: thin ? "thin_activity_week" : "developing_activity_week",
+        section: "variety",
+        severity: thin ? "blocking" : (list.length <= 7 ? "high" : "medium"),
+        blocking: thin,
+        message: `${list.length} activities — ${activityVolume.label}. 10 strong activities create a complete week.`,
+        suggestion: thin
+          ? "Add core weekday activities until you reach about 10 strong activities across Monday–Friday."
+          : "Add a few more strong activities only if they meaningfully improve the week. Do not add filler.",
+        navigateTo: "activities",
+      }));
+    }
+
+    // In Progress / incomplete activities: image-only gaps never block Publish Ready.
     let incompleteActivities = 0;
+    let incompleteForPublish = 0;
     let activitiesInProgress = 0;
     if (enrichApi?.activityStatus) {
       list.forEach((act) => {
         const key = text(act.id || act.itemId);
-        const status = enrichApi.activityStatus(act, draftActs[key] || {});
+        const patch = draftActs[key] || {};
+        const status = enrichApi.activityStatus(act, patch);
         if (status !== "complete") incompleteActivities += 1;
         if (status === "in_progress") activitiesInProgress += 1;
+        const publishOk = enrichApi.activityPublishContentComplete
+          ? enrichApi.activityPublishContentComplete(act, patch)
+          : status === "complete";
+        if (!publishOk) incompleteForPublish += 1;
       });
     } else if (upgradeSummary) {
       incompleteActivities = Number(upgradeSummary.incompleteActivities) || 0;
+      incompleteForPublish = Number(upgradeSummary.incompleteActivitiesForPublish != null
+        ? upgradeSummary.incompleteActivitiesForPublish
+        : incompleteActivities) || 0;
       activitiesInProgress = Number(upgradeSummary.activitiesInProgress) || 0;
     }
-    if (list.length && incompleteActivities > 0) {
+    if (list.length && incompleteForPublish > 0) {
       findings.push(finding({
         code: "activities_in_progress",
         section: "variety",
         severity: "blocking",
         blocking: true,
-        message: `${incompleteActivities} of ${list.length} activities are still In Progress or Not Started (need required photos for the owner’s image requirement, plus teacher tips).`,
-        suggestion: "Finish every activity’s required photos and tips before publishing. Optional / No image needed / Needs owner classification never create missing-image blockers. Image briefs alone are not enough.",
+        message: `${incompleteForPublish} of ${list.length} activities still need core teaching content (steps, materials, tips). Missing images alone do not block Ready to Publish.`,
+        suggestion: "Finish core fields and teacher tips. Add images only where they help setup or understanding — simple activities do not require an image.",
+        navigateTo: "activities",
+      }));
+    } else if (list.length && incompleteActivities > 0 && incompleteForPublish === 0) {
+      findings.push(finding({
+        code: "optional_activity_images",
+        section: "example_images",
+        severity: "low",
+        blocking: false,
+        message: `${incompleteActivities} activit${incompleteActivities === 1 ? "y has" : "ies have"} optional image enrichment still open.`,
+        suggestion: "Add images where they help a teacher understand the setup or activity. Simple activities do not require an image.",
         navigateTo: "activities:images",
       }));
     }

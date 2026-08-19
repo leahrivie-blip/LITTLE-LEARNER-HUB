@@ -762,6 +762,8 @@ function buildEnrichmentAiSystemPrompt() {
     "- Do not include child names, ages of specific children, diagnoses, or private family data.",
     "- Do not assume preschool if age is missing; stay age-neutral or use the provided age only.",
     "- Provide 8–16 suggestions across several allowed categories for the requested scope.",
+    "- Weekly activity standard: 10 strong activities = a complete week. Do NOT recommend adding more activities just to raise a score once the lesson already has about 10–12 quality activities across five weekdays.",
+    "- Images: suggest image briefs only where a visual genuinely helps (setup, finished example, sensory/art/STEM invitation). Simple songs, movement games, fingerplays, transitions, and teacher-led talks do not need an image. Do not request an image for every activity.",
     "- Everything is a draft for human review. Nothing publishes automatically.",
   ].join("\n");
 }

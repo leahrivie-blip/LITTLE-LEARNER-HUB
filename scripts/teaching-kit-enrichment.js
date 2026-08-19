@@ -994,6 +994,143 @@
   }
 
   /**
+   * Weekly activity-count contribution for curriculum readiness.
+   * 10 strong activities = full normal week. 11–12 may max volume credit.
+   * 13+ earns no extra score purely for quantity (no filler incentive).
+   */
+  const WEEKLY_ACTIVITY_STANDARD = Object.freeze({
+    incompleteMax: 4,
+    developingMax: 7,
+    nearlyCompleteMax: 9,
+    completeAt: 10,
+    strongMax: 12,
+  });
+
+  function scoreActivityVolume(activityCount) {
+    const n = Math.max(0, Math.floor(Number(activityCount) || 0));
+    if (n <= 0) {
+      return {
+        count: 0,
+        score: 0,
+        band: "empty",
+        label: "No activities",
+        requirementMet: false,
+      };
+    }
+    if (n <= WEEKLY_ACTIVITY_STANDARD.incompleteMax) {
+      return {
+        count: n,
+        score: clampPercent(n * 7),
+        band: "incomplete",
+        label: "Clearly incomplete",
+        requirementMet: false,
+      };
+    }
+    if (n <= WEEKLY_ACTIVITY_STANDARD.developingMax) {
+      return {
+        count: n,
+        score: clampPercent(40 + (n - 5) * 10),
+        band: "developing",
+        label: "Developing week",
+        requirementMet: false,
+      };
+    }
+    if (n <= WEEKLY_ACTIVITY_STANDARD.nearlyCompleteMax) {
+      return {
+        count: n,
+        score: clampPercent(78 + (n - 8) * 8),
+        band: "nearly_complete",
+        label: "Nearly complete",
+        requirementMet: false,
+      };
+    }
+    if (n === WEEKLY_ACTIVITY_STANDARD.completeAt) {
+      return {
+        count: n,
+        score: 100,
+        band: "complete",
+        label: "Full weekly standard (10 activities)",
+        requirementMet: true,
+      };
+    }
+    if (n <= WEEKLY_ACTIVITY_STANDARD.strongMax) {
+      return {
+        count: n,
+        score: 100,
+        band: "strong",
+        label: "Full/strong week",
+        requirementMet: true,
+      };
+    }
+    return {
+      count: n,
+      score: 100,
+      band: "ample",
+      label: "Ample activities — no extra volume credit",
+      requirementMet: true,
+    };
+  }
+
+  function activityHasUsefulImage(activity, draftActivity) {
+    const view = activityEnrichmentView(activity, draftActivity);
+    return Boolean(text(view.setupImageUrl) || text(view.exampleImageUrl));
+  }
+
+  /**
+   * Overall visual support — not per-activity penalties.
+   * ~40–60% useful image coverage counts as excellent. Simple activities may stay image-free.
+   * Missing images never create a hard publish block by themselves (soft score only).
+   */
+  function measureVisualCoverage(plan, activities, enrichmentDraft) {
+    const draft = enrichmentDraft && typeof enrichmentDraft === "object" ? enrichmentDraft : {};
+    const draftActs = draft.activities && typeof draft.activities === "object" ? draft.activities : {};
+    const list = flattenLessonActivities(plan, activities, draft);
+    const total = list.length;
+    let withImages = 0;
+    list.forEach((act) => {
+      const key = text(act.id) || text(act.itemId);
+      if (activityHasUsefulImage(act, draftActs[key] || {})) withImages += 1;
+    });
+    const percent = total === 0 ? 0 : clampPercent((withImages / total) * 100);
+    let score = 50;
+    if (total === 0) score = 0;
+    else if (percent >= 50) score = 100;
+    else if (percent >= 40) score = 95;
+    else if (percent >= 25) score = 80;
+    else if (percent >= 10) score = 65;
+    else if (percent > 0) score = 55;
+    const excellent = percent >= 40;
+    let recommendation = "";
+    if (total > 0 && percent === 0) {
+      recommendation = "Add images where they help a teacher understand the setup or activity. Simple activities do not require an image.";
+    } else if (total > 0 && !excellent) {
+      recommendation = "Consider a few useful setup or finished-example images where visuals help. Simple activities can stay image-free.";
+    }
+    return {
+      total,
+      withImages,
+      withoutImages: Math.max(0, total - withImages),
+      percent,
+      score,
+      excellent,
+      recommendation,
+      label: total
+        ? `${withImages} of ${total} activities have useful images (${percent}%)`
+        : "No activities",
+    };
+  }
+
+  /**
+   * True when core fields + teacher tip are present — used for publish gates so
+   * missing activity images alone never mark a lesson Not Ready / Needs Changes.
+   */
+  function activityPublishContentComplete(activity, draftActivity) {
+    const view = activityEnrichmentView(activity, draftActivity);
+    const core = computeActivityCompletion(activity, draftActivity, null);
+    return core.percent >= 100 && view.teacherTips.length > 0;
+  }
+
+  /**
    * Multi-dimension readiness scores for premium Teaching Kit quality.
    * Image briefs and printable ideas never count as finished assets.
    * Draft printables never raise print readiness.
@@ -1014,6 +1151,8 @@
     const draftOnlyPrintables = hasDraftOnlyPrintables(plan, week, options);
     const materialsText = text(week.weeklyMaterials || plan?.weeklyMaterials);
     const materialsState = materialsReadinessState(materialsText);
+    const activityVolume = scoreActivityVolume(list.length);
+    const visualCoverage = measureVisualCoverage(plan, list, draft);
 
     let setupImages = 0;
     let exampleImages = 0;
@@ -1022,6 +1161,7 @@
     let imageBriefsOnly = 0;
     let activityCompleteUnits = 0;
     let activitiesInProgress = 0;
+    let publishContentCompleteUnits = 0;
     let tipUnits = 0;
     let depthUnits = 0;
     list.forEach((act) => {
@@ -1053,14 +1193,18 @@
       const status = activityStatus(act, patch);
       if (status === ACTIVITY_STATUS.complete) activityCompleteUnits += 1;
       else if (status === ACTIVITY_STATUS.in_progress) activitiesInProgress += 1;
+      if (activityPublishContentComplete(act, patch)) publishContentCompleteUnits += 1;
     });
     const n = Math.max(1, list.length);
     const expectedImageSlots = Math.max(0, expectedSetupImages + expectedExampleImages);
-    const filledImageSlots = setupImages + exampleImages;
-    const imageReadiness = expectedImageSlots === 0
-      ? 100
-      : clampPercent((filledImageSlots / expectedImageSlots) * 100);
+    // Proportional visual coverage (40–60% excellent). Per-slot fill is diagnostic only.
+    const imageReadiness = visualCoverage.score;
     const activityCompleteness = clampPercent((activityCompleteUnits / n) * 100);
+    // Blend enrichment completeness with absolute weekly volume (maxes at 10–12).
+    const activityScore = clampPercent(
+      (activityCompleteness * 0.55) + (activityVolume.score * 0.45),
+    );
+    const incompleteForPublish = Math.max(0, list.length - publishContentCompleteUnits);
 
     const weekdayFocusDays = ["monday", "tuesday", "wednesday", "thursday", "friday"].filter((day) => {
       const dayPlan = plan?.dailyPlans?.[day] || {};
@@ -1103,35 +1247,32 @@
     ));
 
     // Structural text fill only — NEVER treat image briefs / printable ideas as assets.
+    // Activity volume saturates at the 10-activity weekly standard (no filler incentive).
     const structuralCompletionPercent = clampPercent((
-      structural * 0.35
-      + activityCompleteness * 0.2
+      structural * 0.3
+      + activityScore * 0.25
       + weekdayCompleteness * 0.15
       + educational * 0.15
       + resourceCompleteness * 0.15
     ));
-    // Premium readiness requires real images + published printables + complete resources.
-    // Cap below Publish Ready when activities are still In Progress, materials are weak,
-    // books lack discussion questions, or only draft/idea printables / image briefs exist.
+    // Premium readiness: published printables + quality content. Visual coverage is
+    // proportional/soft — missing images alone never hard-cap below Publish Ready.
     let premiumReadinessPercent = clampPercent((
       structural * 0.2
-      + activityCompleteness * 0.15
+      + activityScore * 0.2
       + weekdayCompleteness * 0.1
-      + educational * 0.15
-      + imageReadiness * 0.2
+      + educational * 0.2
+      + imageReadiness * 0.1
       + printReadiness * 0.1
       + resourceCompleteness * 0.1
     ));
     const incompleteBooks = Math.max(0, books.length - completeBooks);
     if (
-      activitiesInProgress > 0
-      || activityCompleteUnits < list.length
-      || imageBriefsOnly > 0
-      || setupImages < expectedSetupImages
-      || exampleImages < expectedExampleImages
+      incompleteForPublish > 0
       || !printableLinked
       || incompleteBooks > 0
       || materialsState !== "complete"
+      || (list.length > 0 && !activityVolume.requirementMet)
     ) {
       premiumReadinessPercent = Math.min(premiumReadinessPercent, 89);
     }
@@ -1140,9 +1281,13 @@
       structuralCompleteness: structural,
       educationalQuality: educational,
       activityCompleteness,
+      activityVolumeScore: activityVolume.score,
+      activityVolume,
+      activityScore,
       weekdayCompleteness,
       resourceCompleteness,
       imageReadiness,
+      visualCoverage,
       printReadiness,
       structuralCompletionPercent,
       premiumReadinessPercent,
@@ -1156,6 +1301,7 @@
       imageBriefsOnly,
       activitiesInProgress,
       incompleteActivities: Math.max(0, list.length - activityCompleteUnits),
+      incompleteActivitiesForPublish: incompleteForPublish,
       completeBooks,
       completeSongs,
       bookCount: books.length,
@@ -1733,6 +1879,7 @@
     const label = completenessLabelFromPercent(percent, null);
 
     let incompleteActivities = 0;
+    let incompleteActivitiesForPublish = 0;
     let activitiesInProgress = 0;
     let missingSetupPhotos = 0;
     let missingExamplePhotos = 0;
@@ -1748,12 +1895,12 @@
       const patch = draftActs[key];
       const status = activityStatus(act, patch);
       if (status !== ACTIVITY_STATUS.complete) incompleteActivities += 1;
+      if (!activityPublishContentComplete(act, patch)) incompleteActivitiesForPublish += 1;
       if (status === ACTIVITY_STATUS.in_progress) activitiesInProgress += 1;
       const view = activityEnrichmentView(act, patch);
       const slots = view.imageSlots || imageSlotsForRequirement(view.imageRequirement);
       if (slots.needsOwnerClassification) needsOwnerClassification += 1;
-      // Only owner-required image slots create missing-photo guidance / blockers.
-      // needs_owner_classification is never treated as a missing uploaded image.
+      // Owner-required slots remain diagnostic/guidance only — images never hard-block publish alone.
       if (slots.needsSetup && !view.setupImageUrl) missingSetupPhotos += 1;
       if (slots.needsExample && !view.exampleImageUrl) missingExamplePhotos += 1;
       if (slots.needsSetup && !view.setupImageUrl && text(patch?.imageBriefSetup || view.imageBriefSetup)) {
@@ -1767,6 +1914,9 @@
       if (!hasActivityObjective(act, patch)) missingActivityObjectives += 1;
       if (!hasActivityMaterials(act, patch)) missingActivityMaterials += 1;
     });
+
+    const activityVolume = readiness.activityVolume || scoreActivityVolume(list.length);
+    const visualCoverage = readiness.visualCoverage || measureVisualCoverage(plan, list, draft);
 
     const missingFamilyConnection = !(text(plan?.familyConnection) || text(week.familyConnection));
     // Draft printables / ideas alone never clear the printable gap — need published resources.
@@ -1829,17 +1979,16 @@
       };
     const needsReview = (isPublished && (hasEnrichmentDraft || readiness.premiumReadinessPercent < 90))
       || (percent >= 90 && !weekdayCoverage.coverageComplete)
-      || missingSetupPhotos > 0
-      || missingExamplePhotos > 0
       || missingPrintables
       || draftOnlyPrintables
       || missingBooks
       || missingSongs
-      || incompleteActivities > 0
+      || incompleteActivitiesForPublish > 0
       || weakMaterials
       || materialsState === "missing"
       || (readiness.incompleteBooks || 0) > 0
-      || !readiness.toolkitComplete;
+      || !readiness.toolkitComplete
+      || (list.length > 0 && !activityVolume.requirementMet);
     const missingExamples = missingSetupPhotos > 0 || missingExamplePhotos > 0;
     const contentCompletionPercent = weekdayCoverage.coverageComplete
       ? percent
@@ -1855,7 +2004,11 @@
       weekdayCoverageComplete: Boolean(weekdayCoverage.coverageComplete),
       weekdayCoverageLabel: weekdayCoverage.label || "",
       activityCount: list.length,
+      activityVolume,
+      activityVolumeScore: activityVolume.score,
+      visualCoverage,
       incompleteActivities,
+      incompleteActivitiesForPublish,
       activitiesInProgress,
       missingSetupPhotos,
       missingExamplePhotos,
@@ -2358,6 +2511,11 @@
     activityShouldShowExamplePhoto,
     computeCompletionPercent,
     computeReadinessScores,
+    WEEKLY_ACTIVITY_STANDARD,
+    scoreActivityVolume,
+    measureVisualCoverage,
+    activityHasUsefulImage,
+    activityPublishContentComplete,
     imageReadinessState,
     bookRecordComplete,
     songRecordComplete,

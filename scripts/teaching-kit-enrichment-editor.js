@@ -257,7 +257,11 @@
       publishReadiness: evaluated?.publishReadiness || evaluated?.report?.publishReadiness || "",
       hasDraftOnlyPrintables: Boolean(summary.hasDraftOnlyPrintables),
       missingPrintables: Boolean(summary.missingPrintables),
-      incompleteActivities: Number(summary.incompleteActivities) || 0,
+      incompleteActivities: Number(
+        summary.incompleteActivitiesForPublish != null
+          ? summary.incompleteActivitiesForPublish
+          : summary.incompleteActivities,
+      ) || 0,
       enrichmentFillPercent: Number(
         evaluated?.completionPercent ?? summary.enrichmentFillPercent ?? summary.completionPercent,
       ) || 0,
@@ -2856,7 +2860,7 @@
             <button type="button" class="ghost-button" data-enrich-rollback>Rollback Last Publish</button>
             <p class="muted-copy">Loads the prior publish backup into a new draft. Providers keep seeing the current published kit until you Publish.</p>
           ` : ""}
-          <p class="muted-copy tk-enrich-summary-note">Structural % is field fill only. Publishing requires zero hard blockers and real images/printables. Draft save is never blocked.</p>
+          <p class="muted-copy tk-enrich-summary-note">Structural % is field fill only. 10 strong activities = a complete week. Images are proportional guidance — missing photos alone never block Ready to Publish. Draft save is never blocked.</p>
         ` : ""}
       </aside>
     `;
@@ -3042,6 +3046,7 @@
               <p class="tk-enrich-activity-count">Activity ${state.activityIndex + 1} of ${activities.length}</p>
               <h3 data-enrich-title>${esc(displayTitle)}</h3>
               <p class="muted-copy">${esc(DAY_LABEL[displayDay] || displayDay)} · ${esc(model.activityCategory || current.activityCategory || "Activity")} · ${esc(displayTitle ? "Ready to edit" : "Add a name")}</p>
+              <p class="muted-copy" data-weekly-activity-standard>10 strong activities create a complete week. Add more only when they meaningfully improve the lesson.</p>
               <p class="tk-enrich-completion" data-core-completion>
                 ${completion.percent >= 100
                   ? `<span>Core fields complete</span>`
@@ -3189,7 +3194,7 @@
           ${accordionSection("images", "Images", `
             <section class="tk-enrich-card-block" data-image-requirement-block>
               <h4>Image requirement</h4>
-              <p class="muted-copy">Owner-controlled. Based on instructional value — not every activity needs photos. Existing images are kept even when marked Optional or No image needed. Briefs never count as photos. Unclassified activities do not create missing-image blockers.</p>
+              <p class="muted-copy">Add images where they help a teacher understand the setup or activity. Simple activities do not require an image. Owner-controlled — not every activity needs photos. Existing images are kept even when marked Optional or No image needed. Briefs never count as photos. Unclassified activities do not create missing-image blockers. Roughly 40–60% useful visual coverage is excellent.</p>
               <label class="muted-copy" for="tk-image-requirement-${esc(key)}">Requirement for this activity</label>
               <select id="tk-image-requirement-${esc(key)}" data-image-requirement>
                 <option value="" ${!view.ownerClassified ? "selected" : ""}>Needs owner classification</option>
