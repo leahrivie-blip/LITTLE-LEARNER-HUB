@@ -70,6 +70,24 @@ function ok(condition, message) {
 
 async function assertImageProviderContract() {
   ok(visualProductionImage.OPENAI_IMAGES_URL === "https://api.openai.com/v1/images/generations", "uses OpenAI images generations endpoint");
+  ok(visualProductionImage.BRAND_URL === "littlelearnershubbyleah.com", "sharp watermark uses exact site spelling");
+  const footer = visualProductionImage.buildBrandWatermarkSvg(200, 100);
+  ok(footer.brandUrl === "littlelearnershubbyleah.com", "watermark svg receives exact littlelearnershubbyleah.com");
+  ok(footer.layerCount === 1, "exactly one footer layer is defined for sharp");
+  const svgText = footer.svg.toString("utf8");
+  const brandMatches = svgText.match(/littlelearnershubbyleah\.com/g) || [];
+  ok(brandMatches.length === 1, "watermark svg contains the brand URL exactly once");
+  ok((svgText.match(/<text\b/g) || []).length === 1, "watermark svg has exactly one text node");
+
+  const farmPrompt = model.createVisualBriefFromInstruction({
+    lessonId: LESSON_ID,
+    instruction: FARM_INSTRUCTION,
+    activities: seedActivities(),
+  }).generationPrompt;
+  ok(!/require:[^\n]*littlelearnershubbyleah\.com|website credit along the bottom edge:[^\n]*littlelearnershubbyleah/i.test(farmPrompt), "provider prompt has no instruction to render the URL");
+  ok(/do not render any text, labels, logos, or website URLs/i.test(farmPrompt), "provider prompt explicitly prohibits text/URLs/logos");
+  ok(!farmPrompt.includes("Use the exact spelling littlelearnershubbyleah.com"), "provider prompt no longer asks the model to spell the URL");
+
   const prevMock = process.env.VISUAL_PRODUCTION_MOCK_GENERATE;
   delete process.env.VISUAL_PRODUCTION_MOCK_GENERATE;
   try {
@@ -216,8 +234,11 @@ function assertParserContract() {
   ok(farm.forbiddenElements.some((item) => /glossy CGI/i.test(item)), "realistic CGI forbidden list applied");
   ok(farm.status === "READY_FOR_REVIEW", "complete farm brief is READY_FOR_REVIEW");
   ok(farm.generationPrompt.includes("OWNER VISUAL DIRECTION"), "prompt keeps owner direction as source of truth");
-  ok(farm.generationPrompt.includes("littlelearnershubbyleah.com"), "farm prompt requires exact site credit");
-  ok(farm.requiredElements.some((item) => item.includes("littlelearnershubbyleah.com")), "farm required elements include branding");
+  ok(!/require:.*littlelearnershubbyleah\.com|website credit along the bottom edge:.*littlelearnershubbyleah/i.test(farm.generationPrompt), "farm prompt does not instruct the model to render the site URL");
+  ok(!farm.requiredElements.some((item) => item.includes("littlelearnershubbyleah.com")), "farm required elements do not ask the model to draw the URL");
+  ok(/do not render any text, labels, logos, or website URLs/i.test(farm.generationPrompt), "farm prompt prohibits text/labels/logos/URLs");
+  ok(/bottom edge visually clear/i.test(farm.generationPrompt), "farm prompt requires a clear bottom edge for footer overlay");
+  ok(farm.forbiddenElements.some((item) => /website URLs/i.test(item)), "farm forbidden list includes website URLs");
   ok(!/llh\.com|littlelearnerhub/i.test(farm.generationPrompt), "farm prompt does not invent a shortened URL");
 
   const apple = model.createVisualBriefFromInstruction({
@@ -235,15 +256,17 @@ function assertParserContract() {
   ok(apple.forbiddenElements.some((item) => /no border/i.test(item)), "no border forbidden");
   ok(!/puffy 3D/i.test(apple.requiredElements.join(" ")), "printable does not require 3D cartoon style");
   ok(apple.status === "READY_FOR_REVIEW", "complete apple brief is READY_FOR_REVIEW");
-  ok(apple.generationPrompt.includes("littlelearnershubbyleah.com"), "apple printable prompt requires exact site credit");
-  ok(/bottom edge/i.test(apple.generationPrompt), "branding is placed along the bottom edge");
+  ok(!/require:.*littlelearnershubbyleah\.com|website credit along the bottom edge:.*littlelearnershubbyleah/i.test(apple.generationPrompt), "apple prompt does not instruct the model to render the site URL");
+  ok(/do not render any text, labels, logos, or website URLs/i.test(apple.generationPrompt), "apple prompt prohibits text/labels/logos/URLs");
+  ok(/bottom edge visually clear/i.test(apple.generationPrompt), "apple prompt keeps bottom edge clear for footer");
 
   const omitBrand = model.createVisualBriefFromInstruction({
     lessonId: LESSON_ID,
     instruction: `${APPLE_INSTRUCTION}\nOmit the website credit for this asset only.`,
     activities: seedActivities(),
   });
-  ok(!omitBrand.requiredElements.some((item) => item.includes("littlelearnershubbyleah.com")), "explicit omit skips branding for that asset only");
+  ok(!omitBrand.requiredElements.some((item) => /no website URLs/i.test(item)), "explicit omit skips model branding-clear rules for that asset only");
+  ok(!/POST-PROCESS FOOTER ONLY/i.test(omitBrand.generationPrompt), "explicit omit skips post-process footer prompt section");
 
   const vague = model.createVisualBriefFromInstruction({
     lessonId: LESSON_ID,
