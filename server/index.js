@@ -16,6 +16,9 @@ const teachingKit = require("../scripts/teaching-kit.js");
 const aiAgeSafety = require("../scripts/ai-age-safety.js");
 const draftReviewModel = require("../scripts/curriculum-draft-review.js");
 const { createDraftReviewApi } = require("./curriculum-draft-review.js");
+const { createVisualProductionApi, mergeStorePreserveVisualProduction } = require("./visual-production.js");
+const visualProductionImage = require("./visual-production-image.js");
+const visualProductionMedia = require("./visual-production-media.js");
 const curriculumSentinel = require("../scripts/curriculum-sentinel.js");
 const lessonPlanCoverAssign = require("../scripts/lesson-plan-cover-assign.js");
 const scheduleLib = require("./schedule-lib.js");
@@ -122,6 +125,7 @@ const FOUNDING_CHECKOUT_HOLD_MS = Math.max(
 );
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o";
+const OPENAI_IMAGE_MODEL = process.env.OPENAI_IMAGE_MODEL || "gpt-image-2";
 // Production closeout: live claimed count must leave exactly 2 new spots.
 // 2026-07-29 recount: claimed 46 → limit 48 → remaining 2.
 // Prefer FOUNDING_MEMBER_LIMIT when set; fall back to closeout constant.
@@ -1090,6 +1094,7 @@ function defaultStore() {
     archivedConversations: [],
     memberSessions: {},
     onboardingWelcome: defaultOnboardingWelcomeStore(),
+    visualProduction: { briefs: [], updatedAt: "" },
   };
 }
 
@@ -5900,6 +5905,7 @@ function applyStoreWriteMerges(store, { preferIncomingSiteContent = false } = {}
   }
   next = mergeStorePreserveAdminSessions(next);
   next = mergeStorePreserveEmailCampaigns(next);
+  next = mergeStorePreserveVisualProduction(next, storeCache);
   return next;
 }
 
@@ -24431,6 +24437,56 @@ async function handleAdminEnrichmentMediaCleanupProcess(request, response) {
   });
 }
 
+async function handleAdminVisualProductionPreviewMedia(request, response, assetId, url) {
+  const id = normalizedShortText(assetId, 160);
+  if (!visualProductionMedia.isVisualProductionPreviewAssetId(id)) {
+    textResponse(response, 404, "Preview not found.");
+    return;
+  }
+  const adminToken = extractAdminToken(request, url)
+    || normalizedShortText(url.searchParams.get("adminToken"), 500);
+  const session = adminSessionStore.validate(adminToken);
+  if (!session) {
+    textResponse(response, 404, "Preview not found.");
+    return;
+  }
+  if (shouldEnforceTeachingKitOwnerAdmin()) {
+    const email = normalizeEmail(session.email || "");
+    if (!teachingKit.isTeachingKitOwnerPreviewEmail(email)) {
+      textResponse(response, 404, "Preview not found.");
+      return;
+    }
+  }
+  try {
+    const asset = await visualProductionMedia.readVisualProductionPreview({
+      assetId: id,
+      usePostgresStore,
+      postgresPool,
+      databaseReady: () => databaseReady,
+      curriculumMedia,
+      storePath,
+    });
+    if (!asset?.buffer?.length) {
+      textResponse(response, 404, "Preview not found.");
+      return;
+    }
+    response.writeHead(200, {
+      "Content-Type": asset.mimeType || "image/png",
+      "Content-Length": asset.buffer.length,
+      "Cache-Control": "private, no-store",
+      "X-Content-Type-Options": "nosniff",
+    });
+    if (request.method === "HEAD") {
+      response.end();
+      return;
+    }
+    response.end(asset.buffer);
+  } catch (error) {
+    console.error("[visual-production-preview] read failed", error.message);
+    textResponse(response, 503, "Preview temporarily unavailable.");
+  }
+}
+
 async function handleLessonCoverMedia(request, response, assetId) {
   const id = normalizedShortText(assetId, 120);
   if (!id || !id.startsWith("lesson-cover-")) {
@@ -30391,6 +30447,10 @@ const server = http.createServer(async (request, response) => {
       const adminMedia = validAdminToken(extractAdminToken(request, url));
       return await handleCurriculumResourceMedia(request, response, assetId, { admin: adminMedia, requestUrl: url });
     }
+    if ((request.method === "GET" || request.method === "HEAD") && url.pathname.startsWith("/api/admin/media/visual-production-previews/")) {
+      const assetId = decodeURIComponent(url.pathname.slice("/api/admin/media/visual-production-previews/".length));
+      return await handleAdminVisualProductionPreviewMedia(request, response, assetId, url);
+    }
     if ((request.method === "GET" || request.method === "HEAD") && url.pathname.startsWith("/api/admin/media/enrichment-photos/")) {
       const assetId = decodeURIComponent(url.pathname.slice("/api/admin/media/enrichment-photos/".length));
       return await handleAdminEnrichmentPhotoMedia(request, response, assetId, url);
@@ -30670,6 +30730,33 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/resources/link") return await handleAdminCurriculumResourceLink(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/resources/unlink") return await handleAdminCurriculumResourceUnlink(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/resources/tk-printable") return await handleAdminTeachingKitPrintable(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/curriculum/visual-production") {
+      if (!globalThis.__llhVisualProductionApi) {
+        globalThis.__llhVisualProductionApi = createVisualProductionApi({
+          readJson,
+          jsonResponse,
+          readStore,
+          writeStoreAsync,
+          requireTeachingKitOwnerAdminSession,
+          teachingKit,
+          normalizeEmail,
+          normalizedCurriculumStore,
+          isConfiguredValue,
+          openAiApiKey: OPENAI_API_KEY,
+          openAiImageModel: OPENAI_IMAGE_MODEL,
+          generateVisualProductionImage: visualProductionImage.generateVisualProductionImage,
+          persistVisualProductionPreview: visualProductionMedia.persistVisualProductionPreview,
+          visualProductionPreviewDeps: {
+            usePostgresStore,
+            postgresPool,
+            databaseReady: () => databaseReady,
+            curriculumMedia,
+            storePath,
+          },
+        });
+      }
+      return await globalThis.__llhVisualProductionApi.handle(request, response);
+    }
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/draft-review") {
       if (!globalThis.__llhDraftReviewApi) {
         globalThis.__llhDraftReviewApi = createDraftReviewApi({
