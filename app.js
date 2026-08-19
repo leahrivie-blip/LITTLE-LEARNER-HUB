@@ -30305,7 +30305,14 @@ async function printTeachingKitBinder(viewerResource, kit, selection = {}, featu
       stylesHref: `${window.location.origin}/styles.css`,
       onProgress: selection.onProgress,
       shouldAbort: () => aborted(),
-      pageTimeoutMs: jobApi?.pageCaptureTimeoutMs?.() || 20000,
+      constrainedCapture: jobApi?.isConstrainedCaptureDevice
+        ? jobApi.isConstrainedCaptureDevice()
+        : undefined,
+      pageTimeoutMs: jobApi?.pageCaptureTimeoutMs
+        ? jobApi.pageCaptureTimeoutMs({
+          constrainedCapture: jobApi.isConstrainedCaptureDevice ? jobApi.isConstrainedCaptureDevice() : undefined,
+        })
+        : 20000,
     });
     if (!merged.ok) {
       const message = merged.message
@@ -30326,12 +30333,30 @@ async function printTeachingKitBinder(viewerResource, kit, selection = {}, featu
         mergeOk: false,
         mergeReason: merged.reason || "merge_failed",
         mergeReport: merged.report || null,
+        failedStage: merged.failedStage || merged.reason || "merge",
+        failedPageIndex: merged.failedPageIndex,
       };
+      if (jobApi?.logDiagnostics) {
+        jobApi.logDiagnostics({
+          binderRequestId: requestId,
+          lessonPlanId: kitPayload.lessonPlanId,
+          scope: documentMode,
+          intent: selection.intent || "download",
+          status: "error",
+          errorCode: merged.code || merged.reason,
+          generationMs: merged.generationMs,
+          mergeMs: merged.mergeMs,
+          failedStage: merged.failedStage || merged.reason,
+          failedPageIndex: merged.failedPageIndex,
+        });
+      }
       return {
         ok: false,
         reason: merged.reason || "merge_failed",
         code: merged.code || (typeof globalThis !== "undefined" && globalThis.LLHTeachingKitBinderJob?.errorCode?.(merged.reason)),
         message,
+        failedStage: merged.failedStage || merged.reason || "",
+        failedPageIndex: merged.failedPageIndex,
         manifest: built.manifest || null,
         attachmentPlan: merged.report || attachmentPlan,
       };
@@ -30359,6 +30384,22 @@ async function printTeachingKitBinder(viewerResource, kit, selection = {}, featu
       contentFingerprint: merged.contentFingerprint || built.contentFingerprint || "",
       pageCount: merged.report?.totalPages || built.pageCount || 0,
     };
+    if (jobApi?.logDiagnostics) {
+      jobApi.logDiagnostics({
+        binderRequestId: requestId,
+        lessonPlanId: kitPayload.lessonPlanId,
+        scope: documentMode,
+        intent: selection.intent || "download",
+        status: "ok",
+        generationMs: merged.generationMs,
+        mergeMs: merged.mergeMs,
+        byteLength: merged.bytes?.byteLength || 0,
+        pageCount: merged.report?.totalPages || 0,
+        peakCanvasBytes: merged.report?.peakCanvasBytes || 0,
+        manifestItemCount: built.manifest?.itemCount || 0,
+        printableCount: merged.report?.included?.length || 0,
+      });
+    }
 
     if (typeof recordResourceOutputRequest === "function") {
       recordResourceOutputRequest({
