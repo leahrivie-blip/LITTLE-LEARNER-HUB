@@ -16,6 +16,7 @@ const teachingKit = require("../scripts/teaching-kit.js");
 const aiAgeSafety = require("../scripts/ai-age-safety.js");
 const draftReviewModel = require("../scripts/curriculum-draft-review.js");
 const { createDraftReviewApi } = require("./curriculum-draft-review.js");
+const { createVisualProductionApi, mergeStorePreserveVisualProduction } = require("./visual-production.js");
 const curriculumSentinel = require("../scripts/curriculum-sentinel.js");
 const lessonPlanCoverAssign = require("../scripts/lesson-plan-cover-assign.js");
 const scheduleLib = require("./schedule-lib.js");
@@ -1090,6 +1091,7 @@ function defaultStore() {
     archivedConversations: [],
     memberSessions: {},
     onboardingWelcome: defaultOnboardingWelcomeStore(),
+    visualProduction: { briefs: [], updatedAt: "" },
   };
 }
 
@@ -5900,6 +5902,7 @@ function applyStoreWriteMerges(store, { preferIncomingSiteContent = false } = {}
   }
   next = mergeStorePreserveAdminSessions(next);
   next = mergeStorePreserveEmailCampaigns(next);
+  next = mergeStorePreserveVisualProduction(next, storeCache);
   return next;
 }
 
@@ -30670,6 +30673,21 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/resources/link") return await handleAdminCurriculumResourceLink(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/resources/unlink") return await handleAdminCurriculumResourceUnlink(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/resources/tk-printable") return await handleAdminTeachingKitPrintable(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/curriculum/visual-production") {
+      if (!globalThis.__llhVisualProductionApi) {
+        globalThis.__llhVisualProductionApi = createVisualProductionApi({
+          readJson,
+          jsonResponse,
+          readStore,
+          writeStoreAsync,
+          requireTeachingKitOwnerAdminSession,
+          teachingKit,
+          normalizeEmail,
+          normalizedCurriculumStore,
+        });
+      }
+      return await globalThis.__llhVisualProductionApi.handle(request, response);
+    }
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/draft-review") {
       if (!globalThis.__llhDraftReviewApi) {
         globalThis.__llhDraftReviewApi = createDraftReviewApi({
