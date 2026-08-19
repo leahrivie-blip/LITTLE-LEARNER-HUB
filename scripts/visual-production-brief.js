@@ -108,17 +108,27 @@
     "fake shadows or depth effects",
   ]);
 
-  /** Permanent site credit. Never shorten or invent a different URL. */
+  /**
+   * Permanent site credit spelling for post-process watermark only.
+   * The image model must never be asked to draw this URL.
+   */
   const BRAND_URL = "littlelearnershubbyleah.com";
+  /** Model-facing rules: leave room for sharp; never ask the model to render the site credit. */
   const BRANDING_REQUIRED = Object.freeze([
-    `small but clearly readable website credit along the bottom edge: ${BRAND_URL}`,
-    "place the credit on the bottom edge without covering important activity content",
-    "keep placement consistent, intentional, and professional — not a large advertisement",
+    "no text",
+    "no labels",
+    "no logos",
+    "no website URLs",
+    "leave the bottom edge visually clear enough for a footer overlay",
   ]);
   const BRANDING_FORBIDDEN = Object.freeze([
-    "omitting littlelearnershubbyleah.com",
-    "shortened or invented website URL",
-    "large advertisement-style branding overlay",
+    "text of any kind rendered by the image model",
+    "labels",
+    "logos",
+    "website URLs",
+    "watermarks",
+    "footer captions",
+    "branded website credit drawn inside the artwork",
   ]);
   const OMIT_BRANDING_PATTERN = /\b(?:omit|skip|without|no)\s+(?:the\s+)?(?:website(?:\s+credit)?|branding|url|littlelearnershubbyleah\.com)\b/i;
 
@@ -380,9 +390,12 @@
     }
     promptParts.push("- Do not invent extra subjects, decorations, people, or props beyond the owner direction.");
     if (params.includeBranding !== false) {
-      promptParts.push("", "PERMANENT BRANDING (required unless the owner explicitly omitted it for this asset):");
+      // Branding text is applied after generation by sharp — never instruct the model to draw it.
+      promptParts.push("", "POST-PROCESS FOOTER ONLY — do not render branding in the image:");
+      promptParts.push("- Do not render any text, labels, logos, or website URLs.");
+      promptParts.push("- Leave the bottom edge visually clear enough for a footer overlay.");
+      promptParts.push("- Do not draw watermarks, captions, or website addresses; a single footer is applied after generation.");
       BRANDING_REQUIRED.forEach((rule) => promptParts.push(`- Require: ${rule}`));
-      promptParts.push(`- Use the exact spelling ${BRAND_URL}. Never shorten or invent a different URL.`);
     }
 
     const negative = uniqueStrings([

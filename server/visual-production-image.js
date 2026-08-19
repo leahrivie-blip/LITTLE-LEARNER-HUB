@@ -31,19 +31,18 @@ function imageSizeForBrief(visualStyle) {
 }
 
 /**
- * @param {Buffer} pngBuffer
- * @returns {Promise<Buffer>}
+ * Build the single SVG footer overlay. Exactly one text node with BRAND_URL.
+ * @param {number} width
+ * @param {number} height
+ * @returns {{ svg: Buffer, brandUrl: string, layerCount: number }}
  */
-async function applyBrandWatermark(pngBuffer) {
-  if (!sharpLib) throw new Error("sharp is required to apply the website watermark.");
-  const image = sharpLib(pngBuffer);
-  const meta = await image.metadata();
-  const width = Number(meta.width || 1024);
-  const height = Number(meta.height || 1024);
-  const fontSize = Math.max(14, Math.round(width * 0.022));
-  const padding = Math.max(8, Math.round(height * 0.012));
-  const svg = Buffer.from(`<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-    <text x="${padding}" y="${height - padding}"
+function buildBrandWatermarkSvg(width, height) {
+  const w = Number(width || 1024);
+  const h = Number(height || 1024);
+  const fontSize = Math.max(14, Math.round(w * 0.022));
+  const padding = Math.max(8, Math.round(h * 0.012));
+  const svg = Buffer.from(`<svg width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg">
+    <text x="${padding}" y="${h - padding}"
       font-family="Arial, Helvetica, sans-serif"
       font-size="${fontSize}"
       font-weight="600"
@@ -53,6 +52,21 @@ async function applyBrandWatermark(pngBuffer) {
       paint-order="stroke"
     >${BRAND_URL}</text>
   </svg>`);
+  return { svg, brandUrl: BRAND_URL, layerCount: 1 };
+}
+
+/**
+ * @param {Buffer} pngBuffer
+ * @returns {Promise<Buffer>}
+ */
+async function applyBrandWatermark(pngBuffer) {
+  if (!sharpLib) throw new Error("sharp is required to apply the website watermark.");
+  const image = sharpLib(pngBuffer);
+  const meta = await image.metadata();
+  const width = Number(meta.width || 1024);
+  const height = Number(meta.height || 1024);
+  const { svg } = buildBrandWatermarkSvg(width, height);
+  // Exactly one footer composite layer — never add a second brand overlay.
   return image.composite([{ input: svg, top: 0, left: 0 }]).png().toBuffer();
 }
 
@@ -155,6 +169,7 @@ module.exports = {
   BRAND_URL,
   OPENAI_IMAGES_URL,
   imageSizeForBrief,
+  buildBrandWatermarkSvg,
   applyBrandWatermark,
   generateVisualProductionImage,
   createMockGeneratedImage,
