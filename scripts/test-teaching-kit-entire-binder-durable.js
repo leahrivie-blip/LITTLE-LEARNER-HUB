@@ -340,13 +340,13 @@ async function browserEntireBinderProof() {
     ok(mobileDelivery.prefersViewer === true, "iPhone UA prefers viewer delivery");
     ok(mobileDelivery.ok === true && mobileDelivery.delivery === "viewer", "mobile handoff opens viewer instead of failing");
 
-    // Missing required printable fails closed (no partial binder success).
+    // Entire Binder must keep lesson pages when one linked printable is missing.
+    // Printable-only packs still fail closed (see test-teaching-kit-printable-pdf-merge.js).
     const missing = await page.evaluate(async (liveKit) => {
       const PrintApi = window.LLHTeachingKitPrint;
       const broken = JSON.parse(JSON.stringify(liveKit));
       broken.companion.printables[0].fileUrl = "/api/media/curriculum-resources/curriculum-resource-does-not-exist";
       broken.companion.printables[0].fileData = "";
-      // Force fresh fingerprint / no cache
       const JobApi = window.LLHTeachingKitBinderJob;
       JobApi.clearBinderArtifactCache?.();
       const merged = await PrintApi.buildMergedTeachingKitPdf(broken, {
@@ -357,10 +357,18 @@ async function browserEntireBinderProof() {
         skipArtifactCache: true,
         fetchBytes: async () => null,
       });
-      return { ok: merged.ok, reason: merged.reason, code: merged.code };
+      return {
+        ok: merged.ok,
+        reason: merged.reason,
+        code: merged.code,
+        binderPageCount: merged.report?.binderPageCount || 0,
+        totalPages: merged.report?.totalPages || 0,
+        missingCount: (merged.report?.missing || []).length,
+      };
     }, kit);
-    ok(missing.ok === false, "missing required printable fails");
-    ok(/missing|PRINTABLE|attachment/i.test(`${missing.reason} ${missing.code}`), `missing printable classified (${missing.reason}/${missing.code})`);
+    ok(missing.ok === true, "Entire Binder still succeeds when a linked printable is missing");
+    ok(missing.binderPageCount >= 5, `Entire Binder lesson pages remain (${missing.binderPageCount})`);
+    ok(missing.totalPages >= missing.binderPageCount, "total pages at least include binder pages");
 
     console.log(`  Farm Animals binder: htmlPages=${first.buildPageCount}, pdfPages=${first.totalPages}, bytes=${first.byteLength}, reflowSplits=${first.reflow.splitCount}`);
     return first;

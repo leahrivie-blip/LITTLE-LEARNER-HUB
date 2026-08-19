@@ -61,6 +61,20 @@
     return Array.isArray(value) ? value : [];
   }
 
+  function weekdayDayPlan(dailyPlans, day) {
+    const source = dailyPlans && typeof dailyPlans === "object" && !Array.isArray(dailyPlans)
+      ? dailyPlans
+      : {};
+    const raw = source[day];
+    if (Array.isArray(raw)) return { items: raw };
+    if (raw && typeof raw === "object") {
+      if (Array.isArray(raw.items)) return raw;
+      if (Array.isArray(raw.activities)) return { ...raw, items: raw.activities };
+      return raw;
+    }
+    return {};
+  }
+
   function asLines(value) {
     if (Array.isArray(value)) {
       return value.map((item) => presentCopy(typeof item === "string" ? item : item?.title || item?.label || item)).filter(Boolean);
@@ -119,7 +133,9 @@
 
   function normalizeActivity(activity) {
     const entry = activity && typeof activity === "object" ? activity : {};
-    const materials = asArray(entry.materials).map((item) => presentCopy(item)).filter(Boolean);
+    const materials = asArray(entry.materials).length
+      ? asArray(entry.materials).map((item) => presentCopy(item)).filter(Boolean)
+      : asLines(entry.materials || entry.materialsText);
     const materialsText = presentCopy(entry.materialsText) || materials.join(" · ");
     const estimatedMinutes = Number(entry.estimatedMinutes || entry.activityDurationMinutes || entry.setupMinutes) || 0;
     const title = presentCopy(entry.title) || "Activity";
@@ -139,7 +155,9 @@
       materials,
       materialsText,
       setup: presentCopy(entry.setup || entry.preparation),
-      steps: presentCopy(entry.steps || entry.directions),
+      steps: Array.isArray(entry.steps) || Array.isArray(entry.directions)
+        ? asLines(entry.steps || entry.directions).join("\n")
+        : presentCopy(entry.steps || entry.directions),
       teacherRole: presentCopy(entry.teacherRole || entry.teacherSupport),
       teacherPrompts: promptSource.map((prompt) => ({
         label: presentLabel(prompt?.label || "Prompt"),
@@ -319,7 +337,7 @@
 
   function dayFromCompanion(companion, day, plan, activityById) {
     const model = companion?.days?.[day] || {};
-    const dayPlan = plan?.dailyPlans?.[day] || {};
+    const dayPlan = weekdayDayPlan(plan && plan.dailyPlans, day);
     const dayActivities = resolveDayActivities(model.activities, activityById);
     const materials = uniqueStrings([
       ...asLines(model.materials || dayPlan.materials),
@@ -441,7 +459,7 @@
       safety: uniqueStrings([
         ...asLines(plan?.safetyNotes),
         ...asArray(setup.safetyNotes).map((item) => presentCopy(item)),
-        ...WEEKDAYS.flatMap((day) => asLines(plan?.dailyPlans?.[day]?.safetyNotes)),
+        ...WEEKDAYS.flatMap((day) => asLines(weekdayDayPlan(plan && plan.dailyPlans, day).safetyNotes)),
       ], 20),
       adaptations: presentCopy(plan?.adaptations || plan?.inclusionNotes),
       observationFocus: asLines(plan?.observationOpportunities || plan?.observationFocus),
@@ -585,7 +603,7 @@
     const kitAge = presentCopy(sourcePlan.age || kit.age || "");
 
     const activities = asArray(companion.activities)
-      .filter((item) => item && !removed[item.id])
+      .filter((item) => item && !removed[item.id] && text(item.status).toLowerCase() !== "archived")
       .map((item) => {
         const normalized = normalizeActivity(item);
         if (!normalized.ageGroup && kitAge) normalized.ageGroup = kitAge;

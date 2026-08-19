@@ -103,6 +103,29 @@
     return Array.isArray(value) ? value : [];
   }
 
+  /**
+   * Weekday plan record. Some saved lessons store Monday–Friday as arrays of
+   * activities instead of `{ items: [...] }` objects. Treat both as the same
+   * lesson-owned content — never drop the week into an empty cover-only binder.
+   */
+  function weekdayDayPlan(dailyPlans, day) {
+    const source = dailyPlans && typeof dailyPlans === "object" && !Array.isArray(dailyPlans)
+      ? dailyPlans
+      : {};
+    const raw = source[day];
+    if (Array.isArray(raw)) return { items: raw };
+    if (raw && typeof raw === "object") {
+      if (Array.isArray(raw.items)) return raw;
+      if (Array.isArray(raw.activities)) return { ...raw, items: raw.activities };
+      return raw;
+    }
+    return { items: [] };
+  }
+
+  function activityDisplayTitle(item) {
+    return text(item && (item.title || item.activityName || item.name));
+  }
+
   function bookEntry(entry) {
     if (!entry || typeof entry !== "object") return null;
     const title = text(entry.title);
@@ -284,22 +307,47 @@
 
   function resolvePlanActivities(plan, activities) {
     const planId = text(plan && plan.id);
-    const fromList = asArray(activities).filter((activity) => text(activity && activity.lessonPlanId) === planId);
+    const fromList = asArray(activities).filter((activity) => {
+      if (text(activity && activity.lessonPlanId) !== planId) return false;
+      return text(activity.status).toLowerCase() !== "archived";
+    });
+    const archivedKeys = new Set();
+    asArray(activities).forEach((activity) => {
+      if (text(activity && activity.lessonPlanId) !== planId) return;
+      if (text(activity.status).toLowerCase() !== "archived") return;
+      const itemKey = text(activity.itemId);
+      [text(activity.id), itemKey, text(activity.sourceKey), itemKey ? `${planId}:${itemKey}` : ""]
+        .filter(Boolean)
+        .forEach((key) => archivedKeys.add(key));
+    });
     const bySource = new Map();
     fromList.forEach((activity) => {
       const key = text(activity.sourceKey) || `${planId}:${text(activity.itemId)}` || text(activity.id);
       if (key) bySource.set(key, activity);
+      const itemKey = text(activity.itemId);
+      if (itemKey) bySource.set(`${planId}:${itemKey}`, activity);
+      const idKey = text(activity.id);
+      if (idKey) bySource.set(idKey, activity);
     });
 
     const merged = [];
     const seen = new Set();
     WEEKDAYS.forEach((day) => {
-      const dayPlan = plan && plan.dailyPlans && plan.dailyPlans[day] ? plan.dailyPlans[day] : {};
+      const dayPlan = weekdayDayPlan(plan && plan.dailyPlans, day);
       asArray(dayPlan.items).forEach((item) => {
-        if (!item || !text(item.title)) return;
+        const title = activityDisplayTitle(item);
+        if (!item || !title) return;
         const sourceKey = text(item.sourceKey) || `${planId}:${text(item.itemId)}`;
-        const activity = bySource.get(sourceKey);
-        const id = text(activity && activity.id) || sourceKey || `${day}-${text(item.itemId) || text(item.title)}`;
+        if (
+          archivedKeys.has(sourceKey)
+          || archivedKeys.has(text(item.itemId))
+          || archivedKeys.has(text(item.id))
+        ) return;
+        const activity = bySource.get(sourceKey)
+          || bySource.get(text(item.itemId))
+          || bySource.get(text(item.id))
+          || null;
+        const id = text(activity && activity.id) || sourceKey || `${day}-${text(item.itemId) || title}`;
         if (seen.has(id)) return;
         seen.add(id);
         merged.push({
@@ -411,7 +459,7 @@
       source.exampleImageUrl = activity.exampleImageUrl || activity.examplePhotoUrl || "";
       source.exampleMediaAssetId = activity.exampleMediaAssetId || source.exampleMediaAssetId;
     }
-    const title = text(source.title) || "Activity";
+    const title = activityDisplayTitle(source) || "Activity";
     const categoryRaw = text(source.activityCategory) || "Open-Ended Exploration";
     const category = humanizeCategoryLabel(categoryRaw);
     const materials = text(source.materials);
@@ -501,7 +549,7 @@
     const all = [];
     all.push(...materialsList(plan.weeklyMaterials));
     WEEKDAYS.forEach((day) => {
-      const dayPlan = plan.dailyPlans && plan.dailyPlans[day] ? plan.dailyPlans[day] : {};
+      const dayPlan = weekdayDayPlan(plan.dailyPlans, day);
       all.push(...materialsList(dayPlan.materials));
     });
     activityCards.forEach((card) => {
@@ -628,7 +676,7 @@
         })),
       },
       safetyNotes: uniqueStrings(
-        WEEKDAYS.flatMap((day) => bulletLines(plan.dailyPlans?.[day]?.safetyNotes)),
+        WEEKDAYS.flatMap((day) => bulletLines(weekdayDayPlan(plan.dailyPlans, day).safetyNotes)),
         8,
       ),
       cta: "Open Today’s Classroom",
@@ -636,7 +684,7 @@
   }
 
   function buildDayClassroom(plan, day, activityCards, vocabulary) {
-    const dayPlan = plan.dailyPlans && plan.dailyPlans[day] ? plan.dailyPlans[day] : {};
+    const dayPlan = weekdayDayPlan(plan.dailyPlans, day);
     const dayActivities = activityCards.filter((card) => card.dayOfWeek === day);
     // Merge day + week entries; richer questions/lyrics win for matching titles.
     const books = uniqueByTitle([
@@ -886,7 +934,7 @@
       case "weekly_plan":
         return {
           days: WEEKDAYS.map((day) => {
-            const dayPlan = ctx.plan.dailyPlans?.[day] || {};
+            const dayPlan = weekdayDayPlan(ctx.plan.dailyPlans, day);
             const dayClassroom = ctx.days?.[day] || {};
             const dayActs = ctx.activityCards.filter((card) => card.dayOfWeek === day);
             const focus = text(dayPlan.theme)
