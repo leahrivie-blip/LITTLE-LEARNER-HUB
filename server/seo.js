@@ -45,8 +45,8 @@ function supportEmailAddress() {
 const SUPPORT_EMAIL = supportEmailAddress();
 const FOUNDER_NAME = process.env.ADMIN_NAME || "Leah";
 
-const SEO_TITLE = "Little Learner Hub by Leah | All-in-One Childcare Platform";
-const SEO_DESCRIPTION = "Little Learner Hub is an all-in-one childcare platform with hundreds of ready-to-use lesson plans, thousands of classroom activities, curriculum planning, AI documentation helpers, and child profiles — built by a childcare provider and continuously improved with real provider feedback.";
+const SEO_TITLE = "Daycare Lesson Plans & Childcare Curriculum | Little Learner Hub";
+const SEO_DESCRIPTION = "Ready-to-use infant, toddler and preschool lesson plans, activities, printables and teacher tools for childcare providers. Start free with 10 complete lesson plans.";
 
 const OFFICIAL_SOCIAL_PROFILES = [
   { label: "TikTok", url: "https://www.tiktok.com/@leahrpoole" },

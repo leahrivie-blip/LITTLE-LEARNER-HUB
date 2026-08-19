@@ -74,6 +74,14 @@ body.home-view #siteAnnouncementBanner:not([hidden]) {
   min-width: 0;
 }
 
+.llh-announce-promo-primary {
+  font-weight: 600;
+}
+
+.llh-announce-promo-secondary {
+  white-space: nowrap;
+}
+
 .llh-announce-copy p {
   margin: 0;
   font-size: 0.86rem;
@@ -1420,6 +1428,10 @@ body.llh-public-menu-open {
   .llh-announce-copy p {
     -webkit-line-clamp: 3;
     font-size: 0.82rem;
+  }
+
+  .llh-announce-promo-secondary {
+    white-space: normal;
   }
 
   .llh-announce-banner .llh-btn-accent {
