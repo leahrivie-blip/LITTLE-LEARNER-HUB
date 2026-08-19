@@ -1199,10 +1199,13 @@
     const expectedImageSlots = Math.max(0, expectedSetupImages + expectedExampleImages);
     // Proportional visual coverage (40–60% excellent). Per-slot fill is diagnostic only.
     const imageReadiness = visualCoverage.score;
-    const activityCompleteness = clampPercent((activityCompleteUnits / n) * 100);
+    // Sidebar "Complete" may still wait on owner-required images; scoring uses
+    // core + tips so missing photos never independently pull premium below 90.
+    const activityContentCompleteness = clampPercent((publishContentCompleteUnits / n) * 100);
+    const activityCompleteness = activityContentCompleteness;
     // Blend enrichment completeness with absolute weekly volume (maxes at 10–12).
     const activityScore = clampPercent(
-      (activityCompleteness * 0.55) + (activityVolume.score * 0.45),
+      (activityContentCompleteness * 0.55) + (activityVolume.score * 0.45),
     );
     const incompleteForPublish = Math.max(0, list.length - publishContentCompleteUnits);
 

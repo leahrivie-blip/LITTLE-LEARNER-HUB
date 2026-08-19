@@ -113,6 +113,7 @@
     let imagesBriefOnly = 0;
     let draftReadyActs = 0;
     let completeActs = 0;
+    let publishContentActs = 0;
     list.forEach((act) => {
       const key = text(act.id) || text(act.itemId);
       const patch = draftActs[key] || {};
@@ -158,6 +159,11 @@
       if (hasDraftPack) draftReadyActs += 1;
       const status = enrich?.activityStatus ? enrich.activityStatus(act, patch) : "not_started";
       if (status === "complete") completeActs += 1;
+      if (enrich?.activityPublishContentComplete
+        ? enrich.activityPublishContentComplete(act, patch)
+        : status === "complete") {
+        publishContentActs += 1;
+      }
     });
 
     const books = asArray(week.books).length ? asArray(week.books) : asArray(plan?.books);
@@ -231,8 +237,8 @@
             ? enrich.scoreActivityVolume(list.length)
             : { requirementMet: list.length >= 10, score: list.length >= 10 ? 100 : 0 };
           if (!list.length) return "missing";
-          if (volume.requirementMet && completeActs >= Math.min(list.length, 10)) return "complete";
-          if (list.length >= 5 || completeActs > 0 || draftReadyActs > 0) return "needs_improvement";
+          if (volume.requirementMet && publishContentActs >= Math.min(list.length, 10)) return "complete";
+          if (list.length >= 5 || completeActs > 0 || publishContentActs > 0 || draftReadyActs > 0) return "needs_improvement";
           return "missing";
         })(),
         detail: (() => {
@@ -243,7 +249,7 @@
           const volumeNote = volume
             ? ` · ${volume.label}`
             : "";
-          return `${completeActs}/${list.length} activities complete (${draftReadyActs} with photo pack)${volumeNote}`;
+          return `${publishContentActs}/${list.length} activities have core teaching content${volumeNote}`;
         })(),
       },
       {
@@ -367,7 +373,7 @@
     } else if (majorGaps.length >= 3 && completionPercent >= 90) {
       completionPercent = Math.min(completionPercent, 75);
       dashboardStage = "Needs Review";
-    } else if (list.length && draftReadyActs < list.length && completionPercent >= 90) {
+    } else if (list.length && publishContentActs < list.length && completionPercent >= 90) {
       completionPercent = Math.min(completionPercent, 85);
       if (dashboardStage === "Complete" || dashboardStage === "Published") dashboardStage = "Ready";
     }

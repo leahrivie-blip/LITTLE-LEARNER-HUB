@@ -6,9 +6,12 @@
  * Run: NODE_ENV=test node scripts/test-curriculum-weekly-activity-standard.js
  */
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
 const enrich = require("./teaching-kit-enrichment.js");
 const quality = require("./teaching-kit-quality-review.js");
 const status = require("./teaching-kit-status.js");
+const lessonTeacher = require("./teaching-kit-ai-lesson-teacher.js");
 
 function dayItems(day, count, { withImages = false, imageRequirement = "not_needed" } = {}) {
   const items = [];
@@ -21,21 +24,23 @@ function dayItems(day, count, { withImages = false, imageRequirement = "not_need
       dayOfWeek: day,
       activityCategory: i % 2 === 0 ? "Music and Movement" : "Sensory",
       objective: "Practice theme play",
-      description: "Children explore the theme with hands-on materials.",
-      materials: "trays, baskets, theme props",
+      description: "Children explore the theme with hands-on materials, then share a turn with a friend.",
+      materials: "trays, baskets, theme props, tongs, crayons",
       preparation: "Stage trays low.",
       setup: "Set materials on a low table.",
       steps: "1. Invite children.\n2. Model one action.\n3. Let children try.\n4. Clean up together.",
-      teacherLanguage: "What do you notice?",
-      observationOpportunities: "Does the child try a new action?",
+      teacherLanguage: "What do you notice? How does that texture feel?",
+      observationOpportunities: "Does the child try a new action, use a theme word, or take a turn?",
       safetyNotes: "Stay nearby.",
       cleanupTips: "Wipe trays.",
       ageModifications: "Preschool",
       durationMinutes: 15,
+      indoorAlternatives: "Keep the same tray invitation at a table if weather blocks outdoor time.",
+      outdoorAlternatives: "Take the trays onto the patio for a shaded movement path.",
       imageRequirement,
       setupImageUrl: withImages ? `/media/${id}-setup.png` : "",
       exampleImageUrl: withImages ? `/media/${id}-example.png` : "",
-      teacherTips: ["Offer two choices."],
+      teacherTips: ["Offer two choices and name one feeling word."],
     });
   }
   return items;
@@ -44,6 +49,8 @@ function dayItems(day, count, { withImages = false, imageRequirement = "not_need
 function buildWeekPlan({
   id = "qa-week-standard",
   perDay = 2,
+  countsByDay = null,
+  skipDays = [],
   imageDays = [],
   imageRequirement = "not_needed",
   resources = null,
@@ -53,8 +60,15 @@ function buildWeekPlan({
   const activities = [];
   const draftActs = {};
   days.forEach((day) => {
+    if (skipDays.includes(day)) {
+      dailyPlans[day] = { theme: `${day} theme focus`, focus: `${day} focus`, items: [] };
+      return;
+    }
+    const count = countsByDay && Number.isFinite(Number(countsByDay[day]))
+      ? Number(countsByDay[day])
+      : perDay;
     const withImages = imageDays.includes(day);
-    const items = dayItems(day, perDay, { withImages, imageRequirement });
+    const items = dayItems(day, count, { withImages, imageRequirement });
     dailyPlans[day] = {
       theme: `${day} theme focus`,
       focus: `${day} focus`,
@@ -64,14 +78,16 @@ function buildWeekPlan({
       activities.push({ ...item, lessonPlanId: id, status: "draft" });
       draftActs[item.id] = {
         teacherTips: item.teacherTips,
-        observationPrompts: ["Tries a new action?"],
+        observationPrompts: ["Tries a new action and uses a theme word?"],
         imageRequirement: item.imageRequirement,
         setupImageUrl: item.setupImageUrl,
         exampleImageUrl: item.exampleImageUrl,
         setup: item.setup,
         steps: item.steps,
         adaptations: "Offer a simpler tray.",
-        extensions: "Invite a peer.",
+        extensions: "Invite a friend to take a turn.",
+        indoorAlternatives: item.indoorAlternatives,
+        outdoorAlternatives: item.outdoorAlternatives,
       };
     });
   });
@@ -82,11 +98,11 @@ function buildWeekPlan({
     theme: "Shells",
     age: "Preschool",
     status: "draft",
-    weeklyOverview: "Children explore shells through play across a complete five-day week with strong core activities.",
-    objectives: "Name textures, sort by size, and use one shell word in play.",
-    vocabularyWords: "shell, smooth, rough, sort, texture",
+    weeklyOverview: "Children explore shells through play, dance, story talk, and pretend kitchen play. They pinch with tongs, observe textures, predict what happens if they sort, draw with crayons, and practice sharing a turn with a friend.",
+    objectives: "Children will explore textures, practice sorting by size, notice one shell word, and use kind turn-taking in play.",
+    vocabularyWords: "shell, smooth, rough, sort, texture, share",
     weeklyMaterials: "shells, tongs, trays, baskets, magnifiers, paper, crayons, scarves, baskets, cups",
-    familyConnection: "Ask your child to find one shell word at home and tell you what it means.",
+    familyConnection: "Ask your child to find one shell word at home, share how it feels, and tell you what it means.",
     books: [{
       title: "Shell Book",
       author: "A. Author",
@@ -105,10 +121,10 @@ function buildWeekPlan({
     enrichmentDraft: {
       activities: draftActs,
       week: {
-        weeklyOverview: "Children explore shells through play across a complete five-day week with strong core activities.",
-        objectives: "Name textures, sort by size, and use one shell word in play.",
+        weeklyOverview: "Children explore shells through play, dance, story talk, and pretend kitchen play. They pinch with tongs, observe textures, predict what happens if they sort, draw with crayons, and practice sharing a turn with a friend.",
+        objectives: "Children will explore textures, practice sorting by size, notice one shell word, and use kind turn-taking in play.",
         weeklyMaterials: "shells, tongs, trays, baskets, magnifiers, paper, crayons, scarves, baskets, cups",
-        familyConnection: "Ask your child to find one shell word at home and tell you what it means.",
+        familyConnection: "Ask your child to find one shell word at home, share how it feels, and tell you what it means.",
         books: [{
           title: "Shell Book",
           author: "A. Author",
@@ -307,14 +323,331 @@ function buildWeekPlan({
   assert.equal(plan.status, "draft");
 }
 
-// Volume bands
+function imageBlockers(evalOrReport) {
+  const issues = evalOrReport.blockingIssues
+    || evalOrReport.report?.blockingIssues
+    || [];
+  return issues.filter((issue) => /image|photo|visual/i.test(`${issue.code} ${issue.message}`));
+}
+
+function assertPublishReadyWhenComplete(evaluated, label) {
+  const imageHard = imageBlockers(evaluated);
+  assert.equal(imageHard.length, 0, `${label}: images must not hard-block (${imageHard.map((i) => i.code).join(",")})`);
+  assert.notEqual(evaluated.publishReadiness, "blocked", `${label}: must not be blocked`);
+  assert.ok(evaluated.premiumReadinessPercent >= 90, `${label}: premium ${evaluated.premiumReadinessPercent} >= 90`);
+  assert.equal(evaluated.publishReadiness, "ready", `${label}: publishReadiness ready (got ${evaluated.publishReadiness})`);
+  assert.ok(
+    evaluated.workflow === "Publish Ready" || evaluated.workflow === "Ready for Owner Review",
+    `${label}: workflow ${evaluated.workflow}`,
+  );
+}
+
+// Image policy modes remain owner-selectable and do not independently fail Complete when unused
 {
-  assert.ok(enrich.scoreActivityVolume(3).score < 40);
-  assert.ok(enrich.scoreActivityVolume(6).score >= 40 && enrich.scoreActivityVolume(6).score < 75);
-  assert.ok(enrich.scoreActivityVolume(9).score >= 75 && enrich.scoreActivityVolume(9).score < 100);
-  assert.equal(enrich.scoreActivityVolume(10).score, 100);
-  assert.equal(enrich.scoreActivityVolume(11).score, 100);
-  assert.equal(enrich.scoreActivityVolume(25).score, 100);
+  assert.deepEqual(
+    enrich.IMAGE_REQUIREMENT_OWNER_OPTIONS,
+    ["not_needed", "example_only", "setup_only", "required", "optional"],
+  );
+  const sample = buildWeekPlan({ id: "qa-image-modes", perDay: 2 }).activities[0];
+  const draft = { teacherTips: ["Tip"], observationPrompts: ["See?"], setup: sample.setup, steps: sample.steps };
+  ["not_needed", "optional", "example_only", "setup_only", "required"].forEach((req) => {
+    const patch = { ...draft, imageRequirement: req };
+    const view = enrich.activityEnrichmentView(sample, patch);
+    if (req === "not_needed" || req === "optional") {
+      assert.equal(enrich.activityImagesSatisfyRequirement(view, req), true);
+      assert.equal(enrich.activityStatus(sample, patch), "complete");
+    } else {
+      assert.equal(enrich.activityImagesSatisfyRequirement(view, req), false);
+    }
+  });
+}
+
+// Volume bands — exact live standard
+{
+  assert.equal(enrich.scoreActivityVolume(0).band, "empty");
+  [1, 2, 3, 4].forEach((n) => {
+    const vol = enrich.scoreActivityVolume(n);
+    assert.equal(vol.band, "incomplete", `${n} is incomplete`);
+    assert.ok(vol.score < 40, `${n} incomplete score ${vol.score}`);
+    assert.equal(vol.requirementMet, false);
+  });
+  [5, 6, 7].forEach((n) => {
+    const vol = enrich.scoreActivityVolume(n);
+    assert.equal(vol.band, "developing", `${n} is developing`);
+    assert.ok(vol.score >= 40 && vol.score < 75, `${n} developing score ${vol.score}`);
+    assert.equal(vol.requirementMet, false);
+  });
+  [8, 9].forEach((n) => {
+    const vol = enrich.scoreActivityVolume(n);
+    assert.equal(vol.band, "nearly_complete", `${n} is nearly complete`);
+    assert.ok(vol.score >= 75 && vol.score < 100, `${n} nearly-complete score ${vol.score}`);
+    assert.equal(vol.requirementMet, false);
+  });
+  const ten = enrich.scoreActivityVolume(10);
+  assert.equal(ten.score, 100);
+  assert.equal(ten.band, "complete");
+  assert.equal(ten.requirementMet, true);
+  const eleven = enrich.scoreActivityVolume(11);
+  const twelve = enrich.scoreActivityVolume(12);
+  assert.equal(eleven.score, 100);
+  assert.equal(twelve.score, 100);
+  assert.equal(eleven.band, "strong");
+  assert.equal(twelve.band, "strong");
+  assert.equal(enrich.scoreActivityVolume(13).score, 100);
+  assert.equal(enrich.scoreActivityVolume(16).score, 100);
+  assert.equal(enrich.scoreActivityVolume(20).score, 100);
+  assert.equal(enrich.scoreActivityVolume(13).band, "ample");
+}
+
+// A–J proofs
+{
+  // A. 10 activities, 2 per weekday, otherwise complete → full volume + Publish Ready
+  const a = buildWeekPlan({
+    id: "qa-a-10",
+    perDay: 2,
+    imageDays: ["monday", "wednesday", "friday"],
+    imageRequirement: "not_needed",
+  });
+  assert.equal(a.activities.length, 10);
+  const aScores = enrich.computeReadinessScores(a.plan, a.activities, a.plan.enrichmentDraft, { resources: a.resources });
+  assert.equal(aScores.activityVolume.score, 100);
+  assert.equal(aScores.activityVolume.requirementMet, true);
+  const aEval = quality.evaluateTeachingKit(a.plan, a.activities, a.plan.enrichmentDraft, { resources: a.resources });
+  assertPublishReadyWhenComplete(aEval, "A");
+
+  // B. 12 activities → no meaningful score advantage over 10
+  const b12 = buildWeekPlan({
+    id: "qa-b-12",
+    perDay: 2,
+    imageDays: ["monday", "wednesday", "friday"],
+    imageRequirement: "not_needed",
+  });
+  b12.plan.dailyPlans.friday.items.push(...dayItems("friday", 2, { imageRequirement: "not_needed" }));
+  b12.plan.dailyPlans.friday.items.slice(-2).forEach((item) => {
+    b12.activities.push({ ...item, lessonPlanId: "qa-b-12", status: "draft" });
+    b12.plan.enrichmentDraft.activities[item.id] = {
+      teacherTips: item.teacherTips,
+      observationPrompts: ["Observe?"],
+      imageRequirement: "not_needed",
+      setup: item.setup,
+      steps: item.steps,
+      indoorAlternatives: item.indoorAlternatives,
+      outdoorAlternatives: item.outdoorAlternatives,
+    };
+  });
+  assert.equal(b12.activities.length, 12);
+  const b10Scores = aScores;
+  const b12Scores = enrich.computeReadinessScores(
+    b12.plan, b12.activities, b12.plan.enrichmentDraft, { resources: b12.resources },
+  );
+  assert.equal(b12Scores.activityVolumeScore, b10Scores.activityVolumeScore);
+  assert.ok(
+    Math.abs(b12Scores.premiumReadinessPercent - b10Scores.premiumReadinessPercent) <= 3,
+    `B: 12 vs 10 premium ${b12Scores.premiumReadinessPercent} vs ${b10Scores.premiumReadinessPercent}`,
+  );
+
+  // C. 16 or 20 activities → no additional volume score
+  assert.equal(enrich.scoreActivityVolume(16).score, enrich.scoreActivityVolume(10).score);
+  assert.equal(enrich.scoreActivityVolume(20).score, enrich.scoreActivityVolume(10).score);
+  const c16 = buildWeekPlan({ id: "qa-c-16", countsByDay: { monday: 4, tuesday: 3, wednesday: 3, thursday: 3, friday: 3 }, imageDays: ["monday", "wednesday"], imageRequirement: "not_needed" });
+  assert.equal(c16.activities.length, 16);
+  const c20 = buildWeekPlan({ id: "qa-c-20", perDay: 4, imageDays: ["monday", "wednesday"], imageRequirement: "not_needed" });
+  assert.equal(c20.activities.length, 20);
+  const c16s = enrich.computeReadinessScores(c16.plan, c16.activities, c16.plan.enrichmentDraft, { resources: c16.resources });
+  const c20s = enrich.computeReadinessScores(c20.plan, c20.activities, c20.plan.enrichmentDraft, { resources: c20.resources });
+  assert.equal(c16s.activityVolumeScore, 100);
+  assert.equal(c20s.activityVolumeScore, 100);
+  assert.ok(c16s.premiumReadinessPercent <= b10Scores.premiumReadinessPercent + 3);
+  assert.ok(c20s.premiumReadinessPercent <= b10Scores.premiumReadinessPercent + 3);
+
+  // D. 10 activities with ~4–6 useful images → Publish Ready
+  const d = buildWeekPlan({
+    id: "qa-d-images",
+    perDay: 2,
+    imageDays: ["monday", "wednesday", "friday"],
+    imageRequirement: "not_needed",
+  });
+  const dVisual = enrich.measureVisualCoverage(d.plan, d.activities, d.plan.enrichmentDraft);
+  assert.ok(dVisual.withImages >= 4 && dVisual.withImages <= 6, `D: ${dVisual.withImages} images`);
+  assert.equal(dVisual.excellent, true);
+  const dEval = quality.evaluateTeachingKit(d.plan, d.activities, d.plan.enrichmentDraft, { resources: d.resources });
+  assertPublishReadyWhenComplete(dEval, "D");
+
+  // E. several simple activities explicitly No image needed → Publish Ready
+  const e = buildWeekPlan({
+    id: "qa-e-not-needed",
+    perDay: 2,
+    imageDays: ["tuesday", "thursday"],
+    imageRequirement: "not_needed",
+  });
+  e.activities.forEach((act) => {
+    assert.equal(act.imageRequirement, "not_needed");
+    assert.equal(enrich.activityStatus(act, e.plan.enrichmentDraft.activities[act.id]), "complete");
+  });
+  const eEval = quality.evaluateTeachingKit(e.plan, e.activities, e.plan.enrichmentDraft, { resources: e.resources });
+  assertPublishReadyWhenComplete(eEval, "E");
+
+  // F. zero images → soft recommendation, not a hard blocker; can still be Publish Ready
+  const f = buildWeekPlan({ id: "qa-f-zero", perDay: 2, imageDays: [], imageRequirement: "not_needed" });
+  const fVisual = enrich.measureVisualCoverage(f.plan, f.activities, f.plan.enrichmentDraft);
+  assert.equal(fVisual.percent, 0);
+  assert.ok(fVisual.recommendation);
+  const fScores = enrich.computeReadinessScores(f.plan, f.activities, f.plan.enrichmentDraft, { resources: f.resources });
+  assert.ok(fScores.premiumReadinessPercent >= 90, `F: zero images must not cap premium below 90 (got ${fScores.premiumReadinessPercent})`);
+  const fEval = quality.evaluateTeachingKit(f.plan, f.activities, f.plan.enrichmentDraft, { resources: f.resources });
+  const fImageFinding = (fEval.report.findings || []).find((row) => row.code === "missing_example_images");
+  assert.ok(fImageFinding, "F: soft visual recommendation present");
+  assert.equal(fImageFinding.blocking, false);
+  assert.equal(imageBlockers(fEval).length, 0);
+  assertPublishReadyWhenComplete(fEval, "F");
+
+  // G. uneven 1/3/1/4/1 still satisfies weekday coverage
+  const g = buildWeekPlan({
+    id: "qa-g-uneven",
+    countsByDay: { monday: 1, tuesday: 3, wednesday: 1, thursday: 4, friday: 1 },
+    imageDays: ["tuesday", "thursday"],
+    imageRequirement: "not_needed",
+  });
+  assert.equal(g.activities.length, 10);
+  const gCover = status.measureWeekdayCoverage(g.plan, g.activities);
+  assert.equal(gCover.coverageComplete, true);
+  assert.deepEqual(gCover.missingDays, []);
+  const gEval = quality.evaluateTeachingKit(g.plan, g.activities, g.plan.enrichmentDraft, { resources: g.resources });
+  assert.equal(
+    (gEval.report.findings || []).some((row) => row.code === "missing_weekday_focus" && row.blocking),
+    false,
+    "G: uneven distribution is not a weekday blocker",
+  );
+
+  // H. missing a weekday still triggers weekday coverage
+  const h = buildWeekPlan({
+    id: "qa-h-missing-friday",
+    perDay: 2,
+    skipDays: ["friday"],
+    imageDays: ["monday", "wednesday"],
+    imageRequirement: "not_needed",
+  });
+  const hCover = status.measureWeekdayCoverage(h.plan, h.activities);
+  assert.equal(hCover.coverageComplete, false);
+  assert.ok(hCover.missingDays.includes("friday"));
+  const hEval = quality.evaluateTeachingKit(h.plan, h.activities, h.plan.enrichmentDraft, { resources: h.resources });
+  const hWorkflow = status.workflowStatusFromParts({
+    lessonStatus: "draft",
+    enrichmentFillPercent: 95,
+    premiumReadinessPercent: 95,
+    hasEnrichmentDraft: true,
+    coverageComplete: hCover.coverageComplete,
+    needsReview: Boolean(hEval.summary.needsReview),
+    publishReadiness: hEval.publishReadiness,
+    qualityBlocked: hEval.blocksPublish,
+  });
+  assert.notEqual(hWorkflow, "Publish Ready", "H: missing weekday cannot be Publish Ready");
+
+  // I. owner-classified required image keeps activity guidance without globally blocking on image count
+  const i = buildWeekPlan({
+    id: "qa-i-required",
+    perDay: 2,
+    imageDays: ["monday", "tuesday", "wednesday"],
+    imageRequirement: "not_needed",
+  });
+  const target = i.activities.find((act) => act.id === "thursday-1");
+  target.imageRequirement = "required";
+  target.setupImageUrl = "";
+  target.exampleImageUrl = "";
+  i.plan.enrichmentDraft.activities["thursday-1"].imageRequirement = "required";
+  i.plan.enrichmentDraft.activities["thursday-1"].setupImageUrl = "";
+  i.plan.enrichmentDraft.activities["thursday-1"].exampleImageUrl = "";
+  assert.equal(enrich.activityStatus(target, i.plan.enrichmentDraft.activities["thursday-1"]), "in_progress");
+  assert.equal(enrich.activityPublishContentComplete(target, i.plan.enrichmentDraft.activities["thursday-1"]), true);
+  const iScores = enrich.computeReadinessScores(i.plan, i.activities, i.plan.enrichmentDraft, { resources: i.resources });
+  assert.equal(iScores.incompleteActivitiesForPublish, 0);
+  assert.ok(iScores.premiumReadinessPercent >= 90, `I: premium ${iScores.premiumReadinessPercent}`);
+  const iBefore = buildWeekPlan({
+    id: "qa-i-required-before",
+    perDay: 2,
+    imageDays: ["monday", "tuesday", "wednesday"],
+    imageRequirement: "not_needed",
+  });
+  const iBeforeAnalysis = lessonTeacher.analyzeLessonCompleteness(
+    iBefore.plan, iBefore.activities, iBefore.plan.enrichmentDraft, { resources: iBefore.resources },
+  );
+  const iEval = quality.evaluateTeachingKit(i.plan, i.activities, i.plan.enrichmentDraft, { resources: i.resources });
+  assert.equal(imageBlockers(iEval).length, 0, "I: image count is not a lesson-level hard blocker");
+  assert.ok(iEval.publishReadiness === "ready" || !iEval.blocksPublish, "I: lesson not blocked solely on image count");
+  const iAnalysis = lessonTeacher.analyzeLessonCompleteness(i.plan, i.activities, i.plan.enrichmentDraft, { resources: i.resources });
+  const iActs = iAnalysis.sections.find((section) => section.id === "activities");
+  assert.equal(iActs.status, "complete", "I: AI teacher activities section uses core content, not photos");
+  assert.equal(
+    iAnalysis.completionPercent,
+    iBeforeAnalysis.completionPercent,
+    "I: owner-required missing image must not change AI teacher completion vs the same week without that gap",
+  );
+
+  // Optional / unclassified / not_needed must not stay In Progress for images
+  const optionalAct = i.activities.find((act) => act.id === "friday-1");
+  i.plan.enrichmentDraft.activities["friday-1"].imageRequirement = "optional";
+  optionalAct.imageRequirement = "optional";
+  optionalAct.setupImageUrl = "";
+  optionalAct.exampleImageUrl = "";
+  i.plan.enrichmentDraft.activities["friday-1"].setupImageUrl = "";
+  i.plan.enrichmentDraft.activities["friday-1"].exampleImageUrl = "";
+  assert.equal(enrich.activityStatus(optionalAct, i.plan.enrichmentDraft.activities["friday-1"]), "complete");
+  const unclassified = i.activities.find((act) => act.id === "friday-2");
+  unclassified.imageRequirement = "";
+  unclassified.setupImageUrl = "";
+  unclassified.exampleImageUrl = "";
+  i.plan.enrichmentDraft.activities["friday-2"].imageRequirement = "";
+  i.plan.enrichmentDraft.activities["friday-2"].setupImageUrl = "";
+  i.plan.enrichmentDraft.activities["friday-2"].exampleImageUrl = "";
+  assert.equal(enrich.resolveImageRequirement(unclassified, i.plan.enrichmentDraft.activities["friday-2"]), "needs_owner_classification");
+  assert.equal(enrich.activityStatus(unclassified, i.plan.enrichmentDraft.activities["friday-2"]), "complete");
+
+  // J. No active AI prompt recommends filler activities just to increase the score
+  const activePromptFiles = [
+    "server/enrichment-ai.js",
+    "server/index.js",
+    "scripts/teaching-kit-ai-lesson-teacher.js",
+    "scripts/teaching-kit-enrichment-editor.js",
+  ];
+  const forbidden = [
+    /3[–-]4 activities per day/i,
+    /15 activities/i,
+    /16 activities/i,
+    /20 activities/i,
+    /every activity needs an image/i,
+    /all activities imaged/i,
+    /image required for completion/i,
+    /add filler/i,
+    /invent filler just to (hit|raise|increase)/i,
+    /more activities just to raise a score/i,
+  ];
+  const allowedNegations = /do not (recommend adding more activities just to raise|invent filler|rewrite or inflate)/i;
+  activePromptFiles.forEach((rel) => {
+    const src = fs.readFileSync(path.join(__dirname, "..", rel), "utf8");
+    forbidden.forEach((pattern) => {
+      const hits = src.match(new RegExp(pattern.source, pattern.flags + (pattern.flags.includes("g") ? "" : "g"))) || [];
+      hits.forEach((hit) => {
+        const idx = src.indexOf(hit);
+        const window = src.slice(Math.max(0, idx - 80), idx + hit.length + 40);
+        if (allowedNegations.test(window) || /Do NOT recommend adding more activities just to raise/i.test(window)) {
+          return;
+        }
+        if (pattern.source.includes("15 activities") || pattern.source.includes("16 activities") || pattern.source.includes("20 activities")) {
+          // Live scoring/AI files must not instruct those counts. Comments about historical fixtures are ok if not prompts.
+          if (/farm QA fixture|historical|already published with 15/i.test(window)) return;
+        }
+        assert.fail(`J: active prompt file ${rel} still contains conflicting guidance: ${hit}`);
+      });
+    });
+  });
+  const enrichmentPrompt = require("../server/enrichment-ai.js").buildEnrichmentAiSystemPrompt
+    ? require("../server/enrichment-ai.js").buildEnrichmentAiSystemPrompt()
+    : "";
+  if (enrichmentPrompt) {
+    assert.match(enrichmentPrompt, /10 strong activities/);
+    assert.match(enrichmentPrompt, /Never invent filler/);
+    assert.doesNotMatch(enrichmentPrompt, /3[–-]4 activities per day/);
+  }
 }
 
 console.log("PASS curriculum-weekly-activity-standard");
