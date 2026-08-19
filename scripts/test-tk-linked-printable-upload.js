@@ -148,6 +148,11 @@ async function main() {
   ok(appJs.includes("hydrateAdminTkPrintableForm"), "printable form hydrate helper present");
   ok(appJs.includes('role="form"'), "printable panel uses role=form (not nested <form>)");
   ok(appJs.includes('data-tk-printable-field="pdfFile"'), "PDF input uses dedicated data field keys");
+  ok(appJs.includes("const CURRICULUM_UPLOAD_MAX_MB = 20"), "client printable/resource upload max is 20 MB");
+  ok(appJs.includes("const CURRICULUM_PREVIEW_UPLOAD_MAX_MB = 2"), "preview image max remains 2 MB");
+  ok(serverJs.includes("const MAX_CURRICULUM_UPLOAD_BYTES = 20 * 1024 * 1024"), "server printable/resource upload max is 20 MB");
+  ok(serverJs.includes("const MAX_CURRICULUM_UPLOAD_MB = 20"), "server upload error copy uses 20 MB");
+  ok(serverJs.includes("readCurriculumUploadJson"), "printable/resource upload JSON body is size-capped");
   ok(appJs.includes('data-tk-printable-field="previewFile"'), "preview input uses dedicated data field keys");
   ok(appJs.includes("resolveCurriculumResourceOpenId"), "scoped Preview / Download id helper present");
   ok(appJs.includes("curriculumResourceDataUrlToObjectUrl"), "owner preview uses blob object URLs instead of unauthenticated media window.open");

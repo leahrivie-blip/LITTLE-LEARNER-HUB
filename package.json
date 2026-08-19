@@ -404,6 +404,7 @@
     "test:pass3-tk-undo-stress": "NODE_ENV=test node scripts/test-pass3-tk-undo-stress.js",
     "test:tk-upgrade-safety": "NODE_ENV=test node scripts/test-tk-upgrade-safety.js",
     "test:tk-linked-printable-upload": "NODE_ENV=test node scripts/test-tk-linked-printable-upload.js",
+    "test:curriculum-resource-upload-size": "NODE_ENV=test node scripts/test-curriculum-resource-upload-size.js",
     "test:tk-printable-preview-handler": "NODE_ENV=test node scripts/test-tk-printable-preview-handler.js",
     "test:tk-linked-preview-keep-editor": "NODE_ENV=test node scripts/test-tk-linked-preview-keep-editor.js",
     "test:tk-printable-idea-remove": "NODE_ENV=test node scripts/test-tk-printable-idea-remove.js",
