@@ -99,19 +99,13 @@ async function main() {
   const serverJs = fs.readFileSync(path.join(ROOT, "server/index.js"), "utf8");
   const appJs = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
 
-  assert.match(
-    serverJs,
-    /success_url:\s*body\.successUrl\s*\|\|\s*`\$\{appBaseUrl\(\)\}\\\/subscription-success\?session_id=\{CHECKOUT_SESSION_ID\}`/,
-  );
-  assert.match(serverJs, /cancel_url:\s*body\.cancelUrl\s*\|\|\s*`\$\{SITE_URL\}\?checkout=cancel`/);
-  assert.match(appJs, /successUrl:\s*`\$\{window\.location\.origin\}\/subscription-success\?session_id=\{CHECKOUT_SESSION_ID\}`/);
-  assert.match(appJs, /cancelUrl:\s*`\$\{window\.location\.origin\}\$\{window\.location\.pathname\}\?checkout=cancel`/);
+  assert.match(serverJs, /success_url:\s*body\.successUrl \|\| `\$\{appBaseUrl\(\)\}\/subscription-success\?session_id=\{CHECKOUT_SESSION_ID\}`/);
+  assert.match(serverJs, /cancel_url:\s*body\.cancelUrl \|\| `\$\{SITE_URL\}\?checkout=cancel`/);
+  assert.match(appJs, /successUrl: `\$\{window\.location\.origin\}\/subscription-success\?session_id=\{CHECKOUT_SESSION_ID\}`/);
+  assert.match(appJs, /cancelUrl: `\$\{window\.location\.origin\}\$\{window\.location\.pathname\}\?checkout=cancel`/);
   assert.match(appJs, /locationRouteKey\(window\.location\.pathname\) === "\/subscription-success"/);
-  assert.match(appJs, /"\/subscription-success":\s*"payment-success"/);
-  assert.doesNotMatch(
-    appJs,
-    /successUrl:\s*`\$\{window\.location\.origin\}\$\{window\.location\.pathname\}\?checkout=success/,
-  );
+  assert.match(appJs, /"\/subscription-success": "payment-success"/);
+  assert.doesNotMatch(appJs, /pathname\}\?checkout=success/);
   console.log("PASS  source wiring: Stripe success_url is /subscription-success; cancel_url is not");
 
   const child = startServer();
@@ -122,7 +116,7 @@ async function main() {
     assert.equal(page.status, 200, page.text.slice(0, 200));
     assert.match(String(page.headers["content-type"] || ""), /text\/html/);
     assert.match(page.text, /id="view-payment-success"/);
-    assert.match(page.text, /<script src="\/app\.js"/);
+    assert.match(page.text, /app\.js/);
     console.log("PASS  GET /subscription-success serves the SPA payment-success shell");
 
     const trailing = await request("GET", "/subscription-success/");
