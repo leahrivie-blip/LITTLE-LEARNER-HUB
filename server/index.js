@@ -7414,6 +7414,8 @@ async function stripeRequest(pathname, params) {
       if (params.allow_promotion_codes) query.set("allow_promotion_codes", String(params.allow_promotion_codes));
       if (params["metadata[campaign]"]) query.set("campaign", String(params["metadata[campaign]"]));
       if (trialMissingPm) query.set("trial_missing_pm", String(trialMissingPm));
+      if (params.success_url) query.set("success_url", String(params.success_url));
+      if (params.cancel_url) query.set("cancel_url", String(params.cancel_url));
       return {
         id: `cs_sim_${crypto.randomBytes(8).toString("hex")}`,
         url: `${SITE_URL}/?${query.toString()}`,
@@ -10365,7 +10367,7 @@ async function handleCheckout(request, response) {
       "subscription_data[metadata][plan]": planKey,
       "subscription_data[metadata][offer]": planConfig[planKey]?.offer || "",
       "subscription_data[metadata][billing_price]": planConfig[planKey]?.amount || "",
-      success_url: body.successUrl || `${SITE_URL}?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+      success_url: body.successUrl || `${appBaseUrl()}/subscription-success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: body.cancelUrl || `${SITE_URL}?checkout=cancel`,
     };
     thankYou6Checkout.applyPromotionCodeCheckoutParams(sessionParams);
