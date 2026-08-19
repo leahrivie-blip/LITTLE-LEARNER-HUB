@@ -1681,8 +1681,11 @@ const CURRICULUM_RESOURCE_CATEGORIES = new Set([
   "Printables",
 ]);
 const CURRICULUM_RESOURCE_ACCESS_LEVELS = new Set(["free", "pro"]);
-const MAX_CURRICULUM_UPLOAD_BYTES = 5 * 1024 * 1024;
-const MAX_CURRICULUM_UPLOAD_MB = 5;
+const MAX_CURRICULUM_UPLOAD_BYTES = 20 * 1024 * 1024;
+const MAX_CURRICULUM_UPLOAD_MB = 20;
+// JSON upload bodies send a base64 data URL (~4/3 of the binary size) plus metadata.
+const MAX_CURRICULUM_UPLOAD_DATA_URL_CHARS = Math.ceil(MAX_CURRICULUM_UPLOAD_BYTES / 3) * 4 + 64;
+const MAX_CURRICULUM_UPLOAD_JSON_BYTES = MAX_CURRICULUM_UPLOAD_DATA_URL_CHARS + (256 * 1024);
 const MAX_CURRICULUM_PREVIEW_UPLOAD_BYTES = 2 * 1024 * 1024;
 const MAX_CURRICULUM_PREVIEW_UPLOAD_MB = 2;
 const CURRICULUM_UPLOAD_MIME_TYPES = new Set([
@@ -2379,7 +2382,7 @@ function normalizedCurriculumActivity(value) {
 function sanitizedCurriculumFileData(value) {
   // Same durable pattern as Forms / Printables / legacy Uploads / lesson attachments:
   // PDF/image data URLs or HTTPS URLs stored in the Postgres JSON store.
-  return sanitizedResourceUrl(value);
+  return sanitizedResourceUrl(value, MAX_CURRICULUM_UPLOAD_DATA_URL_CHARS);
 }
 
 function normalizedCurriculumResource(value) {
@@ -6266,19 +6269,59 @@ function headResponse(response, statusCode, type = "text/plain; charset=utf-8") 
   response.end();
 }
 
-function readBody(request) {
+function readBody(request, maxBytes) {
+  const limit = Number(maxBytes);
+  const hasLimit = Number.isFinite(limit) && limit > 0;
   return new Promise((resolve, reject) => {
     const chunks = [];
-    request.on("data", (chunk) => chunks.push(chunk));
-    request.on("end", () => resolve(Buffer.concat(chunks)));
-    request.on("error", reject);
+    let total = 0;
+    let tooLarge = false;
+    let settled = false;
+    const finish = (fn, value) => {
+      if (settled) return;
+      settled = true;
+      fn(value);
+    };
+    request.on("data", (chunk) => {
+      total += chunk.length;
+      if (hasLimit && total > limit) {
+        tooLarge = true;
+        return;
+      }
+      chunks.push(chunk);
+    });
+    request.on("end", () => {
+      if (tooLarge) {
+        const error = new Error("payload_too_large");
+        error.code = "payload_too_large";
+        finish(reject, error);
+        return;
+      }
+      finish(resolve, Buffer.concat(chunks));
+    });
+    request.on("error", (error) => finish(reject, error));
   });
 }
 
-async function readJson(request) {
-  const body = await readBody(request);
+async function readJson(request, maxBytes) {
+  const body = await readBody(request, maxBytes);
   if (!body.length) return {};
   return JSON.parse(body.toString("utf8"));
+}
+
+async function readCurriculumUploadJson(request, response) {
+  try {
+    return await readJson(request, MAX_CURRICULUM_UPLOAD_JSON_BYTES);
+  } catch (error) {
+    if (error && error.code === "payload_too_large") {
+      jsonResponse(response, 400, {
+        error: `A valid PDF or image upload is required (max ${MAX_CURRICULUM_UPLOAD_MB} MB).`,
+        code: "upload_too_large",
+      });
+      return null;
+    }
+    throw error;
+  }
 }
 
 function timingSafeEqualText(left, right) {
@@ -23611,7 +23654,8 @@ async function handleAdminCurriculumResourceFile(request, response, url) {
 }
 
 async function handleAdminCurriculumResourceUpload(request, response) {
-  const body = await readJson(request);
+  const body = await readCurriculumUploadJson(request, response);
+  if (!body) return;
   if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
     jsonResponse(response, 401, { error: "Admin access is required to upload curriculum resources." });
     return;
@@ -24573,7 +24617,8 @@ async function handleAdminCurriculumMigrateInlineMedia(request, response) {
  * client-supplied email/role is ignored.
  */
 async function handleAdminTeachingKitPrintable(request, response) {
-  const body = await readJson(request);
+  const body = await readCurriculumUploadJson(request, response);
+  if (!body) return;
   const session = requireTeachingKitOwnerAdminSession(request, body, response);
   if (!session) return;
 

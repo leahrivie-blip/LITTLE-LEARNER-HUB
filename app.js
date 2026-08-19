@@ -14869,7 +14869,7 @@ async function handleCurriculumSaveConflict(data) {
   return true;
 }
 
-const CURRICULUM_UPLOAD_MAX_MB = 5;
+const CURRICULUM_UPLOAD_MAX_MB = 20;
 
 async function fetchCurriculumResourceFile(resourceId) {
   const token = adminSession()?.token || "";
