@@ -3081,11 +3081,13 @@ const adRouteMap = {
   "/observation-generator": "ai",
   "/home-daycare-provider-tools": "home",
   "/admin": "admin",
+  "/subscription-success": "payment-success",
   "#/free-daycare-forms": "forms",
   "#/daycare-lesson-plans": "lessons",
   "#/observation-generator": "ai",
   "#/home-daycare-provider-tools": "home",
   "#/admin": "admin",
+  "#/subscription-success": "payment-success",
 };
 const onboardingSteps = [
   { id: "child-profile", label: "Create first child profile", view: "children" },
@@ -66774,7 +66776,7 @@ async function startCheckout(type, trackingContext = "checkout") {
           email: currentUser,
           plan: checkoutType,
           promoCode,
-          successUrl: `${window.location.origin}${window.location.pathname}?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+          successUrl: `${window.location.origin}/subscription-success?session_id={CHECKOUT_SESSION_ID}`,
           cancelUrl: `${window.location.origin}${window.location.pathname}?checkout=cancel`,
           priceKey: checkoutType === "founding"
             ? billingPlans.Founding.stripePriceKey
@@ -66884,7 +66886,7 @@ async function startProTrial(options = {}) {
           email: currentUser,
           plan: checkoutType,
           trial7day: true,
-          successUrl: `${window.location.origin}${window.location.pathname}?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+          successUrl: `${window.location.origin}/subscription-success?session_id={CHECKOUT_SESSION_ID}`,
           cancelUrl: `${window.location.origin}${window.location.pathname}?checkout=cancel`,
           metaEventId: initiateEventId,
           eventId: initiateEventId,
@@ -67110,12 +67112,13 @@ async function completeCheckoutFromStripeSession(session) {
 
 async function verifyStripeReturnIfNeeded() {
   const params = new URLSearchParams(window.location.search);
+  const successPath = locationRouteKey(window.location.pathname) === "/subscription-success";
   if (params.get("checkout") === "cancel") {
     failCheckout();
     window.history.replaceState({}, "", window.location.pathname);
     return true;
   }
-  if (params.get("checkout") !== "success") return false;
+  if (params.get("checkout") !== "success" && !successPath) return false;
   const sessionId = params.get("session_id");
   if (!sessionId || !stripeCheckoutConfig.checkoutStatusEndpoint || !canUseStripeBackend()) {
     completeCheckout();

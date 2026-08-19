@@ -157,6 +157,7 @@
     "test:curriculum-planner-e2e": "node scripts/test-curriculum-planner-e2e-verify.js",
     "test:schedule-foundation": "node scripts/test-schedule-foundation.js",
     "test:billing-membership": "node scripts/test-billing-membership-qa.js",
+    "test:subscription-success-route": "NODE_ENV=test node scripts/test-subscription-success-route.js",
     "test:stale-payment-failed-label": "node scripts/test-stale-payment-failed-label.js",
     "test:stripe-billing-reconciliation": "node scripts/test-stripe-billing-reconciliation.js",
     "test:billing-reconciliation-workflow": "node scripts/test-billing-reconciliation-workflow.js",
