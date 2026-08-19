@@ -274,7 +274,7 @@ function createVisualProductionApi(deps) {
         blocked: true,
         code: "generation_not_started",
         error: current.status === "APPROVED" && body?.confirmGenerate === true
-          ? "Pixel generation is gated and is not executed in this workflow. Review the planned prompt first; generation is a later explicit step."
+          ? "No image-generation provider is configured in this project. This one brief was not generated and nothing was attached."
           : "Show and approve the planned visual before any generation action.",
         card: model.toReviewCard(current),
         lessonAssetsUnchanged: assertAssetsUnchanged(beforeAssets, snapshotLessonAssets(afterCatalog.plan, afterCatalog.activities)),

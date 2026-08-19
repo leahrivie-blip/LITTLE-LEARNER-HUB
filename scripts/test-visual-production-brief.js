@@ -189,6 +189,9 @@ function assertParserContract() {
   ok(farm.forbiddenElements.some((item) => /glossy CGI/i.test(item)), "realistic CGI forbidden list applied");
   ok(farm.status === "READY_FOR_REVIEW", "complete farm brief is READY_FOR_REVIEW");
   ok(farm.generationPrompt.includes("OWNER VISUAL DIRECTION"), "prompt keeps owner direction as source of truth");
+  ok(farm.generationPrompt.includes("littlelearnershubbyleah.com"), "farm prompt requires exact site credit");
+  ok(farm.requiredElements.some((item) => item.includes("littlelearnershubbyleah.com")), "farm required elements include branding");
+  ok(!/llh\.com|littlelearnerhub/i.test(farm.generationPrompt), "farm prompt does not invent a shortened URL");
 
   const apple = model.createVisualBriefFromInstruction({
     lessonId: LESSON_ID,
@@ -205,6 +208,15 @@ function assertParserContract() {
   ok(apple.forbiddenElements.some((item) => /no border/i.test(item)), "no border forbidden");
   ok(!/puffy 3D/i.test(apple.requiredElements.join(" ")), "printable does not require 3D cartoon style");
   ok(apple.status === "READY_FOR_REVIEW", "complete apple brief is READY_FOR_REVIEW");
+  ok(apple.generationPrompt.includes("littlelearnershubbyleah.com"), "apple printable prompt requires exact site credit");
+  ok(/bottom edge/i.test(apple.generationPrompt), "branding is placed along the bottom edge");
+
+  const omitBrand = model.createVisualBriefFromInstruction({
+    lessonId: LESSON_ID,
+    instruction: `${APPLE_INSTRUCTION}\nOmit the website credit for this asset only.`,
+    activities: seedActivities(),
+  });
+  ok(!omitBrand.requiredElements.some((item) => item.includes("littlelearnershubbyleah.com")), "explicit omit skips branding for that asset only");
 
   const vague = model.createVisualBriefFromInstruction({
     lessonId: LESSON_ID,

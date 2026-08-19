@@ -108,6 +108,20 @@
     "fake shadows or depth effects",
   ]);
 
+  /** Permanent site credit. Never shorten or invent a different URL. */
+  const BRAND_URL = "littlelearnershubbyleah.com";
+  const BRANDING_REQUIRED = Object.freeze([
+    `small but clearly readable website credit along the bottom edge: ${BRAND_URL}`,
+    "place the credit on the bottom edge without covering important activity content",
+    "keep placement consistent, intentional, and professional — not a large advertisement",
+  ]);
+  const BRANDING_FORBIDDEN = Object.freeze([
+    "omitting littlelearnershubbyleah.com",
+    "shortened or invented website URL",
+    "large advertisement-style branding overlay",
+  ]);
+  const OMIT_BRANDING_PATTERN = /\b(?:omit|skip|without|no)\s+(?:the\s+)?(?:website(?:\s+credit)?|branding|url|littlelearnershubbyleah\.com)\b/i;
+
   const ASSET_TYPE_PATTERNS = Object.freeze([
     { type: "PRINTABLE_CARDS", pattern: /\b(printable\s+cards?|vocab(?:ulary)?\s+cards?|matching\s+cards?|card\s+set|flash\s*cards?)\b/i },
     { type: "HANDPRINT_FOOTPRINT_TEMPLATE", pattern: /\b(hand\s*-?\s*print|foot\s*-?\s*print|handprint|footprint)\b/i },
@@ -365,10 +379,16 @@
       styleRequired.forEach((rule) => promptParts.push(`- Require: ${rule}`));
     }
     promptParts.push("- Do not invent extra subjects, decorations, people, or props beyond the owner direction.");
+    if (params.includeBranding !== false) {
+      promptParts.push("", "PERMANENT BRANDING (required unless the owner explicitly omitted it for this asset):");
+      BRANDING_REQUIRED.forEach((rule) => promptParts.push(`- Require: ${rule}`));
+      promptParts.push(`- Use the exact spelling ${BRAND_URL}. Never shorten or invent a different URL.`);
+    }
 
     const negative = uniqueStrings([
       ...params.forbiddenElements,
       ...styleForbidden,
+      ...(params.includeBranding === false ? [] : BRANDING_FORBIDDEN),
     ]);
 
     return {
@@ -464,10 +484,16 @@
     const styleForbidden = REALISTIC_STYLES.has(visualStyle)
       ? REALISTIC_FORBIDDEN.slice()
       : (FLAT_PRINTABLE_STYLES.has(visualStyle) ? FLAT_FORBIDDEN.slice() : []);
-    const forbiddenElements = uniqueStrings([...ownerForbidden, ...styleForbidden]);
+    const includeBranding = !OMIT_BRANDING_PATTERN.test(originalInstruction);
+    const forbiddenElements = uniqueStrings([
+      ...ownerForbidden,
+      ...styleForbidden,
+      ...(includeBranding ? BRANDING_FORBIDDEN : []),
+    ]);
     const requiredElements = uniqueStrings([
       ...(REALISTIC_STYLES.has(visualStyle) ? REALISTIC_REQUIRED : []),
       ...(FLAT_PRINTABLE_STYLES.has(visualStyle) ? FLAT_REQUIRED : []),
+      ...(includeBranding ? BRANDING_REQUIRED : []),
       ...content.required,
     ]);
 
@@ -513,6 +539,7 @@
       printableLayout,
       subject,
       originalInstruction,
+      includeBranding,
     });
 
     const status = uniqueFlags.length || !assetType || !visualStyle || !originalInstruction
@@ -645,7 +672,7 @@
       canGenerate: false,
       canAttach: false,
       generateBlockedReason: item.status === "APPROVED"
-        ? "Pixel generation is a separate explicit step and is not run automatically."
+        ? "No image-generation provider is configured. This brief stays APPROVED until a real provider exists. Nothing will be attached."
         : "Approve this planned visual before any generation action.",
       attachBlockedReason: "Assets are never attached automatically. Attachment requires GENERATED status plus an explicit target asset identified by the owner.",
     };
@@ -683,7 +710,11 @@
       return { ok: false, brief: current, error: "Approval requires an explicit confirmApprove step." };
     }
     if (current.status === "APPROVED" && next === "GENERATED") {
-      return { ok: false, brief: current, error: "Pixel generation is not executed automatically. Status stays APPROVED until an explicit generation step is enabled." };
+      return {
+        ok: false,
+        brief: current,
+        error: "No image-generation provider is configured in this project. Status stays APPROVED. Nothing was generated or attached.",
+      };
     }
     if (next === "ATTACHED") {
       return { ok: false, brief: current, error: "Attachment is blocked. Identify an exact existing asset for replacement and confirm attach; this workflow does not auto-attach." };
@@ -742,6 +773,9 @@
     REALISTIC_FORBIDDEN,
     FLAT_REQUIRED,
     FLAT_FORBIDDEN,
+    BRAND_URL,
+    BRANDING_REQUIRED,
+    BRANDING_FORBIDDEN,
     text,
     normalizeVisualBrief,
     normalizeVisualProductionStore,
