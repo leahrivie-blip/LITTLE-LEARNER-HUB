@@ -2610,6 +2610,10 @@
       shouldAbort: options.shouldAbort,
       pageTimeoutMs: options.pageTimeoutMs,
       scale: options.scale,
+      constrainedCapture: options.constrainedCapture,
+      maxCanvasPixels: options.maxCanvasPixels,
+      maxCanvasDimension: options.maxCanvasDimension,
+      navigator: options.navigator,
     });
     const generationMs = Date.now() - binderRenderStarted;
     // Allow printable-only packs to skip binder pages when binder render is empty
@@ -2622,11 +2626,13 @@
         reason: binderRendered.reason || "binder_pdf_failed",
         code: binderRendered.reason === "html2canvas_timeout" || binderRendered.reason === "request_timeout"
           ? "REQUEST_TIMEOUT"
-          : "PDF_GENERATION_FAILURE",
+          : (binderRendered.reason === "busy" ? "BUSY" : "PDF_GENERATION_FAILURE"),
         bytes: null,
         built,
         report: strictPlan,
         generationMs,
+        failedStage: binderRendered.failedStage || "pdf_generation",
+        failedPageIndex: binderRendered.failedPageIndex,
         message: binderRendered.message
           || "Could not render the Teaching Kit binder to PDF. Please try again.",
       };
@@ -2693,6 +2699,12 @@
         includedPrintableIds: (merged.report?.included || []).map((item) => item.id),
         generationMs,
         mergeMs,
+        captureTelemetry: binderRendered.captureTelemetry || [],
+        peakCanvasBytes: binderRendered.peakCanvasBytes || 0,
+        constrainedCapture: binderRendered.constrainedCapture === true,
+        imageType: binderRendered.imageType || "",
+        failedStage: binderRendered.failedStage || "",
+        failedPageIndex: binderRendered.failedPageIndex,
       },
       manifest: built.manifest,
       contentFingerprint: built.contentFingerprint,
