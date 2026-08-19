@@ -67,6 +67,15 @@
 .vp-status--generated,
 .vp-status--attached { background: #ede8ff; }
 
+.vp-preview-image {
+  display: block;
+  width: min(100%, 42rem);
+  height: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--cream-2);
+}
+
 @media (max-width: 900px) {
   .vp-layout {
     grid-template-columns: 1fr;

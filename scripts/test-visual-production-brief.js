@@ -13,6 +13,7 @@ const os = require("node:os");
 const crypto = require("node:crypto");
 const { spawn } = require("node:child_process");
 const model = require("./visual-production-brief.js");
+const visualProductionImage = require("../server/visual-production-image.js");
 
 const ROOT = path.join(__dirname, "..");
 const PORT = 20490 + Math.floor(Math.random() * 80);
@@ -65,6 +66,32 @@ function ok(condition, message) {
   assert.ok(condition, message);
   passed += 1;
   console.log(`  ✓ ${message}`);
+}
+
+async function assertImageProviderContract() {
+  ok(visualProductionImage.OPENAI_IMAGES_URL === "https://api.openai.com/v1/images/generations", "uses OpenAI images generations endpoint");
+  const prevMock = process.env.VISUAL_PRODUCTION_MOCK_GENERATE;
+  delete process.env.VISUAL_PRODUCTION_MOCK_GENERATE;
+  try {
+    await visualProductionImage.generateVisualProductionImage({
+      apiKey: "",
+      model: "gpt-image-2",
+      brief: { generationPrompt: "test prompt", visualStyle: "REALISTIC_CLASSROOM" },
+    });
+    ok(false, "missing OPENAI_API_KEY should fail");
+  } catch (error) {
+    ok(error.code === "provider_not_configured", "missing OPENAI_API_KEY returns provider_not_configured");
+  } finally {
+    if (prevMock) process.env.VISUAL_PRODUCTION_MOCK_GENERATE = prevMock;
+    else delete process.env.VISUAL_PRODUCTION_MOCK_GENERATE;
+  }
+  process.env.VISUAL_PRODUCTION_MOCK_GENERATE = "1";
+  const mocked = await visualProductionImage.generateVisualProductionImage({
+    apiKey: "sk-test-visual-production-local",
+    model: "gpt-image-2",
+    brief: { generationPrompt: "test prompt", visualStyle: "REALISTIC_CLASSROOM" },
+  });
+  ok(mocked.buffer?.length > 0, "mock generation returns PNG bytes when VISUAL_PRODUCTION_MOCK_GENERATE=1");
 }
 
 function requestJson(method, urlPath, body, headers = {}) {
@@ -231,15 +258,20 @@ function assertParserContract() {
   ok(!autoApprove.ok, "READY_FOR_REVIEW does not auto-approve");
   const approved = model.transitionVisualBriefStatus(farm, "APPROVED", { confirmApprove: true });
   ok(approved.ok && approved.brief.status === "APPROVED", "explicit confirmApprove moves to APPROVED");
-  const generated = model.transitionVisualBriefStatus(approved.brief, "GENERATED", { confirmGenerate: true });
-  ok(!generated.ok && approved.brief.status === "APPROVED", "GENERATED is blocked even after approve");
+  const generatedBlocked = model.transitionVisualBriefStatus(approved.brief, "GENERATED", { confirmGenerate: true });
+  ok(!generatedBlocked.ok && approved.brief.status === "APPROVED", "GENERATED is blocked without a successful provider result");
+  const generated = model.transitionVisualBriefStatus(approved.brief, "GENERATED", {
+    confirmGenerate: true,
+    generationSucceeded: true,
+  });
+  ok(generated.ok && generated.brief.status === "GENERATED", "GENERATED allowed after successful provider result");
   const attached = model.transitionVisualBriefStatus(approved.brief, "ATTACHED");
   ok(!attached.ok, "ATTACHED is blocked");
 
   const card = model.toReviewCard(farm);
   ok(card.originalInstruction && card.generationPrompt && Array.isArray(card.forbiddenElements), "review card has instruction, prompt, forbidden");
   ok(card.canApprove === true, "READY_FOR_REVIEW card can approve");
-  ok(card.canGenerate === false && card.canAttach === false, "review card never enables generate/attach");
+  ok(card.canGenerate === false && card.canAttach === false, "review card keeps attach blocked and generate gated by provider");
 }
 
 function assertStaticContract() {
@@ -253,7 +285,9 @@ function assertStaticContract() {
   ok(!serverJs.includes("publish_enrichment") || serverJs.includes("createVisualProductionApi"), "server still has other publish paths; visual API is isolated");
   ok(appJs.includes("curriculum-visual-production"), "admin tab wired");
   ok(uiJs.includes("Plan visuals for review"), "plan-for-review UI present");
-  ok(uiJs.includes("Generate (blocked)") && uiJs.includes("Attach (blocked)"), "generate/attach remain blocked in UI");
+  ok(uiJs.includes("Make this visual") && uiJs.includes("Attach (blocked)"), "generate/attach UI gates present");
+  ok(serverJs.includes("/api/admin/media/visual-production-previews/"), "admin preview media route registered");
+  ok(serverJs.includes("OPENAI_IMAGE_MODEL"), "image model env wired server-side");
   ok(indexHtml.includes("visual-production-brief.js"), "brief module loaded");
   ok(indexHtml.includes("visual-production-ui.js"), "review UI loaded");
 }
@@ -262,6 +296,8 @@ async function main() {
   console.log("Visual production brief tests");
   assertParserContract();
   assertStaticContract();
+  process.env.VISUAL_PRODUCTION_MOCK_GENERATE = "1";
+  await assertImageProviderContract();
 
   const lesson = seedLesson();
   const activities = seedActivities();
@@ -294,6 +330,9 @@ async function main() {
       ADMIN_PASSWORD: OWNER.password,
       ADMIN_ACCESS_CODE: OWNER.code,
       ADMIN_EMAILS: `${OWNER.email},${OTHER.email}`,
+      OPENAI_API_KEY: "sk-test-visual-production-local",
+      OPENAI_IMAGE_MODEL: "gpt-image-2",
+      VISUAL_PRODUCTION_MOCK_GENERATE: "1",
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -353,13 +392,32 @@ async function main() {
     }, ownerAuth);
     ok(approved.status === 200 && approved.json.card.status === "APPROVED", "explicit approve works");
 
-    const generateLater = await requestJson("POST", "/api/admin/curriculum/visual-production", {
+    const generated = await requestJson("POST", "/api/admin/curriculum/visual-production", {
       action: "generate",
       id: farmCard.id,
       confirmGenerate: true,
     }, ownerAuth);
-    ok(generateLater.status === 409, "generate after approve still does not start pixels");
-    ok(generateLater.json.lessonAssetsUnchanged === true, "blocked generate leaves assets unchanged");
+    ok(generated.status === 200, "mock generate succeeds for one approved brief");
+    ok(generated.json.generated === true && generated.json.attached === false, "generate returns preview only");
+    ok(generated.json.card.status === "GENERATED", "approved brief moves to GENERATED after mock generation");
+    ok(Boolean(generated.json.previewUrl), "preview URL returned");
+    ok(Boolean(generated.json.previewMediaAssetId), "preview media asset id returned");
+    ok(generated.json.card.canAttach === false, "attach remains blocked after generation");
+    ok(generated.json.lessonAssetsUnchanged === true, "successful generate leaves lesson assets unchanged");
+
+    const previewRes = await requestJson(
+      "GET",
+      `${generated.json.previewUrl}?adminToken=${encodeURIComponent(ownerLogin.json.token || ownerLogin.json.adminToken)}`,
+    );
+    ok(previewRes.status === 200, "owner can fetch generated preview bytes");
+    ok((previewRes.text || "").length > 0, "preview response has body");
+
+    const regenerate = await requestJson("POST", "/api/admin/curriculum/visual-production", {
+      action: "generate",
+      id: farmCard.id,
+      confirmGenerate: true,
+    }, ownerAuth);
+    ok(regenerate.status === 409, "only APPROVED briefs can generate; GENERATED brief is blocked");
 
     const attach = await requestJson("POST", "/api/admin/curriculum/visual-production", {
       action: "attach",
@@ -380,6 +438,10 @@ async function main() {
     ok(farmAct.setupImageUrl === SETUP_URL, "existing activity image URL unchanged");
     ok(Array.isArray(storeAfter.visualProduction?.briefs) && storeAfter.visualProduction.briefs.length >= 2, "briefs stored in isolated visualProduction collection");
     ok(!planAfter.visualProduction, "briefs are not written onto the lesson plan record");
+    const generatedBrief = (storeAfter.visualProduction?.briefs || []).find((item) => item.id === farmCard.id);
+    ok(generatedBrief?.status === "GENERATED", "generated brief metadata stored in isolated collection");
+    ok(Boolean(generatedBrief?.generatedPreviewUrl), "preview metadata stored on brief only");
+    ok(!generatedBrief?.setupImageUrl, "preview metadata does not mutate lesson image fields");
 
     const listed = await requestJson("POST", "/api/admin/curriculum/visual-production", {
       action: "list",

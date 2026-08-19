@@ -616,6 +616,11 @@
       forbiddenElements: uniqueStrings(entry.forbiddenElements).slice(0, 40),
       generationPrompt: text(entry.generationPrompt).slice(0, 12000),
       negativePrompt: text(entry.negativePrompt).slice(0, 4000),
+      generatedPreviewMediaAssetId: text(entry.generatedPreviewMediaAssetId).slice(0, 160),
+      generatedPreviewUrl: text(entry.generatedPreviewUrl).slice(0, 400),
+      generatedAt: text(entry.generatedAt).slice(0, 40),
+      generationModel: text(entry.generationModel).slice(0, 80),
+      generationError: text(entry.generationError).slice(0, 500),
       status: /** @type {VisualBriefStatus} */ (status),
       originalInstruction: text(entry.originalInstruction).slice(0, 12000),
       reviewFlags: uniqueStrings(entry.reviewFlags).slice(0, 20),
@@ -638,12 +643,16 @@
   }
 
   /**
-   * Admin review card — never includes generated pixels or attachment side effects.
+   * Admin review card — never auto-attaches generated previews to lesson assets.
    *
    * @param {ReturnType<typeof normalizeVisualBrief>} brief
+   * @param {{ imageProviderConfigured?: boolean }} [options]
    */
-  function toReviewCard(brief) {
+  function toReviewCard(brief, options) {
     const item = normalizeVisualBrief(brief);
+    const opts = options && typeof options === "object" ? options : {};
+    const providerReady = opts.imageProviderConfigured === true;
+    const canGenerate = item.status === "APPROVED" && providerReady;
     return {
       id: item.id,
       lessonId: item.lessonId,
@@ -668,12 +677,20 @@
       status: item.status,
       statusLabel: STATUS_LABELS[item.status] || item.status,
       reviewFlags: item.reviewFlags,
+      generatedPreviewMediaAssetId: item.generatedPreviewMediaAssetId,
+      generatedPreviewUrl: item.generatedPreviewUrl,
+      generatedAt: item.generatedAt,
+      generationModel: item.generationModel,
       canApprove: item.status === "READY_FOR_REVIEW",
-      canGenerate: false,
+      canGenerate,
       canAttach: false,
-      generateBlockedReason: item.status === "APPROVED"
-        ? "No image-generation provider is configured. This brief stays APPROVED until a real provider exists. Nothing will be attached."
-        : "Approve this planned visual before any generation action.",
+      generateBlockedReason: item.status === "GENERATED"
+        ? "This approved visual was already generated. Review the preview below. Attachment remains blocked until you explicitly approve attaching it."
+        : (item.status === "APPROVED"
+          ? (providerReady
+            ? "Ready. Use “Make this visual” to generate only this one approved brief."
+            : "OpenAI image provider is not configured on the server. This brief stays APPROVED until OPENAI_API_KEY is available.")
+          : "Approve this planned visual before any generation action."),
       attachBlockedReason: "Assets are never attached automatically. Attachment requires GENERATED status plus an explicit target asset identified by the owner.",
     };
   }
@@ -710,11 +727,13 @@
       return { ok: false, brief: current, error: "Approval requires an explicit confirmApprove step." };
     }
     if (current.status === "APPROVED" && next === "GENERATED") {
-      return {
-        ok: false,
-        brief: current,
-        error: "No image-generation provider is configured in this project. Status stays APPROVED. Nothing was generated or attached.",
-      };
+      if (opts.confirmGenerate !== true || opts.generationSucceeded !== true) {
+        return {
+          ok: false,
+          brief: current,
+          error: "Generation requires an APPROVED brief, confirmGenerate: true, and a successful provider result. Nothing was generated or attached.",
+        };
+      }
     }
     if (next === "ATTACHED") {
       return { ok: false, brief: current, error: "Attachment is blocked. Identify an exact existing asset for replacement and confirm attach; this workflow does not auto-attach." };

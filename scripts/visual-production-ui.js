@@ -100,6 +100,14 @@
     `;
   }
 
+  function previewSrc(url) {
+    const text = String(url || "").trim();
+    if (!text) return "";
+    const token = (typeof adminSession === "function" ? adminSession()?.token : "") || "";
+    if (!token) return text;
+    return `${text}${text.includes("?") ? "&" : "?"}adminToken=${encodeURIComponent(token)}`;
+  }
+
   function detailHtml(card) {
     if (!card) return "";
     const flags = Array.isArray(card.reviewFlags) && card.reviewFlags.length
@@ -151,13 +159,20 @@
           <h4>Review flags</h4>
           <ul>${flags}</ul>
         </section>
+        ${card.generatedPreviewUrl ? `
+        <section>
+          <h4>Generated preview</h4>
+          <p class="muted-copy">Preview only — not attached to the lesson. Attachment stays blocked until you explicitly approve it.</p>
+          <img class="vp-preview-image" src="${esc(previewSrc(card.generatedPreviewUrl))}" alt="Generated visual preview for ${esc(card.activityName || "visual")}" />
+          ${card.generatedAt ? `<p class="muted-copy">Generated ${esc(card.generatedAt)}${card.generationModel ? ` · ${esc(card.generationModel)}` : ""}</p>` : ""}
+        </section>` : ""}
         <div class="form-actions">
           <button type="button" class="primary-button" data-vp-approve ${card.canApprove ? "" : "disabled"}>Approve planned visual</button>
           <button type="button" class="ghost-button" data-vp-needs-review>Mark needs review</button>
-          <button type="button" class="ghost-button" data-vp-generate disabled title="${esc(card.generateBlockedReason || "")}">Generate (blocked)</button>
+          <button type="button" class="primary-button" data-vp-generate ${card.canGenerate ? "" : "disabled"} title="${esc(card.generateBlockedReason || "")}">${card.canGenerate ? "Make this visual" : "Generate (blocked)"}</button>
           <button type="button" class="ghost-button" data-vp-attach disabled title="${esc(card.attachBlockedReason || "")}">Attach (blocked)</button>
         </div>
-        <p class="muted-copy">Approve never runs automatically. Generate and attach stay blocked until you give a later explicit instruction for a specific approved brief.</p>
+        <p class="muted-copy">Approve never runs automatically. Generate creates one preview for one approved brief. Attach stays blocked until you give a later explicit instruction for a specific approved brief.</p>
       </article>
     `;
   }
@@ -260,6 +275,16 @@
           const data = await api("needs-review", { id: card.id });
           state.cards = state.cards.map((item) => (item.id === data.card.id ? data.card : item));
           state.message = "Marked NEEDS_REVIEW. Nothing was generated or attached.";
+        });
+        return;
+      }
+      if (event.target.closest("[data-vp-generate]")) {
+        const card = selectedCard();
+        if (!card || !card.canGenerate) return;
+        void run(async () => {
+          const data = await api("generate", { id: card.id, confirmGenerate: true });
+          state.cards = state.cards.map((item) => (item.id === data.card.id ? data.card : item));
+          state.message = "Generated one preview for this approved brief. Review it below. Attachment remains blocked.";
         });
       }
     });

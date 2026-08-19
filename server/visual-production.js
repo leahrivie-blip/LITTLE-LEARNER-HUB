@@ -35,7 +35,21 @@ function createVisualProductionApi(deps) {
     teachingKit,
     normalizeEmail,
     normalizedCurriculumStore,
+    isConfiguredValue,
+    openAiApiKey,
+    openAiImageModel,
+    generateVisualProductionImage,
+    persistVisualProductionPreview,
+    visualProductionPreviewDeps,
   } = deps;
+
+  function imageProviderConfigured() {
+    return typeof isConfiguredValue === "function" && isConfiguredValue(openAiApiKey);
+  }
+
+  function reviewCard(brief) {
+    return model.toReviewCard(brief, { imageProviderConfigured: imageProviderConfigured() });
+  }
 
   function requireOwner(request, body, response) {
     const session = requireTeachingKitOwnerAdminSession(request, body, response);
@@ -143,7 +157,8 @@ function createVisualProductionApi(deps) {
       jsonResponse(response, 200, {
         ok: true,
         lessonId,
-        cards: briefs.map((item) => model.toReviewCard(item)),
+        cards: briefs.map((item) => reviewCard(item)),
+        imageProviderConfigured: imageProviderConfigured(),
         updatedAt: production.updatedAt,
       });
       return;
@@ -156,7 +171,12 @@ function createVisualProductionApi(deps) {
         jsonResponse(response, 404, { error: "Visual brief not found." });
         return;
       }
-      jsonResponse(response, 200, { ok: true, card: model.toReviewCard(brief), brief });
+      jsonResponse(response, 200, {
+        ok: true,
+        card: reviewCard(brief),
+        brief,
+        imageProviderConfigured: imageProviderConfigured(),
+      });
       return;
     }
 
@@ -196,7 +216,7 @@ function createVisualProductionApi(deps) {
         generationStarted: false,
         attached: false,
         lessonAssetsUnchanged: unchanged,
-        cards: created.map((item) => model.toReviewCard(item)),
+        cards: created.map((item) => reviewCard(item)),
         message: "Planned visuals are ready for review. Nothing was generated or attached.",
       });
       return;
@@ -215,13 +235,13 @@ function createVisualProductionApi(deps) {
     if (action === "update") {
       const patched = model.applyVisualBriefPatch(current, body?.patch || body?.brief || {});
       if (!patched.ok) {
-        jsonResponse(response, 400, { error: patched.error, card: model.toReviewCard(current) });
+        jsonResponse(response, 400, { error: patched.error, card: reviewCard(current) });
         return;
       }
       production.briefs[index] = patched.brief;
       writeVisualProduction(store, production, now);
       await writeStoreAsync(store);
-      jsonResponse(response, 200, { ok: true, card: model.toReviewCard(patched.brief) });
+      jsonResponse(response, 200, { ok: true, card: reviewCard(patched.brief) });
       return;
     }
 
@@ -231,54 +251,158 @@ function createVisualProductionApi(deps) {
         now,
       });
       if (!moved.ok) {
-        jsonResponse(response, 400, { error: moved.error, card: model.toReviewCard(current) });
+        jsonResponse(response, 400, { error: moved.error, card: reviewCard(current) });
         return;
       }
       production.briefs[index] = moved.brief;
       writeVisualProduction(store, production, now);
       await writeStoreAsync(store);
-      jsonResponse(response, 200, { ok: true, card: model.toReviewCard(moved.brief) });
+      jsonResponse(response, 200, { ok: true, card: reviewCard(moved.brief) });
       return;
     }
 
     if (action === "needs-review") {
       const moved = model.transitionVisualBriefStatus(current, "NEEDS_REVIEW", { now });
       if (!moved.ok) {
-        jsonResponse(response, 400, { error: moved.error, card: model.toReviewCard(current) });
+        jsonResponse(response, 400, { error: moved.error, card: reviewCard(current) });
         return;
       }
       production.briefs[index] = moved.brief;
       writeVisualProduction(store, production, now);
       await writeStoreAsync(store);
-      jsonResponse(response, 200, { ok: true, card: model.toReviewCard(moved.brief) });
+      jsonResponse(response, 200, { ok: true, card: reviewCard(moved.brief) });
       return;
     }
 
     if (action === "ready-for-review") {
       const moved = model.transitionVisualBriefStatus(current, "READY_FOR_REVIEW", { now });
       if (!moved.ok) {
-        jsonResponse(response, 400, { error: moved.error, card: model.toReviewCard(current) });
+        jsonResponse(response, 400, { error: moved.error, card: reviewCard(current) });
         return;
       }
       production.briefs[index] = moved.brief;
       writeVisualProduction(store, production, now);
       await writeStoreAsync(store);
-      jsonResponse(response, 200, { ok: true, card: model.toReviewCard(moved.brief) });
+      jsonResponse(response, 200, { ok: true, card: reviewCard(moved.brief) });
       return;
     }
 
     if (action === "generate") {
       const afterCatalog = lessonCatalog(store, current.lessonId);
-      jsonResponse(response, 409, {
-        ok: false,
-        blocked: true,
-        code: "generation_not_started",
-        error: current.status === "APPROVED" && body?.confirmGenerate === true
-          ? "No image-generation provider is configured in this project. This one brief was not generated and nothing was attached."
-          : "Show and approve the planned visual before any generation action.",
-        card: model.toReviewCard(current),
-        lessonAssetsUnchanged: assertAssetsUnchanged(beforeAssets, snapshotLessonAssets(afterCatalog.plan, afterCatalog.activities)),
-      });
+      const assetsUnchanged = assertAssetsUnchanged(
+        beforeAssets,
+        snapshotLessonAssets(afterCatalog.plan, afterCatalog.activities),
+      );
+
+      if (current.status !== "APPROVED") {
+        jsonResponse(response, 409, {
+          ok: false,
+          blocked: true,
+          code: "generation_not_allowed",
+          error: "Only one APPROVED visual brief can be generated. Approve this planned visual before any generation action.",
+          card: reviewCard(current),
+          lessonAssetsUnchanged: assetsUnchanged,
+        });
+        return;
+      }
+      if (body?.confirmGenerate !== true) {
+        jsonResponse(response, 409, {
+          ok: false,
+          blocked: true,
+          code: "generation_not_confirmed",
+          error: "Generation requires confirmGenerate: true for this one approved visual brief.",
+          card: reviewCard(current),
+          lessonAssetsUnchanged: assetsUnchanged,
+        });
+        return;
+      }
+      if (!imageProviderConfigured()) {
+        jsonResponse(response, 503, {
+          ok: false,
+          blocked: true,
+          code: "provider_not_configured",
+          error: "OpenAI image provider is not configured. Set OPENAI_API_KEY on the server. This brief was not generated and nothing was attached.",
+          card: reviewCard(current),
+          lessonAssetsUnchanged: assetsUnchanged,
+        });
+        return;
+      }
+      if (typeof generateVisualProductionImage !== "function" || typeof persistVisualProductionPreview !== "function") {
+        jsonResponse(response, 503, {
+          ok: false,
+          blocked: true,
+          code: "provider_not_configured",
+          error: "Visual production image provider is unavailable on this server.",
+          card: reviewCard(current),
+          lessonAssetsUnchanged: assetsUnchanged,
+        });
+        return;
+      }
+
+      try {
+        const generated = await generateVisualProductionImage({
+          apiKey: openAiApiKey,
+          model: openAiImageModel,
+          brief: current,
+        });
+        const assetId = `vp-preview-${crypto.randomBytes(16).toString("hex")}`;
+        const stored = await persistVisualProductionPreview({
+          ...(visualProductionPreviewDeps || {}),
+          assetId,
+          buffer: generated.buffer,
+          mimeType: generated.mimeType,
+          fileName: `${current.id}.png`,
+          briefId: current.id,
+          lessonId: current.lessonId,
+        });
+        const moved = model.transitionVisualBriefStatus({
+          ...current,
+          generatedPreviewMediaAssetId: stored.assetId,
+          generatedPreviewUrl: stored.url,
+          generatedAt: now,
+          generationModel: generated.model,
+          generationError: "",
+        }, "GENERATED", {
+          confirmGenerate: true,
+          generationSucceeded: true,
+          now,
+        });
+        if (!moved.ok) {
+          jsonResponse(response, 500, {
+            ok: false,
+            error: moved.error || "Generated preview could not be saved on the visual brief.",
+            card: reviewCard(current),
+            lessonAssetsUnchanged: assetsUnchanged,
+          });
+          return;
+        }
+        production.briefs[index] = moved.brief;
+        writeVisualProduction(store, production, now);
+        await writeStoreAsync(store);
+        const finalCatalog = lessonCatalog(store, current.lessonId);
+        jsonResponse(response, 200, {
+          ok: true,
+          generated: true,
+          attached: false,
+          generationStarted: true,
+          previewUrl: stored.url,
+          previewMediaAssetId: stored.assetId,
+          card: reviewCard(moved.brief),
+          lessonAssetsUnchanged: assertAssetsUnchanged(
+            beforeAssets,
+            snapshotLessonAssets(finalCatalog.plan, finalCatalog.activities),
+          ),
+        });
+      } catch (error) {
+        jsonResponse(response, error?.code === "provider_error" ? 502 : 503, {
+          ok: false,
+          blocked: true,
+          code: error?.code || "generation_failed",
+          error: error?.message || "Visual generation failed. This brief was not marked GENERATED and nothing was attached.",
+          card: reviewCard(current),
+          lessonAssetsUnchanged: assetsUnchanged,
+        });
+      }
       return;
     }
 
@@ -289,14 +413,14 @@ function createVisualProductionApi(deps) {
         blocked: true,
         code: "attach_blocked",
         error: "Existing images and printables are never attached or replaced automatically. Identify the exact asset for replacement in a later explicit step.",
-        card: model.toReviewCard(current),
+        card: reviewCard(current),
         lessonAssetsUnchanged: assertAssetsUnchanged(beforeAssets, snapshotLessonAssets(afterCatalog.plan, afterCatalog.activities)),
       });
       return;
     }
   }
 
-  return { handle, ACTIONS, readVisualProduction };
+  return { handle, ACTIONS, readVisualProduction, imageProviderConfigured };
 }
 
 /**
