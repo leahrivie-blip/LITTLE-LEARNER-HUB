@@ -295,11 +295,13 @@ function runUnitTests() {
     (strongReport.blockingIssues || []).length < (weakReport.blockingIssues || []).length,
     "stronger kit has fewer hard blockers than weak kit",
   );
-  assert(strongReport.blocksPublish === true, "stronger kit still blocked without real images/printables");
+  assert(strongReport.blocksPublish === true, "stronger kit still blocked without published printables / core gaps");
   assert(strongReport.strengths.length >= 1, "strengths listed");
   assert(
-    (strongReport.blockingIssues || []).some((b) => b.code === "image_brief_not_image" || b.code === "missing_example_images"),
-    "image briefs never clear photo blockers",
+    (strongReport.findings || []).some((f) => (
+      (f.code === "image_brief_not_image" || f.code === "missing_example_images") && !f.blocking
+    )),
+    "image briefs yield soft visual guidance, not hard blockers",
   );
 
   const health = quality.buildLibraryHealthDashboard(

@@ -233,9 +233,11 @@ function runUnitCases() {
   );
   assertSurfacesAgree(briefEval, "brief-only");
   ok(briefEval.summary.imageBriefsNotImages >= 2, "briefs tracked");
-  ok(briefEval.summary.readinessScores.imageReadiness === 0, "briefs do not raise image readiness");
+  ok(briefEval.summary.readinessScores.visualCoverage.percent === 0, "briefs do not count as visual coverage");
+  ok(briefEval.summary.readinessScores.imageReadiness < 60, "briefs do not raise visual readiness to excellent");
   ok(briefEval.report.findings.some((f) => f.code === "image_brief_not_image" || f.code === "missing_example_images"), "brief finding");
-  ok(briefEval.blocksPublish, "brief-only blocks publish");
+  ok(!(briefEval.report.blockingIssues || []).some((b) => b.code === "image_brief_not_image" || b.code === "missing_example_images"), "image findings are not hard blockers");
+  ok(briefEval.blocksPublish, "thin brief-only fixture still blocked by other hard gaps");
   ok(briefEval.workflow !== "Publish Ready", "brief-only not Publish Ready");
 
   // 2) Draft printable remains incomplete
@@ -302,33 +304,85 @@ function runUnitCases() {
   readyPlan.enrichmentDraft.week.teacherPreparation = completeToolkit().teacherPreparation;
   readyPlan.books = [completeBook()];
   readyPlan.songs = [completeSong()];
-  readyPlan.enrichmentDraft.activities["qa-act-1"] = {
-    teacherTips: ["Offer two trays and step back."],
-    observationPrompts: ["Names a color while sorting?"],
-    setupImageUrl: "/api/enrichment-media/qa-setup.png",
-    exampleImageUrl: "/api/enrichment-media/qa-example.png",
-    setupImageAlt: "Trays ready on a low table",
-    exampleImageAlt: "Child sorting scarves into baskets",
-    setup: "Place baskets at child height near the rug before arrival.",
-    steps: "Invite children to sort scarves and name colors aloud with a peer.",
-    adaptations: "Offer larger pieces for beginners who need more success.",
-    extensions: "Add a third sorting rule for older peers to lead.",
-    indoorAlternatives: "Table sort if weather blocks outdoor time today.",
-    outdoorAlternatives: "Take the sort mats outdoors onto the patio.",
-    substitutions: [{ need: "hay", use: "shredded paper" }],
-    settingTags: ["indoor", "small_group"],
-    vocabulary: ["sort", "tray", "color"],
-  };
+  // Full 10-activity week (2/day): volume standard met; ~50% images = excellent visual coverage.
+  const readyActivities = [];
+  readyPlan.enrichmentDraft.activities = {};
+  ["monday", "tuesday", "wednesday", "thursday", "friday"].forEach((day) => {
+    const items = [];
+    for (let i = 1; i <= 2; i += 1) {
+      const id = `qa-act-${day}-${i}`;
+      const withImage = i === 1;
+      const item = {
+        id,
+        itemId: id,
+        title: `${day} Color Play ${i}`,
+        dayOfWeek: day,
+        activityCategory: withImage ? "Sensory" : "Music and Movement",
+        ageModifications: "Preschool",
+        durationMinutes: 15,
+        objective: "Explore color sorting and naming during play.",
+        description: "Children sort scarves and name colors with a peer.",
+        materials: "scarves, baskets, tongs",
+        preparation: "Stage trays before arrival.",
+        setup: "Place baskets at child height near the rug before arrival.",
+        steps: "1. Invite children.\n2. Model one sort.\n3. Let children try.\n4. Clean up together.",
+        teacherLanguage: "Which color did you choose?",
+        observationOpportunities: "Names a color while sorting?",
+        safetyNotes: "Supervise tongs.",
+        cleanupTips: "Return scarves to the caddy.",
+        imageRequirement: withImage ? "required" : "not_needed",
+        setupImageUrl: withImage ? `/api/enrichment-media/${id}-setup.png` : "",
+        exampleImageUrl: withImage ? `/api/enrichment-media/${id}-example.png` : "",
+        lessonPlanId: FIXTURE_ID,
+        status: "draft",
+      };
+      items.push(item);
+      readyActivities.push(item);
+      readyPlan.enrichmentDraft.activities[id] = {
+        teacherTips: ["Offer two trays and step back."],
+        observationPrompts: ["Names a color while sorting?"],
+        imageRequirement: item.imageRequirement,
+        setupImageUrl: item.setupImageUrl,
+        exampleImageUrl: item.exampleImageUrl,
+        setup: item.setup,
+        steps: item.steps,
+        adaptations: "Offer larger pieces for beginners who need more success.",
+        extensions: "Add a third sorting rule for older peers to lead.",
+        indoorAlternatives: "Table sort if weather blocks outdoor time today.",
+        outdoorAlternatives: "Take the sort mats outdoors onto the patio.",
+        substitutions: [{ need: "hay", use: "shredded paper" }],
+        settingTags: ["indoor", "small_group"],
+        vocabulary: ["sort", "tray", "color"],
+        title: item.title,
+        dayOfWeek: day,
+        activityCategory: item.activityCategory,
+        ageModifications: item.ageModifications,
+        durationMinutes: item.durationMinutes,
+        objective: item.objective,
+        description: item.description,
+        materials: item.materials,
+        preparation: item.preparation,
+        teacherLanguage: item.teacherLanguage,
+        observationOpportunities: item.observationOpportunities,
+        safetyNotes: item.safetyNotes,
+        cleanupTips: item.cleanupTips,
+      };
+    }
+    readyPlan.dailyPlans[day] = { theme: `${day} color focus`, focus: `${day} focus`, items };
+  });
   // Clear draft-only resource catalog; use published.
   const readyEval = quality.evaluateTeachingKit(
     readyPlan,
-    draftPrint.activities,
+    readyActivities,
     readyPlan.enrichmentDraft,
     { resources: readyResources },
   );
   assertSurfacesAgree(readyEval, "ready-kit");
-  ok(readyEval.summary.incompleteActivities === 0, "all activities complete");
+  ok(readyEval.summary.activityCount === 10, "ready kit has 10 activities");
+  ok(readyEval.summary.activityVolume.requirementMet === true, "10 activities meet weekly volume standard");
+  ok(readyEval.summary.incompleteActivitiesForPublish === 0, "all activities publish-content complete");
   ok(readyEval.summary.imageBriefsNotImages === 0, "no brief-only images");
+  ok(readyEval.summary.visualCoverage.excellent === true, "visual coverage excellent without every activity imaged");
   ok(readyEval.summary.missingPrintables === false, "published printable clears gap");
   ok(readyEval.summary.incompleteBooks === 0, "books complete");
   ok(readyEval.summary.weakMaterials === false, "materials complete");
@@ -336,6 +390,8 @@ function runUnitCases() {
   // Remaining blockers (if any) must not include the cases we cleared.
   const readyCodes = (readyEval.blockingIssues || []).map((b) => b.code);
   ok(!readyCodes.includes("image_brief_not_image"), "no brief blocker when photos present");
+  ok(!readyCodes.includes("missing_example_images"), "missing images are not hard blockers");
+  ok(!readyCodes.includes("thin_activity_week") && !readyCodes.includes("developing_activity_week"), "volume met");
   ok(!readyCodes.includes("draft_printables_only"), "no draft printable blocker");
   ok(!readyCodes.includes("activities_in_progress"), "no in-progress blocker");
   ok(!readyCodes.includes("incomplete_books"), "no book questions blocker");

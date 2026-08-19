@@ -113,6 +113,7 @@
     let imagesBriefOnly = 0;
     let draftReadyActs = 0;
     let completeActs = 0;
+    let publishContentActs = 0;
     list.forEach((act) => {
       const key = text(act.id) || text(act.itemId);
       const patch = draftActs[key] || {};
@@ -158,6 +159,11 @@
       if (hasDraftPack) draftReadyActs += 1;
       const status = enrich?.activityStatus ? enrich.activityStatus(act, patch) : "not_started";
       if (status === "complete") completeActs += 1;
+      if (enrich?.activityPublishContentComplete
+        ? enrich.activityPublishContentComplete(act, patch)
+        : status === "complete") {
+        publishContentActs += 1;
+      }
     });
 
     const books = asArray(week.books).length ? asArray(week.books) : asArray(plan?.books);
@@ -226,13 +232,25 @@
       {
         id: "activities",
         label: "Activities",
-        status: statusFromPresence(
-          list.length > 0 && (draftReadyActs > 0 || completeActs > 0),
-          list.length > 0 && completeActs >= list.length,
-        ),
-        detail: list.length
-          ? `${completeActs}/${list.length} activities complete (${draftReadyActs} with full photo pack)`
-          : "No activities linked",
+        status: (() => {
+          const volume = enrich?.scoreActivityVolume
+            ? enrich.scoreActivityVolume(list.length)
+            : { requirementMet: list.length >= 10, score: list.length >= 10 ? 100 : 0 };
+          if (!list.length) return "missing";
+          if (volume.requirementMet && publishContentActs >= Math.min(list.length, 10)) return "complete";
+          if (list.length >= 5 || completeActs > 0 || publishContentActs > 0 || draftReadyActs > 0) return "needs_improvement";
+          return "missing";
+        })(),
+        detail: (() => {
+          const volume = enrich?.scoreActivityVolume
+            ? enrich.scoreActivityVolume(list.length)
+            : null;
+          if (!list.length) return "No activities linked";
+          const volumeNote = volume
+            ? ` · ${volume.label}`
+            : "";
+          return `${publishContentActs}/${list.length} activities have core teaching content${volumeNote}`;
+        })(),
       },
       {
         id: "teacher_tips",
@@ -285,18 +303,34 @@
       {
         id: "images",
         label: "Images",
-        status: list.length > 0 && imagesMissing === 0
-          ? "complete"
-          : (imagesBriefOnly > 0 || (list.length > 0 && imagesMissing < list.length)
-            ? "needs_improvement"
-            : (list.length ? "missing" : "missing")),
-        detail: list.length
-          ? (imagesBriefOnly
+        status: (() => {
+          const visual = enrich?.measureVisualCoverage
+            ? enrich.measureVisualCoverage(plan, list, draft)
+            : null;
+          if (!list.length) return "missing";
+          if (visual?.excellent) return "complete";
+          if (visual && visual.percent > 0) return "needs_improvement";
+          if (imagesBriefOnly > 0 || (list.length > 0 && imagesMissing < list.length && imagesMissing > 0)) {
+            return "needs_improvement";
+          }
+          return list.length ? "missing" : "missing";
+        })(),
+        detail: (() => {
+          const visual = enrich?.measureVisualCoverage
+            ? enrich.measureVisualCoverage(plan, list, draft)
+            : null;
+          if (!list.length) return "No activities";
+          if (visual) {
+            return visual.excellent
+              ? `${visual.label} — excellent visual coverage (simple activities can stay image-free)`
+              : (visual.recommendation || visual.label);
+          }
+          return imagesBriefOnly
             ? `${imagesBriefOnly} brief-only image slot(s) — briefs never count as photos`
             : (imagesMissing
               ? `${imagesMissing} activit${imagesMissing === 1 ? "y" : "ies"} missing real setup/example photos`
-              : "All activities have real setup + example photos"))
-          : "No activities",
+              : "Useful visual coverage present");
+        })(),
       },
       {
         id: "teacher_toolkit",
@@ -339,7 +373,7 @@
     } else if (majorGaps.length >= 3 && completionPercent >= 90) {
       completionPercent = Math.min(completionPercent, 75);
       dashboardStage = "Needs Review";
-    } else if (list.length && draftReadyActs < list.length && completionPercent >= 90) {
+    } else if (list.length && publishContentActs < list.length && completionPercent >= 90) {
       completionPercent = Math.min(completionPercent, 85);
       if (dashboardStage === "Complete" || dashboardStage === "Published") dashboardStage = "Ready";
     }
@@ -405,12 +439,28 @@
    */
   function filterSuggestionsForGaps(suggestions, analysis) {
     const gap = new Set(asArray(analysis?.gapSectionIds));
+    const activityCount = Number(analysis?.activityCount) || 0;
+    const volumeMet = activityCount >= 10;
+    const imagesComplete = !gap.has("images")
+      && !sectionNeedsWork(analysis, "images");
     const draftReadyRatio = analysis?.activityCount
       ? (analysis.draftReadyActivities || 0) / analysis.activityCount
       : 0;
-    const forceActivityFill = draftReadyRatio < 1;
+    // Once the week has 10+ activities, stop forcing activity-wide fill for volume.
+    const forceActivityFill = draftReadyRatio < 1 && !volumeMet;
     return asArray(suggestions).filter((sug) => {
       const sectionId = sectionIdForSuggestion(sug);
+      const category = text(sug?.category);
+      // Do not keep recommending more activities once the weekly standard is met.
+      if (volumeMet && /add.?activit|more activit|extra activit|additional activit/i.test(
+        `${category} ${text(sug?.text)} ${text(sug?.proposedText)} ${text(sug?.title)}`,
+      )) {
+        return false;
+      }
+      // Do not nag for images when visual coverage is already excellent.
+      if (imagesComplete && (sectionId === "images" || /image_brief|example_image|setup_image/i.test(category))) {
+        return false;
+      }
       if (!sectionId) return true;
       if (text(sug.activityKey) && forceActivityFill) {
         // Still skip sections that are already complete when the category is week-only-ish

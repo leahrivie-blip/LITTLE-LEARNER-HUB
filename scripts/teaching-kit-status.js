@@ -61,6 +61,7 @@
 
   /**
    * Content completion: required field / weekday presence (not educational quality).
+   * A weekday counts when it has at least one titled activity — no per-day minimum of 3–4.
    */
   function measureWeekdayCoverage(plan, activities) {
     const filled = new Set();
@@ -80,7 +81,7 @@
       days,
       missingDays: WEEKDAYS.filter((day) => !filled.has(day)),
       coverageComplete: days.length === 5,
-      label: `${days.length} of 5 weekdays complete`,
+      label: `${days.length} of 5 weekdays represented`,
       percent: clampPercent((days.length / 5) * 100),
     };
   }
@@ -376,7 +377,11 @@
       hasDraftOnlyPrintables: Boolean(summary.hasDraftOnlyPrintables),
       hasRejectedPrintables: Boolean(summary.hasRejectedPrintables),
       missingPrintables: Boolean(summary.missingPrintables),
-      incompleteActivities: Number(summary.incompleteActivities) || 0,
+      incompleteActivities: Number(
+        summary.incompleteActivitiesForPublish != null
+          ? summary.incompleteActivitiesForPublish
+          : summary.incompleteActivities,
+      ) || 0,
       enrichmentFillPercent,
       printableApprovalStatuses: Array.isArray(summary.printableApprovalStatuses)
         ? summary.printableApprovalStatuses

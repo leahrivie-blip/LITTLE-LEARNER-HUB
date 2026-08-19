@@ -214,8 +214,10 @@ function runUnitScoringTests() {
   const acts = [{ id: "qa-act-1", title: "Color Sort", lessonPlanId: FIXTURE_ID }];
   const scores = enrich.computeReadinessScores(plan, acts, plan.enrichmentDraft);
   assert(scores.imageBriefsOnly >= 2, "image briefs counted separately");
-  assert(scores.imageReadiness === 0, "image briefs do not raise image readiness");
   assert(scores.setupImages === 0 && scores.exampleImages === 0, "no real images");
+  assert(scores.visualCoverage && scores.visualCoverage.percent === 0, "briefs do not count as visual coverage");
+  assert(scores.imageReadiness === scores.visualCoverage.score, "image readiness follows proportional visual score");
+  assert(scores.imageReadiness < 60, "zero useful images stay below excellent visual score");
   assert(scores.printReadiness < 50, "printable ideas alone are not print-ready");
   assert(scores.hasPrintableIdeasOnly === true, "printable ideas-only flag");
   assert(scores.completeBooks === 0, "title/author book incomplete");
@@ -242,13 +244,21 @@ function runUnitScoringTests() {
   assert(report.publishReadiness === "blocked", "publish readiness blocked");
   assert(report.overallLabel !== "Publish ready", "do not label Publish ready");
   const codes = (report.blockingIssues || []).map((b) => b.code);
-  assert(codes.includes("image_brief_not_image") || codes.includes("missing_example_images"), "image brief blocker");
+  const findingCodes = (report.findings || []).map((f) => f.code);
+  assert(
+    findingCodes.includes("image_brief_not_image") || findingCodes.includes("missing_example_images"),
+    "image brief/visual guidance finding present",
+  );
+  assert(
+    !(codes.includes("image_brief_not_image") || codes.includes("missing_example_images")),
+    "missing images alone are not hard blockers",
+  );
   assert(codes.includes("incomplete_books") || codes.includes("missing_books"), "incomplete books blocker");
   assert(codes.includes("incomplete_songs") || codes.includes("missing_songs"), "incomplete songs blocker");
   assert(codes.includes("missing_printables"), "printables blocker");
   assert(codes.includes("missing_weekday_focus") || codes.includes("placeholder_text"), "placeholder weekday blocker");
   assert(codes.includes("incomplete_toolkit"), "incomplete toolkit blocker");
-  assert(codes.includes("activities_in_progress"), "in-progress activities block");
+  assert(codes.includes("activities_in_progress") || codes.includes("thin_activity_week"), "incomplete/thin activity week blocks");
   assert(codes.includes("weak_materials"), "weak materials block premium readiness");
   assert((report.blockingIssues || []).some((b) => b.navigateTo), "blockers include navigateTo");
 
