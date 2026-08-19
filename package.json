@@ -69,6 +69,7 @@
     "test:owner-notification-email": "NODE_ENV=test node scripts/test-owner-notification-email.js",
     "test:meta-tracking": "NODE_ENV=test node scripts/test-meta-tracking.js",
     "test:marketing-analytics": "NODE_ENV=test node scripts/test-marketing-analytics.js",
+    "test:social-media-performance": "NODE_ENV=test node scripts/test-social-media-performance.js",
     "test:production-monitoring": "NODE_ENV=test node scripts/test-production-monitoring.js",
     "test:memory-profile": "NODE_ENV=test node scripts/profile-memory-workflows.js",
     "test:admin-insights": "NODE_ENV=test node scripts/test-admin-insights.js",

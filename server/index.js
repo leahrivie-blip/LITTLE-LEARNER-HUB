@@ -57,6 +57,7 @@ const testAccountGuard = require("./test-account-guard.js");
 const { createProductionMonitoring } = require("./production-monitoring.js");
 const productionMonitoring = createProductionMonitoring();
 const adminInsights = require("./admin-insights.js");
+const socialMediaPerformance = require("./social-media-performance.js");
 
 function configureSeoCurriculumSnapshotProvider() {
   seo.configureCurriculumSnapshotProvider(() => {
@@ -1090,6 +1091,7 @@ function defaultStore() {
     archivedConversations: [],
     memberSessions: {},
     onboardingWelcome: defaultOnboardingWelcomeStore(),
+    socialMediaPerformance: socialMediaPerformance.defaultSocialMediaPerformanceStore(),
   };
 }
 
@@ -30296,6 +30298,23 @@ function handleReleaseNotesList(request, response, url) {
 
 
 // ─── Communication ecosystem API (drafts, message center, tags, health, …) ───
+let _socialMediaPerformanceApi;
+function getSocialMediaPerformanceApi() {
+  if (!_socialMediaPerformanceApi) {
+    _socialMediaPerformanceApi = socialMediaPerformance.createSocialMediaPerformanceApi({
+      readStore,
+      readJson,
+      jsonResponse,
+      respondAfterPersist,
+      extractAdminToken,
+      extractAdminTokenFromBody,
+      validAdminToken,
+      crypto,
+    });
+  }
+  return _socialMediaPerformanceApi;
+}
+
 let _commsApi;
 function getCommsApi() {
   if (!_commsApi) {
@@ -30841,6 +30860,18 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "GET" && url.pathname === "/api/admin/store-health") return handleAdminStoreHealth(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/production-monitoring") return await handleAdminProductionMonitoring(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/insights") return await handleAdminInsights(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/admin/social-media-performance") {
+      return await getSocialMediaPerformanceApi().handleList(request, response, url);
+    }
+    if (request.method === "POST" && url.pathname === "/api/admin/social-media-performance") {
+      return await getSocialMediaPerformanceApi().handleCreate(request, response);
+    }
+    if (request.method === "POST" && url.pathname === "/api/admin/social-media-performance-update") {
+      return await getSocialMediaPerformanceApi().handleUpdate(request, response);
+    }
+    if (request.method === "POST" && url.pathname === "/api/admin/social-media-performance-delete") {
+      return await getSocialMediaPerformanceApi().handleDelete(request, response);
+    }
     if (request.method === "GET" && url.pathname === "/api/admin/program-migration-plan") return await handleAdminProgramMigrationPlan(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/program-migration-rollback") return await handleAdminProgramMigrationRollback(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/store-export") return handleAdminStoreExport(request, response, url);
