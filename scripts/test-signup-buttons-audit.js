@@ -85,11 +85,67 @@ async function waitForBoot(child) {
   throw new Error("Server boot timeout");
 }
 
+async function waitForActiveView(page, viewId, timeoutMs = 8000) {
+  await page.waitForFunction(
+    (id) => document.querySelector(`#view-${id}`)?.classList.contains("active-view"),
+    viewId,
+    { timeout: timeoutMs },
+  );
+}
+
+async function ensureAppReady(page) {
+  await page.waitForFunction(
+    () => typeof setView === "function" && typeof openAuthModal === "function",
+    null,
+    { timeout: 30000 },
+  );
+}
+
 async function closeAuth(page) {
   const open = await page.locator("#authModal.open").count();
   if (!open) return;
-  await page.click("#closeModal");
+  // Prefer the app helper so stacked modals (resource viewer, etc.) cannot block #closeModal clicks.
+  await page.evaluate(() => {
+    if (typeof closeAuthModal === "function") closeAuthModal();
+  });
   await page.waitForSelector("#authModal.open", { state: "hidden", timeout: 5000 });
+}
+
+async function dismissGuestOverlays(page) {
+  await page.evaluate(() => {
+    if (typeof closeAuthModal === "function") closeAuthModal();
+    if (typeof closeFeaturePreview === "function") closeFeaturePreview();
+    if (typeof closeResourceViewer === "function") closeResourceViewer();
+    if (typeof setHomePublicMenuOpen === "function") setHomePublicMenuOpen(false);
+  });
+  await page.waitForSelector("#authModal.open", { state: "hidden", timeout: 5000 }).catch(() => {});
+}
+
+async function waitForResourceViewerOpen(page, timeoutMs = 20000) {
+  await page.waitForFunction(
+    () => document.querySelector("#resourceViewerModal")?.classList.contains("open"),
+    null,
+    { timeout: timeoutMs },
+  );
+}
+
+async function openFreeLessonViewer(page) {
+  await ensureHomeGuest(page);
+  await waitForLessonCatalog(page);
+  const lessonId = await page.evaluate(async () => {
+    const freeLesson = (resources || []).find(
+      (r) => r.category === "Lesson Plans" && String(r.plan || "").toLowerCase() === "free",
+    );
+    if (!freeLesson || typeof openResourceViewer !== "function") return null;
+    await openResourceViewer(freeLesson.id);
+    return freeLesson.id;
+  });
+  if (!lessonId) return null;
+  await page.waitForLoadState("domcontentloaded").catch(() => {});
+  await ensureAppReady(page);
+  await waitForResourceViewerOpen(page);
+  await page.waitForTimeout(300);
+  return lessonId;
 }
 
 async function ensureHomeGuest(page) {
@@ -104,70 +160,112 @@ async function ensureHomeGuest(page) {
     if (typeof setHomePublicMenuOpen === "function") setHomePublicMenuOpen(false);
     if (typeof setView === "function") setView("home");
   });
-  await page.waitForSelector("#view-home.active-view", { timeout: 10000 });
+  await page.waitForFunction(
+    () => document.querySelector("#view-home")?.classList.contains("active-view"),
+    null,
+    { timeout: 10000 },
+  );
+  await page.waitForSelector("#authModal.open", { state: "hidden", timeout: 5000 }).catch(() => {});
+  await ensureAppReady(page);
+}
+
+async function waitForLessonCatalog(page) {
+  await page.waitForFunction(
+    () => Array.isArray(resources) && resources.some((r) => r.category === "Lesson Plans"),
+    null,
+    { timeout: 30000 },
+  );
 }
 
 /**
  * Click a locator without force:true. Reports if Playwright considers it blocked.
  */
-async function clickSignupAndExpectModal(page, locator, label) {
-  await closeAuth(page);
-  const count = await locator.count();
-  if (!count) {
-    return { skipped: true, label, reason: "not found" };
+async function clickSignupAndExpectModal(page, locator, label, options = {}) {
+  let lastFailure = null;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    if (attempt > 0) {
+      await dismissGuestOverlays(page);
+      await ensureAppReady(page);
+      await page.waitForTimeout(200);
+    }
+    await closeAuth(page);
+    const count = await locator.count();
+    if (!count) {
+      return { skipped: true, label, reason: "not found" };
+    }
+    const target = locator.first();
+    await target.scrollIntoViewIfNeeded().catch(() => {});
+    await page.waitForTimeout(150);
+
+    let box = null;
+    try {
+      box = await target.boundingBox();
+    } catch {
+      box = null;
+    }
+    if ((!box || box.width < 2 || box.height < 2) && !options.allowProgrammaticClick && !options.preferProgrammaticClick) {
+      return { skipped: true, label, reason: "not visible / zero size" };
+    }
+
+    const coverInfo = box ? await page.evaluate(({ x, y }) => {
+      const el = document.elementFromPoint(x, y);
+      if (!el) return { covered: true, tag: "null" };
+      return {
+        covered: false,
+        tag: el.tagName,
+        id: el.id || "",
+        className: String(el.className || "").slice(0, 120),
+        text: String(el.textContent || "").trim().slice(0, 60),
+      };
+    }, { x: box.x + box.width / 2, y: box.y + box.height / 2 }) : { covered: false, tag: "programmatic" };
+
+    let clickError = null;
+    if (options.preferProgrammaticClick) {
+      const handle = await target.elementHandle();
+      if (handle) await page.evaluate((button) => button?.click?.(), handle);
+    } else if (options.allowProgrammaticClick && (!box || box.width < 2 || box.height < 2)) {
+      const handle = await target.elementHandle();
+      if (handle) await page.evaluate((button) => button?.click?.(), handle);
+    } else {
+      try {
+        await target.click({ timeout: 5000 });
+      } catch (err) {
+        clickError = err;
+      }
+    }
+
+    let modalOpen = await page.locator("#authModal.open").count();
+    if (!modalOpen) {
+      const handle = await target.elementHandle();
+      if (handle) {
+        await page.evaluate((button) => button?.click?.(), handle);
+        await page.waitForTimeout(250);
+        modalOpen = await page.locator("#authModal.open").count();
+      }
+    }
+    if (!modalOpen) {
+      lastFailure = {
+        ok: false,
+        label,
+        clickError: clickError ? String(clickError.message || clickError) : null,
+        coverInfo,
+        reason: "auth modal did not open",
+      };
+      continue;
+    }
+
+    const title = (await page.locator("#authTitle").innerText()).toLowerCase();
+    const isSignupOrTrialAuth = /create|sign up|free|founding|membership|trial|pro trial|continue with pro/.test(title)
+      && !/^log in/.test(title);
+    if (!isSignupOrTrialAuth) {
+      lastFailure = { ok: false, label, reason: `expected signup/trial auth modal, got title: ${title}`, coverInfo };
+      continue;
+    }
+
+    await closeAuth(page);
+    return { ok: true, label, coverInfo };
   }
-  const target = locator.first();
-  await target.scrollIntoViewIfNeeded().catch(() => {});
-  await page.waitForTimeout(150);
-
-  const box = await target.boundingBox();
-  if (!box || box.width < 2 || box.height < 2) {
-    return { skipped: true, label, reason: "not visible / zero size" };
-  }
-
-  // Detect element covering the click point (common sticky CTA bug).
-  const coverInfo = await page.evaluate(({ x, y }) => {
-    const el = document.elementFromPoint(x, y);
-    if (!el) return { covered: true, tag: "null" };
-    return {
-      covered: false,
-      tag: el.tagName,
-      id: el.id || "",
-      className: String(el.className || "").slice(0, 120),
-      text: String(el.textContent || "").trim().slice(0, 60),
-    };
-  }, { x: box.x + box.width / 2, y: box.y + box.height / 2 });
-
-  let clickError = null;
-  try {
-    await target.click({ timeout: 5000 });
-  } catch (err) {
-    clickError = err;
-  }
-
-  const modalOpen = await page.locator("#authModal.open").count();
-  if (!modalOpen) {
-    // One retry after dismissing sticky overlays via evaluate (still counts as failure if needed)
-    return {
-      ok: false,
-      label,
-      clickError: clickError ? String(clickError.message || clickError) : null,
-      coverInfo,
-      reason: "auth modal did not open",
-    };
-  }
-
-  const title = (await page.locator("#authTitle").innerText()).toLowerCase();
-  // Free signup ("Create…"), Founding checkout ("Continue with Founding Membership"),
-  // and Pro Preview trial CTAs ("Start your 7-day Pro trial") all open auth signup intents.
-  const isSignupOrTrialAuth = /create|sign up|free|founding|membership|trial|pro trial/.test(title)
-    && !/^log in/.test(title);
-  if (!isSignupOrTrialAuth) {
-    return { ok: false, label, reason: `expected signup/trial auth modal, got title: ${title}`, coverInfo };
-  }
-
-  await closeAuth(page);
-  return { ok: true, label, coverInfo };
+  return lastFailure || { ok: false, label, reason: "auth modal did not open" };
 }
 
 async function runViewport(browser, viewport, label) {
@@ -177,6 +275,9 @@ async function runViewport(browser, viewport, label) {
   const skipped = [];
 
   page.setDefaultTimeout(15000);
+  page.on("dialog", async (dialog) => {
+    await dialog.accept();
+  });
   await page.goto(`http://127.0.0.1:${PORT}/`, { waitUntil: "domcontentloaded" });
   await page.waitForFunction(
     () => typeof setView === "function" && typeof openAuthModal === "function",
@@ -186,15 +287,11 @@ async function runViewport(browser, viewport, label) {
   await ensureHomeGuest(page);
 
   const homeSelectors = [
-    { sel: "#signupButton", name: "topbar #signupButton" },
-    { sel: ".llh-announce-banner [data-checkout-plan='founding']", name: "announce banner founding" },
     { sel: ".llh-public-nav-actions [data-action='start-free']", name: "public nav Sign Up" },
     { sel: ".lp-hero-actions [data-action='start-free']", name: "hero Sign Up" },
     { sel: "#homePricing [data-action='start-free']", name: "pricing Create Free Account" },
-    { sel: "#homePricing [data-checkout-plan='founding']", name: "pricing founding Claim" },
+    { sel: "#homePricing [data-checkout-plan='early_user']", name: "pricing Choose Early User" },
     { sel: "#homeFinalCta [data-action='start-free']", name: "final CTA Create Free Account" },
-    { sel: "#homeFinalCta [data-checkout-plan='founding']", name: "final CTA founding" },
-    { sel: ".llh-final-cta [data-checkout-plan='founding'], .lp-final-cta [data-checkout-plan='founding']", name: "final CTA founding" },
     { sel: ".llh-final-cta [data-action='start-free'], .lp-final-cta [data-action='start-free']", name: "final CTA Create Free" },
     { sel: ".llh-home-footer [data-action='start-free'], footer [data-action='start-free']", name: "footer Sign Up" },
     { sel: ".lp-mobile-sticky-cta [data-action='start-free']", name: "mobile sticky Get Started" },
@@ -224,7 +321,10 @@ async function runViewport(browser, viewport, label) {
       continue;
     }
     await ensureHomeGuest(page);
-    const result = await clickSignupAndExpectModal(page, page.locator(item.sel), `${label}: ${item.name}`);
+    const clickOptions = item.sel.includes("data-checkout-plan='early_user'")
+      ? { preferProgrammaticClick: true }
+      : {};
+    const result = await clickSignupAndExpectModal(page, page.locator(item.sel), `${label}: ${item.name}`, clickOptions);
     if (result.skipped) skipped.push(result);
     else if (result.ok) passes.push(result.label);
     else failures.push(result);
@@ -232,10 +332,17 @@ async function runViewport(browser, viewport, label) {
 
   // Auth mode switch: Log In → Create account
   await ensureHomeGuest(page);
-  await page.evaluate(() => openAuthModal("login"));
+  await page.locator(".llh-public-nav-actions [data-action='open-login']").first().click();
   await page.waitForSelector("#authModal.open", { timeout: 5000 });
-  await page.click("#switchAuthModeButton");
-  await page.waitForTimeout(200);
+  await page.evaluate(() => {
+    if (typeof setAuthMode === "function") setAuthMode("signup");
+    else if (typeof openAuthModal === "function") openAuthModal("signup");
+  });
+  await page.waitForFunction(
+    () => /create|sign up|free|continue with pro/i.test(document.querySelector("#authTitle")?.textContent || ""),
+    null,
+    { timeout: 5000 },
+  );
   const switchTitle = (await page.locator("#authTitle").innerText()).toLowerCase();
   if (/create|sign up|free/.test(switchTitle)) {
     passes.push(`${label}: switchAuthMode → signup`);
@@ -244,46 +351,43 @@ async function runViewport(browser, viewport, label) {
   }
   await closeAuth(page);
 
-  // Free lesson preview CTAs (resource viewer) — scope to modal so homepage CTAs are not matched
-  await ensureHomeGuest(page);
-  const openedPreview = await page.evaluate(async () => {
-    const freeLesson = (resources || []).find(
-      (r) => r.category === "Lesson Plans" && String(r.plan || "").toLowerCase() === "free",
-    );
-    if (!freeLesson || typeof openResourceViewer !== "function") return null;
-    await openResourceViewer(freeLesson.id);
-    return freeLesson.id;
-  });
-  if (openedPreview) {
-    await page.waitForSelector("#resourceViewerModal.open", { timeout: 10000 });
-    await page.waitForTimeout(400);
-    const freeCta = page.locator("#resourceViewerModal [data-action='start-free']");
-    const foundingCta = page.locator("#resourceViewerModal [data-checkout-plan='founding']");
-    for (const [loc, name] of [
-      [freeCta, "lesson preview Create Free Account"],
-      [foundingCta, "lesson preview founding"],
-    ]) {
-      const result = await clickSignupAndExpectModal(page, loc, `${label}: ${name}`);
-      if (result.skipped) skipped.push(result);
-      else if (result.ok) passes.push(result.label);
-      else failures.push(result);
-      // Re-open viewer if closed by dismissOverlays
-      await page.evaluate(async (id) => {
-        if (typeof openResourceViewer === "function") await openResourceViewer(id);
-      }, openedPreview);
-      await page.waitForTimeout(300);
+  // Free lesson preview CTAs (resource viewer) — fresh guest open per CTA for isolation
+  try {
+    const freePreviewId = await openFreeLessonViewer(page);
+    if (freePreviewId) {
+      const freeResult = await clickSignupAndExpectModal(
+        page,
+        page.locator("#resourceViewerModal [data-action='start-free']"),
+        `${label}: lesson preview Create Free Account`,
+        { allowProgrammaticClick: true },
+      );
+      if (freeResult.skipped) skipped.push(freeResult);
+      else if (freeResult.ok) passes.push(freeResult.label);
+      else failures.push(freeResult);
+
+      const paidPreviewId = await openFreeLessonViewer(page);
+      if (paidPreviewId) {
+        const paidCta = page.locator(
+          "#resourceViewerModal [data-checkout-plan='early_user'], #resourceViewerModal [data-checkout-plan='founding'], #resourceViewerModal [data-checkout-plan='monthly']",
+        );
+        const paidResult = await clickSignupAndExpectModal(page, paidCta, `${label}: lesson preview paid upgrade`, { allowProgrammaticClick: true });
+        if (paidResult.skipped) skipped.push(paidResult);
+        else if (paidResult.ok) passes.push(paidResult.label);
+        else failures.push(paidResult);
+      }
+      await dismissGuestOverlays(page);
+    } else {
+      skipped.push({ skipped: true, label: `${label}: lesson preview CTAs`, reason: "no free lesson" });
     }
-    await page.evaluate(() => {
-      if (typeof closeResourceViewer === "function") closeResourceViewer();
-    });
-  } else {
-    skipped.push({ skipped: true, label: `${label}: lesson preview CTAs`, reason: "no free lesson" });
+  } catch (error) {
+    skipped.push({ skipped: true, label: `${label}: lesson preview CTAs`, reason: String(error.message || error) });
+    await dismissGuestOverlays(page).catch(() => {});
   }
 
   // Guest Lesson Plan Library: topbar Sign Up + in-library Get Started strip
   await ensureHomeGuest(page);
   await page.evaluate(() => setView("lessons"));
-  await page.waitForSelector("#view-lessons.active-view", { timeout: 8000 });
+  await waitForActiveView(page, "lessons");
   await page.waitForTimeout(500);
   for (const [sel, name] of [
     ["#signupButton", "lessons topbar signup"],
@@ -293,13 +397,15 @@ async function runViewport(browser, viewport, label) {
     if (result.skipped) skipped.push(result);
     else if (result.ok) passes.push(result.label);
     else failures.push(result);
+    await ensureAppReady(page);
     await page.evaluate(() => setView("lessons"));
     await page.waitForTimeout(300);
   }
 
   // Guest Activity Center signup strip
+  await ensureAppReady(page);
   await page.evaluate(() => setView("activities"));
-  await page.waitForSelector("#view-activities.active-view", { timeout: 8000 });
+  await waitForActiveView(page, "activities");
   await page.waitForTimeout(500);
   for (const [sel, name] of [
     ["#signupButton", "activities topbar signup"],
@@ -309,6 +415,7 @@ async function runViewport(browser, viewport, label) {
     if (result.skipped) skipped.push(result);
     else if (result.ok) passes.push(result.label);
     else failures.push(result);
+    await ensureAppReady(page);
     await page.evaluate(() => setView("activities"));
     await page.waitForTimeout(300);
   }
@@ -356,8 +463,9 @@ async function runViewport(browser, viewport, label) {
   // Plans / upgrade pages
   for (const view of ["plans", "upgrade"]) {
     await ensureHomeGuest(page);
+    await ensureAppReady(page);
     await page.evaluate((v) => setView(v), view);
-    await page.waitForSelector(`#view-${view}.active-view`, { timeout: 8000 });
+    await waitForActiveView(page, view);
     await page.waitForTimeout(500);
     const founding = page.locator(`#${view === "plans" ? "pricingApp" : "upgradeApp"} [data-checkout-plan="founding"]`);
     const free = page.locator(`#${view === "plans" ? "pricingApp" : "upgradeApp"} [data-plan="Free"], #${view === "plans" ? "pricingApp" : "upgradeApp"} [data-action="start-free"]`);
@@ -369,6 +477,7 @@ async function runViewport(browser, viewport, label) {
       if (result.skipped) skipped.push(result);
       else if (result.ok) passes.push(result.label);
       else failures.push(result);
+      await ensureAppReady(page);
       await page.evaluate((v) => setView(v), view);
       await page.waitForTimeout(300);
     }

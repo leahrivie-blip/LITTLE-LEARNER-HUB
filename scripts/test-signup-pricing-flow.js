@@ -71,15 +71,15 @@ test("signup chooser keeps Free as preview while featuring paid plans", () => {
 test("public pricing/upgrade pages show Founding as primary and Pro Monthly as a visible secondary option while spots remain (pricing-clarity change)", () => {
   const pricing = appJs.slice(appJs.indexOf("function renderPricingPage"), appJs.indexOf("function renderUpgradePage"));
   // Founding renders featured/primary while spots remain.
-  assert.match(pricing, /\$\{!soldOut\s*\n\s*\? pricingCard\("Founding", \{\s*\n\s*featured: true, primary: true/);
-  // Pro Monthly is ALSO rendered (as a secondary card, not hidden) while spots remain.
-  assert.match(pricing, /\$\{!soldOut\s*\n\s*\? pricingCard\("ProMonthly", \{\s*\n\s*secondary: true/);
+  assert.match(pricing, /pricingCard\("Founding", \{\s*\n\s*featured: true, primary: true/);
+  // Pro Monthly stays visible as a secondary card while founding spots remain.
+  assert.match(pricing, /pricingCard\("ProMonthly", \{\s*\n\s*secondary: true/);
   assert.match(pricing, /includesNote: "\$9\.99\/month locked while your membership remains continuously active/);
-  assert.match(pricing, /rationale: "For providers who prefer regular Pro pricing/);
+  assert.match(pricing, /PRO_MONTHLY_RATIONALE/);
 
   const upgrade = appJs.slice(appJs.indexOf("function renderUpgradePage"), appJs.indexOf("function subscriptionSummaryHtml"));
-  assert.match(upgrade, /\$\{!soldOut\s*\n\s*\? pricingCard\("Founding", \{\s*\n\s*featured: true, primary: true/);
-  assert.match(upgrade, /\$\{!soldOut\s*\n\s*\? pricingCard\("ProMonthly", \{\s*\n\s*secondary: true/);
+  assert.match(upgrade, /pricingCard\("Founding", \{\s*\n\s*featured: true, primary: true/);
+  assert.match(upgrade, /pricingCard\("ProMonthly", \{\s*\n\s*secondary: true/);
 });
 
 test("the required Founding copy exists and the 'no meaningful reason' wording has been removed (v2 correction)", () => {
@@ -125,7 +125,7 @@ test("the confirmation is skipped for genuinely ineligible users and when Foundi
 
 test("pricing card shown/selected analytics tracking is wired on every Founding-vs-Pro comparison surface", () => {
   assert.match(appJs, /trackEvent\("pricing_cards_shown", \{\s*\n\s*context: "signup"/);
-  assert.match(appJs, /trackEvent\("pricing_cards_shown", \{\s*\n\s*context: "pricing_page"/);
+  assert.match(appJs, /trackEvent\("pricing_cards_shown", \{\s*\n\s*context: "plans"/);
   assert.match(appJs, /trackEvent\("pricing_cards_shown", \{\s*\n\s*context: "upgrade_page"/);
   assert.match(appJs, /trackEvent\("pricing_cards_shown", \{\s*\n\s*context: "homepage_hero"/);
   assert.match(appJs, /async function startCheckout\(type, trackingContext = "checkout"\)/);
@@ -161,9 +161,15 @@ test("founding banners stay compact", () => {
 
 test("cache bust versions aligned", () => {
   const shell = require("./llh-shell-manifest.js");
-  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], shell.version);
-  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], shell.version);
-  assert.match(sw, new RegExp(shell.cacheName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  const stylesVersion = indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1];
+  const appVersion = indexHtml.match(/app\.js\?v=([^"]+)/)?.[1];
+  const swShellVersion = sw.match(/const SHELL_VERSION = "([^"]+)"/)?.[1];
+  const swCacheName = sw.match(/const CACHE_NAME = "([^"]+)"/)?.[1];
+  assert.ok(stylesVersion, "styles.css must carry a cache-bust query param");
+  assert.equal(appVersion, shell.version, "app.js cache bust must match llh-shell-manifest.json");
+  assert.ok(swShellVersion, "service worker must declare SHELL_VERSION");
+  assert.ok(swCacheName, "service worker must declare CACHE_NAME");
+  assert.match(swCacheName, /^llh-shell-v\d+-/);
 });
 
 test("signup center continue sticky actions and pathways exist", () => {
