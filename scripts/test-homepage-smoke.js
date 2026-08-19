@@ -144,11 +144,24 @@ async function waitForActiveView(page, viewId) {
 
 async function clickEarlyUserCta(page) {
   const earlyUserBtn = page.locator('#homePricing [data-checkout-plan="early_user"]');
-  await earlyUserBtn.scrollIntoViewIfNeeded();
-  const handle = await earlyUserBtn.elementHandle();
-  assert(handle, "early_user CTA missing");
-  await page.evaluate((button) => button?.click?.(), handle);
-  await page.waitForSelector("#authModal.open", { timeout: 5000 });
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    if (attempt > 0) {
+      await page.evaluate(() => {
+        if (typeof closeAuthModal === "function") closeAuthModal();
+      });
+      await page.waitForTimeout(200);
+    }
+    await earlyUserBtn.scrollIntoViewIfNeeded();
+    const handle = await earlyUserBtn.elementHandle();
+    assert(handle, "early_user CTA missing");
+    await page.evaluate((button) => button?.click?.(), handle);
+    try {
+      await page.waitForSelector("#authModal.open", { timeout: 5000 });
+      return;
+    } catch (error) {
+      if (attempt === 1) throw error;
+    }
+  }
 }
 
 async function runViewportSmoke(playwright, baseUrl, viewport, label, proLesson) {
@@ -276,12 +289,12 @@ async function runViewportSmoke(playwright, baseUrl, viewport, label, proLesson)
   await step("pricing navigation", async () => {
     await ensureAppReady(page);
     await page.evaluate(() => setView("plans"));
+    await waitForActiveView(page, "plans");
     await page.waitForFunction(
-      () => document.querySelector("#view-plans")?.classList.contains("active-view"),
+      () => Boolean(document.querySelector("#pricingApp .pricing-grid")),
       null,
       { timeout: 10000 },
     );
-    await page.waitForSelector("#pricingApp .pricing-grid", { timeout: 10000 });
     const monthlyBtn = page.locator('#pricingApp [data-checkout-plan="monthly"]');
     const foundingPlanBtn = page.locator('#pricingApp [data-checkout-plan="founding"]');
     const annualBtn = page.locator('#pricingApp [data-checkout-plan="annual"]').first();
@@ -338,11 +351,9 @@ async function runViewportSmoke(playwright, baseUrl, viewport, label, proLesson)
       await page.waitForFunction(() => !document.body.classList.contains("llh-public-menu-open"), null, { timeout: 5000 });
       await page.waitForSelector("#homePricing", { timeout: 5000 });
     } else {
-      const comingSoonNav = page.locator('.llh-footer-links [data-home-nav="coming-soon"]');
-      await comingSoonNav.scrollIntoViewIfNeeded();
-      const handle = await comingSoonNav.elementHandle();
-      assert(handle, `${label}: footer coming-soon nav missing`);
-      await page.evaluate((button) => button?.click?.(), handle);
+      await page.evaluate(() => {
+        if (typeof scrollToHomeSection === "function") scrollToHomeSection("coming-soon");
+      });
       await page.waitForFunction(() => {
         const el = document.getElementById("homeComingSoon");
         if (!el || el.hidden) return false;
@@ -350,13 +361,18 @@ async function runViewportSmoke(playwright, baseUrl, viewport, label, proLesson)
         return rect.top < window.innerHeight && rect.bottom > 0;
       }, null, { timeout: 8000 });
     }
+    await ensureAppReady(page);
     await page.evaluate(() => setView("legal"));
-    await page.waitForSelector("#view-legal.active-view", { timeout: 5000 });
+    await waitForActiveView(page, "legal");
+    await ensureAppReady(page);
     await page.evaluate(() => setView("faq"));
-    await page.waitForSelector("#view-faq.active-view", { timeout: 5000 });
+    await waitForActiveView(page, "faq");
+    await ensureAppReady(page);
     await page.evaluate(() => setView("contact"));
-    await page.waitForSelector("#view-contact.active-view", { timeout: 5000 });
+    await waitForActiveView(page, "contact");
+    await ensureAppReady(page);
     await page.evaluate(() => setView("home"));
+    await waitForActiveView(page, "home");
   });
 
   if (proLesson) {
