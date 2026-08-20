@@ -207,6 +207,7 @@
       <div class="admin-card-grid">
         ${landingCard("Lesson Plans", "Choose a lesson, review sections, preview, then publish.", "curriculum-lesson-plans", "Curriculum")}
         ${landingCard("Draft Review Queue", "Owner review of incoming upgraded lesson drafts.", "curriculum-draft-review", "Curriculum")}
+        ${landingCard("Visual Production", "Plan, generate, and review activity images and printable visuals.", "curriculum-visual-production", "Curriculum")}
         ${landingCard("Library Health", "Coverage, quality, and library analytics (separate from editing).", "curriculum-library-health", "Curriculum")}
         ${landingCard("AI Curriculum Director", "Library-wide AI planning tools (separate from editing).", "curriculum-ai-director", "Curriculum")}
         ${landingCard("Activities", "Browse and manage curriculum activities.", "curriculum-activities", "Curriculum")}

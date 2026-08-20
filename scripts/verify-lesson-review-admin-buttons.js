@@ -252,7 +252,7 @@ async function main() {
       await page.click('[data-admin-group="content"]');
       await page.waitForTimeout(400);
       const homeText = await page.locator("body").innerText();
-      ok(/Content Home|Lesson Plans|Library Health|AI Curriculum Director/i.test(homeText), "Content Home shows management cards");
+      ok(/Content Home|Lesson Plans|Library Health|AI Curriculum Director|Visual Production/i.test(homeText), "Content Home shows management cards");
       await page.screenshot({ path: path.join(OUT, "verify-content-home.png"), fullPage: false });
 
       // Open lesson plans + focused editor
