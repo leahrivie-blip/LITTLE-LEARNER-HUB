@@ -19,11 +19,16 @@
     lessonTitle: "",
     instruction: "",
     cards: [],
+    packs: [],
     selectedId: "",
     busy: false,
     message: "",
     isError: false,
     mounted: false,
+    /** @type {Map<string, string>} */
+    previewObjectUrls: new Map(),
+    modalPreviewUrl: "",
+    modalTitle: "",
   };
 
   function esc(value) {
@@ -36,6 +41,10 @@
 
   function host() {
     return document.getElementById("adminVisualProductionApp");
+  }
+
+  function adminToken() {
+    return (typeof adminSession === "function" ? adminSession()?.token : "") || "";
   }
 
   function isOwner() {
@@ -57,7 +66,7 @@
   }
 
   async function api(action, extra) {
-    const token = (typeof adminSession === "function" ? adminSession()?.token : "") || "";
+    const token = adminToken();
     if (!token) throw new Error("Admin session required.");
     if (!isOwner()) throw new Error("Visual Production is restricted to the owner account.");
     const response = await fetch("/api/admin/curriculum/visual-production", {
@@ -81,16 +90,100 @@
     return state.cards.find((card) => card.id === state.selectedId) || state.cards[0] || null;
   }
 
+  /**
+   * Authenticated preview URL for new-tab / direct GET loads.
+   * Reuses the existing adminToken query-param pattern.
+   */
+  function previewSrc(url) {
+    const text = String(url || "").trim();
+    if (!text) return "";
+    const token = adminToken();
+    if (!token) return text;
+    return `${text}${text.includes("?") ? "&" : "?"}adminToken=${encodeURIComponent(token)}`;
+  }
+
+  function revokePreviewObjectUrls() {
+    state.previewObjectUrls.forEach((objectUrl) => {
+      try { URL.revokeObjectURL(objectUrl); } catch { /* ignore */ }
+    });
+    state.previewObjectUrls.clear();
+  }
+
+  /**
+   * Load preview bytes with owner auth, then display via blob URL.
+   * Avoids broken <img> Authorization header behavior while keeping adminToken GET support.
+   */
+  async function resolvePreviewObjectUrl(previewUrl) {
+    const key = String(previewUrl || "").trim();
+    if (!key) return "";
+    if (state.previewObjectUrls.has(key)) return state.previewObjectUrls.get(key) || "";
+    const token = adminToken();
+    const authedUrl = previewSrc(key);
+    const response = await fetch(authedUrl, {
+      method: "GET",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      credentials: "same-origin",
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      throw new Error(`Preview could not be loaded (${response.status}).`);
+    }
+    const blob = await response.blob();
+    if (!blob || !blob.size) throw new Error("Preview response was empty.");
+    const objectUrl = URL.createObjectURL(blob);
+    state.previewObjectUrls.set(key, objectUrl);
+    return objectUrl;
+  }
+
+  async function hydratePreviewImages(root) {
+    const el = root || host();
+    if (!el) return;
+    const nodes = Array.from(el.querySelectorAll("[data-vp-preview-url]"));
+    await Promise.all(nodes.map(async (node) => {
+      const previewUrl = node.getAttribute("data-vp-preview-url") || "";
+      if (!previewUrl) return;
+      try {
+        const objectUrl = await resolvePreviewObjectUrl(previewUrl);
+        if (node.tagName === "IMG") {
+          node.setAttribute("src", objectUrl);
+          node.classList.remove("is-loading", "is-error");
+          node.classList.add("is-ready");
+        } else if (node.tagName === "A") {
+          node.setAttribute("href", previewSrc(previewUrl));
+        }
+        const status = node.closest("[data-vp-preview-frame]")?.querySelector("[data-vp-preview-status]");
+        if (status) status.textContent = "";
+      } catch (error) {
+        node.classList.add("is-error");
+        const status = node.closest("[data-vp-preview-frame]")?.querySelector("[data-vp-preview-status]");
+        if (status) status.textContent = error.message || "Preview failed to load.";
+      }
+    }));
+  }
+
+  function cardNavLabel(card) {
+    if (card.pageNumber && card.pageTitle) {
+      return `Page ${card.pageNumber}: ${card.pageTitle}`;
+    }
+    return card.activityName || card.pageTitle || "Untitled asset";
+  }
+
   function listHtml() {
     if (!state.cards.length) {
       return `<p class="muted-copy">No planned visuals yet. Paste owner visual instructions after the lesson is imported with Master Paste.</p>`;
     }
+    const sorted = state.cards.slice().sort((a, b) => {
+      if (a.printablePackId && a.printablePackId === b.printablePackId) {
+        return (a.pageNumber || 0) - (b.pageNumber || 0);
+      }
+      return String(a.updatedAt || "").localeCompare(String(b.updatedAt || ""));
+    });
     return `
       <ul class="vp-card-list">
-        ${state.cards.map((card) => `
+        ${sorted.map((card) => `
           <li>
             <button type="button" class="vp-card-nav ${card.id === state.selectedId ? "is-active" : ""}" data-vp-select="${esc(card.id)}">
-              <strong>${esc(card.activityName || "Untitled asset")}</strong>
+              <strong>${esc(cardNavLabel(card))}</strong>
               <span>${esc(card.assetType || "UNKNOWN")}</span>
               <span class="tag vp-status vp-status--${esc(STATUS_CLASS[card.status] || "draft")}">${esc(card.statusLabel || card.status)}</span>
             </button>
@@ -100,12 +193,93 @@
     `;
   }
 
-  function previewSrc(url) {
-    const text = String(url || "").trim();
-    if (!text) return "";
-    const token = (typeof adminSession === "function" ? adminSession()?.token : "") || "";
-    if (!token) return text;
-    return `${text}${text.includes("?") ? "&" : "?"}adminToken=${encodeURIComponent(token)}`;
+  function previewFrameHtml(card, options) {
+    const opts = options && typeof options === "object" ? options : {};
+    const previewUrl = String(card.generatedPreviewUrl || "").trim();
+    if (!previewUrl) return "";
+    const title = card.pageNumber
+      ? `Page ${card.pageNumber} — ${card.pageTitle || card.activityName || "Preview"}`
+      : (card.activityName || "Generated preview");
+    const sizeClass = opts.compact ? "vp-preview-image vp-preview-image--compact" : "vp-preview-image vp-preview-image--large";
+    return `
+      <div class="vp-preview-frame" data-vp-preview-frame>
+        ${opts.showHeading === false ? "" : `<h4>${esc(title)}</h4>`}
+        <p class="muted-copy">Preview only — not attached to the lesson.</p>
+        <img
+          class="${sizeClass} is-loading"
+          data-vp-preview-url="${esc(previewUrl)}"
+          alt="Generated visual preview for ${esc(title)}"
+        />
+        <p class="muted-copy vp-preview-status" data-vp-preview-status>Loading authenticated preview…</p>
+        <div class="form-actions vp-preview-actions">
+          <button type="button" class="primary-button" data-vp-open-preview="${esc(previewUrl)}" data-vp-open-title="${esc(title)}">Open full preview</button>
+          <a class="ghost-button" data-vp-preview-url="${esc(previewUrl)}" href="${esc(previewSrc(previewUrl))}" target="_blank" rel="noopener noreferrer">Open in new tab</a>
+        </div>
+        ${card.generatedAt ? `<p class="muted-copy">Generated ${esc(card.generatedAt)}${card.generationModel ? ` · ${esc(card.generationModel)}` : ""}</p>` : ""}
+      </div>
+    `;
+  }
+
+  function packGalleryHtml() {
+    const packCards = state.cards
+      .filter((card) => card.printablePackId && card.generatedPreviewUrl && card.status === "GENERATED")
+      .slice()
+      .sort((a, b) => {
+        if (a.printablePackId !== b.printablePackId) {
+          return String(a.printablePackId).localeCompare(String(b.printablePackId));
+        }
+        return (a.pageNumber || 0) - (b.pageNumber || 0);
+      });
+    if (!packCards.length) return "";
+    const byPack = new Map();
+    packCards.forEach((card) => {
+      const key = card.printablePackId;
+      if (!byPack.has(key)) byPack.set(key, []);
+      byPack.get(key).push(card);
+    });
+    return Array.from(byPack.entries()).map(([packId, pages]) => {
+      const packTitle = pages[0]?.packTitle || "Printable pack";
+      return `
+        <section class="vp-pack-gallery" data-vp-pack-gallery="${esc(packId)}">
+          <header>
+            <h3>${esc(packTitle)}</h3>
+            <p class="muted-copy">Pack ID ${esc(packId)} · generated pages in exact page-number order</p>
+          </header>
+          <div class="vp-pack-pages">
+            ${pages.map((card) => `
+              <article class="vp-pack-page" data-vp-select="${esc(card.id)}">
+                <h4>Page ${esc(String(card.pageNumber || ""))} — ${esc(card.pageTitle || card.activityName || "")}</h4>
+                ${previewFrameHtml(card, { compact: true, showHeading: false })}
+              </article>
+            `).join("")}
+          </div>
+        </section>
+      `;
+    }).join("");
+  }
+
+  function modalHtml() {
+    if (!state.modalPreviewUrl) return "";
+    return `
+      <div class="vp-preview-modal" data-vp-preview-modal role="dialog" aria-modal="true" aria-label="Full visual preview">
+        <div class="vp-preview-modal__backdrop" data-vp-close-modal></div>
+        <div class="vp-preview-modal__panel">
+          <header class="vp-preview-modal__header">
+            <h3>${esc(state.modalTitle || "Full preview")}</h3>
+            <button type="button" class="ghost-button" data-vp-close-modal>Close</button>
+          </header>
+          <img
+            class="vp-preview-image vp-preview-image--modal is-loading"
+            data-vp-preview-url="${esc(state.modalPreviewUrl)}"
+            alt="${esc(state.modalTitle || "Full visual preview")}"
+          />
+          <p class="muted-copy vp-preview-status" data-vp-preview-status>Loading authenticated preview…</p>
+          <div class="form-actions">
+            <a class="primary-button" data-vp-preview-url="${esc(state.modalPreviewUrl)}" href="${esc(previewSrc(state.modalPreviewUrl))}" target="_blank" rel="noopener noreferrer">Open in new tab</a>
+          </div>
+        </div>
+      </div>
+    `;
   }
 
   function detailHtml(card) {
@@ -115,17 +289,26 @@
       : "<li>None</li>";
     const forbidden = (card.forbiddenElements || []).map((item) => `<li>${esc(item)}</li>`).join("") || "<li>None</li>";
     const required = (card.structuredBrief?.requiredElements || []).map((item) => `<li>${esc(item)}</li>`).join("") || "<li>None</li>";
+    const heading = card.pageNumber
+      ? `Page ${card.pageNumber}: ${card.pageTitle || card.activityName || "Untitled"}`
+      : (card.activityName || "Untitled asset");
     return `
       <article class="vp-review" data-vp-review="${esc(card.id)}">
         <header>
           <p class="eyebrow">Planned visual — review before any generation</p>
-          <h3>${esc(card.activityName || "Untitled asset")}</h3>
+          <h3>${esc(heading)}</h3>
           <p>
             <span class="tag">${esc(card.assetType || "UNKNOWN")}</span>
             <span class="tag">${esc(card.visualStyle || "UNKNOWN")}</span>
             <span class="tag vp-status vp-status--${esc(STATUS_CLASS[card.status] || "draft")}">${esc(card.statusLabel || card.status)}</span>
+            ${card.printablePackId ? `<span class="tag">Pack ${esc(card.printablePackId)}</span>` : ""}
           </p>
         </header>
+        ${card.generatedPreviewUrl ? `
+        <section class="vp-preview-section">
+          <h4>Generated preview</h4>
+          ${previewFrameHtml(card, { compact: false, showHeading: false })}
+        </section>` : ""}
         <section>
           <h4>Original visual instruction</h4>
           <pre class="vp-pre">${esc(card.originalInstruction || "")}</pre>
@@ -159,13 +342,6 @@
           <h4>Review flags</h4>
           <ul>${flags}</ul>
         </section>
-        ${card.generatedPreviewUrl ? `
-        <section>
-          <h4>Generated preview</h4>
-          <p class="muted-copy">Preview only — not attached to the lesson. Attachment stays blocked until you explicitly approve it.</p>
-          <img class="vp-preview-image" src="${esc(previewSrc(card.generatedPreviewUrl))}" alt="Generated visual preview for ${esc(card.activityName || "visual")}" />
-          ${card.generatedAt ? `<p class="muted-copy">Generated ${esc(card.generatedAt)}${card.generationModel ? ` · ${esc(card.generationModel)}` : ""}</p>` : ""}
-        </section>` : ""}
         <div class="form-actions">
           <button type="button" class="primary-button" data-vp-approve ${card.canApprove ? "" : "disabled"}>Approve planned visual</button>
           <button type="button" class="ghost-button" data-vp-needs-review>Mark needs review</button>
@@ -204,20 +380,25 @@
           <button class="ghost-button" type="button" data-vp-refresh ${state.busy || !state.lessonId ? "disabled" : ""}>Refresh planned visuals</button>
         </div>
       </form>
+      ${packGalleryHtml()}
       <div class="vp-layout">
         <aside>${listHtml()}</aside>
         <div>${detailHtml(card)}</div>
       </div>
+      ${modalHtml()}
     `;
+    void hydratePreviewImages(el);
   }
 
   async function refreshList() {
     if (!state.lessonId) {
       state.cards = [];
+      state.packs = [];
       return;
     }
     const data = await api("list", { lessonId: state.lessonId });
     state.cards = Array.isArray(data.cards) ? data.cards : [];
+    state.packs = Array.isArray(data.packs) ? data.packs : [];
     if (state.selectedId && !state.cards.some((card) => card.id === state.selectedId)) {
       state.selectedId = state.cards[0]?.id || "";
     }
@@ -248,8 +429,23 @@
     if (!el || el.dataset.vpBound === "true") return;
     el.dataset.vpBound = "true";
     el.addEventListener("click", (event) => {
+      const closeModal = event.target.closest("[data-vp-close-modal]");
+      if (closeModal) {
+        state.modalPreviewUrl = "";
+        state.modalTitle = "";
+        render();
+        return;
+      }
+      const openPreview = event.target.closest("[data-vp-open-preview]");
+      if (openPreview) {
+        event.preventDefault();
+        state.modalPreviewUrl = openPreview.getAttribute("data-vp-open-preview") || "";
+        state.modalTitle = openPreview.getAttribute("data-vp-open-title") || "Full preview";
+        render();
+        return;
+      }
       const select = event.target.closest("[data-vp-select]");
-      if (select) {
+      if (select && !event.target.closest("[data-vp-open-preview], a[data-vp-preview-url], [data-vp-close-modal]")) {
         state.selectedId = select.getAttribute("data-vp-select") || "";
         render();
         return;

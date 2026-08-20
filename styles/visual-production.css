@@ -67,13 +67,124 @@
 .vp-status--generated,
 .vp-status--attached { background: #ede8ff; }
 
+.vp-preview-section,
+.vp-preview-frame {
+  display: grid;
+  gap: 0.65rem;
+}
+
 .vp-preview-image {
   display: block;
-  width: min(100%, 42rem);
+  width: min(100%, 48rem);
+  max-height: 70vh;
   height: auto;
+  object-fit: contain;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: var(--cream-2);
+  background: #fff;
+}
+
+.vp-preview-image--large {
+  width: min(100%, 52rem);
+  max-height: 78vh;
+}
+
+.vp-preview-image--compact {
+  width: 100%;
+  max-height: 28rem;
+}
+
+.vp-preview-image--modal {
+  width: min(100%, 56rem);
+  max-height: 80vh;
+  margin: 0 auto;
+}
+
+.vp-preview-image.is-loading {
+  min-height: 12rem;
+  background: repeating-linear-gradient(
+    -45deg,
+    #f4f4f4,
+    #f4f4f4 12px,
+    #ececec 12px,
+    #ececec 24px
+  );
+}
+
+.vp-preview-image.is-error {
+  outline: 2px solid #c0392b;
+}
+
+.vp-preview-actions {
+  flex-wrap: wrap;
+}
+
+.vp-pack-gallery {
+  margin-top: 1.5rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--white);
+  display: grid;
+  gap: 1rem;
+}
+
+.vp-pack-pages {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.vp-pack-page {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--cream-2, #faf7f2);
+}
+
+.vp-pack-page h4 {
+  margin: 0;
+}
+
+.vp-preview-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+
+.vp-preview-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(20, 20, 20, 0.55);
+}
+
+.vp-preview-modal__panel {
+  position: relative;
+  z-index: 1;
+  width: min(96vw, 60rem);
+  max-height: 94vh;
+  overflow: auto;
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+  border-radius: var(--radius);
+  background: #fff;
+  box-shadow: var(--soft-shadow);
+}
+
+.vp-preview-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.vp-preview-modal__header h3 {
+  margin: 0;
 }
 
 @media (max-width: 900px) {
