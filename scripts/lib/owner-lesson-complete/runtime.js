@@ -186,6 +186,22 @@ function createClient(env = process.env) {
     }, { Authorization: `Bearer ${token}` }, siteUrl);
   }
 
+  async function renameLessonTitle(token, planId, newTitle, expectedUpdatedAt) {
+    const site = await loadAdminSite(token);
+    const existing = (site.curriculum.lessonPlans || []).find((p) => p.id === planId);
+    if (!existing) throw new Error(`rename: lesson ${planId} not found`);
+    const lessonPlan = {
+      ...existing,
+      title: newTitle,
+      enrichmentDraft: existing.enrichmentDraft || undefined,
+    };
+    return requestJson("POST", "/api/admin/curriculum/lesson-plans", {
+      expectedUpdatedAt: expectedUpdatedAt || site.updatedAt || "",
+      adminEmail,
+      lessonPlan,
+    }, { Authorization: `Bearer ${token}` }, siteUrl);
+  }
+
   return {
     siteUrl,
     adminEmail,
@@ -197,6 +213,7 @@ function createClient(env = process.env) {
     uploadCoverJpeg,
     replacePrintablePdf,
     createPrintable,
+    renameLessonTitle,
   };
 }
 

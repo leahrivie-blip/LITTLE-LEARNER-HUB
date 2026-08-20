@@ -28,12 +28,14 @@ const CONFIGS = {
   "bugs-butterflies": "./lib/owner-lesson-complete/configs/bugs-butterflies.js",
   "big-feelings": "./lib/owner-lesson-complete/configs/big-feelings.js",
   "black-white-discovery": "./lib/owner-lesson-complete/configs/black-white-discovery.js",
+  "toddler-all-about-me": "./lib/owner-lesson-complete/configs/toddler-all-about-me.js",
+  "little-makers-workshop": "./lib/owner-lesson-complete/configs/little-makers-workshop.js",
 };
 
 async function main() {
   const key = String(process.argv[2] || "").trim();
   if (!CONFIGS[key]) {
-    console.error("Usage: complete-owner-lesson.js <bugs-butterflies|big-feelings|black-white-discovery>");
+    console.error("Usage: complete-owner-lesson.js <bugs-butterflies|big-feelings|black-white-discovery|toddler-all-about-me|little-makers-workshop>");
     process.exit(2);
   }
   if (process.env.LLH_APPLY_PRODUCTION_DRAFTS !== "1") {
@@ -78,11 +80,32 @@ async function main() {
   const exactTitleMatches = (site.curriculum.lessonPlans || []).filter((p) =>
     String(p.title || "").trim().toLowerCase() === String(config.title).trim().toLowerCase()
   );
-  if (exactTitleMatches.length > 1) {
+  // All About Me exists as Toddler Pro + Preschool Free — operate by verified planId only.
+  if (exactTitleMatches.length > 1 && !config.allowSameTitleDifferentAgeOrStatus) {
     throw new Error(`Duplicate exact titles for “${config.title}”: ${exactTitleMatches.map((p) => p.id).join(", ")}`);
+  }
+  if (exactTitleMatches.length > 1) {
+    console.warn(
+      "NOTE same title exists on other IDs (allowed by config):",
+      exactTitleMatches.map((p) => `${p.id}/${p.age}/${p.status}/${p.plan}`).join(" | "),
+    );
   }
   const plan = (site.curriculum.lessonPlans || []).find((p) => p.id === config.planId);
   if (!plan) throw new Error(`Lesson ${config.planId} not found`);
+  if (config.forbidTouchPlanIds) {
+    for (const otherId of config.forbidTouchPlanIds) {
+      const snap = (site.curriculum.lessonPlans || []).find((p) => p.id === otherId);
+      report.guardSnapshots = report.guardSnapshots || {};
+      report.guardSnapshots[otherId] = {
+        title: snap?.title,
+        status: snap?.status,
+        plan: snap?.plan,
+        updatedAt: snap?.updatedAt,
+        coverImageUrl: snap?.coverImageUrl || "",
+        enrichmentDraftUpdatedAt: snap?.enrichmentDraft?.updatedAt || "",
+      };
+    }
+  }
   if (String(plan.plan || "") !== String(config.expectedPlan || "")) {
     console.warn(`WARN Free/Pro is ${plan.plan}, config expected ${config.expectedPlan} — preserving live value`);
   }
@@ -102,6 +125,92 @@ async function main() {
     resourceIds: plan.resourceIds || [],
   };
   console.log("TARGET", JSON.stringify(report.before, null, 2));
+
+  if (config.renameFromTitle && String(plan.title || "") !== String(config.title)) {
+    if (String(plan.title || "") !== String(config.renameFromTitle)) {
+      throw new Error(`Expected current title “${config.renameFromTitle}”, found “${plan.title}”`);
+    }
+    await client.ensureToken(tokenRef);
+    site = await client.loadAdminSite(tokenRef.token);
+    const renamed = await client.renameLessonTitle(tokenRef.token, config.planId, config.title, site.updatedAt);
+    console.log("RENAME", renamed.status, renamed.json?.error || renamed.json?.lessonPlan?.title || config.title);
+    if (renamed.status !== 200) {
+      throw new Error(`rename failed (${renamed.status}): ${renamed.json?.error || renamed.raw?.slice(0, 200)}`);
+    }
+    site = await client.loadAdminSite(tokenRef.token);
+    const afterRename = (site.curriculum.lessonPlans || []).find((p) => p.id === config.planId);
+    if (String(afterRename?.title || "") !== String(config.title)) {
+      throw new Error(`rename did not persist; title is still “${afterRename?.title}”`);
+    }
+    // Archived empty twin must stay archived
+    if (config.archivedTwinId) {
+      const twin = (site.curriculum.lessonPlans || []).find((p) => p.id === config.archivedTwinId);
+      if (String(twin?.status || "") !== "archived") {
+        throw new Error(`Archived twin ${config.archivedTwinId} is no longer archived`);
+      }
+    }
+    report.rename = { from: config.renameFromTitle, to: config.title, ok: true };
+    // refresh plan pointer
+    Object.assign(plan, afterRename);
+  }
+
+  // Create missing draft printables if configured
+  const createdPrintableIds = [];
+  if (Array.isArray(config.printables?.create) && config.printables.create.length) {
+    for (const item of config.printables.create) {
+      const pdfPath = path.isAbsolute(item.pdfPath)
+        ? item.pdfPath
+        : path.join(ROOT, item.pdfPath);
+      if (!fs.existsSync(pdfPath)) {
+        report.printables.push({ title: item.title, error: "missing_file", pdfPath });
+        continue;
+      }
+      await client.ensureToken(tokenRef);
+      site = await client.loadAdminSite(tokenRef.token);
+      const existing = (site.curriculum.resources || []).find((r) =>
+        String(r.title || "").trim().toLowerCase() === String(item.title).trim().toLowerCase()
+        && ((r.lessonPlanIds || []).includes(config.planId) || (plan.resourceIds || []).includes(r.id))
+      );
+      if (existing?.id) {
+        createdPrintableIds.push(existing.id);
+        report.printables.push({
+          title: item.title,
+          id: existing.id,
+          pages: item.pages,
+          decision: "KEEP_EXISTING",
+          purpose: item.purpose,
+          reused: true,
+        });
+        continue;
+      }
+      const up = await client.createPrintable(
+        tokenRef.token,
+        config.planId,
+        item.title,
+        pdfPath,
+        site.updatedAt,
+        item.accessLevel || (config.expectedPlan === "Pro" ? "pro" : "free"),
+      );
+      if (up.status === 200 && up.json?.resource?.id) {
+        createdPrintableIds.push(up.json.resource.id);
+        report.printables.push({
+          title: item.title,
+          id: up.json.resource.id,
+          pages: item.pages,
+          decision: "NEW",
+          purpose: item.purpose,
+          teacherUse: item.teacherUse,
+          childUse: item.childUse,
+          why: item.why,
+          status: up.json.resource.status || "draft",
+        });
+        console.log("PRINTABLE OK", item.title, up.json.resource.id);
+      } else {
+        report.printables.push({ title: item.title, error: up.json?.error || `HTTP ${up.status}` });
+        console.warn("PRINTABLE FAIL", item.title, up.status, up.json?.error);
+      }
+    }
+  }
 
   const liveActs = (site.curriculum.activities || []).filter((a) => a.lessonPlanId === config.planId && a.status !== "archived");
   const byTitle = new Map(liveActs.map((a) => [String(a.title || "").trim().toLowerCase(), a]));
@@ -141,6 +250,7 @@ async function main() {
 
   const printableIds = [
     ...(config.printables?.keepResourceIds || []),
+    ...createdPrintableIds,
     ...((priorDraft.week && priorDraft.week.printableIds) || []),
   ].filter((id, i, arr) => id && arr.indexOf(id) === i);
 
@@ -170,6 +280,7 @@ async function main() {
   await client.ensureToken(tokenRef);
   site = await client.loadAdminSite(tokenRef.token);
   let save = await client.saveEnrichmentDraft(tokenRef.token, config.planId, site.updatedAt, enrichmentDraft);
+  console.log("SAVE1", save.status, save.json?.saveMode, save.json?.publishedUnchanged, save.json?.error || save.json?.code);
   if (save.status !== 200) {
     throw new Error(`enrichment_draft save failed (${save.status}): ${save.json?.error || save.raw?.slice(0, 300)}`);
   }
@@ -183,13 +294,17 @@ async function main() {
     try {
       if (!process.env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY missing");
       console.log("GEN START", job.title);
-      await generateRealisticActivityPng({
-        title: job.title,
-        brief: job.brief,
-        index: imgIndex,
-        outPath,
-        ageLabel: config.ageLabel,
-      });
+      if (!fs.existsSync(outPath) || fs.statSync(outPath).size < 20000) {
+        await generateRealisticActivityPng({
+          title: job.title,
+          brief: job.brief,
+          index: imgIndex,
+          outPath,
+          ageLabel: config.ageLabel,
+        });
+      } else {
+        console.log("GEN REUSE", job.title);
+      }
       const st = fs.statSync(outPath);
       if (st.size < 20000) throw new Error("generated image too small");
       localByTitle.set(job.title, outPath);
@@ -304,6 +419,35 @@ async function main() {
   if (!report.verify.freeProUnchanged) throw new Error("Free/Pro changed");
   if (!report.verify.statusUnchanged) throw new Error("Status changed");
   if (report.verify.enrichmentPublished) throw new Error("Enrichment published unexpectedly");
+  if (config.renameFromTitle && String(finalPlan?.title || "") !== String(config.title)) {
+    throw new Error(`Final title mismatch: expected “${config.title}”`);
+  }
+  if (config.forbidTouchPlanIds && report.guardSnapshots) {
+    report.untouchedGuards = {};
+    for (const otherId of config.forbidTouchPlanIds) {
+      const snap = (site.curriculum.lessonPlans || []).find((p) => p.id === otherId);
+      const before = report.guardSnapshots[otherId] || {};
+      const ok = snap
+        && snap.status === before.status
+        && snap.plan === before.plan
+        && String(snap.title || "") === String(before.title || "")
+        && String(snap.coverImageUrl || "") === String(before.coverImageUrl || "")
+        && String(snap.enrichmentDraft?.updatedAt || "") === String(before.enrichmentDraftUpdatedAt || "");
+      report.untouchedGuards[otherId] = { ok, before, after: {
+        title: snap?.title, status: snap?.status, plan: snap?.plan,
+        coverImageUrl: snap?.coverImageUrl || "",
+        enrichmentDraftUpdatedAt: snap?.enrichmentDraft?.updatedAt || "",
+      } };
+      if (!ok) throw new Error(`Forbidden lesson changed: ${otherId}`);
+    }
+  }
+  if (config.archivedTwinId) {
+    const twin = (site.curriculum.lessonPlans || []).find((p) => p.id === config.archivedTwinId);
+    if (String(twin?.status || "") !== "archived") {
+      throw new Error(`Archived twin ${config.archivedTwinId} was reactivated`);
+    }
+    report.archivedTwinStillArchived = true;
+  }
 
   report.finishedAt = new Date().toISOString();
   const reportPath = path.join(OUT_DIR, `${key}-report.json`);
