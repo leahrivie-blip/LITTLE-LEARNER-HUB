@@ -187,7 +187,7 @@
           <div>
             <p class="eyebrow">Content · Owner</p>
             <h3>AI Curriculum Operator</h3>
-            <p class="muted-copy">Phase 2: interpret commands, audit, upgrade weak lesson/activity fields into <strong>enrichmentDraft</strong>, re-validate, and leave Ready for Owner Review. <strong>No publishing. No image/printable generation.</strong></p>
+            <p class="muted-copy">Phase 2.5: interpret commands, audit, compose lesson-specific field upgrades with structured AI into <strong>enrichmentDraft</strong>, re-validate, and leave Ready for Owner Review. <strong>No publishing. No image/printable generation.</strong></p>
           </div>
         </div>
         ${state.message ? `<p class="access-notice ${state.isError ? "error" : ""}" role="status">${esc(state.message)}</p>` : ""}

@@ -1,20 +1,17 @@
 /**
- * AI Curriculum Operator — Phase 2 draft upgrades.
+ * AI Curriculum Operator — Phase 2 / 2.5 draft upgrades.
  *
- * Builds enrichmentDraft patches from Phase 1 audits and applies them through
- * existing Teaching Kit draft helpers. Never publishes. Never touches images,
- * printables, access plan, or lesson identity.
+ * Builds enrichmentDraft patches from Phase 1 audits via the structured AI
+ * composer (Phase 2.5). Never publishes. Never touches images, printables,
+ * access plan, or lesson identity. Deterministic filler is disabled for upgrades.
  */
 "use strict";
 
 const schema = require("./curriculum-operator-schema.js");
+const composer = require("./curriculum-operator-ai-composer.js");
 
 function loadEnrichment() {
   try { return require("./teaching-kit-enrichment.js"); } catch (_e) { return null; }
-}
-
-function loadEnrichmentAi() {
-  try { return require("../server/enrichment-ai.js"); } catch (_e) { return null; }
 }
 
 function text(value, max = 4000) {
@@ -249,10 +246,43 @@ function currentActivityValue(activity, draftAct, key) {
   return text(draftAct?.[key] || activity?.[key]);
 }
 
+function snapshotKeepFields(plan, flat, audit) {
+  const keep = { week: {}, activities: {} };
+  const draft = plan?.enrichmentDraft || {};
+  const week = draft.week || {};
+  schema.asArray(audit?.weeklyContent).forEach((fieldDec) => {
+    if (shouldWriteField(fieldDec.decision)) return;
+    const field = text(fieldDec.field, 80);
+    if (field === "prepChecklist") {
+      keep.week.prepChecklist = JSON.stringify(schema.asArray(week.teacherToolkit?.prepChecklist));
+      return;
+    }
+    if (field === "observationFocus") {
+      keep.week.observationFocus = JSON.stringify(schema.asArray(week.teacherToolkit?.observationFocus));
+      return;
+    }
+    keep.week[field] = text(week[field] || plan?.[field], 4000);
+  });
+  const byId = new Map(flat.map((a) => [text(a.id || a.itemId), a]));
+  schema.asArray(audit?.activityClassifications).forEach((actClass) => {
+    if (actClass.decision !== "KEEP") return;
+    const id = text(actClass.activityId, 160);
+    const activity = byId.get(id);
+    const draftAct = (draft.activities || {})[id] || {};
+    keep.activities[id] = {};
+    ["objective", "description", "materials", "setup", "steps", "teacherLanguage",
+      "observationOpportunities", "safetyNotes", "cleanupTips", "preparation"].forEach((key) => {
+      keep.activities[id][key] = currentActivityValue(activity, draftAct, key);
+    });
+  });
+  return keep;
+}
+
 /**
- * Build an enrichmentDraft upgrade from an audit. Preserves KEEP content.
+ * Build an enrichmentDraft upgrade from an audit via structured AI composer.
+ * Preserves KEEP content exactly. Does not fall back to deterministic filler.
  */
-function buildUpgradeDraft(plan, curriculum, audit, options = {}) {
+async function buildUpgradeDraft(plan, curriculum, audit, options = {}) {
   const enrich = loadEnrichment();
   const activities = schema.asArray(curriculum?.activities).filter((a) => a.lessonPlanId === plan.id);
   const flat = enrich?.flattenLessonActivities
@@ -264,261 +294,83 @@ function buildUpgradeDraft(plan, curriculum, audit, options = {}) {
   if (!previous.week || typeof previous.week !== "object") previous.week = {};
   if (!previous.activities || typeof previous.activities !== "object") previous.activities = {};
 
-  const changed = [];
-  const kept = [];
-  const intended = { week: {}, activities: {} };
-
-  const weekMap = {
-    weeklyOverview: buildWeeklyOverview,
-    objectives: buildObjectives,
-    weeklyMaterials: buildMaterials,
-    teacherPreparation: buildTeacherPrep,
-    familyConnection: buildFamilyConnection,
-    observationFocus: buildObservationFocus,
-    milestones: buildMilestones,
-    prepChecklist: buildPrepChecklist,
-  };
-
-  schema.asArray(audit?.weeklyContent).forEach((fieldDec) => {
-    const field = fieldDec.field;
-    if (!shouldWriteField(fieldDec.decision)) {
-      kept.push(`week.${field}`);
-      return;
-    }
-    if (options.upgradeLesson === false) {
-      kept.push(`week.${field}`);
-      return;
-    }
-    if (field === "vocabularyWords") {
-      const words = buildVocabulary(plan, null);
-      previous.week.vocabCards = words;
-      intended.week.vocabCards = words;
-      changed.push({ path: "week.vocabCards", decision: fieldDec.decision });
-      return;
-    }
-    if (field === "prepChecklist" || field === "observationFocus" || field === "teacherPreparation") {
-      if (!previous.week.teacherToolkit || typeof previous.week.teacherToolkit !== "object") {
-        previous.week.teacherToolkit = {};
-      }
-      if (field === "prepChecklist") {
-        const list = buildPrepChecklist(plan);
-        previous.week.teacherToolkit.prepChecklist = list;
-        intended.week.prepChecklist = list;
-        changed.push({ path: "week.teacherToolkit.prepChecklist", decision: fieldDec.decision });
-      } else if (field === "observationFocus") {
-        const focus = buildObservationFocus(plan);
-        previous.week.teacherToolkit.observationFocus = Array.isArray(focus) ? focus : [focus];
-        previous.week.observationOpportunities = text(focus);
-        intended.week.observationFocus = previous.week.teacherToolkit.observationFocus;
-        changed.push({ path: "week.teacherToolkit.observationFocus", decision: fieldDec.decision });
-      } else {
-        const prep = buildTeacherPrep(plan);
-        previous.week.teacherPreparation = prep;
-        previous.week.teacherToolkit.teacherPreparation = prep;
-        intended.week.teacherPreparation = prep;
-        changed.push({ path: "week.teacherPreparation", decision: fieldDec.decision });
-      }
-      return;
-    }
-    if (field === "milestones") {
-      const list = buildMilestones(plan);
-      previous.week.milestones = list;
-      intended.week.milestones = list;
-      changed.push({ path: "week.milestones", decision: fieldDec.decision });
-      return;
-    }
-    const builder = weekMap[field];
-    if (!builder) {
-      kept.push(`week.${field}`);
-      return;
-    }
-    const value = builder(plan);
-    previous.week[field] = value;
-    intended.week[field] = value;
-    if (field === "objectives") {
-      if (!previous.week.fieldOwnership || typeof previous.week.fieldOwnership !== "object") {
-        previous.week.fieldOwnership = {};
-      }
-      previous.week.fieldOwnership.objectives = true;
-    }
-    changed.push({ path: `week.${field}`, decision: fieldDec.decision });
+  const keepSnapshots = snapshotKeepFields(plan, flat, audit);
+  const composed = await composer.composeUpgradeContent({
+    plan,
+    activities: flat,
+    audit,
+    callAi: options.callAi,
+    upgradeLesson: options.upgradeLesson !== false,
+    upgradeActivities: options.upgradeActivities !== false,
+    touchSongs: options.touchSongs !== false,
+    touchBooks: options.touchBooks !== false,
   });
 
-  // Songs: fill MISSING days only (do not replace KEEP)
-  if (options.touchSongs !== false) {
-    schema.asArray(audit?.songs).forEach((songDec) => {
-      if (songDec.decision !== "MISSING" && songDec.decision !== "FILL") {
-        kept.push(songDec.field);
-        return;
-      }
-      const day = text(songDec.field).replace(/^song\./, "");
-      if (!["monday", "tuesday", "wednesday", "thursday", "friday"].includes(day)) return;
-      if (!Array.isArray(previous.week.songs)) previous.week.songs = schema.asArray(plan.songs).map((s) => ({ ...s }));
-      const exists = previous.week.songs.some((s) => text(s.linkedWeekday || s.suggestedWeekday).toLowerCase() === day);
-      if (exists) {
-        kept.push(songDec.field);
-        return;
-      }
-      const song = buildSongForDay(plan, day);
-      previous.week.songs.push(song);
-      changed.push({ path: `week.songs.${day}`, decision: songDec.decision, value: song.title });
-    });
+  if (!composed.ok) {
+    return {
+      ok: false,
+      aiFailed: true,
+      error: composed.error || "AI composer failed",
+      code: composed.code || "ai_failed",
+      enrichmentDraft: previous,
+      changed: [],
+      kept: [
+        ...schema.asArray(composed.work?.weekKeep).map((k) => `week.${k.field}`),
+        ...schema.asArray(composed.work?.activityKeep).map((k) => `activity.${k.activityId}`),
+      ],
+      intended: { week: {}, activities: {} },
+      keepSnapshots,
+      usage: composed.usage || { calls: 0, inputChars: 0, outputChars: 0 },
+      mutations: {
+        images: false,
+        printables: false,
+        publish: false,
+        accessPlan: false,
+        lessonId: false,
+      },
+    };
   }
 
-  // Books: only fill when missing; never invent famous copyrighted titles — use classroom library prompt
-  if (options.touchBooks !== false && audit?.books && shouldWriteField(audit.books.decision)) {
-    if (!Array.isArray(previous.week.books) || !previous.week.books.length) {
-      previous.week.books = [{
-        title: `Search your classroom library for a ${themeOf(plan)} picture book`,
-        author: "",
-        notes: "Choose a familiar book you already own. Ask what children notice on the cover and one detail in the pictures.",
-        whyThisBook: "Uses an existing classroom book rather than inventing a title.",
-        beforeReadingQuestions: ["What do you notice on the cover?"],
-        duringReadingPrompts: ["What is happening in this picture?"],
-        afterReadingQuestions: ["What part would you like to try in play today?"],
-      }];
-      intended.week.books = previous.week.books;
-      changed.push({ path: "week.books", decision: audit.books.decision });
-    } else {
-      kept.push("books");
-    }
-  } else if (audit?.books?.decision === "KEEP") {
-    kept.push("books");
+  if (composed.skipped || !composed.validatedPlan) {
+    const kept = [
+      ...schema.asArray(composed.work?.weekKeep).map((k) => `week.${k.field}`),
+      ...schema.asArray(composed.work?.activityKeep).map((k) => `activity.${k.activityId}`),
+    ];
+    return {
+      ok: true,
+      aiFailed: false,
+      enrichmentDraft: previous,
+      changed: [],
+      kept,
+      intended: { week: {}, activities: {} },
+      keepSnapshots,
+      usage: composed.usage || { calls: 0, inputChars: 0, outputChars: 0 },
+      mutations: {
+        images: false,
+        printables: false,
+        publish: false,
+        accessPlan: false,
+        lessonId: false,
+      },
+    };
   }
 
-  const byId = new Map(flat.map((a) => [text(a.id || a.itemId), a]));
-  if (options.upgradeActivities !== false) {
-    schema.asArray(audit?.activityClassifications).forEach((actClass) => {
-      const id = text(actClass.activityId);
-      const activity = byId.get(id);
-      if (!activity) return;
-      if (actClass.decision === "KEEP") {
-        kept.push(`activity.${id}`);
-        return;
-      }
-      if (!previous.activities[id] || typeof previous.activities[id] !== "object") {
-        previous.activities[id] = {};
-      }
-      const draftAct = previous.activities[id];
-      const intendedAct = {};
-      const fieldBuilders = {
-        objective: () => buildActivityObjective(plan, activity),
-        description: () => buildActivityDescription(plan, activity),
-        materials: () => buildActivityMaterials(plan, activity),
-        preparation: () => buildActivityPrep(plan, activity),
-        setup: () => buildActivitySetup(plan, activity),
-        steps: () => buildActivitySteps(plan, activity),
-        teacherLanguage: () => buildTeacherQuestions(plan, activity),
-        observationOpportunities: () => buildObservation(plan, activity),
-        safetyNotes: () => buildSafety(plan, activity),
-        cleanupTips: () => buildCleanup(plan, activity),
-      };
-
-      Object.keys(fieldBuilders).forEach((key) => {
-        const current = currentActivityValue(activity, draftAct, key);
-        const needs = activityNeedsField(actClass, key)
-          || (actClass.decision !== "KEEP" && wordCount(current) < 8);
-        if (!needs && wordCount(current) >= 12) {
-          kept.push(`activity.${id}.${key}`);
-          return;
-        }
-        if (!needs && actClass.decision === "KEEP") return;
-        // Preserve strong fields even on IMPROVE activities
-        if (wordCount(current) >= 25 && actClass.decision === "IMPROVE" && !(actClass.missingFields || []).includes(key)) {
-          kept.push(`activity.${id}.${key}`);
-          return;
-        }
-        const nextVal = fieldBuilders[key]();
-        draftAct[key] = nextVal;
-        intendedAct[key] = nextVal;
-        changed.push({
-          path: `activity.${id}.${key}`,
-          activityId: id,
-          activityTitle: text(activity.title, 120),
-          decision: actClass.decision,
-        });
-      });
-
-      // Additive enrichment lists when activity is weak
-      if (actClass.decision !== "KEEP") {
-        if (!schema.asArray(draftAct.teacherTips).length && !schema.asArray(activity.teacherTips).length) {
-          draftAct.teacherTips = buildTips(plan, activity);
-          intendedAct.teacherTips = draftAct.teacherTips;
-          changed.push({ path: `activity.${id}.teacherTips`, activityId: id, decision: actClass.decision });
-        }
-        if (!schema.asArray(draftAct.vocabulary).length && !text(activity.vocabulary)) {
-          draftAct.vocabulary = buildVocabulary(plan, activity);
-          intendedAct.vocabulary = draftAct.vocabulary;
-          changed.push({ path: `activity.${id}.vocabulary`, activityId: id, decision: actClass.decision });
-        }
-        if (!text(draftAct.dayOfWeek) && text(activity.dayOfWeek)) {
-          draftAct.dayOfWeek = text(activity.dayOfWeek).toLowerCase();
-        }
-        if (!text(draftAct.activityCategory) && text(activity.activityCategory || activity.category)) {
-          draftAct.activityCategory = text(activity.activityCategory || activity.category, 80);
-        }
-        if (!text(draftAct.title)) draftAct.title = text(activity.title, 180);
-        if (!text(draftAct.ageModifications)) draftAct.ageModifications = ageOf(plan, activity);
-        if (!Number(draftAct.durationMinutes) && !Number(activity.durationMinutes)) {
-          draftAct.durationMinutes = /infant/i.test(ageOf(plan, activity)) ? 5 : 15;
-        }
-      }
-
-      if (Object.keys(intendedAct).length) intended.activities[id] = intendedAct;
-    });
-  }
-
-  // Optional: blend fixture suggestions for additional coverage (still draft-only)
-  const enrichmentAi = loadEnrichmentAi();
-  if (enrichmentAi?.getLessonTeacherFixturePack && options.useFixtures === true) {
-    try {
-      const packed = enrichmentAi.getLessonTeacherFixturePack({
-        plan,
-        activities: flat,
-        enrichmentDraft: previous,
-        scope: "lesson",
-        activityOffset: 0,
-        activityLimit: Math.min(flat.length, 8),
-        includeWeek: true,
-      });
-      const accepted = schema.asArray(packed?.suggestions).map((s) => ({
-        ...s,
-        decision: "accepted",
-        selected: true,
-      }));
-      // Only apply suggestions for fields still empty / weak — filter by intended gaps
-      const filtered = accepted.filter((sug) => {
-        const field = text(sug.field || sug.category);
-        if (/image|printable/i.test(field)) return false;
-        return true;
-      });
-      if (enrich?.applySuggestionsToDraft && filtered.length) {
-        // Apply week suggestions
-        const weekOnly = filtered.filter((s) => text(s.scope) === "week" || /weekly|family|book|song|toolkit|objective|material|milestone|vocab/i.test(text(s.category)));
-        const appliedWeek = enrich.applySuggestionsToDraft(previous, weekOnly, { activityKey: "" });
-        Object.assign(previous, appliedWeek.draft || previous);
-        flat.slice(0, 8).forEach((act) => {
-          const key = text(act.id || act.itemId);
-          const actSugs = filtered.filter((s) => text(s.activityKey || s.activityId) === key || text(s.scope) === "activity");
-          if (!actSugs.length) return;
-          const applied = enrich.applySuggestionsToDraft(previous, actSugs, { activityKey: key });
-          Object.assign(previous, applied.draft || previous);
-        });
-      }
-    } catch (_e) {
-      /* fixtures optional */
-    }
-  }
-
-  previous.updatedAt = new Date().toISOString();
-  previous.lastEditedBy = options.editedBy || "curriculum-operator-phase2";
-  previous.operatorPhase = 2;
+  const applied = composer.applyComposerPlanToDraft(previous, composed.validatedPlan, composed.work);
+  applied.enrichmentDraft.updatedAt = new Date().toISOString();
+  applied.enrichmentDraft.lastEditedBy = options.editedBy || "curriculum-operator-phase25";
+  applied.enrichmentDraft.operatorPhase = 2.5;
+  applied.enrichmentDraft.composerSource = "structured-ai";
 
   return {
-    enrichmentDraft: previous,
-    changed,
-    kept,
-    intended,
+    ok: true,
+    aiFailed: false,
+    enrichmentDraft: applied.enrichmentDraft,
+    changed: applied.changed,
+    kept: applied.kept,
+    intended: applied.intended,
+    keepSnapshots,
+    usage: composed.usage || { calls: 1, inputChars: 0, outputChars: 0 },
+    validatedPlan: composed.validatedPlan,
     mutations: {
       images: false,
       printables: false,
@@ -541,13 +393,14 @@ function readNested(obj, pathStr) {
 }
 
 /**
- * Verify intended draft fields persisted; identity/access plan unchanged.
+ * Verify intended draft fields persisted; identity/access plan unchanged; KEEP preserved.
  */
 function verifyUpgradeResult({
   beforePlan,
   afterPlan,
   intended,
   changed,
+  keepSnapshots,
 }) {
   const checks = [];
   const pass = (ok, code, message) => checks.push({ ok: Boolean(ok), code, message });
@@ -559,6 +412,7 @@ function verifyUpgradeResult({
     "Access plan unchanged.",
   );
   pass(text(beforePlan?.age) === text(afterPlan?.age), "age", "Age band unchanged.");
+  pass(text(beforePlan?.title) === text(afterPlan?.title), "title_preserved", "Title preserved.");
   pass(afterPlan?.enrichmentDraft && typeof afterPlan.enrichmentDraft === "object", "draft_present", "Enrichment draft present after save.");
   pass(
     !schema.asArray(afterPlan?.enrichmentPublishHistory).some((h) => h.kind === "publish" && h.publishedAt === afterPlan?.enrichmentDraft?.updatedAt),
@@ -595,13 +449,36 @@ function verifyUpgradeResult({
     });
   });
 
-  // Ensure KEEP weekly fields that were strong on the plan were not wiped from published body
-  // (enrichment draft save should not alter published body fields)
-  pass(
-    text(beforePlan?.title) === text(afterPlan?.title),
-    "title_preserved",
-    "Title preserved.",
-  );
+  // KEEP snapshots must remain byte-for-byte in the stored draft overlay / published body
+  if (keepSnapshots && typeof keepSnapshots === "object") {
+    Object.entries(keepSnapshots.week || {}).forEach(([field, beforeVal]) => {
+      let afterVal = "";
+      if (field === "prepChecklist") {
+        afterVal = JSON.stringify(schema.asArray(week.teacherToolkit?.prepChecklist));
+      } else if (field === "observationFocus") {
+        afterVal = JSON.stringify(schema.asArray(week.teacherToolkit?.observationFocus));
+      } else {
+        afterVal = text(week[field] || afterPlan?.[field], 4000);
+      }
+      // Only enforce when the KEEP value was non-empty before (empty KEEP can stay empty)
+      if (text(beforeVal)) {
+        pass(afterVal === beforeVal, `keep_week_${field}`, `KEEP week.${field} unchanged`);
+      }
+    });
+    Object.entries(keepSnapshots.activities || {}).forEach(([actId, fields]) => {
+      const patch = draft.activities?.[actId] || {};
+      Object.entries(fields || {}).forEach(([key, beforeVal]) => {
+        if (!text(beforeVal)) return;
+        const afterVal = text(patch[key], 4000) || text(beforeVal, 4000);
+        // KEEP activity: draft must not overwrite with a different value
+        if (Object.prototype.hasOwnProperty.call(patch, key)) {
+          pass(text(patch[key], 4000) === text(beforeVal, 4000), `keep_activity_${actId}_${key}`, `KEEP activity ${actId}.${key} unchanged`);
+        } else {
+          pass(true, `keep_activity_${actId}_${key}`, `KEEP activity ${actId}.${key} not overwritten`);
+        }
+      });
+    });
+  }
 
   const failed = checks.filter((c) => !c.ok);
   return {
@@ -632,6 +509,8 @@ module.exports = {
   verifyUpgradeResult,
   classifyOwnerReviewStatus,
   shouldWriteField,
+  snapshotKeepFields,
+  // Legacy deterministic builders retained for comparison fixtures only — not used for upgrades.
   buildWeeklyOverview,
   buildActivitySteps,
   buildSongForDay,

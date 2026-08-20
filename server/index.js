@@ -31165,6 +31165,19 @@ const server = http.createServer(async (request, response) => {
           normalizeEmail,
           readSiteCurriculum,
           saveOperatorEnrichmentDraft,
+          openAiConfigured: Boolean(isConfiguredValue(OPENAI_API_KEY)),
+          callOperatorAi: async (systemPrompt, userPrompt) => {
+            const forceFixture = process.env.NODE_ENV === "test"
+              || ["1", "true", "yes"].includes(String(process.env.LLH_OPERATOR_AI_FIXTURE || "").trim().toLowerCase());
+            if (forceFixture) {
+              const composer = require("../scripts/curriculum-operator-ai-composer.js");
+              return composer.buildOperatorAiFixtureResponse(userPrompt);
+            }
+            if (!isConfiguredValue(OPENAI_API_KEY)) {
+              throw new Error("OpenAI is not configured for the curriculum operator.");
+            }
+            return callOpenAiRaw(systemPrompt, userPrompt);
+          },
         });
       }
       return await globalThis.__llhCurriculumOperatorApi.handle(request, response);

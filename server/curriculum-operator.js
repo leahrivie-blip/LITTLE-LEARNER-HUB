@@ -34,6 +34,8 @@ function createCurriculumOperatorApi(deps) {
     normalizeEmail,
     readSiteCurriculum,
     saveOperatorEnrichmentDraft,
+    callOperatorAi,
+    openAiConfigured,
   } = deps;
 
   function requireOwner(request, body, response) {
@@ -208,16 +210,71 @@ function createCurriculumOperatorApi(deps) {
         };
       }
 
-      // Phase 2 upgrade path
+      // Phase 2.5 upgrade path — structured AI composer (no deterministic filler)
       job.progress.currentAction = "lesson.updateFields";
-      const built = upgradeApi.buildUpgradeDraft(plan, curriculum, before.audit, {
+      if (typeof callOperatorAi !== "function" && openAiConfigured !== false) {
+        // openAiConfigured false → explicit missing key; still require callAi injection for mocks
+      }
+      if (typeof callOperatorAi !== "function") {
+        jobApi.appendLog(job, "AI composer unavailable — refusing deterministic filler.", "error", plan.id);
+        return {
+          ...lr,
+          title: plan.title,
+          status: "failed",
+          audit: before.audit,
+          verification: before.verification,
+          beforeScores: before.audit.scores,
+          afterScores: before.audit.scores,
+          error: "Structured AI composer is not configured.",
+          ownerReviewStatus: "BLOCKED",
+          published: false,
+          actions: markSteps(lr.actions, schema.asArray(lr.actions).map((a) => a.type), "failed", {
+            error: "ai_composer_unavailable",
+            retryable: true,
+          }),
+        };
+      }
+
+      const built = await upgradeApi.buildUpgradeDraft(plan, curriculum, before.audit, {
         upgradeLesson: job.command.actions.upgradeLesson !== false,
         upgradeActivities: job.command.actions.upgradeActivities !== false,
         touchSongs: job.command.actions.checkSongs !== false,
         touchBooks: job.command.actions.checkBooks !== false,
-        editedBy: sessionEmail || "curriculum-operator-phase2",
-        useFixtures: false,
+        editedBy: sessionEmail || "curriculum-operator-phase25",
+        callAi: callOperatorAi,
       });
+
+      if (built.usage?.calls) {
+        job.costCounters.openaiCalls = (job.costCounters.openaiCalls || 0) + Number(built.usage.calls || 0);
+      }
+
+      if (built.aiFailed) {
+        jobApi.appendLog(
+          job,
+          `AI composer failed for “${plan.title}”: ${built.error}. Draft unchanged.`,
+          "error",
+          plan.id,
+        );
+        return {
+          ...lr,
+          title: plan.title,
+          status: "failed",
+          audit: before.audit,
+          verification: before.verification,
+          beforeScores: before.audit.scores,
+          afterScores: before.audit.scores,
+          kept: built.kept,
+          updated: [],
+          error: schema.text(built.error, 500),
+          ownerReviewStatus: "BLOCKED",
+          published: false,
+          aiUsage: built.usage || null,
+          actions: markSteps(lr.actions, schema.asArray(lr.actions).map((a) => a.type), "failed", {
+            error: built.code || "ai_composer_failed",
+            retryable: true,
+          }),
+        };
+      }
 
       if (!built.changed.length) {
         jobApi.appendLog(job, `No draft changes needed for “${plan.title}”.`, "info", plan.id);
@@ -235,6 +292,7 @@ function createCurriculumOperatorApi(deps) {
           ownerReviewStatus: "READY_FOR_OWNER_REVIEW",
           readyForReview: true,
           published: false,
+          aiUsage: built.usage || null,
           actions: markSteps(lr.actions, schema.asArray(lr.actions).map((a) => a.type), "success", {
             output: { changed: 0 },
           }),
@@ -266,6 +324,7 @@ function createCurriculumOperatorApi(deps) {
         afterPlan,
         intended: built.intended,
         changed: built.changed,
+        keepSnapshots: built.keepSnapshots,
       });
 
       const ownerReviewStatus = upgradeApi.classifyOwnerReviewStatus({
@@ -278,7 +337,7 @@ function createCurriculumOperatorApi(deps) {
       const ok = upgradeVerification.ok;
       jobApi.appendLog(
         job,
-        `Upgraded “${plan.title}” draft — ${before.audit.scores?.premiumReadinessPercent}% → ${after.audit.scores?.premiumReadinessPercent}% · ${ownerReviewStatus}. NOT published.`,
+        `Upgraded “${plan.title}” draft via structured AI — ${before.audit.scores?.premiumReadinessPercent}% → ${after.audit.scores?.premiumReadinessPercent}% · ${ownerReviewStatus}. NOT published.`,
         ok ? "info" : "warn",
         plan.id,
       );
@@ -300,6 +359,7 @@ function createCurriculumOperatorApi(deps) {
         ownerReviewStatus: ok ? ownerReviewStatus : "BLOCKED",
         readyForReview: ok && ownerReviewStatus === "READY_FOR_OWNER_REVIEW",
         published: false,
+        aiUsage: built.usage || null,
         error: ok ? null : "Post-save verification failed.",
         actions: markSteps(
           lr.actions,
@@ -311,6 +371,7 @@ function createCurriculumOperatorApi(deps) {
               ownerReviewStatus,
               published: false,
               historyId,
+              aiCalls: built.usage?.calls || 0,
             },
             error: ok ? null : "upgrade_verification_failed",
             retryable: !ok,

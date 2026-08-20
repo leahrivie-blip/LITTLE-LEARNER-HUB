@@ -18,8 +18,13 @@ const commandApi = require("./curriculum-operator-command.js");
 const selectApi = require("./curriculum-operator-select.js");
 const auditApi = require("./curriculum-operator-audit.js");
 const upgradeApi = require("./curriculum-operator-upgrade.js");
+const composer = require("./curriculum-operator-ai-composer.js");
 const jobApi = require("./curriculum-operator-job.js");
 const { createCurriculumOperatorApi } = require("../server/curriculum-operator.js");
+
+function mockCallAi(_system, user) {
+  return Promise.resolve(composer.buildOperatorAiFixtureResponse(user));
+}
 
 const ROOT = path.join(__dirname, "..");
 const PORT = 20650 + Math.floor(Math.random() * 80);
@@ -423,130 +428,143 @@ function assertUnitContracts() {
 
   const weakPlan = curriculum.lessonPlans.find((p) => p.id === WEAK_ID);
   const beforeAudit = auditApi.auditLesson(weakPlan, curriculum);
-  const built = upgradeApi.buildUpgradeDraft(weakPlan, curriculum, beforeAudit, { useFixtures: false });
-  ok(built.changed.length > 0, "weak lesson produces draft field changes");
-  ok(built.mutations.publish === false, "upgrade plan never publishes");
-  ok(built.mutations.images === false && built.mutations.printables === false, "no image/printable mutations planned");
-  ok(built.mutations.accessPlan === false, "no access-plan mutation planned");
-  ok(built.enrichmentDraft.week.objectives || built.enrichmentDraft.week.weeklyOverview, "fills weekly fields");
-  ok(Object.keys(built.enrichmentDraft.activities || {}).length >= 1, "writes activity draft patches");
-  const stampPatch = built.enrichmentDraft.activities["cur-act-stamp"] || built.enrichmentDraft.activities.stamp;
-  ok(stampPatch && String(stampPatch.steps || "").length > 40, "fills weak activity steps substantially");
 
-  const strongPlan = curriculum.lessonPlans.find((p) => p.id === STRONG_ID);
-  const strongAudit = auditApi.auditLesson(strongPlan, curriculum);
-  const strongBuilt = upgradeApi.buildUpgradeDraft(strongPlan, curriculum, strongAudit, { useFixtures: false });
-  const watchPatch = strongBuilt.enrichmentDraft.activities["cur-act-watch"];
-  ok(watchPatch?.steps === STRONG_STEPS || strongBuilt.kept.some((k) => String(k).includes("cur-act-watch") && String(k).includes("steps")),
-    "KEEP strong activity steps unchanged");
-  ok(strongPlan.enrichmentDraft.activities["cur-act-watch"].steps === STRONG_STEPS, "source strong steps untouched in plan object");
+  return upgradeApi.buildUpgradeDraft(weakPlan, curriculum, beforeAudit, { callAi: mockCallAi }).then(async (built) => {
+    ok(built.ok === true && !built.aiFailed, "weak lesson AI compose succeeds");
+    ok(built.changed.length > 0, "weak lesson produces draft field changes");
+    ok(built.mutations.publish === false, "upgrade plan never publishes");
+    ok(built.mutations.images === false && built.mutations.printables === false, "no image/printable mutations planned");
+    ok(built.mutations.accessPlan === false, "no access-plan mutation planned");
+    ok(built.enrichmentDraft.week.objectives || built.enrichmentDraft.week.weeklyOverview, "fills weekly fields");
+    ok(Object.keys(built.enrichmentDraft.activities || {}).length >= 1, "writes activity draft patches");
+    const stampPatch = built.enrichmentDraft.activities["cur-act-stamp"] || built.enrichmentDraft.activities.stamp;
+    ok(stampPatch && String(stampPatch.steps || "").length > 40, "fills weak activity steps substantially");
+    ok(built.changed.every((c) => c.source === "ai"), "changes marked as AI-sourced");
 
-  const fakeAfter = {
-    ...weakPlan,
-    enrichmentDraft: built.enrichmentDraft,
-    plan: "Pro",
-    age: weakPlan.age,
-    title: weakPlan.title,
-  };
-  const verification = upgradeApi.verifyUpgradeResult({
-    beforePlan: weakPlan,
-    afterPlan: fakeAfter,
-    intended: built.intended,
-    changed: built.changed,
-  });
-  ok(verification.ok, "post-save verification passes for intended draft");
+    const noAi = await upgradeApi.buildUpgradeDraft(weakPlan, curriculum, beforeAudit, {});
+    ok(noAi.aiFailed === true && noAi.changed.length === 0, "without callAi, refuses deterministic filler");
 
-  const status = upgradeApi.classifyOwnerReviewStatus({
-    beforeScores: { premiumReadinessPercent: 20, completionPercent: 15 },
-    afterScores: { premiumReadinessPercent: 80, completionPercent: 75, blocksPublish: false },
-    verification: { ok: true },
-    blockers: [],
-  });
-  ok(status === "READY_FOR_OWNER_REVIEW", "ready status when scores improve enough");
+    const strongPlan = curriculum.lessonPlans.find((p) => p.id === STRONG_ID);
+    const strongAudit = auditApi.auditLesson(strongPlan, curriculum);
+    const strongBuilt = await upgradeApi.buildUpgradeDraft(strongPlan, curriculum, strongAudit, { callAi: mockCallAi });
+    const watchPatch = strongBuilt.enrichmentDraft.activities["cur-act-watch"];
+    ok(
+      !watchPatch
+      || watchPatch.steps === STRONG_STEPS
+      || strongBuilt.kept.some((k) => String(k).includes("cur-act-watch")),
+      "KEEP strong activity steps unchanged",
+    );
+    ok(strongPlan.enrichmentDraft.activities["cur-act-watch"].steps === STRONG_STEPS, "source strong steps untouched in plan object");
 
-  const blocked = upgradeApi.classifyOwnerReviewStatus({
-    beforeScores: { premiumReadinessPercent: 20 },
-    afterScores: { premiumReadinessPercent: 30 },
-    verification: { ok: false },
-    blockers: [{ message: "fail" }],
-  });
-  ok(blocked === "BLOCKED", "blocked when verification fails");
+    const fakeAfter = {
+      ...weakPlan,
+      enrichmentDraft: built.enrichmentDraft,
+      plan: "Pro",
+      age: weakPlan.age,
+      title: weakPlan.title,
+    };
+    const verification = upgradeApi.verifyUpgradeResult({
+      beforePlan: weakPlan,
+      afterPlan: fakeAfter,
+      intended: built.intended,
+      changed: built.changed,
+      keepSnapshots: built.keepSnapshots,
+    });
+    ok(verification.ok, "post-save verification passes for intended draft");
 
-  const phase1Norm = schema.normalizeOperatorCommand({
-    actions: { saveDraft: true, upgradeLesson: true, publish: true },
-  }, { phase: 1 });
-  ok(phase1Norm.actions.saveDraft === false && phase1Norm.actions.publish === false, "phase1 still strips draft mutations");
+    const status = upgradeApi.classifyOwnerReviewStatus({
+      beforeScores: { premiumReadinessPercent: 20, completionPercent: 15 },
+      afterScores: { premiumReadinessPercent: 80, completionPercent: 75, blocksPublish: false },
+      verification: { ok: true },
+      blockers: [],
+    });
+    ok(status === "READY_FOR_OWNER_REVIEW", "ready status when scores improve enough");
 
-  const phase2Norm = schema.normalizeOperatorCommand({
-    intent: "upgrade_batch",
-    actions: { saveDraft: true, upgradeLesson: true, publish: true, generateImages: true },
-  }, { phase: 2 });
-  ok(phase2Norm.actions.saveDraft === true && phase2Norm.actions.publish === false, "phase2 allows draft, blocks publish");
-  ok(phase2Norm.actions.generateImages === false, "phase2 blocks images");
+    const blocked = upgradeApi.classifyOwnerReviewStatus({
+      beforeScores: { premiumReadinessPercent: 20 },
+      afterScores: { premiumReadinessPercent: 30 },
+      verification: { ok: false },
+      blockers: [{ message: "fail" }],
+    });
+    ok(blocked === "BLOCKED", "blocked when verification fails");
 
-  // Partial failure isolation + resume (in-memory API)
-  let store = {
-    siteContent: {
-      featureFlags: { teachingKitCurriculumOperator: true },
-      curriculum: seedCurriculum(),
-    },
-    curriculumOperatorJobs: { jobs: [], updatedAt: "" },
-  };
-  const savedIds = [];
-  const api = createCurriculumOperatorApi({
-    readJson: async () => ({}),
-    jsonResponse: () => {},
-    readStore: () => store,
-    writeStoreAsync: async (next) => { store = next; },
-    requireTeachingKitOwnerAdminSession: () => ({ email: OWNER.email }),
-    teachingKit: require("./teaching-kit.js"),
-    normalizeEmail: (v) => String(v || "").trim().toLowerCase(),
-    readSiteCurriculum: (s) => s.siteContent.curriculum,
-    saveOperatorEnrichmentDraft: async ({ lessonPlanId, enrichmentDraft }) => {
-      if (lessonPlanId === WEAK2_ID) {
-        return { ok: false, error: "simulated_save_failure" };
-      }
-      const plans = store.siteContent.curriculum.lessonPlans;
-      const idx = plans.findIndex((p) => p.id === lessonPlanId);
-      const prev = plans[idx];
-      const versionId = `edraft-test-${lessonPlanId}`;
-      const history = [
-        {
-          versionId,
-          kind: "draft",
-          note: "AI Curriculum Operator Phase 2 pre-upgrade snapshot",
-          snapshot: { enrichmentDraft: prev.enrichmentDraft },
-        },
-        ...(Array.isArray(prev.enrichmentPublishHistory) ? prev.enrichmentPublishHistory : []),
-      ];
-      plans[idx] = {
-        ...prev,
-        enrichmentDraft: { ...enrichmentDraft, updatedAt: new Date().toISOString() },
-        enrichmentPublishHistory: history,
-      };
-      savedIds.push(lessonPlanId);
-      return { ok: true, lessonPlan: plans[idx], versionId, saveMode: "enrichment_draft" };
-    },
-  });
+    const phase1Norm = schema.normalizeOperatorCommand({
+      actions: { saveDraft: true, upgradeLesson: true, publish: true },
+    }, { phase: 1 });
+    ok(phase1Norm.actions.saveDraft === false && phase1Norm.actions.publish === false, "phase1 still strips draft mutations");
 
-  const upgradeCmd = schema.normalizeOperatorCommand({
-    rawCommand: "Upgrade these two lessons",
-    intent: "upgrade_batch",
-    scope: { selection: "explicit_ids", lessonIds: [WEAK_ID, WEAK2_ID], count: 2 },
-    actions: { audit: true, upgradeLesson: true, upgradeActivities: true, saveDraft: true },
-    completion: { phase: 2 },
-  }, { phase: 2 });
-  const planSummary = api.buildPlanSummary(
-    upgradeCmd,
-    selectApi.selectLessons(store.siteContent.curriculum, upgradeCmd),
-  );
-  let job = jobApi.createJobFromPlan({
-    command: upgradeCmd,
-    planSummary,
-    createdBy: OWNER.email,
-    status: "running",
-  });
-  return api.runJob(job, store, OWNER.email).then((finished) => {
+    const phase2Norm = schema.normalizeOperatorCommand({
+      intent: "upgrade_batch",
+      actions: { saveDraft: true, upgradeLesson: true, publish: true, generateImages: true },
+    }, { phase: 2 });
+    ok(phase2Norm.actions.saveDraft === true && phase2Norm.actions.publish === false, "phase2 allows draft, blocks publish");
+    ok(phase2Norm.actions.generateImages === false, "phase2 blocks images");
+
+    // Partial failure isolation + resume (in-memory API)
+    let store = {
+      siteContent: {
+        featureFlags: { teachingKitCurriculumOperator: true },
+        curriculum: seedCurriculum(),
+      },
+      curriculumOperatorJobs: { jobs: [], updatedAt: "" },
+    };
+    const savedIds = [];
+    const api = createCurriculumOperatorApi({
+      readJson: async () => ({}),
+      jsonResponse: () => {},
+      readStore: () => store,
+      writeStoreAsync: async (next) => { store = next; },
+      requireTeachingKitOwnerAdminSession: () => ({ email: OWNER.email }),
+      teachingKit: require("./teaching-kit.js"),
+      normalizeEmail: (v) => String(v || "").trim().toLowerCase(),
+      readSiteCurriculum: (s) => s.siteContent.curriculum,
+      callOperatorAi: mockCallAi,
+      openAiConfigured: true,
+      saveOperatorEnrichmentDraft: async ({ lessonPlanId, enrichmentDraft }) => {
+        if (lessonPlanId === WEAK2_ID) {
+          return { ok: false, error: "simulated_save_failure" };
+        }
+        const plans = store.siteContent.curriculum.lessonPlans;
+        const idx = plans.findIndex((p) => p.id === lessonPlanId);
+        const prev = plans[idx];
+        const versionId = `edraft-test-${lessonPlanId}`;
+        const history = [
+          {
+            versionId,
+            kind: "draft",
+            note: "AI Curriculum Operator Phase 2 pre-upgrade snapshot",
+            snapshot: { enrichmentDraft: prev.enrichmentDraft },
+          },
+          ...(Array.isArray(prev.enrichmentPublishHistory) ? prev.enrichmentPublishHistory : []),
+        ];
+        plans[idx] = {
+          ...prev,
+          enrichmentDraft: { ...enrichmentDraft, updatedAt: new Date().toISOString() },
+          enrichmentPublishHistory: history,
+        };
+        savedIds.push(lessonPlanId);
+        return { ok: true, lessonPlan: plans[idx], versionId, saveMode: "enrichment_draft" };
+      },
+    });
+
+    const upgradeCmd = schema.normalizeOperatorCommand({
+      rawCommand: "Upgrade these two lessons",
+      intent: "upgrade_batch",
+      scope: { selection: "explicit_ids", lessonIds: [WEAK_ID, WEAK2_ID], count: 2 },
+      actions: { audit: true, upgradeLesson: true, upgradeActivities: true, saveDraft: true },
+      completion: { phase: 2 },
+    }, { phase: 2 });
+    const planSummary = api.buildPlanSummary(
+      upgradeCmd,
+      selectApi.selectLessons(store.siteContent.curriculum, upgradeCmd),
+    );
+    let job = jobApi.createJobFromPlan({
+      command: upgradeCmd,
+      planSummary,
+      createdBy: OWNER.email,
+      status: "running",
+    });
+    const finished = await api.runJob(job, store, OWNER.email);
     ok(finished.progress.completed === 1, "partial failure keeps successful lesson");
     ok(finished.progress.failed === 1, "failed lesson recorded");
     ok(savedIds.includes(WEAK_ID) && !savedIds.includes(WEAK2_ID), "only successful lesson draft saved");
@@ -559,14 +577,12 @@ function assertUnitContracts() {
     ok(finished.lessonResults.every((lr) => lr.published === false), "no publish path in lesson results");
     ok(finished.publishEnabled === false, "job publishEnabled false");
 
-    // Resume skips completed lesson
     const beforeResumeSaved = savedIds.length;
     finished.lessonResults = finished.lessonResults.map((lr) => (
       lr.lessonId === WEAK2_ID
         ? { ...lr, status: "pending", error: null, actions: lr.actions.map((a) => ({ ...a, status: "pending" })) }
         : lr
     ));
-    // Make WEAK2 succeed on resume
     const api2 = createCurriculumOperatorApi({
       readJson: async () => ({}),
       jsonResponse: () => {},
@@ -576,6 +592,8 @@ function assertUnitContracts() {
       teachingKit: require("./teaching-kit.js"),
       normalizeEmail: (v) => String(v || "").trim().toLowerCase(),
       readSiteCurriculum: (s) => s.siteContent.curriculum,
+      callOperatorAi: mockCallAi,
+      openAiConfigured: true,
       saveOperatorEnrichmentDraft: async ({ lessonPlanId, enrichmentDraft }) => {
         const plans = store.siteContent.curriculum.lessonPlans;
         const idx = plans.findIndex((p) => p.id === lessonPlanId);
@@ -585,11 +603,10 @@ function assertUnitContracts() {
         return { ok: true, lessonPlan: plans[idx], versionId: `edraft-resume-${lessonPlanId}`, saveMode: "enrichment_draft" };
       },
     });
-    return api2.runJob(finished, store, OWNER.email).then((resumed) => {
-      ok(resumed.progress.completed === 2, "resume completes remaining lesson");
-      ok(savedIds.length === beforeResumeSaved + 1, "resume does not re-save already successful lesson");
-      ok(savedIds.filter((id) => id === WEAK_ID).length === 1, "successful lesson not mutated again on resume");
-    });
+    const resumed = await api2.runJob(finished, store, OWNER.email);
+    ok(resumed.progress.completed === 2, "resume completes remaining lesson");
+    ok(savedIds.length === beforeResumeSaved + 1, "resume does not re-save already successful lesson");
+    ok(savedIds.filter((id) => id === WEAK_ID).length === 1, "successful lesson not mutated again on resume");
   });
 }
 
