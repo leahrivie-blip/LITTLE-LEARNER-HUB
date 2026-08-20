@@ -10664,6 +10664,7 @@ async function persistNewCurriculumLessonDraft(lessonPlan) {
   }
   const payload = {
     expectedUpdatedAt: curriculumExpectedUpdatedAt(),
+    createNewLesson: true,
     lessonPlan: {
       ...lessonPlan,
       status: "draft",
@@ -10904,6 +10905,8 @@ function previewAdminCreateLessonPaste() {
       const comparison = api.buildMasterPasteReplaceComparison(
         adminCreateLessonPlanUi.currentSnapshot || {},
         parsed,
+        null,
+        typeof curriculumLessonPlansForAdmin === "function" ? curriculumLessonPlansForAdmin() : [],
       );
       adminCreateLessonPlanUi.replaceComparison = comparison;
       if (comparison.ok === false) {
@@ -10998,6 +11001,9 @@ async function persistReplaceCurriculumLessonFromMasterPaste(lessonPlan) {
   });
   const data = await response.json().catch(() => ({}));
   if (response.status === 409) {
+    if (data?.code === "lesson_identity_conflict") {
+      throw new Error(data?.error || "Incoming lesson does not match the selected lesson. Create a new lesson instead of replacing.");
+    }
     await handleCurriculumSaveConflict(data || {});
     throw new Error(data?.error || "Content was updated elsewhere. Click Replace again.");
   }

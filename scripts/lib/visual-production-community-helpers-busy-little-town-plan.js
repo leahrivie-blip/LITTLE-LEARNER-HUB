@@ -8,7 +8,7 @@
 
 const overlay = require("../../server/visual-production-community-helpers-overlay.js");
 
-const LESSON_ID = "cur-lp-7e21456dcc03e652";
+const LESSON_ID = "cur-lp-preschool-community-helpers-busy-little-town";
 const PACK_ID = "vpp-preschool-community-helpers-busy-little-town";
 const PACK_TITLE = overlay.PACK_TITLE;
 const PAGE_TITLES = overlay.PAGE_TITLES;

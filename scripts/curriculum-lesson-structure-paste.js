@@ -1220,6 +1220,60 @@
     return plans.find((plan) => normalizeTitleKey(plan?.title) === key) || null;
   }
 
+  function lessonIdentityKey(plan) {
+    const titleKey = normalizeTitleKey(plan?.title);
+    const ageRaw = text(plan?.ageDisplay || plan?.age);
+    const resolved = resolveAgeBandAlias(ageRaw);
+    const ageKey = normalizeAgeAliasKey(resolved.display || ageRaw);
+    if (!titleKey || !ageKey) return "";
+    return `${titleKey}::${ageKey}`;
+  }
+
+  function isPlaceholderLessonIdentity(plan) {
+    const titleKey = normalizeTitleKey(plan?.title);
+    return !titleKey || titleKey === "new lesson plan";
+  }
+
+  /**
+   * Replace may change the selected lesson's own title/age.
+   * It must not apply an incoming title that already belongs to a different lesson ID.
+   */
+  function masterPasteReplaceIdentityConflict(existingPlan, incomingPlan, existingPlans) {
+    if (!existingPlan) return null;
+    const incomingTitle = text(incomingPlan?.title);
+    const incomingTitleKey = normalizeTitleKey(incomingTitle);
+    if (!incomingTitleKey) {
+      return {
+        code: "lesson_identity_conflict",
+        error: "Incoming Master Paste is missing a lesson title. The selected lesson was not changed.",
+        existingId: text(existingPlan.id),
+        existingTitle: text(existingPlan.title),
+        existingAge: text(existingPlan.age),
+        incomingTitle,
+        incomingAge: text(incomingPlan?.ageDisplay || incomingPlan?.age),
+      };
+    }
+    if (incomingTitleKey === normalizeTitleKey(existingPlan.title)) return null;
+    const others = Array.isArray(existingPlans) ? existingPlans : [];
+    const other = others.find((plan) => (
+      plan
+      && text(plan.id)
+      && text(plan.id) !== text(existingPlan.id)
+      && normalizeTitleKey(plan.title) === incomingTitleKey
+    ));
+    if (!other) return null;
+    return {
+      code: "lesson_identity_conflict",
+      error: `Incoming lesson “${incomingTitle}” already exists as a different lesson. Replacing “${text(existingPlan.title)}” would overwrite the wrong record. Create a new lesson or open the correct lesson. The selected lesson was not changed.`,
+      existingId: text(existingPlan.id),
+      existingTitle: text(existingPlan.title),
+      existingAge: text(existingPlan.age),
+      incomingTitle,
+      incomingAge: text(incomingPlan?.ageDisplay || incomingPlan?.age),
+      conflictingLessonId: text(other.id),
+    };
+  }
+
   const MASTER_PASTE_ASSET_FIELDS = Object.freeze([
     "setupImageUrl",
     "exampleImageUrl",
@@ -1509,10 +1563,37 @@
    * @param {object} parsed
    * @param {ReturnType<typeof matchMasterPasteActivitiesToExisting>} [matchResult]
    */
-  function buildMasterPasteReplaceComparison(existingSnapshot, parsed, matchResult) {
+  function buildMasterPasteReplaceComparison(existingSnapshot, parsed, matchResult, existingPlans) {
     const existing = existingSnapshot && typeof existingSnapshot === "object" ? existingSnapshot : {};
     const lesson = parsed?.lesson || {};
     const preview = buildStructurePreview(parsed);
+    const identityConflict = masterPasteReplaceIdentityConflict(existing, {
+      title: preview.title || lesson.title || "",
+      age: preview.age || lesson.ageDisplay || lesson.age || "",
+    }, existingPlans);
+    if (identityConflict) {
+      return {
+        ok: false,
+        errors: [identityConflict.error],
+        code: identityConflict.code,
+        existingTitle: identityConflict.existingTitle,
+        incomingTitle: identityConflict.incomingTitle,
+        existingAge: identityConflict.existingAge,
+        incomingAge: identityConflict.incomingAge,
+        existingActivityCount: Number(existing.activityCount) || (Array.isArray(existing.activities) ? existing.activities.length : 0),
+        incomingActivityCount: Number(preview.activityCount) || 0,
+        updated: [],
+        added: [],
+        removed: [],
+        sectionsChanging: [],
+        preserved: {
+          lessonId: existing.id || "",
+          plan: existing.plan === "Pro" ? "Pro" : "Free",
+          coverImageUrl: existing.coverImageUrl || "",
+          resourceIds: Array.isArray(existing.resourceIds) ? existing.resourceIds.slice() : [],
+        },
+      };
+    }
     const match = matchResult && typeof matchResult === "object"
       ? matchResult
       : matchMasterPasteActivitiesToExisting(existing.activities || [], parsed?.dailyPlans);
@@ -1601,6 +1682,9 @@
     activityDraftPatchFromItem,
     buildActivityDraftMap,
     findDuplicateLessonTitle,
+    lessonIdentityKey,
+    isPlaceholderLessonIdentity,
+    masterPasteReplaceIdentityConflict,
     generateItemId,
     normalizeActivityMatchTitle,
     listIncomingMasterPasteActivities,

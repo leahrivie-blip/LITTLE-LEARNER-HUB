@@ -467,7 +467,7 @@ function assertCommunityHelpersPlanContract() {
   const overlay = require("../server/visual-production-printable-overlay.js");
   const chOverlay = require("../server/visual-production-community-helpers-overlay.js");
   const planned = chPlan.buildCommunityHelpersBusyLittleTownStructuredBriefs({ activities: [] });
-  ok(planned.lessonId === "cur-lp-7e21456dcc03e652", "community helpers plan uses exact lesson id");
+  ok(planned.lessonId === chPlan.LESSON_ID, "community helpers plan uses exact lesson id");
   ok(planned.packTitle === "Community Helpers: Our Busy Little Town Printable Pack", "community helpers pack title is exact");
   ok(chPlan.EXPECTED_ACTIVITY_NAMES.length === 17, "community helpers lesson has 17 expected activities");
   ok(new Set(chPlan.EXPECTED_ACTIVITY_NAMES).size === 17, "community helpers activity names are unique");
@@ -571,7 +571,7 @@ async function main() {
             friday: { items: [] },
           },
         }, {
-          id: "cur-lp-7e21456dcc03e652",
+          id: require("./lib/visual-production-community-helpers-busy-little-town-plan.js").LESSON_ID,
           title: "Community Helpers: Our Busy Little Town",
           age: "Preschool 3–4 Years",
           theme: "",
