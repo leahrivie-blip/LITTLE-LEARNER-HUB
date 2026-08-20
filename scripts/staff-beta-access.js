@@ -5,7 +5,7 @@
  *
  * Access is granted ONLY when the authenticated account email is:
  * - the configured application owner/admin account, OR
- * - an explicit beta allowlist email (currently tashley@icloud.com)
+ * - an explicit beta allowlist email (tashley@icloud.com, learnnplay123sc@gmail.com)
  *
  * Never trust client-supplied body/query emails for this check.
  */
@@ -24,6 +24,7 @@
   /** Extra beta allowlist (normalized). Owner/admin is separate via isConfiguredAdminEmail. */
   const STAFF_BETA_ALLOWLIST_EMAILS = Object.freeze([
     "tashley@icloud.com",
+    "learnnplay123sc@gmail.com",
   ]);
 
   /**

@@ -17035,7 +17035,7 @@ function canAccessStaffBeta(user = currentAccount() || currentUser) {
     (user && typeof user === "object" ? user.email : user) || currentUser || "",
   ).trim().toLowerCase();
   if (!email) return false;
-  if (email === "tashley@icloud.com") return true;
+  if (email === "tashley@icloud.com" || email === "learnnplay123sc@gmail.com") return true;
   const ownerEmails = new Set([
     "leahivie@icloud.com",
     "leahrivie@icloud.com",

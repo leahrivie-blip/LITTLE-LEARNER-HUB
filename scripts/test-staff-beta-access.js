@@ -65,6 +65,7 @@ async function waitForHealth() {
 
 const OWNER_EMAIL = "leahivie@icloud.com";
 const BETA_EMAIL = "tashley@icloud.com";
+const BETA_EMAIL_2 = "learnnplay123sc@gmail.com";
 const PRO_USER = "pro-center@example.com";
 const FREE_USER = "free-home@example.com";
 
@@ -79,6 +80,12 @@ async function main() {
     assert.equal(canAccessStaffBeta({ email: "TASHLEY@ICLOUD.COM" }), true);
     assert.equal(canAccessStaffBeta("  TAshley@iCloud.com  "), true);
     assert.equal(normalizeStaffBetaEmail("TASHLEY@ICLOUD.COM"), "tashley@icloud.com");
+  });
+
+  await test("helper: learnnplay123sc@gmail.com allowed (normalized)", () => {
+    assert.equal(canAccessStaffBeta({ email: "learnnplay123sc@gmail.com" }), true);
+    assert.equal(canAccessStaffBeta({ email: "LearnNPlay123SC@Gmail.com" }), true);
+    assert.equal(canAccessStaffBeta("  LEARNNPLAY123SC@GMAIL.COM  "), true);
   });
 
   await test("helper: random Pro user denied", () => {
@@ -116,6 +123,7 @@ async function main() {
   const serverJs = fs.readFileSync(path.join(ROOT, "server", "index.js"), "utf8");
   assert.match(appJs, /function canAccessStaffBeta/);
   assert.match(appJs, /canAccessStaffBeta\(\)/);
+  assert.match(appJs, /learnnplay123sc@gmail\.com/);
   assert.match(serverJs, /staffBetaAccess\.canAccessStaffBeta/);
   assert.match(serverJs, /STAFF_BETA_FORBIDDEN_MESSAGE/);
   console.log("PASS  staff beta markers present in app.js + server");
@@ -132,6 +140,14 @@ async function main() {
       },
       [BETA_EMAIL]: {
         email: BETA_EMAIL,
+        role: "owner",
+        accountType: "home_daycare",
+        plan: "Pro",
+        subscriptionStatus: "Pro Subscription Active",
+        stripeSubscriptionStatus: "active",
+      },
+      [BETA_EMAIL_2]: {
+        email: BETA_EMAIL_2,
         role: "owner",
         accountType: "home_daycare",
         plan: "Pro",
@@ -202,6 +218,15 @@ async function main() {
       assert.equal(res.json.invite.email, "teacher-for-tashley@example.com");
     });
 
+    await test("API: learnnplay123sc@gmail.com can create staff invite", async () => {
+      const res = await request("POST", "/api/staff/invites", {
+        email: BETA_EMAIL_2,
+        body: { ...inviteBody, email: "teacher-for-learnnplay@example.com" },
+      });
+      assert.equal(res.status, 200, JSON.stringify(res.json));
+      assert.equal(res.json.invite.email, "teacher-for-learnnplay@example.com");
+    });
+
     await test("API: TASHLEY@ICLOUD.COM allowed after auth normalization", async () => {
       const res = await request("POST", "/api/staff/invites", {
         email: "TASHLEY@ICLOUD.COM",
@@ -218,6 +243,7 @@ async function main() {
       assert.equal(res.status, 403);
       assert.equal(res.json.error, STAFF_BETA_FORBIDDEN_MESSAGE);
       assert.equal(JSON.stringify(res.json).includes("tashley"), false);
+      assert.equal(JSON.stringify(res.json).includes("learnnplay"), false);
       assert.equal(JSON.stringify(res.json).includes("allowlist"), false);
     });
 
@@ -242,11 +268,13 @@ async function main() {
       const store = JSON.parse(fs.readFileSync(STORE, "utf8"));
       assert.ok(store.users[OWNER_EMAIL]);
       assert.ok(store.users[BETA_EMAIL]);
+      assert.ok(store.users[BETA_EMAIL_2]);
       assert.ok(store.users[PRO_USER]);
       assert.ok(store.users[FREE_USER]);
       const invites = Object.values(store.staffInvites || {});
       assert.ok(invites.some((i) => i.email === "teacher-for-owner@example.com"));
       assert.ok(invites.some((i) => i.email === "teacher-for-tashley@example.com"));
+      assert.ok(invites.some((i) => i.email === "teacher-for-learnnplay@example.com"));
       assert.equal(invites.some((i) => i.email === "should-not-create@example.com"), false);
     });
   } finally {
