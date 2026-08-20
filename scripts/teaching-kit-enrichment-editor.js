@@ -5304,9 +5304,10 @@
         }
         return;
       }
-      if (event.target.closest("[data-replace-from-master-paste]")) {
+      if (eventEl?.closest?.("[data-replace-from-master-paste]")) {
         event.preventDefault();
         event.stopPropagation();
+        if (typeof event.stopImmediatePropagation === "function") event.stopImmediatePropagation();
         if (typeof globalThis.openAdminReplaceLessonFromMasterPaste === "function") {
           globalThis.openAdminReplaceLessonFromMasterPaste(state.planId);
         } else if (typeof showActionFeedback === "function") {

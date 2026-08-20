@@ -555,6 +555,12 @@ body:has(#view-admin.active-view) .llh-public-nav {
   background: rgba(28, 18, 12, 0.45);
 }
 
+/* Teaching Kit editor is z-index 13050. Without this, Replace From Master Paste
+   opens behind the editor and the button appears to do nothing. */
+body.tk-enrich-open .admin-create-lesson-overlay {
+  z-index: 14100;
+}
+
 .admin-create-lesson-dialog {
   width: min(720px, 100%);
   margin-top: 32px;
