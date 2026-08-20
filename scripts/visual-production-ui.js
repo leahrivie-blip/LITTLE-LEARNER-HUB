@@ -170,7 +170,7 @@
 
   function listHtml() {
     if (!state.cards.length) {
-      return `<p class="muted-copy">No planned visuals yet. Paste owner visual instructions after the lesson is imported with Master Paste.</p>`;
+      return `<p class="muted-copy">No planned visuals yet${state.lessonId ? " for this lesson" : ""}. Enter a Lesson ID (for example <code>cur-lp-preschool-zoo-adventure</code>) and click Refresh, or leave Lesson ID blank and Refresh to load all planned visuals.</p>`;
     }
     const sorted = state.cards.slice().sort((a, b) => {
       if (a.printablePackId && a.printablePackId === b.printablePackId) {
@@ -377,7 +377,7 @@
         </label>
         <div class="form-actions">
           <button class="primary-button" type="submit" ${state.busy ? "disabled" : ""}>Plan visuals for review</button>
-          <button class="ghost-button" type="button" data-vp-refresh ${state.busy || !state.lessonId ? "disabled" : ""}>Refresh planned visuals</button>
+          <button class="ghost-button" type="button" data-vp-refresh ${state.busy ? "disabled" : ""}>Refresh planned visuals</button>
         </div>
       </form>
       ${packGalleryHtml()}
@@ -391,12 +391,7 @@
   }
 
   async function refreshList() {
-    if (!state.lessonId) {
-      state.cards = [];
-      state.packs = [];
-      return;
-    }
-    const data = await api("list", { lessonId: state.lessonId });
+    const data = await api("list", state.lessonId ? { lessonId: state.lessonId } : {});
     state.cards = Array.isArray(data.cards) ? data.cards : [];
     state.packs = Array.isArray(data.packs) ? data.packs : [];
     if (state.selectedId && !state.cards.some((card) => card.id === state.selectedId)) {
@@ -510,7 +505,7 @@
     state.mounted = true;
     bind(host());
     render();
-    if (state.lessonId) void run(refreshList);
+    void run(refreshList);
   }
 
   function openForLesson(lessonId, lessonTitle) {
