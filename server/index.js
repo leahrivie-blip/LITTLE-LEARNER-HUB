@@ -18,6 +18,7 @@ const aiAgeSafety = require("../scripts/ai-age-safety.js");
 const draftReviewModel = require("../scripts/curriculum-draft-review.js");
 const { createDraftReviewApi } = require("./curriculum-draft-review.js");
 const { createVisualProductionApi, mergeStorePreserveVisualProduction } = require("./visual-production.js");
+const { createCurriculumOperatorApi, mergeStorePreserveCurriculumOperatorJobs } = require("./curriculum-operator.js");
 const restoreIndependentLesson = require("./curriculum-restore-independent-lesson.js");
 const visualProductionImage = require("./visual-production-image.js");
 const visualProductionMedia = require("./visual-production-media.js");
@@ -5930,6 +5931,7 @@ function applyStoreWriteMerges(store, { preferIncomingSiteContent = false } = {}
   next = mergeStorePreserveAdminSessions(next);
   next = mergeStorePreserveEmailCampaigns(next);
   next = mergeStorePreserveVisualProduction(next, storeCache);
+  next = mergeStorePreserveCurriculumOperatorJobs(next, storeCache);
   return next;
 }
 
@@ -31049,6 +31051,21 @@ const server = http.createServer(async (request, response) => {
         });
       }
       return await globalThis.__llhVisualProductionApi.handle(request, response);
+    }
+    if (request.method === "POST" && url.pathname === "/api/admin/curriculum/operator") {
+      if (!globalThis.__llhCurriculumOperatorApi) {
+        globalThis.__llhCurriculumOperatorApi = createCurriculumOperatorApi({
+          readJson,
+          jsonResponse,
+          readStore,
+          writeStoreAsync,
+          requireTeachingKitOwnerAdminSession,
+          teachingKit,
+          normalizeEmail,
+          readSiteCurriculum,
+        });
+      }
+      return await globalThis.__llhCurriculumOperatorApi.handle(request, response);
     }
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/draft-review") {
       if (!globalThis.__llhDraftReviewApi) {

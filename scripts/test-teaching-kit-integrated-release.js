@@ -74,6 +74,7 @@ function runStaticGuards() {
     "teachingKitAuthoring",
     "teachingKitCurriculumDirector",
     "teachingKitQualityReview",
+    "teachingKitCurriculumOperator",
   ];
   required.forEach((key) => {
     assert(flags[key] === false, `${key} default false`);

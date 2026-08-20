@@ -6151,6 +6151,7 @@ function mergeIncomingPublicSiteContent(incoming) {
     teachingKitEnrichmentEditor: priorFlags.teachingKitEnrichmentEditor === true,
     teachingKitAuthoring: priorFlags.teachingKitAuthoring === true,
     teachingKitCurriculumDirector: priorFlags.teachingKitCurriculumDirector === true,
+    teachingKitCurriculumOperator: priorFlags.teachingKitCurriculumOperator === true,
     teachingKitQualityReview: priorFlags.teachingKitQualityReview === true,
   };
   return merged;
@@ -6952,7 +6953,7 @@ let adminLessonResourcesDraftId = "";
 const adminLessonUnsavedWarning = "You have unsaved changes. Leave without saving?";
 const adminLessonImportMetadataFields = new Set(["title", "theme", "age", "generatorLessonNumber", "plan", "visible"]);
 const adminLessonVisibleTruthyValues = new Set(["true", "yes", "visible", "live", "on", "1"]);
-const adminValidSectionTabs = new Set(["admin-home","admin-notifications","content-home","website-home","ai-home","billing-home","system-health","advanced-home","admin-settings","taxonomy-audit","dashboard","resources","curriculum-lesson-plans","curriculum-draft-review","curriculum-visual-production","curriculum-library-health","curriculum-ai-director","curriculum-activities","curriculum-resources","forms","printables","menus","observations","resource-categories","reviews","founder","images","analytics","marketing-analytics","advisor","marketing-funnel","feature-usage","feature-requests-center","error-center","search-analytics","email-analytics","seo-dashboard","churn-dashboard","content-health","release-center","support","feedback","emails","ai-testing","ai-tools","ai-health","prompts","settings","usage","visibility","users","stripe-backfill","pricing","free-plan","free-starter-library","trial-usage","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding","messages-home","admin-inbox","messages-compose","messages-conversations","messages-automations","messages-sent","messages-drafts","messages-archived","messages-email","message-templates","welcome-messages","user-health","automations","changelog","feature-requests","lesson-plan-requests","bug-reports","promo-codes","in-app-announcements"]);
+const adminValidSectionTabs = new Set(["admin-home","admin-notifications","content-home","website-home","ai-home","billing-home","system-health","advanced-home","admin-settings","taxonomy-audit","dashboard","resources","curriculum-lesson-plans","curriculum-draft-review","curriculum-visual-production","curriculum-library-health","curriculum-ai-director","curriculum-ai-operator","curriculum-activities","curriculum-resources","forms","printables","menus","observations","resource-categories","reviews","founder","images","analytics","marketing-analytics","advisor","marketing-funnel","feature-usage","feature-requests-center","error-center","search-analytics","email-analytics","seo-dashboard","churn-dashboard","content-health","release-center","support","feedback","emails","ai-testing","ai-tools","ai-health","prompts","settings","usage","visibility","users","stripe-backfill","pricing","free-plan","free-starter-library","trial-usage","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding","messages-home","admin-inbox","messages-compose","messages-conversations","messages-automations","messages-sent","messages-drafts","messages-archived","messages-email","message-templates","welcome-messages","user-health","automations","changelog","feature-requests","lesson-plan-requests","bug-reports","promo-codes","in-app-announcements"]);
 /** @deprecated use effectiveLessonPlanResourceCategories() — kept as alias for older call sites during transition */
 const lessonPlanResourceCategories = DEFAULT_LESSON_PLAN_RESOURCE_CATEGORIES;
 const adminActiveSectionTabRaw = localStorage.getItem("llhAdminActiveSection") || "admin-home";
@@ -6969,7 +6970,7 @@ const adminGroups = [
   { id: "marketing", icon: "📈", label: "Marketing", tabs: ["marketing-analytics"], defaultTab: "marketing-analytics" },
   { id: "users", icon: "👥", label: "Users", tabs: ["users", "user-health"], defaultTab: "users" },
   { id: "billing", icon: "💳", label: "Billing", tabs: ["billing-home", "trial-usage"], defaultTab: "billing-home" },
-  { id: "content", icon: "📚", label: "Content", tabs: ["content-home", "curriculum-lesson-plans", "curriculum-draft-review", "curriculum-visual-production", "curriculum-library-health", "curriculum-ai-director", "curriculum-activities", "curriculum-resources", "free-starter-library", "forms", "printables", "menus", "observations", "resource-categories", "reviews", "founder", "taxonomy-audit"], defaultTab: "content-home" },
+  { id: "content", icon: "📚", label: "Content", tabs: ["content-home", "curriculum-lesson-plans", "curriculum-draft-review", "curriculum-visual-production", "curriculum-library-health", "curriculum-ai-director", "curriculum-ai-operator", "curriculum-activities", "curriculum-resources", "free-starter-library", "forms", "printables", "menus", "observations", "resource-categories", "reviews", "founder", "taxonomy-audit"], defaultTab: "content-home" },
   { id: "messages", icon: "💬", label: "Messages", tabs: ["messages-home", "messages-conversations", "messages-automations", "admin-inbox", "messages-sent", "messages-drafts", "messages-archived", "messages-compose", "messages-email", "message-templates", "welcome-messages", "automations"], defaultTab: "messages-conversations" },
   { id: "website", icon: "🌐", label: "Website", tabs: ["website-home", "hero", "trust", "journey", "reviews-cta", "founding", "pricing", "free-plan", "promo-codes", "faqs", "announcement", "in-app-announcements", "upgrade-msg", "changelog", "images"], defaultTab: "website-home" },
   { id: "ai", icon: "🤖", label: "AI Tools", tabs: ["ai-home", "ai-tools", "ai-health", "usage", "settings"], defaultTab: "ai-home" },
@@ -7026,6 +7027,7 @@ const adminGroupForTab = {
   "curriculum-visual-production": "content",
   "curriculum-library-health": "content",
   "curriculum-ai-director": "content",
+  "curriculum-ai-operator": "content",
   "curriculum-activities": "content",
   "curriculum-resources": "content",
   "forms": "content",
@@ -7110,6 +7112,7 @@ const adminTabLabels = {
   "curriculum-visual-production": "Visual Production",
   "curriculum-library-health": "Library Health",
   "curriculum-ai-director": "AI Curriculum Director",
+  "curriculum-ai-operator": "AI Curriculum Operator",
   "curriculum-activities": "Activities",
   "curriculum-resources": "Curriculum",
   "forms": "Forms and Templates",
@@ -7421,6 +7424,8 @@ function emptySiteContent() {
       teachingKitCurriculumDirector: false,
       // AI Curriculum Quality Review. Default false.
       teachingKitQualityReview: false,
+      // Owner AI Curriculum Operator. Default false.
+      teachingKitCurriculumOperator: false,
     },
     playBasedCurriculum: true,
     curriculumLibrary: emptyCurriculumLibrary(),
@@ -13708,6 +13713,7 @@ function renderAdminCurriculumLessonPlanManager() {
         <button class="ghost-button" type="button" data-admin-section-tab="curriculum-library-health">Library Health</button>
         <button class="ghost-button" type="button" data-admin-section-tab="curriculum-visual-production">Visual Production</button>
         <button class="ghost-button" type="button" data-admin-section-tab="curriculum-ai-director">AI Curriculum Director</button>
+        <button class="ghost-button" type="button" data-admin-section-tab="curriculum-ai-operator">AI Curriculum Operator</button>
         <button class="ghost-button" type="button" id="adminCreateCurriculumLessonPlanButton">Create New Lesson Plan</button>
       </div>
     </div>
@@ -16463,6 +16469,8 @@ function effectiveSiteContent() {
         || base.featureFlags?.teachingKitAuthoring === true,
       teachingKitCurriculumDirector: overrides.featureFlags?.teachingKitCurriculumDirector === true
         || base.featureFlags?.teachingKitCurriculumDirector === true,
+      teachingKitCurriculumOperator: overrides.featureFlags?.teachingKitCurriculumOperator === true
+        || base.featureFlags?.teachingKitCurriculumOperator === true,
       teachingKitQualityReview: overrides.featureFlags?.teachingKitQualityReview === true
         || base.featureFlags?.teachingKitQualityReview === true,
     },
@@ -55787,6 +55795,17 @@ function renderAdminContentManager() {
         </div>
         <div id="adminCurriculumDirectorHost" class="tk-director-host"></div>
       </section>
+      <section class="admin-manager-section" data-admin-cm-section="curriculum-ai-operator">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Content · Management</p>
+            <h3>AI Curriculum Operator</h3>
+            <p class="muted-copy">Owner command → audit → production plan. Phase 1 does not change curriculum data or publish.</p>
+          </div>
+          <button type="button" class="ghost-button" data-admin-section-tab="curriculum-lesson-plans">Back to Lesson Plans</button>
+        </div>
+        <div id="adminCurriculumOperatorApp" class="co-operator-host"></div>
+      </section>
       <section class="admin-manager-section" data-admin-cm-section="curriculum-activities">
         <div id="adminCurriculumActivityApp"></div>
       </section>
@@ -55823,6 +55842,9 @@ function renderAdminContentManager() {
   if (adminActiveSectionTab === "curriculum-ai-director"
     && window.LLHTeachingKitCurriculumDirectorUI?.mount) {
     void window.LLHTeachingKitCurriculumDirectorUI.mount();
+  }
+  if (adminActiveSectionTab === "curriculum-ai-operator" && window.LLHCurriculumOperatorUi?.mount) {
+    void window.LLHCurriculumOperatorUi.mount();
   }
   if (adminActiveSectionTab === "curriculum-activities") renderAdminCurriculumActivityBrowser();
   if (adminActiveSectionTab === "curriculum-resources") renderAdminCurriculumResourceManager();
@@ -56481,6 +56503,7 @@ async function saveTeachingKitFeatureFlags(patch = {}) {
     "teachingKitEnrichmentEditor",
     "teachingKitAuthoring",
     "teachingKitCurriculumDirector",
+    "teachingKitCurriculumOperator",
     "teachingKitQualityReview",
   ];
   const current = { ...(nextContent.featureFlags || {}) };
@@ -57572,7 +57595,7 @@ function renderAdminSectionNav() {
   }
 }
 
-const adminCmSectionIds = ["curriculum-lesson-plans", "curriculum-draft-review", "curriculum-visual-production", "curriculum-library-health", "curriculum-ai-director", "curriculum-activities", "curriculum-resources", "forms", "printables", "menus", "observations", "resource-categories", "reviews", "founder", "images"];
+const adminCmSectionIds = ["curriculum-lesson-plans", "curriculum-draft-review", "curriculum-visual-production", "curriculum-library-health", "curriculum-ai-director", "curriculum-ai-operator", "curriculum-activities", "curriculum-resources", "forms", "printables", "menus", "observations", "resource-categories", "reviews", "founder", "images"];
 
 function applyAdminSectionVisibility() {
   const tab = adminActiveSectionTab;
@@ -57713,6 +57736,9 @@ function applyAdminSectionVisibility() {
     }
     if (tab === "curriculum-ai-director" && window.LLHTeachingKitCurriculumDirectorUI?.mount) {
       void window.LLHTeachingKitCurriculumDirectorUI.mount();
+    }
+    if (tab === "curriculum-ai-operator" && window.LLHCurriculumOperatorUi?.mount) {
+      void window.LLHCurriculumOperatorUi.mount();
     }
     if (tab === "curriculum-activities") renderAdminCurriculumActivityBrowser();
     if (tab === "curriculum-resources") renderAdminCurriculumResourceManager();

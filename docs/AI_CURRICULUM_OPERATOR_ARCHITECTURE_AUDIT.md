@@ -1,8 +1,24 @@
 # AI Curriculum Operator — Architecture Audit & Implementation Plan
 
 **Date:** 2026-08-20  
-**Scope:** Read-only repository audit. No production data modified. No feature implementation in this pass.  
+**Scope:** Architecture audit + **Phase 1 implementation** (audit-only operator). No production data modified.  
 **Verdict:** The existing architecture is **strong enough to support this without a major rewrite.** Build an orchestration layer that calls existing trusted save/upload/validate paths. Do not create parallel curriculum stores, parallel publishers, or an unrestricted agent.
+
+### Phase 1 shipped (this branch)
+
+| Piece | Location |
+|---|---|
+| Typed command / job / asset-plan schemas | `scripts/curriculum-operator-schema.js` |
+| NL → command parser | `scripts/curriculum-operator-command.js` |
+| Lesson selection | `scripts/curriculum-operator-select.js` |
+| Read-only audit + future asset plan | `scripts/curriculum-operator-audit.js` |
+| Durable jobs | `scripts/curriculum-operator-job.js` + `store.curriculumOperatorJobs` |
+| Owner API | `server/curriculum-operator.js` → `POST /api/admin/curriculum/operator` |
+| Owner Admin UI | Content tab **AI Curriculum Operator** (`scripts/curriculum-operator-ui.js`) |
+| Feature flag | `teachingKitCurriculumOperator` (default **false**) |
+| Tests | `npm run test:curriculum-operator-phase1` |
+
+Phase 1 **never mutates curriculum** and **never publishes**. Asset KEEP/GENERATE/CREATE decisions are planned only.
 
 ---
 
