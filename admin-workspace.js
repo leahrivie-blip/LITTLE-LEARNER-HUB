@@ -661,6 +661,7 @@
     const ownerEnrichment = flags.teachingKitEnrichmentEditor === true;
     const ownerAuthoring = flags.teachingKitAuthoring === true;
     const ownerDirector = flags.teachingKitCurriculumDirector === true;
+    const ownerOperator = flags.teachingKitCurriculumOperator === true;
     const ownerQuality = flags.teachingKitQualityReview === true;
     target.innerHTML = `
       <div class="section-heading">
@@ -706,6 +707,7 @@
           ${teachingKitFlagCheckbox("teachingKitEnrichmentEditor", "Enrichment Editor (Upgrade Lesson)", ownerEnrichment, "Opens Upgrade Lesson / enrichment drafting for owner admin.")}
           ${teachingKitFlagCheckbox("teachingKitAuthoring", "Binder Authoring", ownerAuthoring, "Enables binder authoring helpers inside owner admin.")}
           ${teachingKitFlagCheckbox("teachingKitCurriculumDirector", "Curriculum Director", ownerDirector, "Enables Curriculum Director tools for owner admin.")}
+          ${teachingKitFlagCheckbox("teachingKitCurriculumOperator", "AI Curriculum Operator", ownerOperator, "Enables the Owner AI Curriculum Operator (Phase 1 audit/jobs). Never auto-publishes.")}
           ${teachingKitFlagCheckbox("teachingKitQualityReview", "Quality Review", ownerQuality, "Enables pre-publish quality review tools for owner admin.")}
         </div>
 
@@ -730,6 +732,7 @@
           teachingKitEnrichmentEditor: read("teachingKitEnrichmentEditor"),
           teachingKitAuthoring: read("teachingKitAuthoring"),
           teachingKitCurriculumDirector: read("teachingKitCurriculumDirector"),
+          teachingKitCurriculumOperator: read("teachingKitCurriculumOperator"),
           teachingKitQualityReview: read("teachingKitQualityReview"),
         };
         if (typeof window.saveTeachingKitFeatureFlags !== "function") {

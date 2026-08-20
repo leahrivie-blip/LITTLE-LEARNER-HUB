@@ -32,6 +32,8 @@
     "teachingKitCurriculumDirector",
     // AI Curriculum Quality Review (pre-publish specialist review). Default false — never auto-enabled.
     "teachingKitQualityReview",
+    // Owner AI Curriculum Operator (orchestrator jobs). Default false — never auto-enabled.
+    "teachingKitCurriculumOperator",
   ]);
 
   const COMPLETENESS_VALUES = Object.freeze([
@@ -172,6 +174,7 @@
       teachingKitAuthoring: false,
       teachingKitCurriculumDirector: false,
       teachingKitQualityReview: false,
+      teachingKitCurriculumOperator: false,
     };
   }
 
@@ -185,6 +188,7 @@
       teachingKitAuthoring: input.teachingKitAuthoring === true,
       teachingKitCurriculumDirector: input.teachingKitCurriculumDirector === true,
       teachingKitQualityReview: input.teachingKitQualityReview === true,
+      teachingKitCurriculumOperator: input.teachingKitCurriculumOperator === true,
     };
   }
 
@@ -206,6 +210,11 @@
   /** Pre-publish AI Curriculum Quality Review. Never auto-enabled. */
   function isTeachingKitQualityReviewEnabled(flags) {
     return isTeachingKitFlagEnabled(flags, "teachingKitQualityReview");
+  }
+
+  /** Owner AI Curriculum Operator orchestrator. Default false. Never auto-publishes. */
+  function isTeachingKitCurriculumOperatorEnabled(flags) {
+    return isTeachingKitFlagEnabled(flags, "teachingKitCurriculumOperator");
   }
 
   /**
@@ -522,6 +531,7 @@
     isTeachingKitAuthoringEnabled,
     isTeachingKitCurriculumDirectorEnabled,
     isTeachingKitQualityReviewEnabled,
+    isTeachingKitCurriculumOperatorEnabled,
     isTeachingKitAiAssistEnabled,
     isTeachingKitApiEnabled,
     TEACHING_KIT_OWNER_PREVIEW_EMAIL,
