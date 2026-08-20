@@ -9048,27 +9048,32 @@ async function generateOpenAiContent({
   throw lastError;
 }
 
-async function callOpenAiRaw(systemPrompt, userPrompt) {
+async function callOpenAiRaw(systemPrompt, userPrompt, options = {}) {
   if (!OPENAI_API_KEY) {
     throw new Error("Documentation Helpers are temporarily unavailable. Please try again shortly or Message Support.");
   }
+  const maxOutputTokens = Number(options.maxOutputTokens) > 0
+    ? Math.floor(Number(options.maxOutputTokens))
+    : null;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), AI_REQUEST_TIMEOUT_MS);
   try {
+    const body = {
+      model: OPENAI_MODEL,
+      temperature: AI_TEMPERATURE,
+      input: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+    };
+    if (maxOutputTokens) body.max_output_tokens = maxOutputTokens;
     const res = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${OPENAI_API_KEY}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        model: OPENAI_MODEL,
-        temperature: AI_TEMPERATURE,
-        input: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-      }),
+      body: JSON.stringify(body),
       signal: controller.signal,
     });
     clearTimeout(timeout);
@@ -9084,6 +9089,22 @@ async function callOpenAiRaw(systemPrompt, userPrompt) {
       || data.output?.flatMap((item) => item.content || []).map((item) => item.text || "").join("\n").trim()
       || "";
     if (!output) throw new Error("No content was returned.");
+    if (options.returnMeta === true) {
+      return {
+        output,
+        model: OPENAI_MODEL,
+        maxOutputTokens: maxOutputTokens || null,
+        status: data.status || null,
+        incompleteDetails: data.incomplete_details || null,
+        usage: data.usage || null,
+        rawLength: output.length,
+      };
+    }
+    if (data.status === "incomplete" || data.incomplete_details) {
+      console.warn(
+        `[openai-raw] incomplete output model=${OPENAI_MODEL} status=${data.status || ""} reason=${data.incomplete_details?.reason || ""} max_output_tokens=${maxOutputTokens || "default"}`,
+      );
+    }
     return output;
   } catch (error) {
     clearTimeout(timeout);
@@ -31731,12 +31752,23 @@ const server = http.createServer(async (request, response) => {
               || ["1", "true", "yes"].includes(String(process.env.LLH_OPERATOR_AI_FIXTURE || "").trim().toLowerCase());
             if (forceFixture) {
               const composer = require("../scripts/curriculum-operator-ai-composer.js");
+              // Prefer create-architect fixture when the prompt is a create brief.
+              if (/CREATE_NEW_LESSON_ARCHITECT|requiredActivityCount/i.test(String(userPrompt || ""))) {
+                const architect = require("../scripts/curriculum-operator-create-architect.js");
+                return architect.buildOperatorCreateArchitectFixtureResponse(userPrompt);
+              }
               return composer.buildOperatorAiFixtureResponse(userPrompt);
             }
             if (!isConfiguredValue(OPENAI_API_KEY)) {
               throw new Error("OpenAI is not configured for the curriculum operator.");
             }
-            return callOpenAiRaw(systemPrompt, userPrompt);
+            // Full Teaching Kit JSON (esp. 15 activities) needs a high output budget.
+            // Historical create failures returned ~5 activities with valid-looking JSON —
+            // raise max_output_tokens so the model is not forced to stop early.
+            const OPERATOR_AI_MAX_OUTPUT_TOKENS = 24000;
+            return callOpenAiRaw(systemPrompt, userPrompt, {
+              maxOutputTokens: OPERATOR_AI_MAX_OUTPUT_TOKENS,
+            });
           },
           enrichmentMedia,
           persistEnrichmentPhoto: persistEnrichmentPhotoVariants,

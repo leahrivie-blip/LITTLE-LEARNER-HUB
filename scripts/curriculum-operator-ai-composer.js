@@ -72,8 +72,174 @@ function stripJsonFences(raw) {
   return s;
 }
 
+/**
+ * Known weekly field aliases used by models / Master Paste wording.
+ * Only map supported repository fields — never invent new schema keys.
+ */
+const WEEK_FIELD_ALIASES = Object.freeze({
+  vocabularyWords: "vocabCards",
+  vocabulary: "vocabCards",
+  materials: "weeklyMaterials",
+  overview: "weeklyOverview",
+  weeklyoverview: "weeklyOverview",
+  learningGoals: "objectives",
+  learninggoals: "objectives",
+  goals: "objectives",
+  teacherPrep: "teacherPreparation",
+  teacherprep: "teacherPreparation",
+  prep: "teacherPreparation",
+  family: "familyConnection",
+  familyNotes: "familyConnection",
+  observations: "observationFocus",
+  observation: "observationFocus",
+});
+
+const WEEKLY_CHANGES_KEYS = Object.freeze([
+  "weeklyChanges",
+  "weekly",
+  "weekChanges",
+  "week_changes",
+  "fieldChanges",
+]);
+
+const PAYLOAD_WRAPPER_KEYS = Object.freeze([
+  "result",
+  "data",
+  "output",
+  "response",
+  "composer",
+  "plan",
+  "lesson",
+  "upgrade",
+  "content",
+]);
+
 function isWriteAction(action) {
   return WRITE_ACTIONS.includes(text(action, 20).toUpperCase());
+}
+
+function looksLikeComposerPayload(obj) {
+  if (!obj || typeof obj !== "object" || Array.isArray(obj)) return false;
+  if (WEEKLY_CHANGES_KEYS.some((k) => obj[k] != null)) return true;
+  if (Array.isArray(obj.activities) || Array.isArray(obj.songs) || Array.isArray(obj.books)) return true;
+  if (obj.week && typeof obj.week === "object" && !Array.isArray(obj.week)) return true;
+  return WEEK_FIELDS.some((field) => Object.prototype.hasOwnProperty.call(obj, field))
+    || Object.prototype.hasOwnProperty.call(obj, "vocabularyWords");
+}
+
+/**
+ * Unwrap one layer of common model wrappers so weeklyChanges is reachable.
+ * Does not recursively walk arbitrary trees (avoids accepting unrelated blobs).
+ */
+function unwrapComposerPayload(parsed) {
+  if (!looksLikeComposerPayload(parsed)) {
+    for (const key of PAYLOAD_WRAPPER_KEYS) {
+      const inner = parsed?.[key];
+      if (looksLikeComposerPayload(inner)) {
+        return {
+          ...parsed,
+          ...inner,
+          lessonId: inner.lessonId || parsed.lessonId,
+          title: inner.title != null ? inner.title : parsed.title,
+          age: inner.age != null ? inner.age : parsed.age,
+          plan: inner.plan != null ? inner.plan : parsed.plan,
+        };
+      }
+    }
+  }
+  return parsed;
+}
+
+function normalizeWeekFieldName(field) {
+  const raw = text(field, 80);
+  if (!raw) return "";
+  if (WEEK_FIELDS.includes(raw)) return raw;
+  if (WEEK_FIELD_ALIASES[raw]) return WEEK_FIELD_ALIASES[raw];
+  const lower = raw.toLowerCase();
+  if (WEEK_FIELD_ALIASES[lower]) return WEEK_FIELD_ALIASES[lower];
+  return raw;
+}
+
+/**
+ * Pull weekly change map from weeklyChanges / week / weekly / top-level fields.
+ */
+function extractWeeklyChangesInput(parsed) {
+  const rejected = [];
+  let source = null;
+  let sourceKey = "";
+
+  for (const key of WEEKLY_CHANGES_KEYS) {
+    const candidate = parsed?.[key];
+    if (candidate && typeof candidate === "object" && !Array.isArray(candidate)) {
+      source = candidate;
+      sourceKey = key;
+      break;
+    }
+  }
+  if (!source && parsed?.week && typeof parsed.week === "object" && !Array.isArray(parsed.week)) {
+    // Prefer change-shaped week objects; still accept content maps.
+    source = parsed.week;
+    sourceKey = "week";
+  }
+
+  if (!source) {
+    source = {};
+    sourceKey = "top_level_week_fields";
+    WEEK_FIELDS.forEach((field) => {
+      if (Object.prototype.hasOwnProperty.call(parsed, field)) source[field] = parsed[field];
+    });
+    Object.keys(WEEK_FIELD_ALIASES).forEach((alias) => {
+      if (Object.prototype.hasOwnProperty.call(parsed, alias)) source[alias] = parsed[alias];
+    });
+  }
+
+  const weeklyIn = {};
+  Object.keys(source || {}).forEach((rawField) => {
+    if (/image|printable|pdf|cover/i.test(rawField)) {
+      rejected.push({ field: rawField, reason: "forbidden_field", message: `Forbidden field: ${rawField}` });
+      return;
+    }
+    // Skip nested toolkit containers unless they are known week fields
+    if (rawField === "teacherToolkit" || rawField === "fieldOwnership" || rawField === "printableIds") {
+      rejected.push({ field: rawField, reason: "unsupported_container", message: `Unsupported week container: ${rawField}` });
+      return;
+    }
+    const field = normalizeWeekFieldName(rawField);
+    if (!WEEK_FIELDS.includes(field)) {
+      rejected.push({ field: rawField, reason: "unknown_field", message: `Unknown weekly field: ${rawField}` });
+      return;
+    }
+    if (Object.prototype.hasOwnProperty.call(weeklyIn, field) && rawField !== field) {
+      // First canonical value wins; alias duplicate ignored.
+      rejected.push({ field: rawField, reason: "alias_duplicate", message: `Alias ${rawField} ignored; ${field} already set` });
+      return;
+    }
+    weeklyIn[field] = source[rawField];
+  });
+
+  return { weeklyIn, rejected, sourceKey };
+}
+
+/**
+ * Coerce plain string/array values and {text|content|value} objects into {action,value}.
+ */
+function coerceChangeEntry(field, raw, requestedAction) {
+  const fallbackAction = text(requestedAction, 20).toUpperCase() || "IMPROVE";
+  if (raw == null) {
+    return { ok: false, error: `Empty change for ${field}` };
+  }
+  if (typeof raw === "string" || Array.isArray(raw) || typeof raw === "number") {
+    return normalizeChangeEntry(field, { action: fallbackAction, value: raw });
+  }
+  if (typeof raw !== "object") {
+    return { ok: false, error: `Malformed change for ${field}` };
+  }
+  if (raw.action != null || raw.value != null || raw.text != null || raw.content != null || raw.decision != null) {
+    const action = text(raw.action || raw.decision, 20).toUpperCase() || fallbackAction;
+    const value = raw.value != null ? raw.value : (raw.text != null ? raw.text : raw.content);
+    return normalizeChangeEntry(field, { action, value });
+  }
+  return normalizeChangeEntry(field, raw);
 }
 
 function shouldWriteDecision(decision) {
@@ -380,6 +546,7 @@ function normalizeChangeEntry(field, raw) {
 
 /**
  * Validate model JSON against the work request. Rejects identity / unknown fields / bad IDs.
+ * Normalizes known wrappers / aliases so large valid AI payloads are not discarded as empty_changes.
  */
 function validateComposerOutput(rawText, work, plan) {
   let parsed;
@@ -391,6 +558,9 @@ function validateComposerOutput(rawText, work, plan) {
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
     return { ok: false, code: "malformed_output", error: "AI returned non-object JSON." };
   }
+
+  const topLevelKeys = Object.keys(parsed);
+  parsed = unwrapComposerPayload(parsed);
 
   const lessonId = text(parsed.lessonId, 160);
   if (lessonId && lessonId !== work.lessonId) {
@@ -412,49 +582,150 @@ function validateComposerOutput(rawText, work, plan) {
 
   const allowedWeek = new Map(work.weekRequests.map((r) => [r.field, r]));
   const weeklyChanges = {};
-  const weeklyIn = parsed.weeklyChanges && typeof parsed.weeklyChanges === "object" ? parsed.weeklyChanges : {};
-  for (const field of Object.keys(weeklyIn)) {
+  const accepted = [];
+  const rejected = [];
+  const extracted = extractWeeklyChangesInput(parsed);
+
+  // Hard-fail unsupported / forbidden week keys (do not silently drop into empty_changes).
+  const hardWeekReject = extracted.rejected.find((row) => (
+    row.reason === "unknown_field" || row.reason === "forbidden_field"
+  ));
+  if (hardWeekReject) {
+    return {
+      ok: false,
+      code: hardWeekReject.reason,
+      error: hardWeekReject.message,
+      diagnostics: {
+        topLevelKeys,
+        expectedKeys: ["lessonId", "weeklyChanges", "activities", "songs", "books"],
+        weeklySourceKey: extracted.sourceKey,
+        accepted: [],
+        rejected: extracted.rejected,
+        finalMutationCount: 0,
+      },
+    };
+  }
+  extracted.rejected.forEach((row) => rejected.push(row));
+
+  for (const field of Object.keys(extracted.weeklyIn)) {
     if (/image|printable|pdf|cover/i.test(field)) {
       return { ok: false, code: "forbidden_field", error: `Forbidden field: ${field}` };
     }
     if (!WEEK_FIELDS.includes(field)) {
-      return { ok: false, code: "unknown_field", error: `Unknown weekly field: ${field}` };
+      return {
+        ok: false,
+        code: "unknown_field",
+        error: `Unknown weekly field: ${field}`,
+        diagnostics: {
+          topLevelKeys,
+          expectedKeys: ["lessonId", "weeklyChanges", "activities", "songs", "books"],
+          weeklySourceKey: extracted.sourceKey,
+          accepted,
+          rejected: [...rejected, { field, reason: "unknown_field", message: `Unknown weekly field: ${field}` }],
+          finalMutationCount: 0,
+        },
+      };
     }
     if (!allowedWeek.has(field)) {
-      return { ok: false, code: "unrequested_field", error: `Weekly field not requested (KEEP/out of scope): ${field}` };
+      // Soft-skip KEEP / out-of-scope week fields so full-lesson dumps still yield requested mutations.
+      rejected.push({
+        field,
+        reason: "unrequested_field",
+        message: `Weekly field not requested (KEEP/out of scope): ${field}`,
+      });
+      continue;
     }
-    const norm = normalizeChangeEntry(field, weeklyIn[field]);
-    if (!norm.ok) return { ok: false, code: "invalid_change", error: norm.error };
+    const requestedAction = allowedWeek.get(field)?.action || allowedWeek.get(field)?.decision;
+    const norm = coerceChangeEntry(field, extracted.weeklyIn[field], requestedAction);
+    if (!norm.ok) {
+      return {
+        ok: false,
+        code: "invalid_change",
+        error: norm.error,
+        diagnostics: {
+          topLevelKeys,
+          expectedKeys: ["lessonId", "weeklyChanges", "activities", "songs", "books"],
+          weeklySourceKey: extracted.sourceKey,
+          accepted,
+          rejected: [...rejected, { field, reason: "invalid_change", message: norm.error }],
+          finalMutationCount: 0,
+        },
+      };
+    }
     weeklyChanges[field] = { action: norm.action, value: norm.value };
+    accepted.push({ scope: "week", field, action: norm.action });
   }
 
   const allowedActs = new Map(work.activityRequests.map((r) => [r.activityId, r]));
   const activitiesOut = [];
   for (const row of schema.asArray(parsed.activities)) {
-    const activityId = text(row?.activityId, 160);
-    if (!activityId) return { ok: false, code: "missing_activity_id", error: "Activity change missing activityId." };
+    const activityId = text(row?.activityId || row?.id, 160);
+    if (!activityId) {
+      return { ok: false, code: "malformed_output", error: "Activity change missing activityId." };
+    }
     if (!allowedActs.has(activityId)) {
-      return { ok: false, code: "unknown_activity_id", error: `Unknown or KEEP activityId: ${activityId}` };
+      return {
+        ok: false,
+        code: "unknown_activity_id",
+        error: `Unknown or KEEP activityId: ${activityId}`,
+        diagnostics: {
+          topLevelKeys,
+          expectedKeys: ["lessonId", "weeklyChanges", "activities", "songs", "books"],
+          weeklySourceKey: extracted.sourceKey,
+          accepted,
+          rejected: [...rejected, {
+            field: activityId,
+            reason: "unknown_activity_id",
+            message: `Unknown or KEEP activityId: ${activityId}`,
+          }],
+          finalMutationCount: Object.keys(weeklyChanges).length,
+        },
+      };
     }
     const allowedFields = new Map(allowedActs.get(activityId).fields.map((f) => [f.field, f]));
     const changes = {};
     const rawChanges = row.changes && typeof row.changes === "object" ? row.changes : {};
-    for (const field of Object.keys(rawChanges)) {
+    // Allow activity fields at top-level of the row (alias shape)
+    const fieldSource = Object.keys(rawChanges).length
+      ? rawChanges
+      : Object.fromEntries(
+        ACTIVITY_FIELDS
+          .filter((f) => Object.prototype.hasOwnProperty.call(row, f))
+          .map((f) => [f, row[f]]),
+      );
+    for (const field of Object.keys(fieldSource)) {
       if (/image|printable|pdf|cover|setupImage|exampleImage/i.test(field)) {
         return { ok: false, code: "forbidden_field", error: `Forbidden activity field: ${field}` };
       }
       if (!ACTIVITY_FIELDS.includes(field)) {
-        return { ok: false, code: "unknown_field", error: `Unknown activity field: ${field}` };
+        return {
+          ok: false,
+          code: "unknown_field",
+          error: `Unknown activity field: ${field}`,
+        };
       }
       if (!allowedFields.has(field)) {
         if (!["teacherTips", "vocabulary", "observationPrompts", "substitutions",
           "indoorAlternatives", "outdoorAlternatives", "adaptations", "extensions"].includes(field)) {
-          return { ok: false, code: "unrequested_field", error: `Activity field not requested: ${activityId}.${field}` };
+          rejected.push({
+            field: `${activityId}.${field}`,
+            reason: "unrequested_field",
+            message: `Activity field not requested: ${activityId}.${field}`,
+          });
+          continue;
         }
       }
-      const norm = normalizeChangeEntry(field, rawChanges[field]);
-      if (!norm.ok) return { ok: false, code: "invalid_change", error: `${activityId}.${norm.error}` };
+      const requestedAction = allowedFields.get(field)?.action || allowedFields.get(field)?.decision;
+      const norm = coerceChangeEntry(field, fieldSource[field], requestedAction);
+      if (!norm.ok) {
+        return {
+          ok: false,
+          code: "invalid_change",
+          error: `${activityId}.${norm.error}`,
+        };
+      }
       changes[field] = { action: norm.action, value: norm.value };
+      accepted.push({ scope: "activity", activityId, field, action: norm.action });
     }
     if (Object.keys(changes).length) {
       activitiesOut.push({ activityId, changes });
@@ -477,9 +748,21 @@ function validateComposerOutput(rawText, work, plan) {
         allowPrintLyrics: true,
         teacherDirections: text(song.teacherDirections, 600),
       });
+      accepted.push({ scope: "song", field: day });
     }
   } else if (schema.asArray(parsed.songs).length) {
-    return { ok: false, code: "unrequested_songs", error: "Songs returned but not requested." };
+    return {
+      ok: false,
+      code: "unrequested_songs",
+      error: "Songs returned but not requested.",
+      diagnostics: {
+        topLevelKeys,
+        expectedKeys: ["lessonId", "weeklyChanges", "activities", "songs", "books"],
+        accepted,
+        rejected,
+        finalMutationCount: 0,
+      },
+    };
   }
 
   let books = null;
@@ -495,13 +778,45 @@ function validateComposerOutput(rawText, work, plan) {
         duringReadingPrompts: schema.asArray(b.duringReadingPrompts).map((q) => text(q, 200)).slice(0, 4),
         afterReadingQuestions: schema.asArray(b.afterReadingQuestions).map((q) => text(q, 200)).slice(0, 4),
       })).filter((b) => b.title);
+      if (books.length) accepted.push({ scope: "books", count: books.length });
     }
   } else if (schema.asArray(parsed.books).length) {
-    return { ok: false, code: "unrequested_books", error: "Books returned but not requested." };
+    return {
+      ok: false,
+      code: "unrequested_books",
+      error: "Books returned but not requested.",
+      diagnostics: {
+        topLevelKeys,
+        expectedKeys: ["lessonId", "weeklyChanges", "activities", "songs", "books"],
+        accepted,
+        rejected,
+        finalMutationCount: 0,
+      },
+    };
   }
 
-  if (!Object.keys(weeklyChanges).length && !activitiesOut.length && !songs.length && !books) {
-    return { ok: false, code: "empty_changes", error: "AI returned no usable field changes." };
+  const mutationCount = Object.keys(weeklyChanges).length
+    + activitiesOut.reduce((n, row) => n + Object.keys(row.changes || {}).length, 0)
+    + songs.length
+    + (books && books.length ? books.length : 0);
+
+  const diagnostics = {
+    topLevelKeys,
+    expectedKeys: ["lessonId", "weeklyChanges", "activities", "songs", "books"],
+    weeklySourceKey: extracted.sourceKey,
+    accepted,
+    rejected,
+    finalMutationCount: mutationCount,
+  };
+
+  if (!mutationCount) {
+    // Distinguish: work was requested but nothing usable survived normalization/validation.
+    return {
+      ok: false,
+      code: "empty_changes",
+      error: "AI returned no usable field changes.",
+      diagnostics,
+    };
   }
 
   return {
@@ -513,6 +828,7 @@ function validateComposerOutput(rawText, work, plan) {
       songs,
       books,
     },
+    diagnostics,
   };
 }
 
@@ -628,6 +944,7 @@ async function composeUpgradeContent({
     return {
       ok: true,
       skipped: true,
+      code: "NO_CHANGES_NEEDED",
       work,
       usage: { calls: 0, inputChars: 0, outputChars: 0 },
       validatedPlan: null,
@@ -812,6 +1129,7 @@ module.exports = {
   WEEK_FIELDS,
   ACTIVITY_FIELDS,
   WRITE_ACTIONS,
+  WEEK_FIELD_ALIASES,
   collectWorkItems,
   buildComposerContext,
   buildComposerSystemPrompt,
@@ -821,4 +1139,8 @@ module.exports = {
   composeUpgradeContent,
   buildOperatorAiFixtureResponse,
   stripJsonFences,
+  unwrapComposerPayload,
+  extractWeeklyChangesInput,
+  normalizeWeekFieldName,
+  coerceChangeEntry,
 };
