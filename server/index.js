@@ -3387,6 +3387,21 @@ function writeSiteCurriculumTouched(store, incomingCurriculum, {
     }
     // Surgical patches keep published dailyPlans by reference and never
     // re-normalize unrelated activity timing fields on this lesson.
+    // Phase 8 Owner publish must still be able to flip status/publishedAt/teachingKit
+    // on these reference-preserving paths (draft → published).
+    const applyOwnerPublishIdentity = (base) => {
+      const next = { ...base };
+      if (Object.prototype.hasOwnProperty.call(incomingPlan, "status")) {
+        next.status = incomingPlan.status;
+      }
+      if (Object.prototype.hasOwnProperty.call(incomingPlan, "publishedAt")) {
+        next.publishedAt = incomingPlan.publishedAt;
+      }
+      if (Object.prototype.hasOwnProperty.call(incomingPlan, "teachingKit")) {
+        next.teachingKit = incomingPlan.teachingKit;
+      }
+      return next;
+    };
     if (incomingPlan.dailyPlans === plan.dailyPlans) {
       const linkOnly = (
         incomingPlan.enrichmentDraft === plan.enrichmentDraft
@@ -3395,15 +3410,15 @@ function writeSiteCurriculumTouched(store, incomingCurriculum, {
         && incomingPlan.enrichmentPublishHistory === plan.enrichmentPublishHistory
       );
       if (linkOnly) {
-        return {
+        return applyOwnerPublishIdentity({
           ...plan,
           resourceIds: Array.isArray(incomingPlan.resourceIds) ? incomingPlan.resourceIds : plan.resourceIds,
           updatedAt: Object.prototype.hasOwnProperty.call(incomingPlan, "updatedAt")
             ? incomingPlan.updatedAt
             : plan.updatedAt,
-        };
+        });
       }
-      return {
+      return applyOwnerPublishIdentity({
         ...plan,
         enrichmentDraft: incomingPlan.enrichmentDraft,
         enrichmentDraftUndo: incomingPlan.enrichmentDraftUndo,
@@ -3416,12 +3431,12 @@ function writeSiteCurriculumTouched(store, incomingCurriculum, {
         updatedAt: Object.prototype.hasOwnProperty.call(incomingPlan, "updatedAt")
           ? incomingPlan.updatedAt
           : plan.updatedAt,
-      };
+      });
     }
     // Enrichment publish may relocate/replace only touched activities while keeping
     // untouched sibling activity objects by reference. Do not whole-lesson normalize.
     if (incomingPlan.__llhSurgicalDailyPlans === true) {
-      return {
+      return applyOwnerPublishIdentity({
         ...plan,
         enrichmentDraft: Object.prototype.hasOwnProperty.call(incomingPlan, "enrichmentDraft")
           ? incomingPlan.enrichmentDraft
@@ -3464,7 +3479,7 @@ function writeSiteCurriculumTouched(store, incomingCurriculum, {
         updatedAt: Object.prototype.hasOwnProperty.call(incomingPlan, "updatedAt")
           ? incomingPlan.updatedAt
           : plan.updatedAt,
-      };
+      });
     }
     return normalizedCurriculumLessonPlan(incomingPlan);
   });
