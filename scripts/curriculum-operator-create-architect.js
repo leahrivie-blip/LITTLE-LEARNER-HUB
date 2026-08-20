@@ -58,19 +58,38 @@ function buildArchitectSystemPrompt(ageBand) {
   return [
     "You are the Little Learner Hub Curriculum Architect.",
     "Design one complete original Teaching Kit week from the creation brief.",
-    "Return ONLY valid JSON matching the schema in the user message.",
+    "Return ONLY valid JSON matching the schema in the user message — the ENTIRE structured lesson, never prose commentary.",
     "Do not invent image URLs, printable PDFs, cover art, or published book fabrications.",
     "Do not copy paid curriculum or another site's activity text.",
-    "Every activity must be specific enough for a childcare teacher to run without inventing missing details.",
+    "Every activity must be a full supported activity object with useful teacher-ready depth (not summaries).",
     "Reject generic filler like \"Children will learn about X\", \"Set out materials\", \"Let children explore\", \"What do you see?\".",
-    "Honor the exact activityTarget count. Do not maximize count.",
-    "Design Monday–Friday progression first, then place activities under those day focuses.",
+    "Honor requiredActivityCount exactly: return that many activity objects — never fewer, never more, never one-per-weekday summaries.",
+    "Distribute activities across Monday–Friday (requiredWeekdays). For counts divisible by 5, use equal counts per day (e.g. 15 → 3 per day).",
+    "Do not summarize multiple activities into one object. Do not return only one activity per weekday when more are required.",
+    "Design Monday–Friday progression first, then place the exact activity count under those day focuses.",
     "Vary domains meaningfully; do not rename the same sorting/coloring idea repeatedly.",
     ageRules,
   ].join("\n");
 }
 
-function buildArchitectUserPrompt(brief, { revisionIssues, previousContent } = {}) {
+function requiredWeekdays() {
+  return ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+}
+
+function expectedWeekdayDistribution(activityTarget) {
+  const target = schema.clampInt(activityTarget, 4, 24, 12);
+  const base = Math.floor(target / WEEKDAYS.length);
+  const remainder = target % WEEKDAYS.length;
+  const distribution = {};
+  WEEKDAYS.forEach((day, index) => {
+    distribution[day] = base + (index < remainder ? 1 : 0);
+  });
+  return distribution;
+}
+
+function buildArchitectUserPrompt(brief, { revisionIssues, previousContent, previousActivityCount } = {}) {
+  const activityTarget = schema.clampInt(brief.activityTarget, 4, 24, createApi.defaultActivityTarget(brief.ageBand));
+  const weekdayDistribution = expectedWeekdayDistribution(activityTarget);
   const payload = {
     mode: "CREATE_NEW_LESSON_ARCHITECT",
     brief: {
@@ -79,11 +98,27 @@ function buildArchitectUserPrompt(brief, { revisionIssues, previousContent } = {
       ageBand: brief.ageBand,
       ageLabel: brief.ageLabel,
       accessPlan: brief.accessPlan,
-      activityTarget: brief.activityTarget,
+      activityTarget,
       exclusions: brief.exclusions || {},
       requestedFeatures: brief.requestedFeatures || {},
       researchRequested: brief.researchRequested === true,
       coverRequested: brief.coverRequested === true,
+    },
+    requiredActivityCount: activityTarget,
+    requiredWeekdays: requiredWeekdays(),
+    requiredWeekdayDistribution: weekdayDistribution,
+    contentDepthRequirements: {
+      objective: "specific developmental/learning purpose",
+      description: "clear description of actual child participation (what children will do)",
+      preparation: "actual teacher preparation steps",
+      setup: "specific physical arrangement",
+      steps: "multiple actionable steps where appropriate",
+      teacherLanguage: "multiple age-appropriate prompts/questions",
+      observationOpportunities: "observable developmental behaviors",
+      adaptations: "specific support adaptations (not \"help as needed\")",
+      extensions: "specific added challenge",
+      safetyNotes: "activity-specific safety information",
+      note: "Useful depth required; do not pad with empty verbosity where a short field is naturally sufficient.",
     },
     requiredJsonSchema: {
       lesson: {
@@ -141,18 +176,33 @@ function buildArchitectUserPrompt(brief, { revisionIssues, previousContent } = {
       bookIntent: ["optional verified-style book ideas — do not fabricate ISBNs"],
     },
     rules: [
-      `Create exactly ${brief.activityTarget} activities.`,
-      "Cover at least 4 weekdays; prefer all five.",
+      `Create exactly ${activityTarget} activity objects in activities[].`,
+      `requiredActivityCount=${activityTarget} is mandatory and non-optional.`,
+      `Distribute across weekdays per requiredWeekdayDistribution (typically ${JSON.stringify(weekdayDistribution)}).`,
+      "Every activity must include dayOfWeek from requiredWeekdays (lowercase in JSON: monday…friday).",
+      "All five weekdays must be represented when activityTarget >= 5.",
       "No near-duplicate activity concepts.",
       "researchRequested is informational only; do not claim web research occurred.",
     ],
   };
   if (revisionIssues && revisionIssues.length) {
+    const received = schema.clampInt(previousActivityCount, 0, 24, flattenActivityTitles(previousContent).length);
+    const missing = Math.max(0, activityTarget - received);
     payload.revisionPass = true;
     payload.fixOnlyTheseIssues = revisionIssues.slice(0, 40);
+    payload.revisionDirectives = [
+      `Expected requiredActivityCount=${activityTarget}; received ${received}.`,
+      missing > 0
+        ? `Add ${missing} complete new activities (do not summarize; each must be a full activity object).`
+        : `Keep exactly ${activityTarget} activities (remove extras if over-count).`,
+      "Preserve strong existing activities; repair listed Too short / quality issues in place.",
+      "Ensure Monday–Friday distribution matches requiredWeekdayDistribution.",
+      "Return the ENTIRE corrected structured lesson JSON (lesson + all activities), not a prose explanation and not a partial patch.",
+    ];
     payload.previousContentSummary = {
       dailyFocus: previousContent?.lesson?.dailyFocus || null,
       activityTitles: flattenActivityTitles(previousContent).slice(0, 40),
+      previousActivityCount: received,
     };
   }
   return [
@@ -196,6 +246,43 @@ function rejectGenericField(field, value) {
   return null;
 }
 
+function detectOutputTruncation(rawText, parsedActivityCount, requiredCount) {
+  const raw = String(rawText || "");
+  const trimmed = raw.trim();
+  const reasons = [];
+  if (!trimmed) reasons.push("empty_output");
+  if (trimmed && !trimmed.endsWith("}") && !trimmed.endsWith("]")) {
+    reasons.push("unterminated_json_tail");
+  }
+  // Common truncation smell: far fewer activities than required with a large but incomplete-looking payload
+  if (
+    Number.isFinite(parsedActivityCount)
+    && Number.isFinite(requiredCount)
+    && requiredCount >= 10
+    && parsedActivityCount > 0
+    && parsedActivityCount < Math.ceil(requiredCount * 0.5)
+    && raw.length > 8000
+  ) {
+    reasons.push("activity_count_far_below_target_with_large_payload");
+  }
+  try {
+    JSON.parse(composer.stripJsonFences(raw));
+  } catch (_e) {
+    if (raw.includes("{") && raw.length > 500) reasons.push("json_parse_failed_after_substantial_output");
+  }
+  return {
+    truncatedLikely: reasons.length > 0 && (
+      reasons.includes("unterminated_json_tail")
+      || reasons.includes("json_parse_failed_after_substantial_output")
+      || reasons.includes("activity_count_far_below_target_with_large_payload")
+    ),
+    reasons,
+    rawLength: raw.length,
+    parsedActivityCount,
+    requiredCount,
+  };
+}
+
 /**
  * Validate architect JSON into create content shape (lesson + dailyPlans.items).
  */
@@ -204,7 +291,16 @@ function validateArchitectOutput(rawText, brief) {
   try {
     parsed = JSON.parse(composer.stripJsonFences(rawText));
   } catch (_e) {
-    return { ok: false, code: "malformed_output", error: "AI returned malformed JSON.", issues: ["malformed_json"] };
+    const truncation = detectOutputTruncation(rawText, 0, schema.clampInt(brief.activityTarget, 4, 24, 12));
+    return {
+      ok: false,
+      code: "malformed_output",
+      error: "AI returned malformed JSON.",
+      issues: truncation.truncatedLikely
+        ? ["malformed_json", "possible_output_truncation", ...truncation.reasons]
+        : ["malformed_json"],
+      truncation,
+    };
   }
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
     return { ok: false, code: "malformed_output", error: "AI returned non-object JSON.", issues: ["malformed_json"] };
@@ -256,8 +352,13 @@ function validateArchitectOutput(rawText, brief) {
 
   const activitiesIn = schema.asArray(parsed.activities);
   const target = schema.clampInt(brief.activityTarget, 4, 24, createApi.defaultActivityTarget(brief.ageBand));
+  const truncation = detectOutputTruncation(rawText, activitiesIn.length, target);
   if (activitiesIn.length !== target) {
     issues.push(`activity_count_mismatch:${activitiesIn.length}!=${target}`);
+  }
+  if (truncation.truncatedLikely) {
+    issues.push("possible_output_truncation");
+    truncation.reasons.forEach((reason) => issues.push(reason));
   }
 
   const dailyPlans = Object.fromEntries(WEEKDAYS.map((d) => [d, { focus: dailyFocus[d], items: [] }]));
@@ -365,7 +466,20 @@ function validateArchitectOutput(rawText, brief) {
   }
 
   const daysUsed = WEEKDAYS.filter((d) => dailyPlans[d].items.length > 0);
-  if (daysUsed.length < 4) issues.push("weak_weekday_coverage");
+  if (target >= 5 && daysUsed.length < 5) {
+    issues.push(`weekday_coverage_incomplete:${daysUsed.length}<5`);
+  } else if (daysUsed.length < 4) {
+    issues.push("weak_weekday_coverage");
+  }
+  if (activitiesIn.length === target && target >= 5) {
+    const counts = WEEKDAYS.map((day) => dailyPlans[day].items.length);
+    const max = Math.max(...counts);
+    const min = Math.min(...counts);
+    // Allow off-by-one imbalance; reject extreme piles (e.g. 11 on Monday, 1 elsewhere).
+    if (max - min > 1) {
+      issues.push(`weekday_distribution_imbalanced:max${max}-min${min}`);
+    }
+  }
 
   const ageBand = brief.ageBand;
   const allText = activitiesIn.map((a) => JSON.stringify(a)).join(" ").toLowerCase();
@@ -396,9 +510,20 @@ function validateArchitectOutput(rawText, brief) {
       error: `Architect quality gate failed: ${issues.slice(0, 8).join("; ")}`,
       issues,
       content,
+      truncation,
+      parsedActivityCount: activitiesIn.length,
+      requiredActivityCount: target,
     };
   }
-  return { ok: true, content, issues: [], assetIntent };
+  return {
+    ok: true,
+    content,
+    issues: [],
+    assetIntent,
+    truncation,
+    parsedActivityCount: activitiesIn.length,
+    requiredActivityCount: target,
+  };
 }
 
 /**
@@ -535,7 +660,13 @@ function buildOperatorCreateArchitectFixtureResponse(userPrompt) {
 
 async function callArchitectOnce(brief, callAi, revision) {
   const systemPrompt = buildArchitectSystemPrompt(brief.ageBand);
-  const userPrompt = buildArchitectUserPrompt(brief, revision || {});
+  const previousActivityCount = revision?.previousContent
+    ? flattenActivityTitles(revision.previousContent).length
+    : revision?.previousActivityCount;
+  const userPrompt = buildArchitectUserPrompt(brief, {
+    ...(revision || {}),
+    previousActivityCount,
+  });
   let raw;
   try {
     raw = await callAi(systemPrompt, userPrompt);
@@ -556,6 +687,7 @@ async function callArchitectOnce(brief, callAi, revision) {
       lessonRevisionCalls: revision ? 1 : 0,
       inputChars: systemPrompt.length + userPrompt.length,
       outputChars: String(raw || "").length,
+      maxOutputTokensHint: Number(callAi?.maxOutputTokensHint) || null,
     },
   };
 }
@@ -608,6 +740,7 @@ async function composeNewLessonContent(brief, options = {}) {
   const revision = await callArchitectOnce(brief, callAi, {
     revisionIssues: first.issues || [first.error],
     previousContent: first.content || null,
+    previousActivityCount: first.parsedActivityCount,
   });
   usage.lessonRevisionCalls = 1;
   usage.lessonArchitectCalls += revision.usage?.lessonArchitectCalls || 0;
@@ -643,4 +776,7 @@ module.exports = {
   buildOperatorCreateArchitectFixtureResponse,
   composeNewLessonContent,
   conceptKey,
+  expectedWeekdayDistribution,
+  requiredWeekdays,
+  detectOutputTruncation,
 };

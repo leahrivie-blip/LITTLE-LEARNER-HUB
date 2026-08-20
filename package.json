@@ -29,6 +29,8 @@
     "test:curriculum-operator-phase1": "NODE_ENV=test node scripts/test-curriculum-operator-phase1.js",
     "test:curriculum-operator-phase2": "NODE_ENV=test node scripts/test-curriculum-operator-phase2.js",
     "test:curriculum-operator-phase25": "NODE_ENV=test node scripts/test-curriculum-operator-phase25.js",
+    "test:curriculum-operator-empty-changes": "NODE_ENV=test node scripts/test-curriculum-operator-empty-changes.js",
+    "test:curriculum-operator-create-architect": "NODE_ENV=test node scripts/test-curriculum-operator-create-architect.js",
     "test:curriculum-operator-phase25-live": "node scripts/test-curriculum-operator-phase25-live.js",
     "test:curriculum-operator-phase3": "NODE_ENV=test VISUAL_PRODUCTION_MOCK_GENERATE=1 LLH_OPERATOR_IMAGE_FIXTURE=1 node scripts/test-curriculum-operator-phase3.js",
     "test:curriculum-operator-phase3-live": "node scripts/test-curriculum-operator-phase3-live.js",
