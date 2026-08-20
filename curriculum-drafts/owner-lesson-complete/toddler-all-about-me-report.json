@@ -1,0 +1,245 @@
+{
+  "startedAt": "2026-08-20T23:38:54.213Z",
+  "configKey": "toddler-all-about-me",
+  "planId": "cur-lp-toddler-all-about-me",
+  "title": "All About Me",
+  "audit": {
+    "keep": [
+      "Family Photo Sharing",
+      "Name Song Mirror Circle",
+      "Home Sweet Home Pretend",
+      "Happy Feet Feelings Dance",
+      "I Am Special Celebration"
+    ],
+    "improve": [
+      "Mirror Me",
+      "My Name Discovery",
+      "Me Portrait Dough Faces",
+      "Body Parts Action Path",
+      "Family Photo Story Time",
+      "Feelings Faces Check-In",
+      "Favorites Discovery Baskets",
+      "Me Shadow Chase",
+      "All About Me Collage Wall"
+    ],
+    "replace": [
+      "Handprint Family Tree"
+    ]
+  },
+  "images": {
+    "created": [
+      {
+        "title": "Mirror Me",
+        "activityKey": "cur-act-531941230b30c762",
+        "requirement": "IMAGE_REQUIRED",
+        "source": "openai_realistic",
+        "url": "/api/admin/media/enrichment-photos/tk-enrich-9e63542c80aaea9aa6ac48bb3f517c12?variant=full",
+        "mediaAssetId": "tk-enrich-9e63542c80aaea9aa6ac48bb3f517c12",
+        "localPath": "/workspace/curriculum-drafts/owner-lesson-complete/toddler-all-about-me/generated/mirror-me.png"
+      },
+      {
+        "title": "My Name Discovery",
+        "activityKey": "cur-act-d53503dd27e6da17",
+        "requirement": "IMAGE_HELPFUL",
+        "source": "openai_realistic",
+        "url": "/api/admin/media/enrichment-photos/tk-enrich-f0721fefb46ddeaaf673d969547c538c?variant=full",
+        "mediaAssetId": "tk-enrich-f0721fefb46ddeaaf673d969547c538c",
+        "localPath": "/workspace/curriculum-drafts/owner-lesson-complete/toddler-all-about-me/generated/my-name-discovery.png"
+      },
+      {
+        "title": "Family Photo Sharing",
+        "activityKey": "cur-act-eeb9b39dca614835",
+        "requirement": "IMAGE_HELPFUL",
+        "source": "openai_realistic",
+        "url": "/api/admin/media/enrichment-photos/tk-enrich-e074c9f35f433b511592d634c48b5840?variant=full",
+        "mediaAssetId": "tk-enrich-e074c9f35f433b511592d634c48b5840",
+        "localPath": "/workspace/curriculum-drafts/owner-lesson-complete/toddler-all-about-me/generated/family-photo-sharing.png"
+      },
+      {
+        "title": "Me Portrait Dough Faces",
+        "activityKey": "cur-act-3019ae7d8bab8a26",
+        "requirement": "IMAGE_REQUIRED",
+        "source": "openai_realistic",
+        "url": "/api/admin/media/enrichment-photos/tk-enrich-3207529637ed90e6f078496ef6614c3d?variant=full",
+        "mediaAssetId": "tk-enrich-3207529637ed90e6f078496ef6614c3d",
+        "localPath": "/workspace/curriculum-drafts/owner-lesson-complete/toddler-all-about-me/generated/me-portrait-dough-faces.png"
+      },
+      {
+        "title": "Handprint Family Tree",
+        "activityKey": "cur-act-32a94d90e94c59d3",
+        "requirement": "IMAGE_REQUIRED",
+        "source": "openai_realistic",
+        "url": "/api/admin/media/enrichment-photos/tk-enrich-21fdd3ceb24833752bf851c80251f2df?variant=full",
+        "mediaAssetId": "tk-enrich-21fdd3ceb24833752bf851c80251f2df",
+        "localPath": "/workspace/curriculum-drafts/owner-lesson-complete/toddler-all-about-me/generated/handprint-family-tree.png"
+      },
+      {
+        "title": "Feelings Faces Check-In",
+        "activityKey": "cur-act-f459fc0b07fdd90b",
+        "requirement": "IMAGE_HELPFUL",
+        "source": "openai_realistic",
+        "url": "/api/admin/media/enrichment-photos/tk-enrich-c23590a4d17519b6f72ca57cb1a0d8e9?variant=full",
+        "mediaAssetId": "tk-enrich-c23590a4d17519b6f72ca57cb1a0d8e9",
+        "localPath": "/workspace/curriculum-drafts/owner-lesson-complete/toddler-all-about-me/generated/feelings-faces-check-in.png"
+      },
+      {
+        "title": "Favorites Discovery Baskets",
+        "activityKey": "cur-act-e4ad7f7b80dd6eea",
+        "requirement": "IMAGE_REQUIRED",
+        "source": "openai_realistic",
+        "url": "/api/admin/media/enrichment-photos/tk-enrich-f2325e93b75114fe951541615cc80053?variant=full",
+        "mediaAssetId": "tk-enrich-f2325e93b75114fe951541615cc80053",
+        "localPath": "/workspace/curriculum-drafts/owner-lesson-complete/toddler-all-about-me/generated/favorites-discovery-baskets.png"
+      },
+      {
+        "title": "All About Me Collage Wall",
+        "activityKey": "cur-act-98b9a6cf460fa2a5",
+        "requirement": "IMAGE_HELPFUL",
+        "source": "openai_realistic",
+        "url": "/api/admin/media/enrichment-photos/tk-enrich-73feb74f3891837c871bd41396936075?variant=full",
+        "mediaAssetId": "tk-enrich-73feb74f3891837c871bd41396936075",
+        "localPath": "/workspace/curriculum-drafts/owner-lesson-complete/toddler-all-about-me/generated/all-about-me-collage-wall.png"
+      }
+    ],
+    "skipped": [
+      {
+        "title": "Name Song Mirror Circle",
+        "reason": "IMAGE_NOT_NEEDED"
+      },
+      {
+        "title": "Body Parts Action Path",
+        "reason": "IMAGE_NOT_NEEDED"
+      },
+      {
+        "title": "Home Sweet Home Pretend",
+        "reason": "IMAGE_NOT_NEEDED"
+      },
+      {
+        "title": "Family Photo Story Time",
+        "reason": "IMAGE_NOT_NEEDED"
+      },
+      {
+        "title": "Happy Feet Feelings Dance",
+        "reason": "IMAGE_NOT_NEEDED"
+      },
+      {
+        "title": "I Am Special Celebration",
+        "reason": "IMAGE_NOT_NEEDED"
+      },
+      {
+        "title": "Me Shadow Chase",
+        "reason": "IMAGE_NOT_NEEDED"
+      }
+    ],
+    "failed": []
+  },
+  "printables": [
+    {
+      "title": "Body Parts Picture Cards (draft)",
+      "id": "cur-res-661287ba04c0f8ab",
+      "pages": 6,
+      "decision": "NEW",
+      "purpose": "Point/name body parts for Mirror Me and Body Parts Action Path",
+      "teacherUse": "Hold up during mirror and movement cues",
+      "childUse": "Point, name, touch corresponding body part",
+      "why": "Concrete visual support for toddler body awareness — not filler vocab",
+      "status": "draft"
+    },
+    {
+      "title": "Favorites Choice Cards (draft)",
+      "id": "cur-res-21073e8fd703f677",
+      "pages": 4,
+      "decision": "NEW",
+      "purpose": "Visual choices for Favorites Discovery Baskets",
+      "teacherUse": "Pair with baskets; prompt choosing/showing",
+      "childUse": "Choose a favorite and show friends",
+      "why": "Makes preference talk concrete for toddlers",
+      "status": "draft"
+    }
+  ],
+  "cover": {
+    "selectedActivity": "Mirror Me",
+    "uploadStatus": 200,
+    "assignStatus": 200,
+    "ok": true,
+    "url": "/api/media/lesson-covers/lesson-cover-a0063b6fff7caeebe429f8f5d8cdde52",
+    "coverId": "lesson-cover-a0063b6fff7caeebe429f8f5d8cdde52",
+    "error": null
+  },
+  "verify": {
+    "id": "cur-lp-toddler-all-about-me",
+    "title": "All About Me",
+    "age": "Toddler",
+    "status": "published",
+    "plan": "Pro",
+    "activityCount": 15,
+    "draftActivityCount": 15,
+    "draftActivitiesWithImages": 8,
+    "coverImageUrl": "/api/media/lesson-covers/lesson-cover-a0063b6fff7caeebe429f8f5d8cdde52",
+    "linkedResources": [
+      {
+        "id": "cur-res-661287ba04c0f8ab",
+        "title": "Body Parts Picture Cards (draft)",
+        "status": "draft",
+        "lessonPlanIds": [
+          "cur-lp-toddler-all-about-me"
+        ]
+      },
+      {
+        "id": "cur-res-21073e8fd703f677",
+        "title": "Favorites Choice Cards (draft)",
+        "status": "draft",
+        "lessonPlanIds": [
+          "cur-lp-toddler-all-about-me"
+        ]
+      }
+    ],
+    "freeProUnchanged": true,
+    "statusUnchanged": true,
+    "idUnchanged": true,
+    "enrichmentPublished": false,
+    "exactTitleCount": 2
+  },
+  "guardSnapshots": {
+    "cur-lp-preschool-all-about-me": {
+      "title": "All About Me",
+      "status": "published",
+      "plan": "Free",
+      "updatedAt": "2026-08-12T00:58:08.598Z",
+      "coverImageUrl": "/images/lesson-covers/all-about-me.jpg",
+      "enrichmentDraftUpdatedAt": "2026-08-12T02:18:04.007Z"
+    }
+  },
+  "before": {
+    "id": "cur-lp-toddler-all-about-me",
+    "title": "All About Me",
+    "age": "Toddler",
+    "status": "published",
+    "plan": "Pro",
+    "activityCount": 15,
+    "hasDraft": false,
+    "coverImageUrl": "/api/media/lesson-covers/lesson-cover-01e43194ad4f9d1fd438270dd757bbda",
+    "resourceIds": []
+  },
+  "untouchedGuards": {
+    "cur-lp-preschool-all-about-me": {
+      "ok": true,
+      "before": {
+        "title": "All About Me",
+        "status": "published",
+        "plan": "Free",
+        "updatedAt": "2026-08-12T00:58:08.598Z",
+        "coverImageUrl": "/images/lesson-covers/all-about-me.jpg",
+        "enrichmentDraftUpdatedAt": "2026-08-12T02:18:04.007Z"
+      },
+      "after": {
+        "title": "All About Me",
+        "status": "published",
+        "plan": "Free",
+        "coverImageUrl": "/images/lesson-covers/all-about-me.jpg",
+        "enrichmentDraftUpdatedAt": "2026-08-12T02:18:04.007Z"
+      }
+    }
+  },
+  "finishedAt": "2026-08-20T23:45:19.847Z"
+}

@@ -1,0 +1,245 @@
+{
+  "startedAt": "2026-08-20T23:45:24.137Z",
+  "configKey": "little-makers-workshop",
+  "planId": "cur-lp-549b80f61dfa8d79",
+  "title": "Little Makers Workshop",
+  "audit": {
+    "keep": [
+      "Giant Floor Drawing",
+      "Sponge Squish Painting",
+      "Sticky Wall Collage",
+      "Cardboard Box Builders",
+      "Play Dough Maker Table",
+      "Our Little Makers Gallery"
+    ],
+    "improve": [
+      "Dot Marker Color Pops",
+      "Marker Car Roads",
+      "Toy Car Paint Tracks",
+      "Big Brush Wall Painting",
+      "Sticker Shape Studio",
+      "Tear and Stick Paper Art",
+      "Tape It Together",
+      "Build a Home for a Toy",
+      "Recycled Creation Station"
+    ],
+    "replace": []
+  },
+  "images": {
+    "created": [
+      {
+        "title": "Giant Floor Drawing",
+        "activityKey": "cur-act-0a02697c73ccac85",
+        "requirement": "IMAGE_REQUIRED",
+        "source": "openai_realistic",
+        "url": "/api/admin/media/enrichment-photos/tk-enrich-ed7dc2d8ab3ddc52e4513ce7d18ad673?variant=full",
+        "mediaAssetId": "tk-enrich-ed7dc2d8ab3ddc52e4513ce7d18ad673",
+        "localPath": "/workspace/curriculum-drafts/owner-lesson-complete/little-makers-workshop/generated/giant-floor-drawing.png"
+      },
+      {
+        "title": "Sponge Squish Painting",
+        "activityKey": "cur-act-c36723f91d3a9637",
+        "requirement": "IMAGE_REQUIRED",
+        "source": "openai_realistic",
+        "url": "/api/admin/media/enrichment-photos/tk-enrich-bb6f580c8020e55dc3cc9f64dac60d1d?variant=full",
+        "mediaAssetId": "tk-enrich-bb6f580c8020e55dc3cc9f64dac60d1d",
+        "localPath": "/workspace/curriculum-drafts/owner-lesson-complete/little-makers-workshop/generated/sponge-squish-painting.png"
+      },
+      {
+        "title": "Big Brush Wall Painting",
+        "activityKey": "cur-act-e73d2563a00a625e",
+        "requirement": "IMAGE_HELPFUL",
+        "source": "openai_realistic",
+        "url": "/api/admin/media/enrichment-photos/tk-enrich-64e290d6798ed12981b8e13a387d4b6b?variant=full",
+        "mediaAssetId": "tk-enrich-64e290d6798ed12981b8e13a387d4b6b",
+        "localPath": "/workspace/curriculum-drafts/owner-lesson-complete/little-makers-workshop/generated/big-brush-wall-painting.png"
+      },
+      {
+        "title": "Sticky Wall Collage",
+        "activityKey": "cur-act-8742aa9c0bf55e92",
+        "requirement": "IMAGE_REQUIRED",
+        "source": "openai_realistic",
+        "url": "/api/admin/media/enrichment-photos/tk-enrich-fe52f268c2af3c95fa71f9a21a3920d6?variant=full",
+        "mediaAssetId": "tk-enrich-fe52f268c2af3c95fa71f9a21a3920d6",
+        "localPath": "/workspace/curriculum-drafts/owner-lesson-complete/little-makers-workshop/generated/sticky-wall-collage.png"
+      },
+      {
+        "title": "Cardboard Box Builders",
+        "activityKey": "cur-act-11219e65afbc3c4b",
+        "requirement": "IMAGE_REQUIRED",
+        "source": "openai_realistic",
+        "url": "/api/admin/media/enrichment-photos/tk-enrich-15665fd5ea86d3d39e4ff86c8301b0ce?variant=full",
+        "mediaAssetId": "tk-enrich-15665fd5ea86d3d39e4ff86c8301b0ce",
+        "localPath": "/workspace/curriculum-drafts/owner-lesson-complete/little-makers-workshop/generated/cardboard-box-builders.png"
+      },
+      {
+        "title": "Play Dough Maker Table",
+        "activityKey": "cur-act-a64e2ec14fb26963",
+        "requirement": "IMAGE_REQUIRED",
+        "source": "openai_realistic",
+        "url": "/api/admin/media/enrichment-photos/tk-enrich-bde8fc066c38d06f76892d3a4be09d03?variant=full",
+        "mediaAssetId": "tk-enrich-bde8fc066c38d06f76892d3a4be09d03",
+        "localPath": "/workspace/curriculum-drafts/owner-lesson-complete/little-makers-workshop/generated/play-dough-maker-table.png"
+      },
+      {
+        "title": "Recycled Creation Station",
+        "activityKey": "cur-act-374ff7ad30144089",
+        "requirement": "IMAGE_HELPFUL",
+        "source": "openai_realistic",
+        "url": "/api/admin/media/enrichment-photos/tk-enrich-c0c7dd4ad80e666022efc6b4b13bf0aa?variant=full",
+        "mediaAssetId": "tk-enrich-c0c7dd4ad80e666022efc6b4b13bf0aa",
+        "localPath": "/workspace/curriculum-drafts/owner-lesson-complete/little-makers-workshop/generated/recycled-creation-station.png"
+      }
+    ],
+    "skipped": [
+      {
+        "title": "Dot Marker Color Pops",
+        "reason": "IMAGE_NOT_NEEDED"
+      },
+      {
+        "title": "Marker Car Roads",
+        "reason": "IMAGE_NOT_NEEDED"
+      },
+      {
+        "title": "Toy Car Paint Tracks",
+        "reason": "IMAGE_NOT_NEEDED"
+      },
+      {
+        "title": "Sticker Shape Studio",
+        "reason": "IMAGE_NOT_NEEDED"
+      },
+      {
+        "title": "Tear and Stick Paper Art",
+        "reason": "IMAGE_NOT_NEEDED"
+      },
+      {
+        "title": "Tape It Together",
+        "reason": "IMAGE_NOT_NEEDED"
+      },
+      {
+        "title": "Build a Home for a Toy",
+        "reason": "IMAGE_NOT_NEEDED"
+      },
+      {
+        "title": "Our Little Makers Gallery",
+        "reason": "IMAGE_NOT_NEEDED"
+      }
+    ],
+    "failed": []
+  },
+  "printables": [
+    {
+      "title": "Maker Station Signs (draft)",
+      "id": "cur-res-eaf645605f866a60",
+      "pages": 5,
+      "decision": "NEW",
+      "purpose": "Label Draw/Paint/Stick/Build/Dough invitations at child height",
+      "teacherUse": "Hang near each maker station",
+      "childUse": "Visual cue for where to explore",
+      "why": "Helps toddlers navigate process stations without worksheets",
+      "status": "draft"
+    },
+    {
+      "title": "Process Maker Prompt Cards (draft)",
+      "id": "cur-res-e7d3ec92ec5f13e6",
+      "pages": 5,
+      "decision": "NEW",
+      "purpose": "Press/Tear/Stick/Roll/Stack action prompts for teachers and older toddlers",
+      "teacherUse": "Cue language during invitations",
+      "childUse": "See the action word while making",
+      "why": "Supports process vocabulary without product samples",
+      "status": "draft"
+    }
+  ],
+  "cover": {
+    "selectedActivity": "Sponge Squish Painting",
+    "uploadStatus": 200,
+    "assignStatus": 200,
+    "ok": true,
+    "url": "/api/media/lesson-covers/lesson-cover-7acc5818417dd09468046b5e6bc9b96c",
+    "coverId": "lesson-cover-7acc5818417dd09468046b5e6bc9b96c",
+    "error": null
+  },
+  "verify": {
+    "id": "cur-lp-549b80f61dfa8d79",
+    "title": "Little Makers Workshop",
+    "age": "Toddler 12–24 Months",
+    "status": "draft",
+    "plan": "Free",
+    "activityCount": 15,
+    "draftActivityCount": 15,
+    "draftActivitiesWithImages": 7,
+    "coverImageUrl": "/api/media/lesson-covers/lesson-cover-7acc5818417dd09468046b5e6bc9b96c",
+    "linkedResources": [
+      {
+        "id": "cur-res-eaf645605f866a60",
+        "title": "Maker Station Signs (draft)",
+        "status": "draft",
+        "lessonPlanIds": [
+          "cur-lp-549b80f61dfa8d79"
+        ]
+      },
+      {
+        "id": "cur-res-e7d3ec92ec5f13e6",
+        "title": "Process Maker Prompt Cards (draft)",
+        "status": "draft",
+        "lessonPlanIds": [
+          "cur-lp-549b80f61dfa8d79"
+        ]
+      }
+    ],
+    "freeProUnchanged": true,
+    "statusUnchanged": true,
+    "idUnchanged": true,
+    "enrichmentPublished": false,
+    "exactTitleCount": 2
+  },
+  "guardSnapshots": {
+    "cur-lp-88831286195f7477": {
+      "title": "Little Makers Workshop",
+      "status": "archived",
+      "plan": "Free",
+      "updatedAt": "2026-08-18T00:18:39.924Z",
+      "coverImageUrl": "/images/lesson-covers/generic-toddler.svg",
+      "enrichmentDraftUpdatedAt": "2026-08-17T22:07:07.994Z"
+    }
+  },
+  "before": {
+    "id": "cur-lp-549b80f61dfa8d79",
+    "title": "Little Makers Workshop (Import copy)",
+    "age": "Toddler 12–24 Months",
+    "status": "draft",
+    "plan": "Free",
+    "activityCount": 15,
+    "hasDraft": true,
+    "coverImageUrl": "/images/lesson-covers/generic-toddler.svg",
+    "resourceIds": []
+  },
+  "rename": {
+    "from": "Little Makers Workshop (Import copy)",
+    "to": "Little Makers Workshop",
+    "ok": true
+  },
+  "untouchedGuards": {
+    "cur-lp-88831286195f7477": {
+      "ok": true,
+      "before": {
+        "title": "Little Makers Workshop",
+        "status": "archived",
+        "plan": "Free",
+        "updatedAt": "2026-08-18T00:18:39.924Z",
+        "coverImageUrl": "/images/lesson-covers/generic-toddler.svg",
+        "enrichmentDraftUpdatedAt": "2026-08-17T22:07:07.994Z"
+      },
+      "after": {
+        "title": "Little Makers Workshop",
+        "status": "archived",
+        "plan": "Free",
+        "coverImageUrl": "/images/lesson-covers/generic-toddler.svg",
+        "enrichmentDraftUpdatedAt": "2026-08-17T22:07:07.994Z"
+      }
+    }
+  },
+  "archivedTwinStillArchived": true,
+  "finishedAt": "2026-08-20T23:50:25.025Z"
+}
