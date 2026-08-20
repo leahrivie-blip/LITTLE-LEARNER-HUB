@@ -111,8 +111,8 @@ const activities = {
     imageBriefSetup: "Toddlers making faces with a teacher at unbreakable floor mirrors — candid classroom photo.",
   }),
   "Match the Feeling Face": base({
-    imagePlan: "IMAGE_HELPFUL",
-    imageRequirement: "optional",
+    imagePlan: "IMAGE_NOT_NEEDED",
+    imageRequirement: "not_needed",
     activityCategory: "Social Emotional",
     durationMinutes: 10,
     objective: "Match feeling cards to mirror faces or puppets.",
