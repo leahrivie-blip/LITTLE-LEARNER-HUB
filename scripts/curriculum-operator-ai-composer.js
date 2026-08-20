@@ -100,6 +100,9 @@ const WEEKLY_CHANGES_KEYS = Object.freeze([
   "weekChanges",
   "week_changes",
   "fieldChanges",
+  "changes",
+  "fields",
+  "updates",
 ]);
 
 const PAYLOAD_WRAPPER_KEYS = Object.freeze([
@@ -112,6 +115,7 @@ const PAYLOAD_WRAPPER_KEYS = Object.freeze([
   "lesson",
   "upgrade",
   "content",
+  "enrichmentDraft",
 ]);
 
 function isWriteAction(action) {
@@ -161,6 +165,49 @@ function normalizeWeekFieldName(field) {
 }
 
 /**
+ * Convert array-shaped weekly change lists into a field→entry map.
+ * Supports rows like { field|name|key, action, value } used by some model outputs.
+ */
+function weeklyChangesFromArray(rows) {
+  const source = {};
+  const rejected = [];
+  schema.asArray(rows).forEach((row, index) => {
+    if (!row || typeof row !== "object" || Array.isArray(row)) {
+      rejected.push({
+        field: `row_${index}`,
+        reason: "invalid_change",
+        message: `Malformed weekly change row at index ${index}`,
+      });
+      return;
+    }
+    const rawField = text(row.field || row.name || row.key || row.path, 80)
+      .replace(/^week\./, "");
+    if (!rawField) {
+      rejected.push({
+        field: `row_${index}`,
+        reason: "unknown_field",
+        message: `Weekly change row ${index} missing field name`,
+      });
+      return;
+    }
+    if (Object.prototype.hasOwnProperty.call(source, rawField)) {
+      rejected.push({
+        field: rawField,
+        reason: "alias_duplicate",
+        message: `Duplicate weekly field in array: ${rawField}`,
+      });
+      return;
+    }
+    if (row.action != null || row.value != null || row.text != null || row.content != null || row.decision != null) {
+      source[rawField] = row;
+    } else {
+      source[rawField] = row;
+    }
+  });
+  return { source, rejected };
+}
+
+/**
  * Pull weekly change map from weeklyChanges / week / weekly / top-level fields.
  */
 function extractWeeklyChangesInput(parsed) {
@@ -170,7 +217,14 @@ function extractWeeklyChangesInput(parsed) {
 
   for (const key of WEEKLY_CHANGES_KEYS) {
     const candidate = parsed?.[key];
-    if (candidate && typeof candidate === "object" && !Array.isArray(candidate)) {
+    if (Array.isArray(candidate)) {
+      const fromArr = weeklyChangesFromArray(candidate);
+      source = fromArr.source;
+      rejected.push(...fromArr.rejected);
+      sourceKey = `${key}[]`;
+      break;
+    }
+    if (candidate && typeof candidate === "object") {
       source = candidate;
       sourceKey = key;
       break;
@@ -180,6 +234,12 @@ function extractWeeklyChangesInput(parsed) {
     // Prefer change-shaped week objects; still accept content maps.
     source = parsed.week;
     sourceKey = "week";
+  }
+  if (!source && parsed?.enrichmentDraft?.week
+    && typeof parsed.enrichmentDraft.week === "object"
+    && !Array.isArray(parsed.enrichmentDraft.week)) {
+    source = parsed.enrichmentDraft.week;
+    sourceKey = "enrichmentDraft.week";
   }
 
   if (!source) {

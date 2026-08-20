@@ -258,6 +258,48 @@ async function main() {
     ok(validated.plan.weeklyChanges.vocabCards, "vocabulary → vocabCards");
   }
 
+  // Array-shaped weeklyChanges (live #730 failure shape class)
+  {
+    const raw = JSON.stringify({
+      lessonId: LESSON_ID,
+      weeklyChanges: work.weekRequests.map((req) => ({
+        field: req.field,
+        action: req.action,
+        value: changeFor(req.field, req.action).value,
+      })),
+      activities: [],
+    });
+    const validated = composer.validateComposerOutput(raw, work, plan);
+    reportShape("array weeklyChanges", raw, validated);
+    ok(validated.ok === true, "array-shaped weeklyChanges produces accepted mutations");
+    ok(validated.diagnostics.weeklySourceKey === "weeklyChanges[]", "array source key recorded");
+  }
+
+  // Alternate map keys: changes / fields / updates
+  {
+    const map = productionLikeWeeklyMap(work);
+    for (const key of ["changes", "fields", "updates"]) {
+      const raw = JSON.stringify({ lessonId: LESSON_ID, [key]: map, activities: [] });
+      const validated = composer.validateComposerOutput(raw, work, plan);
+      ok(validated.ok === true, `${key} map key normalizes to weekly mutations`);
+    }
+  }
+
+  // enrichmentDraft.week plain values
+  {
+    const week = {};
+    work.weekRequests.forEach((req) => {
+      week[req.field] = changeFor(req.field, req.action).value;
+    });
+    const raw = JSON.stringify({
+      lessonId: LESSON_ID,
+      enrichmentDraft: { week },
+      activities: [],
+    });
+    const validated = composer.validateComposerOutput(raw, work, plan);
+    ok(validated.ok === true, "enrichmentDraft.week plain values accepted");
+  }
+
   // Unsupported alias rejected
   {
     const raw = JSON.stringify({
