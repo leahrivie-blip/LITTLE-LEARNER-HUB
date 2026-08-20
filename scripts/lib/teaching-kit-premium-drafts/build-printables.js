@@ -382,11 +382,58 @@ async function buildWeatherPrintables() {
     },
   ], chart);
   const clothing = path.join(dir, "clothing-for-weather-cards.pdf");
+  // Object-only flat-lay clothing (no human/bubble figures — teaching-card rule).
   const clothes = [
-    ["Sunny", "#fff7d6", "sun-hat + short sleeves", `<circle cx="256" cy="150" r="50" fill="#f5b700"/><rect x="196" y="230" width="120" height="140" rx="24" fill="#60a5fa"/><ellipse cx="256" cy="120" rx="70" ry="18" fill="#fbbf24"/>`],
-    ["Rainy", "#e0f2fe", "raincoat + boots", `<path d="M160 210 Q256 120 352 210 L352 320 Q256 360 160 320 Z" fill="#38bdf8"/><rect x="200" y="320" width="40" height="50" rx="8" fill="#1d4ed8"/><rect x="272" y="320" width="40" height="50" rx="8" fill="#1d4ed8"/>`],
-    ["Cold", "#ede9fe", "coat + mittens", `<rect x="180" y="180" width="152" height="180" rx="28" fill="#7c3aed"/><circle cx="256" cy="140" r="46" fill="#c4b5fd"/><rect x="150" y="250" width="40" height="50" rx="12" fill="#a78bfa"/><rect x="322" y="250" width="40" height="50" rx="12" fill="#a78bfa"/>`],
-    ["Windy", "#cffafe", "light jacket", `<path d="M40 120 Q160 80 300 130" fill="none" stroke="#0891b2" stroke-width="10"/><rect x="190" y="200" width="130" height="160" rx="26" fill="#22d3ee"/><circle cx="255" cy="160" r="40" fill="#a5f3fc"/>`],
+    [
+      "Sunny",
+      "#fff7d6",
+      "sun-hat + short sleeves",
+      [
+        `<ellipse cx="256" cy="150" rx="92" ry="22" fill="#f5b700"/>`,
+        `<ellipse cx="256" cy="138" rx="48" ry="16" fill="#fbbf24"/>`,
+        `<path d="M190 210 L190 360 Q256 390 322 360 L322 210 Q256 240 190 210 Z" fill="#60a5fa"/>`,
+        `<rect x="210" y="250" width="28" height="70" rx="8" fill="#dbeafe"/>`,
+        `<rect x="274" y="250" width="28" height="70" rx="8" fill="#dbeafe"/>`,
+      ].join(""),
+    ],
+    [
+      "Rainy",
+      "#e0f2fe",
+      "raincoat + boots",
+      [
+        `<path d="M168 200 Q256 110 344 200 L344 330 Q256 370 168 330 Z" fill="#38bdf8"/>`,
+        `<rect x="236" y="200" width="40" height="130" fill="#7dd3fc"/>`,
+        `<rect x="198" y="340" width="44" height="58" rx="10" fill="#1d4ed8"/>`,
+        `<rect x="270" y="340" width="44" height="58" rx="10" fill="#1d4ed8"/>`,
+        `<ellipse cx="220" cy="398" rx="24" ry="10" fill="#172554"/>`,
+        `<ellipse cx="292" cy="398" rx="24" ry="10" fill="#172554"/>`,
+      ].join(""),
+    ],
+    [
+      "Cold",
+      "#ede9fe",
+      "coat + mittens",
+      [
+        `<path d="M176 170 Q256 130 336 170 L352 360 Q256 400 160 360 Z" fill="#7c3aed"/>`,
+        `<rect x="236" y="190" width="40" height="150" fill="#a78bfa"/>`,
+        `<rect x="140" y="250" width="48" height="56" rx="16" fill="#c4b5fd"/>`,
+        `<rect x="324" y="250" width="48" height="56" rx="16" fill="#c4b5fd"/>`,
+        `<circle cx="164" cy="278" r="8" fill="#ede9fe"/>`,
+        `<circle cx="348" cy="278" r="8" fill="#ede9fe"/>`,
+      ].join(""),
+    ],
+    [
+      "Windy",
+      "#cffafe",
+      "light jacket + scarf",
+      [
+        `<path d="M48 130 Q170 80 320 140" fill="none" stroke="#0891b2" stroke-width="10" stroke-linecap="round"/>`,
+        `<path d="M80 170 Q210 120 360 175" fill="none" stroke="#22d3ee" stroke-width="7" stroke-linecap="round"/>`,
+        `<path d="M188 190 Q256 160 324 190 L340 350 Q256 385 172 350 Z" fill="#06b6d4"/>`,
+        `<path d="M210 210 Q256 250 302 210" fill="none" stroke="#a5f3fc" stroke-width="18" stroke-linecap="round"/>`,
+        `<path d="M302 214 Q360 240 380 300" fill="none" stroke="#67e8f9" stroke-width="14" stroke-linecap="round"/>`,
+      ].join(""),
+    ],
   ];
   await buildPdfFromPages(
     clothes.map(([label, fill, hint, art]) => async (pdf) => {
