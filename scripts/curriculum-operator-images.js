@@ -402,6 +402,184 @@ function verifyAttachedImage({
   return { ok: failed.length === 0, checks, failed };
 }
 
+const NON_MEDIA_ACTIVITY_KEYS = Object.freeze([
+  "objective",
+  "materials",
+  "setup",
+  "steps",
+  "safetyNotes",
+  "title",
+  "description",
+  "teacherTips",
+  "extensions",
+  "cleanup",
+  "imageRequirement",
+]);
+
+/**
+ * Build the explicit allowed media mutation set for one image job lesson.
+ * Only GENERATE/REPLACE writes for the planned activityId+field are allowed.
+ */
+function buildAllowedImageMutations(actions = []) {
+  const allowed = [];
+  schema.asArray(actions).forEach((action) => {
+    const decision = normalizeDecision(action.decision);
+    if (!WRITE_DECISIONS.includes(decision)) return;
+    if (action.status === "skipped" && /already succeeded/i.test(action.reason || "")) {
+      // Resume skip — media already attached; treat as allowed target, not unexpected.
+      allowed.push({
+        activityId: text(action.activityId, 160),
+        field: action.field,
+        decision,
+        mediaUrl: text(action.mediaUrl, 500),
+        mediaAssetId: text(action.mediaAssetId, 160),
+        resumeSkip: true,
+      });
+      return;
+    }
+    if (action.status === "failed") return;
+    if (action.status !== "success") return;
+    allowed.push({
+      activityId: text(action.activityId, 160),
+      field: action.field,
+      decision,
+      mediaUrl: text(action.mediaUrl, 500),
+      mediaAssetId: text(action.mediaAssetId, 160),
+      previousUrl: text(action.previousUrl, 500),
+      resumeSkip: false,
+    });
+  });
+  return allowed;
+}
+
+function activityPatchMediaFingerprint(patch = {}) {
+  return IMAGE_FIELDS.map((f) => [
+    f,
+    text(patch?.[f], 500),
+    text(patch?.[assetIdFieldFor(f)], 160),
+    text(patch?.[thumbFieldFor(f)], 500),
+  ].join("|")).join("::");
+}
+
+function activityPatchNonMediaFingerprint(patch = {}) {
+  return NON_MEDIA_ACTIVITY_KEYS.map((k) => `${k}=${text(patch?.[k], 800)}`).join("||");
+}
+
+/**
+ * Lesson-level image job verification using an explicit allowed-mutation set.
+ * Legitimate GENERATE/REPLACE writes in the same job are allowed; anything else
+ * (KEEP/NOT_NEEDED media, non-media fields, unexpected activity media) is not.
+ */
+function verifyImageJobDraft({ beforePlan, afterPlan, actions = [] }) {
+  const checks = [];
+  const pass = (ok, code, message) => checks.push({ ok: Boolean(ok), code, message });
+
+  pass(beforePlan?.id && beforePlan.id === afterPlan?.id, "lesson_id", "Lesson ID unchanged.");
+  pass(text(beforePlan?.age) === text(afterPlan?.age), "age", "Age unchanged.");
+  pass(
+    (beforePlan?.plan === "Pro" ? "Pro" : "Free") === (afterPlan?.plan === "Pro" ? "Pro" : "Free"),
+    "access_plan",
+    "Access plan unchanged.",
+  );
+  pass(text(beforePlan?.title) === text(afterPlan?.title), "title", "Title unchanged.");
+  pass(afterPlan?.status === beforePlan?.status, "publish_status", "Lesson status unchanged.");
+  pass(
+    JSON.stringify(schema.asArray(beforePlan?.resourceIds)) === JSON.stringify(schema.asArray(afterPlan?.resourceIds)),
+    "resource_ids",
+    "Printable/resource IDs unchanged.",
+  );
+
+  // Published body image fields on catalog activities must not be required to change —
+  // Operator only writes enrichmentDraft. Compare published weekly body stamp when present.
+  pass(
+    text(beforePlan?.weeklyOverview, 500) === text(afterPlan?.weeklyOverview, 500),
+    "published_weekly_overview",
+    "Published weeklyOverview body unchanged.",
+  );
+  pass(
+    text(beforePlan?.objectives, 500) === text(afterPlan?.objectives, 500),
+    "published_objectives",
+    "Published objectives body unchanged.",
+  );
+
+  const beforeActs = beforePlan?.enrichmentDraft?.activities && typeof beforePlan.enrichmentDraft.activities === "object"
+    ? beforePlan.enrichmentDraft.activities
+    : {};
+  const afterActs = afterPlan?.enrichmentDraft?.activities && typeof afterPlan.enrichmentDraft.activities === "object"
+    ? afterPlan.enrichmentDraft.activities
+    : {};
+
+  const allowed = buildAllowedImageMutations(actions);
+  const allowedKeys = new Set(allowed.map((a) => `${a.activityId}::${a.field}`));
+
+  allowed.forEach((mut) => {
+    if (mut.resumeSkip) return;
+    const act = afterActs[mut.activityId] || {};
+    pass(Boolean(afterActs[mut.activityId]), `exists_${mut.activityId}`, `Activity ${mut.activityId} still exists in draft.`);
+    pass(
+      text(act[mut.field], 500) === text(mut.mediaUrl, 500),
+      `media_${mut.activityId}`,
+      `Activity ${mut.activityId} references intended media URL.`,
+    );
+    pass(
+      text(act[assetIdFieldFor(mut.field)], 160) === text(mut.mediaAssetId, 160),
+      `asset_${mut.activityId}`,
+      `Activity ${mut.activityId} references intended media asset id.`,
+    );
+  });
+
+  const allIds = new Set([
+    ...Object.keys(beforeActs),
+    ...Object.keys(afterActs),
+    ...schema.asArray(actions).map((a) => text(a.activityId, 160)).filter(Boolean),
+  ]);
+
+  allIds.forEach((activityId) => {
+    const beforePatch = beforeActs[activityId] || {};
+    const afterPatch = afterActs[activityId] || {};
+    const decision = normalizeDecision(
+      schema.asArray(actions).find((a) => text(a.activityId, 160) === activityId)?.decision,
+    );
+
+    // Non-media fields must never change during image ops.
+    pass(
+      activityPatchNonMediaFingerprint(beforePatch) === activityPatchNonMediaFingerprint(afterPatch),
+      `non_media_${activityId}`,
+      `Non-media fields unchanged for ${activityId}.`,
+    );
+
+    IMAGE_FIELDS.forEach((field) => {
+      const key = `${activityId}::${field}`;
+      if (allowedKeys.has(key)) return;
+      const beforeUrl = text(beforePatch[field], 500);
+      const afterUrl = text(afterPatch[field], 500);
+      const beforeAsset = text(beforePatch[assetIdFieldFor(field)], 160);
+      const afterAsset = text(afterPatch[assetIdFieldFor(field)], 160);
+      pass(
+        beforeUrl === afterUrl && beforeAsset === afterAsset,
+        `media_locked_${activityId}_${field}`,
+        `Media field ${field} on ${activityId} not in allowed mutation set.`,
+      );
+    });
+
+    if (decision === "KEEP" || decision === "NOT_NEEDED") {
+      pass(
+        activityPatchMediaFingerprint(beforePatch) === activityPatchMediaFingerprint(afterPatch),
+        `noop_${activityId}`,
+        `${decision} activity ${activityId} media is a true no-op.`,
+      );
+    }
+  });
+
+  const failed = checks.filter((c) => !c.ok);
+  return {
+    ok: failed.length === 0,
+    checks,
+    failed,
+    allowedMutations: allowed,
+  };
+}
+
 async function runImagePlanForLesson({
   plan,
   activities,
@@ -418,6 +596,7 @@ async function runImagePlanForLesson({
   model,
   mockGenerate = false,
   alreadySucceededKeys = new Set(),
+  lessonCount = 1,
 } = {}) {
   if (touchImages === false) {
     return {
@@ -432,7 +611,11 @@ async function runImagePlanForLesson({
   }
 
   const actions = buildImageActionsFromAudit(plan, activities, audit, { replaceBadImages });
-  const scope = assessImageScope({ actions, lessonCount: 1, limits: limits || {} });
+  const scope = assessImageScope({
+    actions,
+    lessonCount: Math.max(1, Number(lessonCount) || 1),
+    limits: limits || {},
+  });
   if (!scope.ok) {
     return {
       ok: false,
@@ -466,6 +649,11 @@ async function runImagePlanForLesson({
         status: "skipped",
         reason: `${action.reason} (already succeeded; resume skip)`,
         idempotencyKey,
+        mediaUrl: text(draft.activities?.[action.activityId]?.[action.field], 500),
+        mediaAssetId: text(
+          draft.activities?.[action.activityId]?.[assetIdFieldFor(action.field)],
+          160,
+        ),
       });
       continue;
     }
@@ -475,6 +663,7 @@ async function runImagePlanForLesson({
       continue;
     }
 
+    // Enforce hard cap BEFORE spending another generation call.
     if (generations >= hardMax) {
       results.push({
         ...action,
@@ -494,15 +683,17 @@ async function runImagePlanForLesson({
       : {};
 
     try {
-      const activity = schema.asArray(activities).find(
-        (a) => text(a.id || a.itemId, 160) === text(action.activityId, 160),
-      );
-      if (!activity) throw new Error(`Activity ${action.activityId} not found on lesson.`);
+      // Exact activity ID only — never title/index fallback.
+      const activityId = text(action.activityId, 160);
+      const activity = schema.asArray(activities).find((a) => text(a.id, 160) === activityId);
+      if (!activity) {
+        throw new Error(`Activity ${activityId} not found by exact id; refuse image attach.`);
+      }
 
       const prompt = buildActivityImagePrompt({
         plan,
         activity,
-        draftActivity: draft.activities[action.activityId] || {},
+        draftActivity: draft.activities[activityId] || {},
         field: action.field,
         concept: action.concept,
       });
@@ -523,17 +714,17 @@ async function runImagePlanForLesson({
         store,
       }, {
         lessonPlanId: plan.id,
-        activityKey: action.activityId,
+        activityKey: activityId,
         field: action.field,
         buffer: generated.buffer,
-        fileName: `${action.activityId}-${action.field}.png`,
+        fileName: `${activityId}-${action.field}.png`,
         mimeType: generated.mimeType || "image/png",
       });
 
       const attached = attachImageToEnrichmentDraft(draft, {
         lessonId: plan.id,
         expectedLessonId: plan.id,
-        activityId: action.activityId,
+        activityId,
         field: action.field,
         mediaAssetId: uploaded.mediaAssetId,
         mediaUrl: uploaded.mediaUrl,
@@ -554,11 +745,16 @@ async function runImagePlanForLesson({
         previousUrl: existingUrl,
       });
     } catch (error) {
+      // REPLACE/GENERATE failure: restore prior working image; never leave blank if one existed.
       if (existingUrl) {
         if (!draft.activities[action.activityId]) draft.activities[action.activityId] = {};
         draft.activities[action.activityId][action.field] = existingUrl;
         if (existingAssetId) {
           draft.activities[action.activityId][assetIdFieldFor(action.field)] = existingAssetId;
+        }
+        const prevThumb = text(patchBefore[thumbFieldFor(action.field)], 500);
+        if (prevThumb) {
+          draft.activities[action.activityId][thumbFieldFor(action.field)] = prevThumb;
         }
       } else if (Object.keys(patchBefore).length) {
         draft.activities[action.activityId] = patchBefore;
@@ -593,6 +789,7 @@ module.exports = {
   IMAGE_FIELDS,
   WRITE_DECISIONS,
   IMAGE_STEP_STATUSES,
+  NON_MEDIA_ACTIVITY_KEYS,
   normalizeDecision,
   refineImageDecision,
   buildImageActionsFromAudit,
@@ -604,6 +801,8 @@ module.exports = {
   uploadActivityImageBuffer,
   attachImageToEnrichmentDraft,
   verifyAttachedImage,
+  buildAllowedImageMutations,
+  verifyImageJobDraft,
   runImagePlanForLesson,
   primaryFieldForActivity,
 };

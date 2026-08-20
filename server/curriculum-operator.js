@@ -174,11 +174,20 @@ function createCurriculumOperatorApi(deps) {
       || ["1", "true", "yes"].includes(String(process.env.VISUAL_PRODUCTION_MOCK_GENERATE || "").trim().toLowerCase())
       || ["1", "true", "yes"].includes(String(process.env.LLH_OPERATOR_IMAGE_FIXTURE || "").trim().toLowerCase());
 
+    const hardMax = Number(job.command?.limits?.maxImageGenerations) || schema.DEFAULT_LIMITS.maxImageGenerations;
+    const alreadyUsed = Number(job.costCounters?.images) || 0;
+    const remainingGenerations = Math.max(0, hardMax - alreadyUsed);
+    const lessonCount = Math.max(1, Number(job.lessonResults?.length) || Number(job.progress?.lessonCount) || 1);
+
     const imageRun = await imagesApi.runImagePlanForLesson({
       plan,
       activities: linked,
       audit,
-      limits: job.command.limits,
+      limits: {
+        ...(job.command.limits || {}),
+        maxImageGenerations: remainingGenerations,
+      },
+      lessonCount,
       replaceBadImages: job.command.actions.replaceBadImages === true,
       touchImages: job.command.actions.touchImages !== false,
       callGenerate: generateOperatorImage,
@@ -215,52 +224,81 @@ function createCurriculumOperatorApi(deps) {
         throw new Error(saveResult?.error || "enrichment_draft image save failed");
       }
       historyId = saveResult.versionId || null;
-      afterPlan = saveResult.lessonPlan;
+      // Reload from persistence abstraction — do not trust the in-memory mutate alone.
       Object.assign(store, readStore());
+      const reloaded = schema.asArray(readSiteCurriculum(store).lessonPlans)
+        .find((p) => p.id === plan.id);
+      if (!reloaded) {
+        throw new Error("Post-save reload failed: lesson missing from store.");
+      }
+      afterPlan = reloaded;
     }
 
-    const keepOrSkipIds = schema.asArray(imageRun.actions)
-      .filter((a) => {
-        const d = imagesApi.normalizeDecision(a.decision);
-        return a.status === "skipped" || d === "KEEP" || d === "NOT_NEEDED";
-      })
-      .map((a) => a.activityId)
-      .filter(Boolean);
+    const jobVerification = imagesApi.verifyImageJobDraft({
+      beforePlan: plan,
+      afterPlan,
+      actions: imageRun.actions,
+    });
 
+    let restoredDraft = null;
     const verifiedActions = schema.asArray(imageRun.actions).map((action) => {
       if (action.status !== "success") return action;
-      const verification = imagesApi.verifyAttachedImage({
-        beforePlan: plan,
-        afterPlan,
-        activityId: action.activityId,
-        field: action.field,
-        mediaUrl: action.mediaUrl,
-        mediaAssetId: action.mediaAssetId,
-        untouchedActivityIds: keepOrSkipIds.filter((id) => id !== action.activityId),
-      });
-      if (!verification.ok) {
-        return {
-          ...action,
-          status: "failed",
-          error: "Post-attach verification failed.",
-          retryable: true,
-          verification,
-        };
+      const afterAct = afterPlan?.enrichmentDraft?.activities?.[action.activityId] || {};
+      const assetField = action.field === "exampleImageUrl" ? "exampleMediaAssetId" : "setupMediaAssetId";
+      const attachedOk = schema.text(afterAct[action.field], 500) === schema.text(action.mediaUrl, 500)
+        && schema.text(afterAct[assetField], 160) === schema.text(action.mediaAssetId, 160);
+
+      if (attachedOk) {
+        return { ...action, verification: jobVerification, status: "success" };
       }
-      return { ...action, verification, status: "success" };
+
+      // Attach did not land on the reloaded draft — restore prior REPLACE media when possible.
+      if (!restoredDraft) {
+        restoredDraft = afterPlan?.enrichmentDraft && typeof afterPlan.enrichmentDraft === "object"
+          ? JSON.parse(JSON.stringify(afterPlan.enrichmentDraft))
+          : { week: {}, activities: {} };
+      }
+      if (action.previousUrl) {
+        if (!restoredDraft.activities[action.activityId]) restoredDraft.activities[action.activityId] = {};
+        restoredDraft.activities[action.activityId][action.field] = action.previousUrl;
+      }
+      return {
+        ...action,
+        status: "failed",
+        error: "Post-save reload did not show intended media on activity.",
+        retryable: true,
+        verification: jobVerification,
+        preservedExisting: Boolean(action.previousUrl),
+      };
     });
+
+    if (restoredDraft && typeof saveOperatorEnrichmentDraft === "function") {
+      const restoreSave = await saveOperatorEnrichmentDraft({
+        store,
+        lessonPlanId: plan.id,
+        enrichmentDraft: restoredDraft,
+        adminEmail: sessionEmail,
+      });
+      if (restoreSave?.ok) {
+        Object.assign(store, readStore());
+        afterPlan = schema.asArray(readSiteCurriculum(store).lessonPlans)
+          .find((p) => p.id === plan.id) || afterPlan;
+      }
+    }
 
     const counts = imagesApi.summarizeImageActions(verifiedActions);
     job.costCounters.images = (job.costCounters.images || 0) + Number(imageRun.generations || 0);
 
+    const ok = jobVerification.ok && verifiedActions.every((a) => a.status !== "failed");
     return {
-      ok: verifiedActions.every((a) => a.status !== "failed"),
+      ok,
       partial: verifiedActions.some((a) => a.status === "failed")
         && verifiedActions.some((a) => a.status === "success"),
-      imageRun: { ...imageRun, actions: verifiedActions, counts },
+      imageRun: { ...imageRun, actions: verifiedActions, counts, jobVerification },
       afterPlan,
       historyId,
       counts,
+      error: ok ? null : "Post-save image job verification failed.",
     };
   }
 

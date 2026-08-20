@@ -582,6 +582,241 @@ async function main() {
   }, { phase: 3 });
   ok(p3.actions.generateImages === true && p3.actions.createLesson === false, "phase3 images only");
 
+  // --- Verification hardening (allowed mutations, idempotency, scope, draft-only) ---
+  console.log("Verification hardening");
+
+  const genTwice = { calls: 0, prompts: [] };
+  const upTwice = { calls: 0 };
+  const firstPass = await imagesApi.runImagePlanForLesson({
+    plan,
+    activities: curriculum.activities,
+    audit,
+    limits: { maxImageGenerations: 40 },
+    replaceBadImages: true,
+    callGenerate: mockGenerateFactory(genTwice),
+    uploadFn: mockUploadFactory(upTwice),
+  });
+  ok(firstPass.ok && firstPass.generations >= 1, "first image pass generates");
+  const firstUrls = JSON.stringify(firstPass.enrichmentDraft.activities);
+  const succeededKeys = new Set(
+    firstPass.actions.filter((a) => a.status === "success").map((a) => a.idempotencyKey),
+  );
+  const genBeforeSecond = genTwice.calls;
+  const upBeforeSecond = upTwice.calls;
+  const secondPass = await imagesApi.runImagePlanForLesson({
+    plan: { ...plan, enrichmentDraft: firstPass.enrichmentDraft },
+    activities: curriculum.activities,
+    audit: auditApi.auditLesson({ ...plan, enrichmentDraft: firstPass.enrichmentDraft }, curriculum),
+    limits: { maxImageGenerations: 40 },
+    replaceBadImages: true,
+    callGenerate: mockGenerateFactory(genTwice),
+    uploadFn: mockUploadFactory(upTwice),
+    alreadySucceededKeys: succeededKeys,
+  });
+  ok(genTwice.calls === genBeforeSecond, "second identical run does not regenerate");
+  ok(upTwice.calls === upBeforeSecond, "second identical run does not re-upload");
+  ok(secondPass.generations === 0, "second run consumes zero generation budget");
+  ok(JSON.stringify(secondPass.enrichmentDraft.activities) === firstUrls, "second run does not change media URLs");
+
+  const jobVerifyOk = imagesApi.verifyImageJobDraft({
+    beforePlan: plan,
+    afterPlan: { ...plan, enrichmentDraft: firstPass.enrichmentDraft },
+    actions: firstPass.actions,
+  });
+  ok(jobVerifyOk.ok, "allowed-mutation verification passes for legitimate sibling writes");
+  ok(jobVerifyOk.allowedMutations.length === firstPass.counts.SUCCESS, "allowed set matches successful writes");
+
+  const tampered = JSON.parse(JSON.stringify(firstPass.enrichmentDraft));
+  tampered.activities[ACT_KEEP].setupImageUrl = "https://cdn.example.test/UNEXPECTED.png";
+  const jobVerifyBad = imagesApi.verifyImageJobDraft({
+    beforePlan: plan,
+    afterPlan: { ...plan, enrichmentDraft: tampered },
+    actions: firstPass.actions,
+  });
+  ok(!jobVerifyBad.ok, "unexpected KEEP media mutation is detected");
+  ok(
+    jobVerifyBad.failed.some((f) => /media_locked|noop_/i.test(f.code || "")),
+    "failure cites locked/noop media check",
+  );
+
+  const textTampered = JSON.parse(JSON.stringify(firstPass.enrichmentDraft));
+  if (!textTampered.activities[ACT_KEEP]) textTampered.activities[ACT_KEEP] = {};
+  textTampered.activities[ACT_KEEP].steps = "Hijacked steps during image job";
+  const nonMediaBad = imagesApi.verifyImageJobDraft({
+    beforePlan: plan,
+    afterPlan: { ...plan, enrichmentDraft: textTampered },
+    actions: firstPass.actions,
+  });
+  ok(!nonMediaBad.ok, "non-media activity field mutation is detected");
+
+  const titleTamperedPlan = {
+    ...plan,
+    title: "Hijacked Title",
+    enrichmentDraft: firstPass.enrichmentDraft,
+  };
+  const titleBad = imagesApi.verifyImageJobDraft({
+    beforePlan: plan,
+    afterPlan: titleTamperedPlan,
+    actions: firstPass.actions,
+  });
+  ok(!titleBad.ok, "lesson title mutation is detected");
+
+  // Soft budget: stop entirely with zero generations (no partial continue)
+  const softCurriculum = seedCurriculum();
+  const softPlan = softCurriculum.lessonPlans[0];
+  const softActs = [];
+  for (let i = 0; i < 12; i += 1) {
+    const id = `cur-act-soft-${i}`;
+    softActs.push({
+      id,
+      lessonPlanId: LESSON_ID,
+      itemId: `soft${i}`,
+      title: `Process Art Station ${i}`,
+      dayOfWeek: "monday",
+      category: "Art",
+      objective: `Children will explore paint process art station ${i} with washable paint.`,
+      materials: "Paint, paper, trays",
+      setup: "Cover table; set trays.",
+      steps: "1. Dip. 2. Stamp. 3. Describe.",
+      imageRequirement: "required",
+    });
+  }
+  softCurriculum.activities = softActs;
+  softPlan.activityIds = softActs.map((a) => a.id);
+  softPlan.enrichmentDraft = { week: {}, activities: {} };
+  softPlan.dailyPlans = {
+    monday: { items: softActs.map((a) => ({ itemId: a.itemId, title: a.title, dayOfWeek: "monday" })) },
+    tuesday: { items: [] },
+    wednesday: { items: [] },
+    thursday: { items: [] },
+    friday: { items: [] },
+  };
+  const softAudit = auditApi.auditLesson(softPlan, softCurriculum);
+  const softPlanned = imagesApi.plannedGenerationCount(
+    imagesApi.buildImageActionsFromAudit(softPlan, softActs, softAudit, {}),
+  );
+  const softScope = imagesApi.assessImageScope({
+    actions: imagesApi.buildImageActionsFromAudit(softPlan, softActs, softAudit, {}),
+    lessonCount: 1,
+    limits: { maxImageGenerations: 40 },
+  });
+  ok(softPlanned > 8, "soft fixture plans more generations than soft per-lesson budget");
+  ok(softScope.ok === false && softScope.code === "SCOPE_REVIEW_REQUIRED", "soft lesson budget requires scope review");
+  const softGen = { calls: 0, prompts: [] };
+  const softRun = await imagesApi.runImagePlanForLesson({
+    plan: softPlan,
+    activities: softActs,
+    audit: softAudit,
+    limits: { maxImageGenerations: 40 },
+    lessonCount: 1,
+    callGenerate: mockGenerateFactory(softGen),
+    uploadFn: mockUploadFactory({ calls: 0 }),
+  });
+  ok(softRun.code === "SCOPE_REVIEW_REQUIRED", "run aborts with SCOPE_REVIEW_REQUIRED");
+  ok(softRun.generations === 0 && softGen.calls === 0, "soft scope does not partially generate beyond budget");
+
+  const hardCounter = { calls: 0, prompts: [] };
+  const hardRun = await imagesApi.runImagePlanForLesson({
+    plan,
+    activities: curriculum.activities,
+    audit,
+    limits: { maxImageGenerations: 1 },
+    replaceBadImages: true,
+    callGenerate: mockGenerateFactory(hardCounter),
+    uploadFn: mockUploadFactory({ calls: 0 }),
+  });
+  ok(hardCounter.calls <= 1, "hard max checked before each generation call");
+  ok(hardRun.generations <= 1, "hard maxImageGenerations not exceeded");
+
+  // Draft-save failure leaves prior draft intact
+  let storeFail = {
+    siteContent: {
+      featureFlags: { teachingKitCurriculumOperator: true },
+      curriculum: seedCurriculum(),
+    },
+    curriculumOperatorJobs: { jobs: [], updatedAt: "" },
+  };
+  const keepBeforeFail = storeFail.siteContent.curriculum.lessonPlans[0].enrichmentDraft.activities[ACT_KEEP].setupImageUrl;
+  const badBeforeFail = storeFail.siteContent.curriculum.lessonPlans[0].enrichmentDraft.activities[ACT_BAD].setupImageUrl;
+  const publishedBodyBefore = {
+    weeklyOverview: storeFail.siteContent.curriculum.lessonPlans[0].weeklyOverview,
+    status: storeFail.siteContent.curriculum.lessonPlans[0].status,
+    setupOnCatalog: storeFail.siteContent.curriculum.activities.find((a) => a.id === ACT_KEEP).setupImageUrl,
+  };
+  const apiFail = createCurriculumOperatorApi({
+    readJson: async () => ({}),
+    jsonResponse: () => {},
+    readStore: () => storeFail,
+    writeStoreAsync: async (next) => { storeFail = next; },
+    requireTeachingKitOwnerAdminSession: () => ({ email: OWNER.email }),
+    teachingKit: require("./teaching-kit.js"),
+    normalizeEmail: (v) => String(v || "").trim().toLowerCase(),
+    readSiteCurriculum: (s) => s.siteContent.curriculum,
+    generateOperatorImage: mockGenerateFactory({ calls: 0, prompts: [] }),
+    persistEnrichmentPhoto: async () => ({ persistent: true, storage: "test" }),
+    enrichmentMedia: {
+      enrichmentMediaAssetId: () => `asset-fail-${Date.now()}`,
+      enrichmentMediaUrl: (id, variant) => `https://cdn.example.test/${id}-${variant}.png`,
+      buildEnrichmentVariants: async (buffer) => ({
+        full: { buffer, mimeType: "image/png" },
+        thumb: { buffer, mimeType: "image/png" },
+      }),
+    },
+    saveOperatorEnrichmentDraft: async () => ({ ok: false, error: "simulated_draft_save_failure" }),
+  });
+  const failCmd = schema.normalizeOperatorCommand({
+    rawCommand: "Fix pictures",
+    intent: "finish_images",
+    scope: { selection: "explicit_ids", lessonIds: [LESSON_ID], count: 1 },
+    actions: { generateImages: true, replaceBadImages: true, saveDraft: true },
+    completion: { phase: 3 },
+  }, { phase: 3 });
+  const failJob = jobApi.createJobFromPlan({
+    command: failCmd,
+    planSummary: apiFail.buildPlanSummary(failCmd, selectApi.selectLessons(storeFail.siteContent.curriculum, failCmd)),
+    createdBy: OWNER.email,
+    status: "running",
+  });
+  const failFinished = await apiFail.runJob(failJob, storeFail, OWNER.email);
+  ok(failFinished.progress.failed === 1, "draft save failure records failed lesson");
+  const afterFailPlan = storeFail.siteContent.curriculum.lessonPlans[0];
+  ok(afterFailPlan.enrichmentDraft.activities[ACT_KEEP].setupImageUrl === keepBeforeFail, "save failure preserves KEEP image");
+  ok(afterFailPlan.enrichmentDraft.activities[ACT_BAD].setupImageUrl === badBeforeFail, "save failure preserves REPLACE original");
+  ok(afterFailPlan.weeklyOverview === publishedBodyBefore.weeklyOverview, "published weeklyOverview unchanged after save failure");
+  ok(afterFailPlan.status === publishedBodyBefore.status, "publish status unchanged after save failure");
+  ok(
+    storeFail.siteContent.curriculum.activities.find((a) => a.id === ACT_KEEP).setupImageUrl === publishedBodyBefore.setupOnCatalog,
+    "catalog/published activity image unchanged",
+  );
+
+  // Exact-id attach: refuse title/index style mismatch by using wrong id
+  const wrongIdAttach = imagesApi.attachImageToEnrichmentDraft(
+    { activities: { [ACT_PAINT]: { objective: "keep me" } } },
+    {
+      lessonId: LESSON_ID,
+      expectedLessonId: LESSON_ID,
+      activityId: "paint", // itemId-like, not cur-act id
+      field: "setupImageUrl",
+      mediaAssetId: "x",
+      mediaUrl: "https://cdn.example.test/x.png",
+      thumbUrl: "https://cdn.example.test/x-t.png",
+    },
+  );
+  ok(wrongIdAttach.ok === true, "attach keys by provided activityId string only (no title remap)");
+  ok(!wrongIdAttach.enrichmentDraft.activities[ACT_PAINT].setupImageUrl, "does not attach onto real activity via title/itemId guess");
+  ok(wrongIdAttach.enrichmentDraft.activities.paint?.setupImageUrl, "writes only to the exact id key supplied");
+  ok(wrongIdAttach.enrichmentDraft.activities[ACT_PAINT].objective === "keep me", "non-target activity fields untouched");
+
+  // Prompt quality samples
+  const skyPrompt = imagesApi.buildActivityImagePrompt({
+    plan,
+    activity: curriculum.activities.find((a) => a.id === ACT_PAINT),
+    draftActivity: {},
+    field: "setupImageUrl",
+  });
+  ok(/Paint the Real Sky/i.test(skyPrompt) && /paint|paper|brush/i.test(skyPrompt), "Paint the Real Sky prompt is activity-specific");
+  ok(!/cute|clipart|cartoon weather/i.test(skyPrompt), "Paint the Real Sky prompt avoids generic clipart framing");
+
   console.log(`\nPhase 3 passed ${passed} assertions`);
 }
 
