@@ -51,13 +51,14 @@ Master Paste content is authored into upgrade JSON packages, matched 1:1 to live
 - Upgrade JSON authored (`curriculum-drafts/pro-upgrade/pirate.upgrade.json`); 25/25 live titles preserved.
 - Safety: no eye patches/weapons; cardboard telescopes; floor-level planks; large coins only; graduation reframed as celebration.
 - Cover pending; proposed activity: Ocean Adventure Pretend Play.
-- Not applied to production yet.
+- Enrichment draft was applied once from an earlier thin package; substantial JSON was rewritten afterward — re-apply enrichment draft from current JSON before owner review.
+- Live published content unchanged (`enrichmentPublished` false).
 
 #### Superhero Training Camp
 - Upgrade JSON authored (`curriculum-drafts/pro-upgrade/superhero.upgrade.json`); 25/25 live titles preserved.
 - Kindness-focused heroes (helping, not fighting); picture mission cards (no worksheets); graduation reframed as celebration.
 - Cover pending; proposed activity: Helping Hands Art Project.
-- Not applied to production yet.
+- Enrichment draft applied 25/25; not published to providers.
 
 ---
 
