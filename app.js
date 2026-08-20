@@ -10301,6 +10301,7 @@ function resetAdminCreateLessonPlanUi() {
     duplicate: null,
     error: "",
     creating: false,
+    replaceComparison: null,
   };
   document.querySelector("#adminCreateLessonPlanOverlay")?.remove();
 }
@@ -10321,6 +10322,24 @@ function currentLessonMasterPasteSnapshot(planId) {
   const activities = typeof curriculumActivitiesForLesson === "function"
     ? curriculumActivitiesForLesson(planId).filter((item) => String(item.status || "") !== "archived")
     : [];
+  const weekdayCounts = { monday: 0, tuesday: 0, wednesday: 0, thursday: 0, friday: 0, total: 0 };
+  const activityRows = activities.map((item) => {
+    const day = String(item.dayOfWeek || "").toLowerCase();
+    if (Object.prototype.hasOwnProperty.call(weekdayCounts, day) && day !== "total") {
+      weekdayCounts[day] += 1;
+      weekdayCounts.total += 1;
+    }
+    return {
+      id: item.id || "",
+      itemId: item.itemId || "",
+      title: item.title || "",
+      dayOfWeek: day,
+      setupImageUrl: item.setupImageUrl || "",
+      exampleImageUrl: item.exampleImageUrl || "",
+      setupMediaAssetId: item.setupMediaAssetId || "",
+      exampleMediaAssetId: item.exampleMediaAssetId || "",
+    };
+  });
   return {
     id: plan?.id || planId,
     title: plan?.title || "Untitled Lesson Plan",
@@ -10329,6 +10348,13 @@ function currentLessonMasterPasteSnapshot(planId) {
     plan: plan?.plan === "Pro" ? "Pro" : "Free",
     activityCount: activities.length,
     resourceIds: Array.isArray(plan?.resourceIds) ? plan.resourceIds.slice() : [],
+    coverImageUrl: plan?.coverImageUrl || "",
+    weeklyOverview: plan?.weeklyOverview || "",
+    objectives: plan?.objectives || "",
+    weeklyMaterials: plan?.weeklyMaterials || "",
+    familyConnection: plan?.familyConnection || "",
+    weekdayCounts,
+    activities: activityRows,
   };
 }
 
@@ -10352,32 +10378,59 @@ function masterPasteSectionFlags(preview) {
 function masterPasteReplacementSummaryHtml(ui) {
   const snapshot = ui.currentSnapshot || {};
   const preview = ui.preview || {};
-  const counts = masterPasteWeekdayCounts(preview);
+  const comparison = ui.replaceComparison || {};
+  const counts = comparison.incomingWeekdays || masterPasteWeekdayCounts(preview);
+  const existingCounts = comparison.existingWeekdays || snapshot.weekdayCounts || {};
   const sections = masterPasteSectionFlags(preview);
+  const updated = comparison.updated || [];
+  const added = comparison.added || [];
+  const removed = comparison.removed || [];
+  const changing = comparison.sectionsChanging || [];
+  const preserved = comparison.preserved || {};
+  const list = (rows, emptyLabel) => (
+    rows.length
+      ? `<ul>${rows.map((row) => `<li>${escapeHtml(row.title || "")}${row.day ? ` (${escapeHtml(row.day)})` : ""}</li>`).join("")}</ul>`
+      : `<p class="muted-copy">${escapeHtml(emptyLabel)}</p>`
+  );
   return `
     <div class="admin-create-lesson-preview" data-replace-master-paste-summary>
-      <p class="eyebrow">CURRENT LESSON</p>
-      <p><strong>${escapeHtml(snapshot.title || "Untitled Lesson Plan")}</strong></p>
-      <p>${escapeHtml(snapshot.age || "Age not set")}</p>
-      <p>Current activities: ${Number(snapshot.activityCount) || 0}</p>
-      <p class="eyebrow">PARSED REPLACEMENT</p>
-      <p><strong>${escapeHtml(preview.title || "Untitled")}</strong></p>
-      <p>${escapeHtml(preview.age || "Age not recognized")}</p>
-      <p>Replacement activities: ${Number(preview.activityCount) || 0}</p>
-      <p class="eyebrow">WEEKDAYS REPRESENTED</p>
+      <p class="eyebrow">EXISTING LESSON → INCOMING MASTER PASTE</p>
+      <p><strong>${escapeHtml(snapshot.title || "Untitled Lesson Plan")}</strong> → <strong>${escapeHtml(preview.title || "Untitled")}</strong></p>
+      <p>${escapeHtml(snapshot.age || "Age not set")} → ${escapeHtml(preview.age || "Age not recognized")}</p>
+      <p>Activities: ${Number(snapshot.activityCount) || 0} → ${Number(preview.activityCount) || 0}</p>
+      <p class="eyebrow">WEEKDAY COVERAGE</p>
       <ul>
-        <li>Monday — ${counts.monday}</li>
-        <li>Tuesday — ${counts.tuesday}</li>
-        <li>Wednesday — ${counts.wednesday}</li>
-        <li>Thursday — ${counts.thursday}</li>
-        <li>Friday — ${counts.friday}</li>
-        <li><strong>Total activities: ${counts.total}</strong></li>
+        <li>Monday — ${Number(existingCounts.monday) || 0} → ${counts.monday}</li>
+        <li>Tuesday — ${Number(existingCounts.tuesday) || 0} → ${counts.tuesday}</li>
+        <li>Wednesday — ${Number(existingCounts.wednesday) || 0} → ${counts.wednesday}</li>
+        <li>Thursday — ${Number(existingCounts.thursday) || 0} → ${counts.thursday}</li>
+        <li>Friday — ${Number(existingCounts.friday) || 0} → ${counts.friday}</li>
+        <li><strong>Total: ${Number(existingCounts.total) || 0} → ${counts.total}</strong></li>
       </ul>
+      <p class="eyebrow">ACTIVITIES BEING UPDATED (${updated.length})</p>
+      ${list(updated, "None — no existing activities uniquely match incoming titles.")}
+      <p class="eyebrow">ACTIVITIES BEING ADDED (${added.length})</p>
+      ${list(added, "None")}
+      <p class="eyebrow">ACTIVITIES NO LONGER PRESENT (${removed.length})</p>
+      ${list(removed, "None")}
+      <p class="muted-copy">Activities no longer present are archived on this lesson only. They are not permanently deleted, and shared printables stay linked.</p>
+      <p class="eyebrow">LESSON-LEVEL SECTIONS CHANGING</p>
+      ${changing.length
+        ? `<ul>${changing.map((label) => `<li>${escapeHtml(label)}</li>`).join("")}</ul>`
+        : `<p class="muted-copy">No lesson-level section text differences detected.</p>`}
       <p class="eyebrow">MAJOR SECTIONS DETECTED</p>
       <ul>
         ${sections.map(([label, value]) => `<li>${escapeHtml(label)} ${value ? "✓" : "—"}</li>`).join("")}
       </ul>
-      <p class="muted-copy">Linked resources, access plan, lesson ID, and publish status will not change.</p>
+      <p class="eyebrow">PRESERVED (READ-ONLY)</p>
+      <ul>
+        <li>Lesson ID: ${escapeHtml(preserved.lessonId || snapshot.id || "")}</li>
+        <li>Free/Pro: ${escapeHtml(preserved.plan || snapshot.plan || "Free")}</li>
+        <li>Cover image: ${escapeHtml(preserved.coverImageUrl || snapshot.coverImageUrl || "(unchanged)")}</li>
+        <li>Linked resources: ${(preserved.resourceIds || snapshot.resourceIds || []).length}</li>
+        <li>Matched activity images: ${(preserved.activityImages || []).length}</li>
+        <li>Visual Production briefs: untouched</li>
+      </ul>
     </div>
   `;
 }
@@ -10400,6 +10453,7 @@ function openAdminReplaceLessonFromMasterPaste(planId) {
     duplicate: null,
     error: "",
     creating: false,
+    replaceComparison: null,
   };
   renderAdminCreateLessonPlanDialog();
 }
@@ -10422,6 +10476,7 @@ function createAdminCurriculumLessonPlan(options) {
     duplicate: null,
     error: "",
     creating: false,
+    replaceComparison: null,
   };
   renderAdminCreateLessonPlanDialog();
 }
@@ -10488,7 +10543,9 @@ function renderAdminCreateLessonPlanDialog() {
           <li>Free/Pro access</li>
           <li>publish status</li>
           <li>linked printable resources</li>
+          <li>cover image, activity photos, or Visual Production briefs</li>
         </ul>
+        <p class="muted-copy">Confirmation flag: confirmReplaceExistingLesson = true. Nothing is published automatically.</p>
       </div>
       ${ui.error ? `<p class="form-message" role="alert">${escapeHtml(ui.error)}</p>` : ""}
       <div class="form-actions">
@@ -10833,6 +10890,7 @@ function previewAdminCreateLessonPaste() {
   adminCreateLessonPlanUi.parsed = parsed;
   adminCreateLessonPlanUi.preview = api.buildStructurePreview(parsed);
   adminCreateLessonPlanUi.error = parsed.errors.join(" ");
+  adminCreateLessonPlanUi.replaceComparison = null;
   if (!parsed.ok) {
     adminCreateLessonPlanUi.step = "paste";
     renderAdminCreateLessonPlanDialog();
@@ -10840,6 +10898,20 @@ function previewAdminCreateLessonPaste() {
   }
   if (adminCreateLessonPlanUi.mode === "replace") {
     adminCreateLessonPlanUi.duplicate = null;
+    if (typeof api.buildMasterPasteReplaceComparison === "function") {
+      const comparison = api.buildMasterPasteReplaceComparison(
+        adminCreateLessonPlanUi.currentSnapshot || {},
+        parsed,
+      );
+      adminCreateLessonPlanUi.replaceComparison = comparison;
+      if (comparison.ok === false) {
+        adminCreateLessonPlanUi.error = (comparison.errors || []).join(" ")
+          || "Incoming activity mapping is ambiguous. Lesson was not replaced.";
+        adminCreateLessonPlanUi.step = "paste";
+        renderAdminCreateLessonPlanDialog();
+        return;
+      }
+    }
     adminCreateLessonPlanUi.step = "preview";
     renderAdminCreateLessonPlanDialog();
     return;
@@ -10910,6 +10982,7 @@ async function persistReplaceCurriculumLessonFromMasterPaste(lessonPlan) {
   const payload = {
     expectedUpdatedAt: curriculumExpectedUpdatedAt(),
     saveMode: "replace_from_master_paste",
+    confirmReplaceExistingLesson: true,
     lessonPlan: {
       ...lessonPlan,
       id: targetId,
@@ -10937,9 +11010,17 @@ async function persistReplaceCurriculumLessonFromMasterPaste(lessonPlan) {
 
 function beginAdminReplaceLessonConfirm() {
   const parsed = adminCreateLessonPlanUi.parsed;
+  const comparison = adminCreateLessonPlanUi.replaceComparison;
   if (!parsed?.ok) {
     adminCreateLessonPlanUi.step = "paste";
     adminCreateLessonPlanUi.error = parsed?.errors?.join(" ") || "Fix parsing errors before replacing this lesson.";
+    renderAdminCreateLessonPlanDialog();
+    return;
+  }
+  if (!comparison || comparison.ok !== true) {
+    adminCreateLessonPlanUi.step = "paste";
+    adminCreateLessonPlanUi.error = (comparison?.errors || []).join(" ")
+      || "Preview this lesson’s paste before confirming replacement.";
     renderAdminCreateLessonPlanDialog();
     return;
   }
@@ -10949,17 +11030,36 @@ function beginAdminReplaceLessonConfirm() {
 }
 
 async function confirmAdminReplaceLessonPaste() {
+  if (adminCreateLessonPlanUi.creating) return;
   const api = curriculumLessonStructurePasteApi();
   const parsed = adminCreateLessonPlanUi.parsed;
+  const comparison = adminCreateLessonPlanUi.replaceComparison;
+  const targetId = String(adminCreateLessonPlanUi.targetLessonId || "").trim();
+  const snapshotId = String(adminCreateLessonPlanUi.currentSnapshot?.id || "").trim();
   if (!api || !parsed?.ok) {
+    adminCreateLessonPlanUi.creating = false;
     adminCreateLessonPlanUi.error = "Preview the paste before replacing this lesson.";
     adminCreateLessonPlanUi.step = "paste";
     renderAdminCreateLessonPlanDialog();
     return;
   }
+  if (!comparison || comparison.ok !== true) {
+    adminCreateLessonPlanUi.creating = false;
+    adminCreateLessonPlanUi.step = "paste";
+    adminCreateLessonPlanUi.error = (comparison?.errors || []).join(" ")
+      || "Incoming activity mapping is ambiguous. Lesson was not replaced.";
+    renderAdminCreateLessonPlanDialog();
+    return;
+  }
+  if (!targetId || (snapshotId && snapshotId !== targetId)) {
+    adminCreateLessonPlanUi.creating = false;
+    adminCreateLessonPlanUi.step = "paste";
+    adminCreateLessonPlanUi.error = "Preview the current lesson before confirming replacement.";
+    renderAdminCreateLessonPlanDialog();
+    return;
+  }
   adminCreateLessonPlanUi.creating = true;
   renderAdminCreateLessonPlanDialog();
-  const targetId = String(adminCreateLessonPlanUi.targetLessonId || "").trim();
   try {
     const lessonPlan = api.buildCanonicalLessonPlan(parsed, {
       id: targetId,

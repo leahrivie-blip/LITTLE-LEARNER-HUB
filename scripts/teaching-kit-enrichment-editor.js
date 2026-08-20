@@ -4166,6 +4166,7 @@
     const kind = String(entry?.kind || "publish").toLowerCase();
     if (kind === "draft") return "Draft save backup";
     if (kind === "rollback") return "Rollback checkpoint";
+    if (kind === "paste_replace") return "Master Paste replace backup";
     return "Publish backup";
   }
 
