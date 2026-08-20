@@ -16,7 +16,7 @@
   "use strict";
 
   /** @typedef {"ACTIVITY_IMAGE"|"PRINTABLE_PAGE"|"PRINTABLE_CARDS"|"HANDPRINT_FOOTPRINT_TEMPLATE"|"VISUAL_STRIP"|"LESSON_COVER"} VisualAssetType */
-  /** @typedef {"REALISTIC_PHOTO"|"REALISTIC_CLASSROOM"|"TEACHING_CARD_REALISTIC"|"FLAT_2D_ILLUSTRATION"|"CLEAN_PRINTABLE"|"SIMPLE_CHILDCARE_GRAPHIC"} VisualStyle */
+  /** @typedef {"REALISTIC_PHOTO"|"REALISTIC_CLASSROOM"|"TEACHING_CARD_REALISTIC"|"SOFT_EDUCATIONAL_ILLUSTRATION"|"PLAYFUL_CHILDCARE_ILLUSTRATION"|"SIMPLE_OBJECT_ILLUSTRATION"|"FLAT_2D_ILLUSTRATION"|"CLEAN_PRINTABLE"|"SIMPLE_CHILDCARE_GRAPHIC"} VisualStyle */
   /** @typedef {"DRAFT"|"READY_FOR_REVIEW"|"NEEDS_REVIEW"|"APPROVED"|"GENERATED"|"ATTACHED"} VisualBriefStatus */
 
   const ASSET_TYPES = Object.freeze(/** @type {const} */ ([
@@ -32,6 +32,9 @@
     "REALISTIC_PHOTO",
     "REALISTIC_CLASSROOM",
     "TEACHING_CARD_REALISTIC",
+    "SOFT_EDUCATIONAL_ILLUSTRATION",
+    "PLAYFUL_CHILDCARE_ILLUSTRATION",
+    "SIMPLE_OBJECT_ILLUSTRATION",
     "FLAT_2D_ILLUSTRATION",
     "CLEAN_PRINTABLE",
     "SIMPLE_CHILDCARE_GRAPHIC",
@@ -60,6 +63,11 @@
     "REALISTIC_CLASSROOM",
     "TEACHING_CARD_REALISTIC",
   ]));
+  const EDUCATIONAL_ILLUSTRATION_STYLES = Object.freeze(new Set([
+    "SOFT_EDUCATIONAL_ILLUSTRATION",
+    "PLAYFUL_CHILDCARE_ILLUSTRATION",
+    "SIMPLE_OBJECT_ILLUSTRATION",
+  ]));
   const FLAT_PRINTABLE_STYLES = Object.freeze(new Set([
     "FLAT_2D_ILLUSTRATION",
     "CLEAN_PRINTABLE",
@@ -72,6 +80,16 @@
     ? (() => {
       try {
         return require("./lib/visual-production-teaching-card-prompt.js");
+      } catch {
+        return null;
+      }
+    })()
+    : null;
+
+  const visualPlan = (typeof require === "function")
+    ? (() => {
+      try {
+        return require("./lib/visual-production-plan.js");
       } catch {
         return null;
       }
@@ -120,6 +138,32 @@
     "glossy 3D cartoon style",
     "icon-only illustrations",
     "generic pastel clip art",
+  ]);
+
+  const EDUCATIONAL_ILLUSTRATION_REQUIRED = Object.freeze([
+    "warm hand-drawn children's educational illustration",
+    "believable human proportions for the selected art style",
+    "expressive but natural faces",
+    "varied poses",
+    "visible hands when relevant",
+    "clear action without relying on arrows",
+    "soft texture and imperfect hand-created feeling",
+    "simple purposeful classroom backgrounds",
+    "professional early-childhood teacher-resource aesthetic",
+  ]);
+
+  const EDUCATIONAL_ILLUSTRATION_FORBIDDEN = Object.freeze([
+    "bubble heads",
+    "circle-head people",
+    "rectangle bodies",
+    "emoji faces",
+    "generic clip art",
+    "flat corporate vectors",
+    "blob characters",
+    "generic Canva people",
+    "geometric stick characters",
+    "overly simplistic human forms",
+    "identical character templates reused on every card",
   ]);
 
   const FLAT_REQUIRED = Object.freeze([
@@ -179,6 +223,9 @@
 
   const STYLE_PATTERNS = Object.freeze([
     { style: "TEACHING_CARD_REALISTIC", pattern: /\b(teaching[_\s-]?card[_\s-]?realistic|teaching\s+cards?|action\s+cards?|kindness\s+(?:mission\s+)?cards?|behavior\s+cards?|routine\s+cards?|social[-\s]?emotional\s+cards?)\b/i },
+    { style: "SOFT_EDUCATIONAL_ILLUSTRATION", pattern: /\b(soft\s+educational\s+illustration|high[-\s]?quality\s+educational\s+illustration|picture[-\s]?book\s+illustration)\b/i },
+    { style: "PLAYFUL_CHILDCARE_ILLUSTRATION", pattern: /\b(playful\s+childcare\s+illustration|playful\s+illustration)\b/i },
+    { style: "SIMPLE_OBJECT_ILLUSTRATION", pattern: /\b(simple\s+object\s+illustration|object\s+illustration)\b/i },
     { style: "REALISTIC_CLASSROOM", pattern: /\b(realistic\s+daycare|realistic\s+classroom|teacher\s+took\s+the\s+photo|daycare\s+setup|preschool\s+(?:setup|classroom))\b/i },
     { style: "REALISTIC_PHOTO", pattern: /\b(realistic\s+photo|photorealistic|real\s+photo|photograph)\b/i },
     { style: "FLAT_2D_ILLUSTRATION", pattern: /\b(flat\s*2d|2d\s+illustration|flat\s+illustration|flat\s+2-?d\s+artwork)\b/i },
@@ -371,6 +418,7 @@
    */
   function realismLevelForStyle(visualStyle) {
     if (visualStyle === "TEACHING_CARD_REALISTIC") return "teaching_card_realistic";
+    if (EDUCATIONAL_ILLUSTRATION_STYLES.has(visualStyle)) return "educational_illustration";
     if (REALISTIC_STYLES.has(visualStyle)) return "realistic_classroom_photo";
     if (visualStyle === "FLAT_2D_ILLUSTRATION") return "flat_2d_illustration";
     if (visualStyle === "CLEAN_PRINTABLE") return "clean_printable";
@@ -387,6 +435,9 @@
     if (visualStyle === "TEACHING_CARD_REALISTIC") {
       return uniqueStrings([...REALISTIC_FORBIDDEN, ...TEACHING_CARD_REALISTIC_FORBIDDEN]);
     }
+    if (EDUCATIONAL_ILLUSTRATION_STYLES.has(visualStyle)) {
+      return uniqueStrings([...EDUCATIONAL_ILLUSTRATION_FORBIDDEN, ...TEACHING_CARD_REALISTIC_FORBIDDEN]);
+    }
     if (REALISTIC_STYLES.has(visualStyle)) return REALISTIC_FORBIDDEN.slice();
     if (FLAT_PRINTABLE_STYLES.has(visualStyle)) return FLAT_FORBIDDEN.slice();
     return [];
@@ -401,6 +452,9 @@
     if (visualStyle === "TEACHING_CARD_REALISTIC") {
       const fromModule = teachingCardPrompt?.TEACHING_CARD_STYLE_REQUIRED;
       return Array.isArray(fromModule) ? fromModule.slice() : REALISTIC_REQUIRED.slice();
+    }
+    if (EDUCATIONAL_ILLUSTRATION_STYLES.has(visualStyle)) {
+      return EDUCATIONAL_ILLUSTRATION_REQUIRED.slice();
     }
     if (REALISTIC_STYLES.has(visualStyle)) return REALISTIC_REQUIRED.slice();
     if (FLAT_PRINTABLE_STYLES.has(visualStyle)) return FLAT_REQUIRED.slice();
@@ -547,11 +601,60 @@
     /** @type {string[]} */
     const reviewFlags = [];
 
+    // Optional centralized visual plan (opt-in / activity-context). Never overrides
+    // explicit structured Colors-style briefs unless useVisualPlan is set.
+    /** @type {object|null} */
+    let planned = null;
+    const activityContext = source.activityContext && typeof source.activityContext === "object"
+      ? source.activityContext
+      : null;
+    const shouldPlan = source.useVisualPlan === true
+      || Boolean(activityContext)
+      || Boolean(text(source.ageBand || source.ageGroup) && text(source.materials || source.objective || source.whatChildrenDo));
+    if (shouldPlan && visualPlan && typeof visualPlan.planVisualProduction === "function") {
+      planned = visualPlan.planVisualProduction({
+        ...(activityContext || {}),
+        lessonId: source.lessonId,
+        lessonTitle: source.lessonTitle || activityContext?.lessonTitle,
+        activityId: source.activityId || activityContext?.activityId,
+        activityTitle: activityName || activityContext?.activityTitle,
+        ageBand: source.ageBand || source.ageGroup || activityContext?.ageBand,
+        materials: source.materials || activityContext?.materials,
+        objective: source.objective || activityContext?.objective,
+        activityDescription: source.activityDescription || activityContext?.activityDescription,
+        whatChildrenDo: source.whatChildrenDo || activityContext?.whatChildrenDo,
+        setup: source.setup || activityContext?.setup,
+        steps: source.steps || activityContext?.steps,
+        safety: source.safety || activityContext?.safety,
+        imageRequest: source.imageRequest || activityContext?.imageRequest,
+        exampleImages: source.exampleImages || activityContext?.exampleImages,
+        imageBriefSetup: source.imageBriefSetup || activityContext?.imageBriefSetup,
+        imageBriefExample: source.imageBriefExample || activityContext?.imageBriefExample,
+        activityCategory: source.activityCategory || activityContext?.activityCategory,
+        selectedStyle: source.plannedVisualStyle || activityContext?.selectedStyle,
+        printableNeed: source.printableNeed || activityContext?.printableNeed,
+        sceneDescription: source.sceneDescription || activityContext?.sceneDescription,
+        assetType: source.assetType,
+        setSize: source.setSize || activityContext?.setSize,
+        instruction: originalInstruction,
+      });
+      if (planned?.validation && planned.validation.ok === false) {
+        (planned.validation.errors || []).forEach((flag) => {
+          if (flag && !reviewFlags.includes(flag)) reviewFlags.push(String(flag));
+        });
+      }
+    }
+
     let assetType = pickAllowed(source.assetType, ASSET_TYPES);
     if (!assetType) {
       if (detectedTypes.length === 1) assetType = detectedTypes[0];
       else if (detectedTypes.length > 1) reviewFlags.push("conflicting_asset_type");
       else reviewFlags.push("missing_asset_type");
+    }
+    if (!assetType && planned?.assetType) {
+      assetType = pickAllowed(planned.assetType, ASSET_TYPES) || assetType;
+      const missingIdx = reviewFlags.indexOf("missing_asset_type");
+      if (assetType && missingIdx >= 0) reviewFlags.splice(missingIdx, 1);
     }
 
     let visualStyle = pickAllowed(source.visualStyle, VISUAL_STYLES);
@@ -585,6 +688,21 @@
       }
     } else if (FLAT_PRINTABLE_STYLES.has(visualStyle) && teachingCardPrompt?.isTeachingCardConcept?.(activityName)) {
       reviewFlags.push("wrong_style_for_teaching_card");
+    }
+
+    // Apply centralized visual plan style/scene when opted in and owner did not force a flat/API style.
+    if (planned && source.useVisualPlan === true && !explicitIncomingStyle) {
+      const plannedApi = pickAllowed(planned.apiVisualStyle, VISUAL_STYLES);
+      if (plannedApi) {
+        visualStyle = /** @type {VisualStyle} */ (plannedApi);
+        const missingIdx = reviewFlags.indexOf("missing_visual_style");
+        if (missingIdx >= 0) reviewFlags.splice(missingIdx, 1);
+        const conflictIdx = reviewFlags.indexOf("conflicting_visual_style");
+        if (conflictIdx >= 0) reviewFlags.splice(conflictIdx, 1);
+      }
+      if (planned.printableNeed === "PRINTABLE_NOT_NEEDED" && assetType === "PRINTABLE_CARDS" && source.forcePrintable !== true) {
+        reviewFlags.push("printable_not_needed_recommendation");
+      }
     }
 
     const content = extractContentLines(bodyLines.length ? bodyLines : originalInstruction.split("\n").map((line) => text(line)).filter(Boolean));
@@ -635,6 +753,20 @@
           "STRICTLY AVOID flat vector illustration, bubble characters, circle heads, rectangle bodies, stick figures, emoji faces, clip art, cartoon children, geometric people, Canva-style graphics, arrows explaining the action.",
         ].join("\n");
       }
+    } else if (planned && source.useVisualPlan === true && planned.sceneDescription) {
+      instructionForPrompt = [
+        `${activityName || title}:`,
+        planned.apiVisualStyle ? `Visual style: ${planned.apiVisualStyle}` : "",
+        planned.plannedStyle ? `Planned style: ${planned.plannedStyle}` : "",
+        planned.ageBand ? `Age band: ${planned.ageBand}` : "",
+        planned.printableNeed ? `Printable need: ${planned.printableNeed}` : "",
+        planned.visualPurpose ? `Visual purpose: ${planned.visualPurpose}` : "",
+        planned.sceneDescription,
+        planned.researchGuidance || "",
+        planned.diversityContext || "",
+        "Do not send only the raw title — depict the normalized scene.",
+        "STRICTLY AVOID bubble characters, circle heads, rectangle bodies, emoji faces, generic Canva people, and flat corporate vector humans unless an educational illustration style was intentionally selected — and even then never use bubble-vector people.",
+      ].filter(Boolean).join("\n");
     }
 
     const printableLayout = (assetType === "PRINTABLE_PAGE"
@@ -734,6 +866,12 @@
       pageTitle: source.pageTitle,
       teachingCardPreset: teachingCardMeta?.preset || (visualStyle === "TEACHING_CARD_REALISTIC" ? "teaching_card_realistic" : ""),
       teachingCardSceneDescription: teachingCardMeta?.sceneDescription || "",
+      plannedVisualStyle: planned?.plannedStyle || "",
+      printableNeed: planned?.printableNeed || "",
+      visualPurpose: planned?.visualPurpose || "",
+      visualPlanVersion: planned?.planVersion || "",
+      plannedSceneDescription: planned?.sceneDescription || "",
+      diversityContext: planned?.diversityContext || "",
       createdAt: now,
       updatedAt: now,
     }, { now });
@@ -802,6 +940,12 @@
       pageTitle: text(entry.pageTitle).slice(0, 180),
       teachingCardPreset: text(entry.teachingCardPreset).slice(0, 80),
       teachingCardSceneDescription: text(entry.teachingCardSceneDescription).slice(0, 4000),
+      plannedVisualStyle: text(entry.plannedVisualStyle).slice(0, 80),
+      printableNeed: text(entry.printableNeed).slice(0, 40),
+      visualPurpose: text(entry.visualPurpose).slice(0, 80),
+      visualPlanVersion: text(entry.visualPlanVersion).slice(0, 40),
+      plannedSceneDescription: text(entry.plannedSceneDescription).slice(0, 4000),
+      diversityContext: text(entry.diversityContext).slice(0, 2000),
       createdAt: text(entry.createdAt) || now,
       updatedAt: text(entry.updatedAt) || now,
     };
@@ -1010,10 +1154,13 @@
     STATUSES,
     STATUS_LABELS,
     REALISTIC_STYLES,
+    EDUCATIONAL_ILLUSTRATION_STYLES,
     FLAT_PRINTABLE_STYLES,
     REALISTIC_REQUIRED,
     REALISTIC_FORBIDDEN,
     TEACHING_CARD_REALISTIC_FORBIDDEN,
+    EDUCATIONAL_ILLUSTRATION_REQUIRED,
+    EDUCATIONAL_ILLUSTRATION_FORBIDDEN,
     FLAT_REQUIRED,
     FLAT_FORBIDDEN,
     BRAND_URL,
@@ -1036,5 +1183,11 @@
     validateTeachingCardPromptConfig: teachingCardPrompt?.validateTeachingCardPromptConfig || null,
     TEACHING_CARD_PRESET: teachingCardPrompt?.TEACHING_CARD_PRESET || "teaching_card_realistic",
     TEACHING_CARD_VISUAL_STYLE: teachingCardPrompt?.TEACHING_CARD_VISUAL_STYLE || "TEACHING_CARD_REALISTIC",
+    // Central visual planning layer
+    planVisualProduction: visualPlan?.planVisualProduction || null,
+    buildVisualProductionPrompt: visualPlan?.buildVisualProductionPrompt || null,
+    classifyPrintableNeed: visualPlan?.classifyPrintableNeed || null,
+    validateVisualPlan: visualPlan?.validateVisualPlan || null,
+    PLANNED_VISUAL_STYLES: visualPlan?.PLANNED_VISUAL_STYLES || [],
   };
 });

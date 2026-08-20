@@ -461,7 +461,8 @@
     "test:teaching-kit-entire-binder-complete": "NODE_ENV=test node scripts/test-teaching-kit-entire-binder-complete.js",
     "test:teaching-kit-tiny-artist-entire-binder": "NODE_ENV=test node scripts/test-teaching-kit-tiny-artist-entire-binder.js",
     "test:visual-production-brief": "NODE_ENV=test node scripts/test-visual-production-brief.js",
-    "test:teaching-card-realistic-prompt": "NODE_ENV=test node scripts/test-teaching-card-realistic-prompt.js"
+    "test:teaching-card-realistic-prompt": "NODE_ENV=test node scripts/test-teaching-card-realistic-prompt.js",
+    "test:visual-production-plan": "NODE_ENV=test node scripts/test-visual-production-plan.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",
