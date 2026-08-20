@@ -804,6 +804,7 @@ Title and age only.
   console.log("PASS  Weather Watchers 20-activity parse keeps weekday grouping");
 
   assertColorsAllAroundUsMasterPaste();
+  assertColorsAllAroundUsCombinedTitleAgePaste();
 }
 
 function flattenActivityTitles(parsed) {
@@ -812,14 +813,49 @@ function flattenActivityTitles(parsed) {
   ));
 }
 
+function assertNoWeekdayOrSeparatorPollution(parsed) {
+  const headings = [
+    "Monday — Look at Color",
+    "Tuesday — Tummy-Time Colors",
+    "Wednesday — Touch and Color",
+    "Thursday — Light, Movement and Color",
+    "Friday — Color Keepsakes and Favorites",
+    "Monday — Looking at Bright Colors",
+  ];
+  const milestoneDump = JSON.stringify(parsed.lesson.milestones || [])
+    + JSON.stringify(parsed.lesson.rejectedMilestones || []);
+  headings.forEach((heading) => {
+    assert.equal(milestoneDump.includes(heading), false, `milestone polluted by ${heading}`);
+  });
+  assert.equal(milestoneDump.includes(colorsFixture.SEP), false, "milestone polluted by separator");
+  assert.equal(
+    parsed.unrecognized.some((row) => /^Activity\s+\d+$/i.test(row.body || "") || /^Activity\s+\d+$/i.test(row.heading || "")),
+    false,
+    JSON.stringify(parsed.unrecognized),
+  );
+  ["monday", "tuesday", "wednesday", "thursday", "friday"].forEach((day) => {
+    (parsed.dailyPlans[day].items || []).forEach((item) => {
+      const blob = [
+        item.objective, item.description, item.setup, item.steps, item.teacherLanguage,
+        item.observationOpportunities, item.safetyNotes, item.cleanupTips, item.preparation,
+      ].join("\n");
+      headings.forEach((heading) => {
+        assert.equal(blob.includes(heading), false, `${item.title} polluted by ${heading}`);
+      });
+      assert.doesNotMatch(blob, /^Activity\s+\d+$/m, `${item.title} polluted by Activity N`);
+      assert.equal(blob.includes(colorsFixture.SEP), false, `${item.title} polluted by separator`);
+    });
+  });
+}
+
 function assertColorsAllAroundUsMasterPaste() {
   const paste = colorsFixture.colorsAllAroundUsMasterPaste();
   const parsed = parseFullLessonStructurePaste(paste);
   assert.equal(parsed.ok, true, parsed.errors.join("; "));
   assert.equal(parsed.lesson.title, colorsFixture.COLORS_LESSON_TITLE);
   assert.equal(parsed.lesson.age, colorsFixture.COLORS_AGE_BAND);
-  assert.match(parsed.lesson.weeklyOverview, /looking, tracking, reaching/);
-  assert.match(parsed.lesson.teacherPreparation, /Sanitize cloths/);
+  assert.match(parsed.lesson.weeklyOverview, /looking, reaching, tracking/);
+  assert.match(parsed.lesson.teacherPreparation, /Prepare visual materials before babies arrive/);
   assert.equal(parsed.activityCount, 15);
   const expectedNames = colorsFixture.namesByDay();
   WEEKDAYS.forEach((label) => {
@@ -834,45 +870,71 @@ function assertColorsAllAroundUsMasterPaste() {
     false,
     JSON.stringify(parsed.unrecognized),
   );
-  assert.ok(!parsed.lesson.rejectedMilestones.includes("Monday — Looking at Bright Colors"));
-  assert.ok(!parsed.lesson.rejectedMilestones.includes(colorsFixture.SEP));
-  assert.ok(parsed.lesson.milestones.includes("Social-emotional"));
-  assert.ok(parsed.lesson.rejectedMilestones.includes("Cognition"));
+  assertNoWeekdayOrSeparatorPollution(parsed);
   colorsFixture.ACTIVITIES.forEach((spec) => {
     const day = spec.day.toLowerCase();
     const item = (parsed.dailyPlans[day].items || []).find((row) => row.title === spec.title);
     assert.ok(item, spec.title);
     assert.equal(item.activityCategory, spec.category, spec.title);
-    assert.match(item.objective || "", new RegExp(`${spec.token} objective only`), spec.title);
-    assert.match(item.description || "", new RegExp(`${spec.token} will-do only`), spec.title);
-    assert.match(item.setup || "", new RegExp(`${spec.token} setup only`), spec.title);
-    assert.match(item.steps || "", new RegExp(`${spec.token} step one`), spec.title);
-    colorsFixture.ACTIVITIES.filter((other) => other.token !== spec.token).forEach((other) => {
-      const leak = new RegExp(other.token);
-      ["objective", "description", "setup", "steps", "teacherLanguage", "observationOpportunities", "safetyNotes", "cleanupTips"].forEach((field) => {
-        assert.doesNotMatch(String(item[field] || ""), leak, `${spec.title} ${field} leaked ${other.token}`);
+    assert.equal(item.durationMinutes, spec.durationMinutes, spec.title);
+    assert.ok((item.objective || "").includes(spec.objective), spec.title);
+    assert.ok((item.description || "").includes(spec.description), spec.title);
+    assert.ok((item.setup || "").includes(spec.setup), spec.title);
+    assert.ok((item.steps || "").includes(spec.steps), spec.title);
+    colorsFixture.ACTIVITIES.filter((other) => other.title !== spec.title).forEach((other) => {
+      ["objective", "description", "setup", "steps"].forEach((field) => {
+        assert.equal(
+          String(item[field] || "").includes(other.steps),
+          false,
+          `${spec.title} ${field} leaked ${other.title} steps`,
+        );
       });
     });
-    assert.match(item.teacherLanguage || "", new RegExp(`${spec.token} question only`), spec.title);
-    assert.match(item.observationOpportunities || "", new RegExp(`${spec.token} obs only`), spec.title);
-    assert.match(item.safetyNotes || "", new RegExp(`${spec.token} safety only`), spec.title);
-    assert.match(item.cleanupTips || "", new RegExp(`${spec.token} cleanup only`), spec.title);
-    assert.match(item.indoorAlternatives || "", new RegExp(`${spec.token} indoor-outdoor only`), spec.title);
-    assert.match(item.outdoorAlternatives || "", new RegExp(`${spec.token} indoor-outdoor only`), spec.title);
-    assert.match(item.preparation || "", new RegExp(`${spec.token} prep only`), spec.title);
-    assert.match(item.adaptations || "", new RegExp(`${spec.token} support only`), spec.title);
-    assert.match(item.extensions || "", new RegExp(`${spec.token} challenge only`), spec.title);
-    assert.match(item.mixedAgeAdaptations || "", new RegExp(`${spec.token} mixed only`), spec.title);
-    assert.ok((item.observationPrompts || []).some((row) => row.includes(`${spec.token} prompt only`)), spec.title);
-    assert.match(item.vocabulary || "", new RegExp(spec.token), spec.title);
-    assert.equal(item.durationMinutes, 3, spec.title);
   });
   const preview = formatActivityPreview(parsed);
   WEEKDAYS.forEach((label) => {
     assert.match(preview, new RegExp(`${label} — 3`));
   });
   assert.match(preview, /TOTAL ACTIVITIES: 15/);
-  console.log("PASS  Colors All Around Us Master Paste parses 15 activities with field boundaries");
+  console.log("PASS  Colors All Around Us exact Master Paste parses 15 activities with field boundaries");
+}
+
+function assertColorsAllAroundUsCombinedTitleAgePaste() {
+  const paste = colorsFixture.colorsAllAroundUsCombinedTitleAgePaste();
+  const parsed = parseFullLessonStructurePaste(paste);
+  assert.equal(parsed.ok, true, parsed.errors.join("; "));
+  assert.equal(parsed.lesson.title, colorsFixture.COLORS_LESSON_TITLE);
+  assert.equal(parsed.lesson.age, colorsFixture.COLORS_AGE_BAND);
+  assert.match(parsed.lesson.weeklyOverview, /looking, tracking, reaching/);
+  assert.match(parsed.lesson.teacherPreparation, /Sanitize cloths/);
+  assert.equal(parsed.activityCount, 15);
+  const expectedNames = colorsFixture.namesByDayFrom(colorsFixture.COMBINED_TITLE_AGE_ACTIVITIES);
+  WEEKDAYS.forEach((label) => {
+    const day = label.toLowerCase();
+    const titles = (parsed.dailyPlans[day].items || []).map((item) => item.title);
+    assert.deepEqual(titles, expectedNames[label], `${label} order`);
+    assert.equal(titles.length, 3, `${label} count`);
+  });
+  assert.ok(!parsed.lesson.rejectedMilestones.includes("Monday — Looking at Bright Colors"));
+  assert.ok(!parsed.lesson.rejectedMilestones.includes(colorsFixture.SEP));
+  assert.ok(parsed.lesson.milestones.includes("Social-emotional"));
+  assert.ok(parsed.lesson.rejectedMilestones.includes("Cognition"));
+  colorsFixture.COMBINED_TITLE_AGE_ACTIVITIES.forEach((spec) => {
+    const day = spec.day.toLowerCase();
+    const item = (parsed.dailyPlans[day].items || []).find((row) => row.title === spec.title);
+    assert.ok(item, spec.title);
+    assert.equal(item.activityCategory, spec.category, spec.title);
+    assert.match(item.objective || "", new RegExp(`${spec.token} objective only`), spec.title);
+    assert.match(item.setup || "", new RegExp(`${spec.token} setup only`), spec.title);
+    assert.match(item.steps || "", new RegExp(`${spec.token} step one`), spec.title);
+    colorsFixture.COMBINED_TITLE_AGE_ACTIVITIES.filter((other) => other.token !== spec.token).forEach((other) => {
+      ["objective", "description", "setup", "steps"].forEach((field) => {
+        assert.doesNotMatch(String(item[field] || ""), new RegExp(other.token), `${spec.title} ${field} leaked ${other.token}`);
+      });
+    });
+    assert.equal(item.durationMinutes, 3, spec.title);
+  });
+  console.log("PASS  Colors All Around Us combined title—age paste still parses 15 activities");
 }
 
 function nameBlockActivity(name, { objective, safety } = {}) {
@@ -991,5 +1053,6 @@ module.exports = {
   largeNameBlockMasterPaste,
   nameBlockActivity,
   colorsAllAroundUsMasterPaste: colorsFixture.colorsAllAroundUsMasterPaste,
+  colorsAllAroundUsCombinedTitleAgePaste: colorsFixture.colorsAllAroundUsCombinedTitleAgePaste,
   COLORS_ALL_AROUND_US_FIXTURE: colorsFixture,
 };

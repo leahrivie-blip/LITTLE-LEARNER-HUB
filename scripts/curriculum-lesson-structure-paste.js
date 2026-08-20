@@ -118,6 +118,11 @@
     return /^(?:⸻+|[–—−─━⎯]+)$/.test(value);
   }
 
+  /** Standalone "Activity 1" labels between weekday headings; not an activity name. */
+  function isActivityNumberLabel(raw) {
+    return /^activity\s+\d+$/i.test(String(raw || "").trim());
+  }
+
   function normalizeMilestoneLabel(raw) {
     const api = pasteApi();
     if (api && typeof api.normalizeMilestoneLabel === "function") {
@@ -382,7 +387,7 @@
 
     lines.forEach((line) => {
       const trimmed = line.trim();
-      if (isDecorativePasteSeparator(trimmed)) return;
+      if (isDecorativePasteSeparator(trimmed) || isActivityNumberLabel(trimmed)) return;
       const heading = parseStructureHeadingLine(trimmed);
       if (heading) {
         const { labelPart, rest, fieldId, nestedKeep, isActivityStart } = heading;
@@ -603,6 +608,28 @@
     return true;
   }
 
+  /**
+   * Untitled first line "Colors All Around Us" when Age Band is a separate heading.
+   * Does not steal weekday headings, age-only lines, or Activity N labels.
+   */
+  function applyBareLessonTitle(lesson, source) {
+    if (lesson.title) return false;
+    const raw = String(source == null ? "" : source);
+    if (/\n/.test(raw.trim())) return false;
+    const line = raw.replace(/\s+/g, " ").trim();
+    if (!line || line.length > 80) return false;
+    if (/[.!?]$/.test(line)) return false;
+    if (line.split(/\s+/).length > 12) return false;
+    if (!/^[A-Za-z]/.test(line)) return false;
+    if (isActivityNumberLabel(line) || isDecorativePasteSeparator(line)) return false;
+    if (parseCombinedTitleAgeLine(line)) return false;
+    if (parseWeekdaySectionHeading(line)) return false;
+    if (headingFieldId(line)) return false;
+    if (mapAgeBand(line).display) return false;
+    lesson.title = line;
+    return true;
+  }
+
   function unrecognizedAgeBandError(raw) {
     const pasted = text(raw);
     const choices = CANONICAL_AGE_BAND_LABELS.join("\n");
@@ -716,6 +743,12 @@
       const body = section.body || "";
       if (!fieldId) {
         if (!section.headingRaw && applyCombinedTitleAge(lesson, body)) {
+          return;
+        }
+        if (isActivityNumberLabel(body) || isActivityNumberLabel(section.headingRaw)) {
+          return;
+        }
+        if (!section.headingRaw && applyBareLessonTitle(lesson, body)) {
           return;
         }
         if (text(body) || text(section.headingRaw)) {

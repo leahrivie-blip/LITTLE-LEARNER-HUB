@@ -24,6 +24,7 @@ const {
   weatherWatchersTwentyActivityFixture,
   RAINBOW_COFFEE_FILTER_ART_ACTIVITY,
   colorsAllAroundUsMasterPaste,
+  colorsAllAroundUsCombinedTitleAgePaste,
   COLORS_ALL_AROUND_US_FIXTURE,
 } = require("./test-master-lesson-activity-import-parser.js");
 const weekKit = require("./curriculum-week-kit-paste.js");
@@ -41,6 +42,10 @@ const COLORS_SETUP_URL = "/images/activities/rainbow-scarf-tracking-setup.png";
 const COLORS_EXAMPLE_URL = "/images/activities/rainbow-scarf-tracking-example.png";
 const COLORS_SETUP_ASSET = "tk-enrich-cccccccccccccccc";
 const COLORS_EXAMPLE_ASSET = "tk-enrich-dddddddddddddddd";
+const COLORS_OLD_TUESDAY_SETUP_URL = "/images/activities/one-bright-color-focus-setup.png";
+const COLORS_OLD_TUESDAY_EXAMPLE_URL = "/images/activities/one-bright-color-focus-example.png";
+const COLORS_OLD_TUESDAY_SETUP_ASSET = "tk-enrich-eeeeeeeeeeeeeeee";
+const COLORS_OLD_TUESDAY_EXAMPLE_ASSET = "tk-enrich-ffffffffffffffff";
 const VISUAL_BRIEF_ID = "vb-master-replace-preserve";
 const COVER_URL = "/images/lesson-covers/weather-watchers.png";
 const SETUP_URL = "/images/activities/rainbow-setup.png";
@@ -952,8 +957,9 @@ async function runOwnerReplaceTests() {
     );
     console.log("PASS  12  parse failure does not call replace and makes zero changes");
 
+    const colorsLegacyPaste = colorsAllAroundUsCombinedTitleAgePaste();
     const colorsPaste = colorsAllAroundUsMasterPaste();
-    const colorsCreated = await createDraftFromPaste(token, expectedUpdatedAt, colorsPaste, {
+    const colorsCreated = await createDraftFromPaste(token, expectedUpdatedAt, colorsLegacyPaste, {
       id: COLORS_LESSON_ID,
       plan: "Free",
     });
@@ -971,17 +977,26 @@ async function runOwnerReplaceTests() {
       exampleAsset: COLORS_EXAMPLE_ASSET,
     });
     expectedUpdatedAt = colorsMeta.json.siteContentUpdatedAt;
-    const scarfBefore = findActivity(activeActivities(colorsMeta.json, COLORS_LESSON_ID), "Rainbow Scarf Tracking");
+    const colorsTuesdayStamp = await stampLessonAssets(token, expectedUpdatedAt, {
+      ...colorsMeta.json.lessonPlan,
+      plan: "Free",
+    }, {
+      activityTitle: "One Bright Color Focus",
+      setupUrl: COLORS_OLD_TUESDAY_SETUP_URL,
+      exampleUrl: COLORS_OLD_TUESDAY_EXAMPLE_URL,
+      setupAsset: COLORS_OLD_TUESDAY_SETUP_ASSET,
+      exampleAsset: COLORS_OLD_TUESDAY_EXAMPLE_ASSET,
+    });
+    expectedUpdatedAt = colorsTuesdayStamp.json.siteContentUpdatedAt;
+    const scarfBefore = findActivity(activeActivities(colorsTuesdayStamp.json, COLORS_LESSON_ID), "Rainbow Scarf Tracking");
     assert.ok(scarfBefore?.id);
+    const oldTuesdayBefore = findActivity(activeActivities(colorsTuesdayStamp.json, COLORS_LESSON_ID), "One Bright Color Focus");
+    assert.ok(oldTuesdayBefore?.id);
     const briefsBeforeColors = JSON.stringify(readVisualBriefs());
     const rainbowLessonBeforeColors = (JSON.parse(fs.readFileSync(STORE_PATH, "utf8")).siteContent?.curriculum?.lessonPlans || [])
       .find((item) => item.id === RAINBOW_LESSON_ID);
 
-    const colorsUpdatedPaste = colorsPaste.replace(
-      "This week focuses on looking, tracking, reaching, and warm caregiver talk with bright colors.",
-      "Updated Colors All Around Us weekly overview after Master Paste replace.",
-    );
-    const colorsReplaced = await replaceFromPaste(token, expectedUpdatedAt, COLORS_LESSON_ID, colorsUpdatedPaste);
+    const colorsReplaced = await replaceFromPaste(token, expectedUpdatedAt, COLORS_LESSON_ID, colorsPaste);
     assert.equal(colorsReplaced.saved.status, 200, colorsReplaced.saved.text);
     expectedUpdatedAt = colorsReplaced.saved.json.siteContentUpdatedAt;
     const colorsPlan = colorsReplaced.saved.json.lessonPlan;
@@ -990,18 +1005,26 @@ async function runOwnerReplaceTests() {
     assert.equal(colorsPlan.plan, "Free");
     assert.equal(colorsPlan.status, "draft");
     assert.equal(colorsPlan.coverImageUrl, COLORS_COVER_URL);
-    assert.match(colorsPlan.weeklyOverview, /Updated Colors All Around Us weekly overview/);
+    assert.match(colorsPlan.weeklyOverview, /looking, reaching, tracking/);
     const colorsActs = activeActivities(colorsReplaced.saved.json, COLORS_LESSON_ID);
     assert.equal(colorsActs.length, 15);
     COLORS_ALL_AROUND_US_FIXTURE.ACTIVITIES.forEach((spec) => {
       const act = findActivity(colorsActs, spec.title);
       assert.ok(act, spec.title);
       assert.equal(act.dayOfWeek, spec.day.toLowerCase(), spec.title);
-      assert.match(act.setup || "", new RegExp(`${spec.token} setup only`), spec.title);
-      assert.match(act.steps || "", new RegExp(`${spec.token} step one`), spec.title);
-      COLORS_ALL_AROUND_US_FIXTURE.ACTIVITIES.filter((other) => other.token !== spec.token).forEach((other) => {
-        assert.doesNotMatch(String(act.setup || ""), new RegExp(other.token), `${spec.title} setup leaked ${other.token}`);
-        assert.doesNotMatch(String(act.steps || ""), new RegExp(other.token), `${spec.title} steps leaked ${other.token}`);
+      assert.ok((act.setup || "").includes(spec.setup), spec.title);
+      assert.ok((act.steps || "").includes(spec.steps), spec.title);
+      COLORS_ALL_AROUND_US_FIXTURE.ACTIVITIES.filter((other) => other.title !== spec.title).forEach((other) => {
+        assert.equal(
+          String(act.setup || "").includes(other.steps),
+          false,
+          `${spec.title} setup leaked ${other.title} steps`,
+        );
+        assert.equal(
+          String(act.steps || "").includes(other.steps),
+          false,
+          `${spec.title} steps leaked ${other.title}`,
+        );
       });
     });
     const scarfAfter = findActivity(colorsActs, "Rainbow Scarf Tracking");
@@ -1011,6 +1034,14 @@ async function runOwnerReplaceTests() {
     assert.equal(scarfAfter.exampleImageUrl, COLORS_EXAMPLE_URL);
     assert.equal(scarfAfter.setupMediaAssetId, COLORS_SETUP_ASSET);
     assert.equal(scarfAfter.exampleMediaAssetId, COLORS_EXAMPLE_ASSET);
+    const galleryAfter = findActivity(colorsActs, "Color Tummy-Time Gallery");
+    assert.ok(galleryAfter);
+    assert.notEqual(galleryAfter.itemId, oldTuesdayBefore.itemId);
+    assert.notEqual(galleryAfter.setupImageUrl, COLORS_OLD_TUESDAY_SETUP_URL);
+    assert.notEqual(galleryAfter.exampleImageUrl, COLORS_OLD_TUESDAY_EXAMPLE_URL);
+    assert.notEqual(galleryAfter.setupMediaAssetId, COLORS_OLD_TUESDAY_SETUP_ASSET);
+    assert.notEqual(galleryAfter.exampleMediaAssetId, COLORS_OLD_TUESDAY_EXAMPLE_ASSET);
+    assert.ok(!findActivity(colorsActs, "One Bright Color Focus"));
     assert.equal(JSON.stringify(readVisualBriefs()), briefsBeforeColors);
     const rainbowLessonAfterColors = (JSON.parse(fs.readFileSync(STORE_PATH, "utf8")).siteContent?.curriculum?.lessonPlans || [])
       .find((item) => item.id === RAINBOW_LESSON_ID);

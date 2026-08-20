@@ -580,8 +580,8 @@ async function runWriteTests() {
       assert.equal(act.dayOfWeek, spec.day.toLowerCase(), spec.title);
       const parsedItem = colorsCanonical.dailyPlans[spec.day.toLowerCase()].items.find((row) => row.title === spec.title);
       assert.equal(parsedItem.activityCategory, spec.category, spec.title);
-      assert.match(act.setup || "", new RegExp(`${spec.token} setup only`), spec.title);
-      assert.match(act.steps || "", new RegExp(`${spec.token} step one`), spec.title);
+      assert.ok((act.setup || "").includes(spec.setup), spec.title);
+      assert.ok((act.steps || "").includes(spec.steps), spec.title);
       assert.equal(act.setup, parsedItem.setup);
     });
     assert.equal(colorsWrite.saved.lessonPlan.weeklyOverview, colorsCanonical.weeklyOverview);
