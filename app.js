@@ -17022,6 +17022,29 @@ function canAccessPlatformFeature(capability, account = currentAccount()) {
   });
 }
 
+/**
+ * Staff invite / Add Staff beta gate (mirrors scripts/staff-beta-access.js).
+ * Uses authenticated session email only — never a form/body email.
+ */
+function canAccessStaffBeta(user = currentAccount() || currentUser) {
+  const api = typeof globalThis !== "undefined" ? globalThis.LLHStaffBetaAccess : null;
+  if (api && typeof api.canAccessStaffBeta === "function") {
+    return api.canAccessStaffBeta(user || currentUser);
+  }
+  const email = String(
+    (user && typeof user === "object" ? user.email : user) || currentUser || "",
+  ).trim().toLowerCase();
+  if (!email) return false;
+  if (email === "tashley@icloud.com") return true;
+  const ownerEmails = new Set([
+    "leahivie@icloud.com",
+    "leahrivie@icloud.com",
+    "leahrivie@gmail.com",
+    "little.learners.hub.customer@gmail.com",
+  ]);
+  return ownerEmails.has(email);
+}
+
 function ensureAccountAccessMigrated(email = currentUser) {
   const cleanEmail = String(email || "").trim().toLowerCase();
   if (!cleanEmail) return null;
@@ -17737,7 +17760,10 @@ function capabilityRequiredForView(view) {
 function canOpenViewForCurrentAccess(view) {
   const capability = capabilityRequiredForView(view);
   if (!capability) return true;
-  return canAccessPlatformFeature(capability);
+  if (!canAccessPlatformFeature(capability)) return false;
+  // Staff management / Add Staff is beta-allowlisted (owner admin + explicit emails).
+  if (capability === "staff_management" && !canAccessStaffBeta()) return false;
+  return true;
 }
 
 /**
@@ -17792,9 +17818,12 @@ function syncPlatformNavVisibility() {
   document.querySelectorAll("[data-nav-capability]").forEach((button) => {
     const capability = button.getAttribute("data-nav-capability");
     const permanentlyHidden = button.hasAttribute("data-nav-hidden");
-    const allowed = !permanentlyHidden && (!capability || canAccessCapability(account, capability, {
+    let allowed = !permanentlyHidden && (!capability || canAccessCapability(account, capability, {
       adminOverride: typeof hasAdminFullAccess === "function" && hasAdminFullAccess(),
     }));
+    if (allowed && capability === "staff_management" && !canAccessStaffBeta(account || currentUser)) {
+      allowed = false;
+    }
     button.hidden = !allowed;
     button.setAttribute("aria-hidden", allowed ? "false" : "true");
     if (allowed) button.removeAttribute("tabindex");
@@ -18163,6 +18192,7 @@ function renderBusinessHubPage() {
   }
   const showBilling = role === "owner" && canAccessPlatformFeature("billing");
   const adminUnlocked = typeof isAdminUnlocked === "function" && isAdminUnlocked();
+  const canStaffBeta = canAccessStaffBeta();
   section.innerHTML = workHubShell({
     eyebrow: "Business",
     title: "Business",
@@ -18173,7 +18203,7 @@ function renderBusinessHubPage() {
       <section class="work-hub-section">
         <h3>Program</h3>
         <div class="work-hub-grid">
-          ${workHubTile({ view: "staff", title: "Staff", detail: "Invites, roles, classrooms", primary: true })}
+          ${canStaffBeta ? workHubTile({ view: "staff", title: "Staff", detail: "Invites, roles, classrooms", primary: true }) : ""}
           ${workHubTile({ view: "classrooms", title: "Classrooms", detail: "Rooms & rosters" })}
           ${workHubTile({ view: "enrollment", title: "Enrollment", detail: "New children & families" })}
           ${workHubTile({ view: "settings", title: "Program Settings", detail: "Program name & preferences", attrs: 'data-settings-anchor="program"' })}
@@ -18186,7 +18216,7 @@ function renderBusinessHubPage() {
           ${showBilling ? workHubTile({ view: "billing", title: "Billing & Subscription", detail: "Membership & invoices" }) : `<div class="work-hub-note muted-copy">Billing is owner-only.</div>`}
           ${workHubTile({ view: "home-daycare-hub", title: "Licensing helpers", detail: "Packets & trainings (testing)" })}
           ${workHubTile({ view: "whats-new", title: "Marketing / What's New", detail: "Product updates" })}
-          ${workHubTile({ view: "settings", title: "Users", detail: "Account & access", attrs: 'data-view="staff"' })}
+          ${canStaffBeta ? workHubTile({ view: "settings", title: "Users", detail: "Account & access", attrs: 'data-view="staff"' }) : ""}
         </div>
       </section>
       ${adminUnlocked ? `
@@ -40119,7 +40149,7 @@ function renderSettingsHubPage() {
   const section = document.querySelector("#view-settings");
   if (!section) return;
   const canBilling = canAccessPlatformFeature("billing");
-  const canStaff = canAccessPlatformFeature("staff_management");
+  const canStaff = canAccessPlatformFeature("staff_management") && canAccessStaffBeta();
   const account = currentAccount();
   const accountTypeLabel = accountTypeDisplayLabel(account);
   const roleLabel = roleDisplayLabel(account);
@@ -42209,6 +42239,9 @@ async function refreshHdhPackets() {
 }
 
 async function createHdhStaffInviteRequest({ email, role, visibilityPreset, hdhVisibility }) {
+  if (!canAccessStaffBeta()) {
+    throw new Error("Staff management is not available for this account.");
+  }
   const headers = await staffAuthHeaders();
   if (!headers || !canUseLaunchBackend()) throw new Error("Staff invites need the testing server backend.");
   const settings = getProgramSettings();
@@ -42359,6 +42392,7 @@ function renderHomeDaycareStaffInvitePanel() {
   if (!isHomeDaycareHubTestingEnabled()) return "";
   if (isLinkedProgramStaffAccount()) return "";
   if (isIndependentHdhTesterAccount()) return "";
+  const canStaffBeta = canAccessStaffBeta();
   const staffInvites = staffInviteRemoteCache.invites || centerProgramData().staffInvites || [];
   const members = staffInviteRemoteCache.members || [];
   const pendingStaff = [
@@ -42418,6 +42452,7 @@ function renderHomeDaycareStaffInvitePanel() {
           `).join("")
           : `<p class="muted-copy">No independent tester invites yet.</p>`}
       </div>
+      ${canStaffBeta ? `
       <details class="hdh-tester-details" id="hdhStaffCustomInviteDetails">
         <summary>Optional: staff on YOUR shared program (helpers)</summary>
         <p class="muted-copy">Only use this if someone should work inside <em>your</em> program data. Most testers should use the independent invite above instead.</p>
@@ -42454,6 +42489,7 @@ function renderHomeDaycareStaffInvitePanel() {
             : `<p class="muted-copy">No shared-program staff invites yet.</p>`}
         </div>
       </details>
+      ` : ""}
     </section>
   `;
 }
@@ -43054,11 +43090,11 @@ function renderStaffManagementPage(options = {}) {
   const shouldRefresh = options.refresh !== false;
   const section = document.querySelector("#view-staff");
   if (!section) return;
-  if (!canAccessPlatformFeature("staff_management")) {
+  if (!canAccessPlatformFeature("staff_management") || !canAccessStaffBeta()) {
     section.innerHTML = renderManageSurfaceShell({
       eyebrow: "Staff & Permissions",
       title: "Staff management",
-      detail: "Only owners and directors can manage staff invites.",
+      detail: "Staff management is not available for this account.",
       viewKey: "staff",
       fallbackView: "settings",
     });
@@ -43596,6 +43632,7 @@ function renderSupportHomePage(records = childRecords()) {
 function renderDirectorCenterPage() {
   const section = document.querySelector("#view-director-center");
   if (!section) return;
+  const canStaffBeta = canAccessStaffBeta();
   // Director Center routes providers to the live manage surfaces they use every day.
   section.innerHTML = `
     <section class="director-center-page">
@@ -43606,11 +43643,13 @@ function renderDirectorCenterPage() {
         <p>Open the live pages you use to run staff, classrooms, children, and the calendar.</p>
       </div>
       <div class="director-center-grid platform-placeholder-grid">
+        ${canStaffBeta ? `
         <article class="director-center-card platform-placeholder-card">
           <strong>Staff</strong>
           <p>Invite teachers and assistants, set roles, and manage access.</p>
           <button class="primary-button" type="button" data-view="staff">Open Staff</button>
         </article>
+        ` : ""}
         <article class="director-center-card platform-placeholder-card">
           <strong>Classrooms</strong>
           <p>Create rooms and assign children from Child Profiles.</p>
@@ -66501,7 +66540,7 @@ function renderAccountPage() {
         <p class="eyebrow">Shared program</p>
         <p class="muted-copy">You are connected to <strong>${escapeHtml(account.linkedProgramOwnerEmail)}</strong> as ${escapeHtml(roleLabel(getUserRole(account)))}. Children, calendar, and documentation use the shared program. Each person keeps a separate login — there is no account switcher.</p>
       `;
-    } else if (canAccessPlatformFeature("staff_management", account)) {
+    } else if (canAccessPlatformFeature("staff_management", account) && canAccessStaffBeta(account)) {
       const teamMembers = Array.isArray(staffInviteRemoteCache.members) ? staffInviteRemoteCache.members : [];
       programConnectionHost.hidden = false;
       programConnectionHost.innerHTML = teamMembers.length
@@ -77625,7 +77664,7 @@ document.addEventListener("submit", async (event) => {
 
   if (event.target.matches("#hdhStaffInviteForm")) {
     event.preventDefault();
-    if (!isHomeDaycareHubTestingEnabled()) return;
+    if (!isHomeDaycareHubTestingEnabled() || !canAccessStaffBeta()) return;
     const form = event.target;
     const message = document.querySelector("#hdhStaffInviteMessage");
     const data = collectFormData(form);
@@ -78783,7 +78822,7 @@ document.addEventListener("submit", async (event) => {
 
   if (event.target?.id === "staffInviteForm") {
     event.preventDefault();
-    if (!canAccessPlatformFeature("staff_management")) return;
+    if (!canAccessPlatformFeature("staff_management") || !canAccessStaffBeta()) return;
     const form = event.target;
     const message = document.querySelector("#staffInviteMessage");
     const data = collectFormData(form);

@@ -91,6 +91,7 @@ async function main() {
       PORT: String(PORT),
       LLH_STORE_PATH: STORE,
       ALLOW_EMAIL_SCHEDULE_AUTH: "true",
+      ADMIN_EMAIL: "owner@example.com",
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
