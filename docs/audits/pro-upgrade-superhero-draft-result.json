@@ -5,7 +5,7 @@
     "plan": "Pro",
     "status": "published",
     "activityCount": 25,
-    "hasEnrichmentDraft": false,
+    "hasEnrichmentDraft": true,
     "enrichmentPublished": false,
     "resourceIds": [],
     "coverImageUrl": "/api/media/lesson-covers/lesson-cover-de9ef535ccf2f5b69bd81b3bb403a036"
