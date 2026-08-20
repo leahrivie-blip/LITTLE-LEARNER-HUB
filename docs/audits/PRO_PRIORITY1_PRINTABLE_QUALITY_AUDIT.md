@@ -85,3 +85,23 @@
 4. **Animal–Habitat Match Cards** — redesigned match set; draft only.
 
 No lesson/activity content rewrites. No Free/Pro changes. Unrelated lessons untouched.
+
+---
+
+## Replacements applied (draft only)
+
+| Old resource | New resource | Title | Status |
+|---|---|---|---|
+| `cur-res-d0766e0900173303` | `cur-res-ec8773d2e6fcfa31` | Kindness Mission Cards | draft |
+| `cur-res-f72e48f308860194` | `cur-res-d19f746a54747af0` | Hero Movement Action Cards | draft |
+| `cur-res-47289150a016e6a4` | `cur-res-af447963e31c825e` | Zoo Animal Picture Cards | draft |
+| `cur-res-ed3dd8cd112b51ba` | `cur-res-1aeac0279092a628` | Animal–Habitat Match Cards | draft |
+
+- Old resources **not deleted** (still draft).
+- Enrichment **not published**.
+- Lesson/activity content **unchanged**.
+- Free/Pro **unchanged**.
+- Unrelated lessons **untouched**.
+- Super Badge Emblem Template kept: `cur-res-59fbca5ee3088b9c`.
+
+Result JSON: `docs/audits/PRO_PRIORITY1_PRINTABLE_QUALITY_REPLACE_RESULT.json`
