@@ -1,5 +1,5 @@
-const CACHE_NAME = "llh-shell-v208-home-farm-conversion";
-const SHELL_VERSION = "20260817-home-farm-conversion";
+const CACHE_NAME = "llh-shell-v209-master-paste-overlay-z";
+const SHELL_VERSION = "20260820-master-paste-overlay-z";
 const OFFLINE_URL = "/offline.html";
 const NETWORK_TIMEOUT_MS = 2500;
 const APP_SHELL = [
@@ -7,7 +7,7 @@ const APP_SHELL = [
   "/index.html",
   "/offline.html",
   "/styles.css?v=20260812-tk-manual-kit-media-r1",
-  "/styles/llh-admin-workspace.css?v=20260818-free-signup-funnel-r1",
+  "/styles/llh-admin-workspace.css?v=20260820-master-paste-overlay-z",
   "/styles/llh-design-tokens.css?v=20260713-ds",
   "/styles/llh-homepage.css?v=20260817-home-farm",
   "/styles/llh-library-browse.css?v=20260717-netflix-cover-cards",
@@ -51,7 +51,7 @@ const APP_SHELL = [
   "/scripts/teaching-kit-quality-review.js?v=20260810-tk-editor-open-focus-fix-r1",
   "/scripts/teaching-kit-quality-review-ui.js?v=20260803-tk-quality-review",
   "/scripts/teaching-kit-printable-idea-remove.js?v=20260817-printable-idea-remove-r1",
-  "/scripts/teaching-kit-enrichment-editor.js?v=20260817-linked-preview-keep-editor-r1",
+  "/scripts/teaching-kit-enrichment-editor.js?v=20260820-master-paste-overlay-z",
   "/scripts/lesson-review-editor.js?v=20260812-core-age-duration-r1",
   "/styles/lesson-review-editor.css?v=20260812-core-age-duration-r1",
   "/scripts/teaching-kit-authoring.js?v=20260803-tk-authoring",
