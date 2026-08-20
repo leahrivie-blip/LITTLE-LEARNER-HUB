@@ -170,6 +170,12 @@ const PHASE6_EXECUTABLE_ACTIONS = Object.freeze([
   ...PHASE5_EXECUTABLE_ACTIONS,
 ]);
 
+/** Phase 7 adds trusted lesson.create (draft only) then reuses Phase 6 kit finish — still no publish. */
+const PHASE7_EXECUTABLE_ACTIONS = Object.freeze([
+  ...PHASE6_EXECUTABLE_ACTIONS,
+  "lesson.create",
+]);
+
 const OWNER_REVIEW_STATUSES = Object.freeze([
   "READY_FOR_OWNER_REVIEW",
   "PARTIAL",
@@ -260,6 +266,8 @@ const CONFIRM_REASONS = Object.freeze([
   "mutation_not_enabled",
   "external_dependency_failed",
   "validation_unsatisfied",
+  "scope_review_required",
+  "possible_duplicate",
 ]);
 
 function text(value, max = 2000) {
@@ -394,9 +402,10 @@ function normalizeOperatorCommand(raw = {}, options = {}) {
     publish: actionsIn.publish === true,
   };
 
-  // Always block create / publish.
-  actions.createLesson = false;
+  // Always block publish. Create only at Phase 7+ when explicitly requested.
   actions.publish = false;
+  if (phase < 7) actions.createLesson = false;
+  else actions.createLesson = actionsIn.createLesson === true;
   if (phase < 4) actions.generatePrintables = false;
   if (phase < 5) actions.generateSongsBooks = false;
   if (actions.textOnly) {
@@ -420,7 +429,8 @@ function normalizeOperatorCommand(raw = {}, options = {}) {
   const phase3 = phase === 3;
   const phase4 = phase === 4;
   const phase5 = phase === 5;
-  const phase6 = phase >= 6;
+  const phase6 = phase === 6;
+  const phase7 = phase >= 7;
   if (phase1) {
     actions.upgradeLesson = false;
     actions.upgradeActivities = false;
@@ -494,11 +504,18 @@ function normalizeOperatorCommand(raw = {}, options = {}) {
       actions.generateImages = false;
       actions.generatePrintables = false;
     }
-  } else if (phase6) {
-    // Phase 6: full Teaching Kit orchestration — exclusions are immutable
+  } else if (phase6 || phase7) {
+    // Phase 6/7: full Teaching Kit orchestration — exclusions are immutable.
+    // Phase 7 may also create a new draft lesson, then reuse the same kit finish path.
     const fullKit = intent === "finish_full_kit" || intent === "fix_lesson" || intent === "upgrade_batch"
+      || intent === "create_lesson"
       || actionsIn.finishFullKit === true;
-    if (fullKit || actions.upgradeLesson || actions.upgradeActivities) {
+    if (intent === "create_lesson" && phase7 && actions.createLesson) {
+      // Base lesson text is created via trusted lesson.create — skip upgrade composer.
+      actions.upgradeLesson = false;
+      actions.upgradeActivities = false;
+      actions.saveDraft = true;
+    } else if (fullKit || actions.upgradeLesson || actions.upgradeActivities) {
       if (actions.touchDraft !== false && !actions.textOnly) {
         actions.upgradeLesson = true;
         actions.upgradeActivities = true;
@@ -547,6 +564,7 @@ function normalizeOperatorCommand(raw = {}, options = {}) {
       actions.generatePrintables = false;
       actions.generateSongsBooks = false;
     }
+    if (phase < 7) actions.createLesson = false;
   } else {
     actions.generateImages = false;
     actions.generatePrintables = false;
@@ -581,6 +599,7 @@ function normalizeOperatorCommand(raw = {}, options = {}) {
         || actions.generateImages === true
         || actions.generatePrintables === true
         || actions.generateSongsBooks === true
+        || actions.createLesson === true
       ),
       phase,
     },
@@ -693,6 +712,10 @@ function isPhase6Executable(actionType) {
   return PHASE6_EXECUTABLE_ACTIONS.includes(text(actionType, 60));
 }
 
+function isPhase7Executable(actionType) {
+  return PHASE7_EXECUTABLE_ACTIONS.includes(text(actionType, 60));
+}
+
 module.exports = {
   FIELD_DECISIONS,
   IMAGE_DECISIONS,
@@ -705,6 +728,7 @@ module.exports = {
   PHASE4_EXECUTABLE_ACTIONS,
   PHASE5_EXECUTABLE_ACTIONS,
   PHASE6_EXECUTABLE_ACTIONS,
+  PHASE7_EXECUTABLE_ACTIONS,
   OWNER_REVIEW_STATUSES,
   MUTATION_ACTIONS,
   JOB_STATUSES,
@@ -728,6 +752,7 @@ module.exports = {
   isPhase4Executable,
   isPhase5Executable,
   isPhase6Executable,
+  isPhase7Executable,
   text,
   asArray,
   clampInt,

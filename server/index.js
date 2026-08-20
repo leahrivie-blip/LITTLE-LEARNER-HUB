@@ -7051,6 +7051,78 @@ async function saveOperatorEnrichmentDraft({
 }
 
 /**
+ * Trusted new draft lesson create for AI Curriculum Operator Phase 7.
+ * Mirrors admin createNewLesson + syncCurriculumActivitiesForLessonPlan.
+ * Always status "draft". Never publishes.
+ */
+async function createOperatorLessonPlan({
+  store,
+  lessonPlan,
+  adminEmail = "",
+} = {}) {
+  const incoming = lessonPlan && typeof lessonPlan === "object" ? lessonPlan : null;
+  if (!incoming || !normalizedShortText(incoming.title, 180)) {
+    return { ok: false, error: "lessonPlan with title is required", code: "lesson_required" };
+  }
+  const now = new Date().toISOString();
+  const siteContent = store.siteContent && typeof store.siteContent === "object"
+    ? store.siteContent
+    : defaultSiteContentStore();
+  const existingCurriculum = siteContent.curriculum || defaultCurriculumStore();
+  const id = generateCurriculumLessonPlanId();
+  const planInput = {
+    ...incoming,
+    id,
+    status: "draft",
+    plan: incoming.plan === "Pro" ? "Pro" : "Free",
+    createdAt: now,
+    updatedAt: now,
+    lastEditedBy: normalizedShortText(adminEmail, 180) || "curriculum-operator-phase7",
+  };
+  delete planInput.publishedAt;
+  const syncedCurriculum = syncCurriculumActivitiesForLessonPlan(existingCurriculum, planInput, {
+    replaceAuthoredContent: true,
+  });
+  if (!syncedCurriculum) {
+    return { ok: false, error: "Failed to sync activities for new lesson.", code: "sync_failed" };
+  }
+  const savedPlan = (syncedCurriculum.lessonPlans || []).find((item) => item.id === id);
+  if (!savedPlan || savedPlan.status !== "draft") {
+    return { ok: false, error: "Created lesson must remain draft.", code: "draft_required" };
+  }
+  const activityIds = Array.isArray(savedPlan.activityIds) ? savedPlan.activityIds : [];
+  if (!activityIds.length) {
+    return { ok: false, error: "Created lesson has no activity IDs.", code: "missing_activity_ids" };
+  }
+  const writeResult = writeSiteCurriculumTouched(store, syncedCurriculum, {
+    updatedAt: now,
+    touchedLessonPlanIds: [id],
+    touchedActivityIds: activityIds,
+  });
+  if (writeResult.wipeBlocked) {
+    return { ok: false, error: "curriculum_wipe_blocked", code: "curriculum_wipe_blocked" };
+  }
+  appendEnrichmentEditorAudit(store, {
+    action: "operator_create_lesson",
+    lessonPlanId: id,
+    adminEmail: normalizedShortText(adminEmail, 180) || "curriculum-operator-phase7",
+    note: "Operator Phase 7 trusted draft lesson create; not published.",
+  });
+  await writeStoreAsync(store);
+  const curriculum = store.siteContent?.curriculum || syncedCurriculum;
+  const finalPlan = (curriculum.lessonPlans || []).find((item) => item.id === id);
+  const activities = (curriculum.activities || []).filter((a) => a.lessonPlanId === id && a.status !== "archived");
+  return {
+    ok: true,
+    saveMode: "create_draft",
+    createdLessonId: id,
+    lessonPlan: finalPlan,
+    activities,
+    published: false,
+  };
+}
+
+/**
  * Trusted draft printable create/link for AI Curriculum Operator Phase 4.
  * Reuses curriculum resource + lesson linking. Never publishes.
  */
@@ -31345,6 +31417,7 @@ const server = http.createServer(async (request, response) => {
           normalizeEmail,
           readSiteCurriculum,
           saveOperatorEnrichmentDraft,
+          createOperatorLessonPlan,
           openAiConfigured: Boolean(isConfiguredValue(OPENAI_API_KEY)),
           callOperatorAi: async (systemPrompt, userPrompt) => {
             const forceFixture = process.env.NODE_ENV === "test"

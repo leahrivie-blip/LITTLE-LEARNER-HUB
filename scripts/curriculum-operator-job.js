@@ -89,6 +89,15 @@ function normalizeLessonResult(raw = {}) {
     songsBooksComplete: input.songsBooksComplete === true,
     textComplete: input.textComplete === true,
     finalVerificationComplete: input.finalVerificationComplete === true,
+    creationBriefComplete: input.creationBriefComplete === true,
+    duplicateCheckComplete: input.duplicateCheckComplete === true,
+    baseContentComplete: input.baseContentComplete === true,
+    lessonCreated: input.lessonCreated === true,
+    idsVerified: input.idsVerified === true,
+    createdLessonId: schema.text(input.createdLessonId, 160) || null,
+    creationBrief: input.creationBrief && typeof input.creationBrief === "object" ? input.creationBrief : null,
+    creationIdempotencyKey: schema.text(input.creationIdempotencyKey, 200) || null,
+    qualityReview: input.qualityReview && typeof input.qualityReview === "object" ? input.qualityReview : null,
     workPlan: input.workPlan && typeof input.workPlan === "object" ? input.workPlan : null,
     kitScope: input.kitScope && typeof input.kitScope === "object" ? input.kitScope : null,
     finalVerification: input.finalVerification && typeof input.finalVerification === "object"
@@ -176,7 +185,8 @@ function normalizeOperatorJobStore(raw) {
 function createJobFromPlan({ command, planSummary, createdBy, status = "planned" }) {
   const lessons = schema.asArray(planSummary?.lessons);
   const phase = Number(command?.completion?.phase) || 1;
-  const doUpgrade = phase >= 2 && command?.actions?.saveDraft === true
+  const doCreate = phase >= 7 && command?.actions?.createLesson === true;
+  const doUpgrade = !doCreate && phase >= 2 && command?.actions?.saveDraft === true
     && (command?.actions?.upgradeLesson || command?.actions?.upgradeActivities)
     && command?.actions?.touchDraft !== false;
   const doImages = ((phase === 3) || (phase >= 6))
@@ -188,32 +198,57 @@ function createJobFromPlan({ command, planSummary, createdBy, status = "planned"
   const doSongsBooks = ((phase === 5) || (phase >= 6))
     && command?.actions?.generateSongsBooks === true
     && (command?.actions?.touchSongs !== false || command?.actions?.touchBooks !== false);
+  const lessonRows = lessons.length
+    ? lessons
+    : (doCreate
+      ? [{
+        id: schema.text(planSummary?.pendingCreateId, 160) || "pending-create",
+        title: schema.text(planSummary?.creationBrief?.title, 180) || "New lesson (pending create)",
+        workPlan: null,
+        kitScope: null,
+      }]
+      : []);
   const job = normalizeOperatorJob({
     createdBy,
     status,
     command,
     planSummary,
     phase,
-    mutationsEnabled: Boolean(doUpgrade || doImages || doPrintables || doSongsBooks),
+    mutationsEnabled: Boolean(doCreate || doUpgrade || doImages || doPrintables || doSongsBooks),
     publishEnabled: false,
     progress: {
       lessonIndex: 0,
-      lessonCount: lessons.length,
+      lessonCount: lessonRows.length,
       currentLessonId: "",
       currentAction: "",
       completed: 0,
       failed: 0,
       skipped: 0,
-      remaining: lessons.length,
+      remaining: lessonRows.length,
     },
-    lessonResults: lessons.map((lesson) => {
-      const id = lesson.id || lesson.lessonId;
-      const actions = [
-        { id: newStepId(), type: "lesson.get", status: "pending", idempotencyKey: `get:${id}` },
-        { id: newStepId(), type: "lesson.audit", status: "pending", idempotencyKey: `audit:${id}` },
-        { id: newStepId(), type: "asset.plan", status: "pending", idempotencyKey: `asset:${id}` },
-        { id: newStepId(), type: "teachingKit.score", status: "pending", idempotencyKey: `score:${id}` },
-      ];
+    lessonResults: lessonRows.map((lesson) => {
+      const id = lesson.id || lesson.lessonId || (doCreate ? "pending-create" : "");
+      const createKey = schema.text(
+        lesson.creationIdempotencyKey || planSummary?.creationBrief?.idempotencyKey || `create:${id}`,
+        200,
+      );
+      const actions = [];
+      if (doCreate) {
+        actions.push(
+          { id: newStepId(), type: "lesson.create", status: "pending", idempotencyKey: `brief:${createKey}` },
+          { id: newStepId(), type: "lesson.create", status: "pending", idempotencyKey: `dup:${createKey}` },
+          { id: newStepId(), type: "lesson.create", status: "pending", idempotencyKey: `content:${createKey}` },
+          { id: newStepId(), type: "lesson.create", status: "pending", idempotencyKey: `create:${createKey}` },
+          { id: newStepId(), type: "lesson.validate", status: "pending", idempotencyKey: `ids:${createKey}` },
+        );
+      } else {
+        actions.push(
+          { id: newStepId(), type: "lesson.get", status: "pending", idempotencyKey: `get:${id}` },
+          { id: newStepId(), type: "lesson.audit", status: "pending", idempotencyKey: `audit:${id}` },
+          { id: newStepId(), type: "asset.plan", status: "pending", idempotencyKey: `asset:${id}` },
+          { id: newStepId(), type: "teachingKit.score", status: "pending", idempotencyKey: `score:${id}` },
+        );
+      }
       if (doUpgrade) {
         actions.push(
           { id: newStepId(), type: "lesson.updateFields", status: "pending", idempotencyKey: `update:${id}` },
@@ -222,7 +257,7 @@ function createJobFromPlan({ command, planSummary, createdBy, status = "planned"
           { id: newStepId(), type: "lesson.validate", status: "pending", idempotencyKey: `validate:${id}` },
         );
       }
-      // Phase 6 order: text → songs/books → images → printables
+      // Phase 6/7 order after create (or existing): songs/books → images → printables
       if (doSongsBooks) {
         actions.push(
           { id: newStepId(), type: "song.audit", status: "pending", idempotencyKey: `song-audit:${id}` },
@@ -273,8 +308,16 @@ function createJobFromPlan({ command, planSummary, createdBy, status = "planned"
         songCounts: null,
         bookCounts: null,
         songsBooksComplete: false,
-        textComplete: false,
+        textComplete: doCreate,
         finalVerificationComplete: false,
+        creationBriefComplete: false,
+        duplicateCheckComplete: false,
+        baseContentComplete: false,
+        lessonCreated: Boolean(lesson.createdLessonId || planSummary?.createdLessonId),
+        idsVerified: false,
+        createdLessonId: schema.text(lesson.createdLessonId || planSummary?.createdLessonId, 160) || null,
+        creationBrief: lesson.creationBrief || planSummary?.creationBrief || null,
+        creationIdempotencyKey: createKey,
         workPlan: lesson.workPlan || null,
         kitScope: lesson.kitScope || null,
       };
@@ -282,7 +325,9 @@ function createJobFromPlan({ command, planSummary, createdBy, status = "planned"
     log: [],
   });
   let createdMsg = `Job created (${status}). Audit-only — no curriculum mutations.`;
-  if (phase >= 6 && (doUpgrade || doImages || doPrintables || doSongsBooks)) {
+  if (doCreate) {
+    createdMsg = `Job created (${status}). Phase 7 new draft lesson create + Teaching Kit finish — no publish.`;
+  } else if (phase >= 6 && (doUpgrade || doImages || doPrintables || doSongsBooks)) {
     createdMsg = `Job created (${status}). Phase 6 full Teaching Kit finish — no publish / no lesson.create.`;
   } else if (doSongsBooks && !doImages && !doPrintables && phase === 5) {
     createdMsg = `Job created (${status}). Phase 5 songs+books — no publish / no image or printable regeneration.`;

@@ -6,6 +6,7 @@
 
 const schema = require("./curriculum-operator-schema.js");
 const orchestrator = require("./curriculum-operator-orchestrator.js");
+const createApi = require("./curriculum-operator-create.js");
 
 function parseCount(command) {
   const m = String(command || "").match(/\b(?:top|next|first|the)?\s*(\d{1,2})\b/i)
@@ -135,9 +136,13 @@ function parseOperatorCommand(rawCommand, options = {}) {
     && !/\b(upgrade|improve|including|lesson\s+content|text|fields|pictures?|images?)\b/i.test(raw);
   const wantsUpgrade = /\b(upgrade|improve|finish|complete|make\s+ready|fill\s+(?:the\s+)?missing|ready\s+for\s+(?:me\s+to\s+)?review)\b/i.test(raw)
     || (/\bfix\b/i.test(raw) && !imageFocusedFix && !mentionsImages);
+  const isCreateCommand = createApi.isCreateLessonCommand(raw)
+    || (/\b(create|make\s+me|build)\b.+\b(lessons?|weeks?|kits?)\b/i.test(raw)
+      && !/\b(upgrade|finish|fix)\b.+\b(existing|this)\s+lesson\b/i.test(raw));
   const noTouchImages = exclusions.flags.touchImages === false;
   const replaceBadOnly = /\b(keep\s+(?:all\s+)?good|only\s+replace\s+(?:the\s+)?bad|replace\s+(?:the\s+)?bad)\b/i.test(raw);
   const fullKitFinish = phase >= 6 && orchestrator.isFullKitFinishCommand(raw)
+    && !isCreateCommand
     && !wantsSongsBooks
     && !printableFocusedFix
     && !(imageFocusedFix && !wantsUpgrade);
@@ -217,7 +222,7 @@ function parseOperatorCommand(rawCommand, options = {}) {
       }
     }
     notes.push("Phase 6 full Teaching Kit finish — draft only, not published. Exclusions are immutable.");
-  } else if (wantsUpgrade && !wantsSongsBooks) {
+  } else if (wantsUpgrade && !wantsSongsBooks && !isCreateCommand) {
     intent = titles.length === 1 ? "fix_lesson" : (intent === "finish_images" ? intent : "upgrade_batch");
     actions.upgradeLesson = true;
     actions.upgradeActivities = true;
@@ -240,10 +245,33 @@ function parseOperatorCommand(rawCommand, options = {}) {
       notes.push("Upgrade requested, but phase 1 will audit/plan only.");
     }
   }
-  if (/\b(create|make\s+me|build)\b.+\b(lesson|week)\b/i.test(raw) && !wantsUpgrade) {
+  if (isCreateCommand) {
     intent = "create_lesson";
     actions.createLesson = true;
-    notes.push("New-lesson creation is planned for a later phase.");
+    const multiMatch = raw.match(/\b(?:create|make|build)\s+(\d{1,2})\s+new\s+lessons?\b/i)
+      || raw.match(/\b(\d{1,2})\s+new\s+lessons?\b/i);
+    const multiCount = multiMatch ? schema.clampInt(multiMatch[1], 1, 20, 1) : 1;
+    if (multiCount > 1) {
+      confirmReasons.push("scope_review_required");
+      notes.push("SCOPE_REVIEW_REQUIRED: multi-lesson create is not enabled until single-create is proven reliable.");
+      actions.createLesson = false;
+    } else if (phase >= 7) {
+      notes.push("Phase 7 will create one new draft lesson via the trusted save path, then finish the Teaching Kit (not published).");
+      notes.push("Access plan default is Free unless the command specifies Free or Pro.");
+      if (!actions.textOnly) {
+        if (actions.touchSongs !== false || actions.touchBooks !== false) actions.generateSongsBooks = true;
+        if (actions.touchImages !== false) {
+          actions.generateImages = true;
+          actions.replaceBadImages = true;
+        }
+        if (actions.touchPrintables !== false) actions.generatePrintables = true;
+      }
+      actions.saveDraft = true;
+      actions.upgradeLesson = false;
+      actions.upgradeActivities = false;
+    } else {
+      notes.push("New-lesson creation requires Phase 7+; not executed at this phase.");
+    }
   }
   if (/\bpublish\b/i.test(raw) && !/\bready\s+to\s+publish\b/i.test(raw)) {
     actions.publish = true;
@@ -256,6 +284,9 @@ function parseOperatorCommand(rawCommand, options = {}) {
     if (phase === 5) {
       actions.generateImages = false;
       notes.push("Phase 5 does not regenerate activity images.");
+    }
+    if (intent === "create_lesson" && phase >= 7 && actions.touchImages === false) {
+      actions.generateImages = false;
     }
   }
   if (!fullKitFinish && (/\b(generate|create|make|finish)\b.+\bprintable/i.test(raw) || (wantsPrintables && !noTouchPrintables))) {
@@ -386,8 +417,11 @@ function parseOperatorCommand(rawCommand, options = {}) {
   return {
     command,
     ambiguous,
-    needsConfirmation: ambiguous || confirmReasons.includes("publish_requested")
-      || confirmReasons.includes("unexpectedly_large_scope"),
+    needsConfirmation: ambiguous
+      || confirmReasons.includes("publish_requested")
+      || confirmReasons.includes("unexpectedly_large_scope")
+      || confirmReasons.includes("scope_review_required")
+      || confirmReasons.includes("possible_duplicate"),
     confirmReasons: [...new Set(confirmReasons)],
     phase1Executable: true,
     phase2Executable: phase >= 2,

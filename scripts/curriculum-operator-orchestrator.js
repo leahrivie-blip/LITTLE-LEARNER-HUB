@@ -392,16 +392,18 @@ function parseExclusionHints(rawCommand) {
     notes.push("Text-only scope: images/printables/songs/books locked.");
   }
 
-  if (/\bdo\s+not\s+(?:touch|change|update)\s+(?:the\s+)?(?:pictures?|images?)\b/i.test(raw)
-    || /\bdon'?t\s+(?:touch|change)\s+(?:the\s+)?(?:pictures?|images?)\b/i.test(raw)
+  if (/\bdo\s+not\s+(?:touch|change|update|make|create|generate)\s+(?:the\s+|activity\s+)?(?:pictures?|images?)\b/i.test(raw)
+    || /\bdon['’]?t\s+(?:touch|change|make|create|generate)\s+(?:the\s+|activity\s+)?(?:pictures?|images?)\b/i.test(raw)
+    || /\bwithout\s+(?:activity\s+)?(?:pictures?|images?)\b/i.test(raw)
     || /\bleave\s+(?:the\s+)?(?:pictures?|images?)\s+alone\b/i.test(raw)
     || /\bkeep\s+(?:the\s+)?(?:current\s+)?(?:pictures?|images?)\b/i.test(raw)) {
     flags.touchImages = false;
     notes.push("Images locked by exclusion.");
   }
 
-  if (/\bdo\s+not\s+(?:touch|change|update)\s+(?:the\s+)?printables?\b/i.test(raw)
-    || /\bdon'?t\s+(?:touch|change)\s+(?:the\s+)?printables?\b/i.test(raw)
+  if (/\bdo\s+not\s+(?:touch|change|update|make|create|generate)\s+(?:the\s+)?printables?\b/i.test(raw)
+    || /\bdon['’]?t\s+(?:touch|change|make|create|generate)\s+(?:the\s+)?printables?\b/i.test(raw)
+    || /\bwithout\s+printables?\b/i.test(raw)
     || /\bkeep\s+(?:the\s+)?(?:current\s+|existing\s+)?printables?\b/i.test(raw)
     || /\bleave\s+(?:the\s+)?printables?\s+alone\b/i.test(raw)) {
     flags.touchPrintables = false;
@@ -409,14 +411,14 @@ function parseExclusionHints(rawCommand) {
   }
 
   if (/\bdo\s+not\s+(?:touch|change)\s+(?:the\s+)?songs?\b/i.test(raw)
-    || /\bdon'?t\s+(?:touch|change)\s+(?:the\s+)?songs?\b/i.test(raw)
+    || /\bdon['’]?t\s+(?:touch|change)\s+(?:the\s+)?songs?\b/i.test(raw)
     || /\beverything\s+except\s+songs?\b/i.test(raw)) {
     flags.touchSongs = false;
     notes.push("Songs locked by exclusion.");
   }
 
   if (/\bdo\s+not\s+(?:touch|change)\s+(?:the\s+)?books?\b/i.test(raw)
-    || /\bdon'?t\s+(?:touch|change)\s+(?:the\s+)?books?\b/i.test(raw)
+    || /\bdon['’]?t\s+(?:touch|change)\s+(?:the\s+)?books?\b/i.test(raw)
     || /\beverything\s+except\s+books?\b/i.test(raw)
     || /\bdo\s+everything\s+except\s+books?\b/i.test(raw)) {
     flags.touchBooks = false;

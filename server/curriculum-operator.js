@@ -1,9 +1,9 @@
 /**
  * Owner-only AI Curriculum Operator API
- * (Phase 1–3 + Phase 4 printables + Phase 4.5/4.6 + Phase 5 songs/books).
+ * (Phase 1–7: audit → upgrades → images → printables → songs/books → full kit → new draft create).
  *
- * Saves enrichmentDraft only. Never publishes.
- * Phase 5: songs + books into enrichmentDraft; never touches images/printables/publish.
+ * Saves enrichmentDraft / trusted draft create only. Never publishes.
+ * Phase 7: create new draft lesson via trusted path, then reuse Phase 6 kit finish.
  */
 "use strict";
 
@@ -17,6 +17,7 @@ const printablesApi = require("../scripts/curriculum-operator-printables.js");
 const songsBooksApi = require("../scripts/curriculum-operator-songs-books.js");
 const orchestrator = require("../scripts/curriculum-operator-orchestrator.js");
 const jobApi = require("../scripts/curriculum-operator-job.js");
+const createApi = require("../scripts/curriculum-operator-create.js");
 
 const ACTIONS = Object.freeze([
   "parse",
@@ -39,6 +40,7 @@ function createCurriculumOperatorApi(deps) {
     normalizeEmail,
     readSiteCurriculum,
     saveOperatorEnrichmentDraft,
+    createOperatorLessonPlan,
     callOperatorAi,
     openAiConfigured,
     generateOperatorImage,
@@ -152,14 +154,22 @@ function createCurriculumOperatorApi(deps) {
     return command?.actions?.generateSongsBooks === true;
   }
 
+  function wantsCreate(command) {
+    const phase = Number(command?.completion?.phase) || 1;
+    return phase >= 7 && command?.actions?.createLesson === true;
+  }
+
   function buildPlanSummary(command, selection) {
     const upgrade = wantsUpgrade(command);
     const images = wantsImages(command);
     const printables = wantsPrintables(command);
     const songsBooks = wantsSongsBooks(command);
+    const create = wantsCreate(command);
     const phase = Number(command.completion?.phase) || 1;
     const kitScope = orchestrator.normalizeKitScopeFlags(command.actions || {});
-    const expected = ["lesson.get", "lesson.audit", "asset.plan", "teachingKit.score"];
+    const expected = create
+      ? ["lesson.create", "lesson.validate"]
+      : ["lesson.get", "lesson.audit", "asset.plan", "teachingKit.score"];
     if (upgrade) {
       expected.push(
         "lesson.updateFields",
@@ -211,9 +221,14 @@ function createCurriculumOperatorApi(deps) {
       weakSections: [],
       publishRequested: false,
       kitScope,
+      creationBrief: row.creationBrief || null,
+      createdLessonId: row.createdLessonId || null,
+      creationIdempotencyKey: row.creationIdempotencyKey || null,
     }));
     let phaseNote = "Audit/plan only. No curriculum mutations.";
-    if (phase >= 6 && (upgrade || images || printables || songsBooks)) {
+    if (create) {
+      phaseNote = "Phase 7: create one new draft Teaching Kit via trusted lesson.create, then finish permitted assets. NOT PUBLISHED. Access default Free unless command specifies Free/Pro.";
+    } else if (phase >= 6 && (upgrade || images || printables || songsBooks)) {
       phaseNote = "Phase 6: full Teaching Kit finish into enrichmentDraft. NOT published. No lesson.create. Cover locked unless explicitly requested.";
     } else if (songsBooks && phase === 5) {
       phaseNote = "Phase 5: songs + books into enrichmentDraft only. NOT published. No image/printable regeneration. No new lessons.";
@@ -239,11 +254,14 @@ function createCurriculumOperatorApi(deps) {
       phase,
       phaseNote,
       kitScope,
+      creationBrief: selection.creationBrief || null,
+      pendingCreateId: selection.pendingCreateId || null,
+      createdLessonId: selection.createdLessonId || null,
       generatesImages: images,
       generatesPrintables: printables,
       generatesSongsBooks: songsBooks,
       publishes: false,
-      createsLesson: false,
+      createsLesson: create,
     };
   }
 
@@ -649,12 +667,251 @@ function createCurriculumOperatorApi(deps) {
     ));
   }
 
+  /**
+   * Phase 7: brief → duplicate check → base content → trusted create → ID verify.
+   * Idempotent: if lessonCreated + createdLessonId, skip create and return that lesson.
+   */
+  async function ensureCreatedLesson(job, lr, store, sessionEmail) {
+    const curriculum = readSiteCurriculum(store);
+    if (lr.lessonCreated && lr.createdLessonId) {
+      const existing = schema.asArray(curriculum.lessonPlans).find((p) => p.id === lr.createdLessonId);
+      if (existing) {
+        jobApi.appendLog(job, `Resume: reusing created lesson ${lr.createdLessonId} (no second create).`, "info", lr.createdLessonId);
+        return {
+          ok: true,
+          resumed: true,
+          lr: {
+            ...lr,
+            lessonId: lr.createdLessonId,
+            title: existing.title,
+            lessonCreated: true,
+            idsVerified: lr.idsVerified === true,
+            creationBriefComplete: true,
+            duplicateCheckComplete: true,
+            baseContentComplete: true,
+            textComplete: true,
+          },
+          plan: existing,
+          curriculum,
+        };
+      }
+    }
+
+    const briefResult = createApi.parseCreationBrief(job.command?.rawCommand || "", {
+      defaultAccessPlan: "Free",
+    });
+    if (!briefResult.ok) {
+      return {
+        ok: false,
+        code: briefResult.code || "NEEDS_OWNER_INPUT",
+        error: `Needs owner input: ${(briefResult.needsOwnerInput || []).join(", ")}`,
+        lr: {
+          ...lr,
+          status: "failed",
+          ownerReviewStatus: "BLOCKED",
+          creationBriefComplete: false,
+          error: `Needs owner input: ${(briefResult.needsOwnerInput || []).join(", ")}`,
+          code: "NEEDS_OWNER_INPUT",
+        },
+      };
+    }
+    const brief = briefResult.brief;
+    job.progress.currentAction = "creation.brief";
+    jobApi.appendLog(
+      job,
+      `Creation brief: ${brief.title} · ${brief.ageBand} · ${brief.accessPlan} · ${brief.activityTarget} activities`,
+      "info",
+    );
+
+    const dup = createApi.findCreationDuplicates(brief, curriculum);
+    job.progress.currentAction = "creation.duplicate_check";
+    if (!dup.ok) {
+      const allowAnyway = /\b(separate|anyway|still create|force create|not a duplicate)\b/i.test(job.command?.rawCommand || "")
+        || job.command?.confirmations?.planAcknowledged === true
+        || schema.asArray(job.command?.confirmations?.reasons).includes("possible_duplicate_ack");
+      if (!allowAnyway) {
+        return {
+          ok: false,
+          code: "POSSIBLE_DUPLICATE",
+          error: dup.message,
+          lr: {
+            ...lr,
+            status: "failed",
+            ownerReviewStatus: "BLOCKED",
+            creationBriefComplete: true,
+            duplicateCheckComplete: true,
+            creationBrief: brief,
+            error: dup.message,
+            code: "POSSIBLE_DUPLICATE",
+            audit: { duplicateMatches: dup.matches, level: dup.level },
+          },
+        };
+      }
+      jobApi.appendLog(job, `Duplicate warning acknowledged — continuing create (${dup.message}).`, "warn");
+    }
+
+    const contentBuilt = createApi.buildBaseLessonContent(brief);
+    job.progress.currentAction = "creation.base_content";
+    if (!contentBuilt.ok) {
+      return {
+        ok: false,
+        code: contentBuilt.code || "content_failed",
+        error: contentBuilt.error || "Base lesson content generation failed.",
+        lr: {
+          ...lr,
+          status: "failed",
+          ownerReviewStatus: "BLOCKED",
+          creationBriefComplete: true,
+          duplicateCheckComplete: true,
+          baseContentComplete: false,
+          creationBrief: brief,
+          error: contentBuilt.error || "Base lesson content generation failed.",
+        },
+      };
+    }
+
+    if (typeof createOperatorLessonPlan !== "function") {
+      return {
+        ok: false,
+        code: "create_helper_missing",
+        error: "Trusted lesson create helper is not configured.",
+        lr: {
+          ...lr,
+          status: "failed",
+          ownerReviewStatus: "BLOCKED",
+          creationBriefComplete: true,
+          duplicateCheckComplete: true,
+          baseContentComplete: true,
+          creationBrief: brief,
+          error: "Trusted lesson create helper is not configured.",
+        },
+      };
+    }
+
+    const payload = createApi.buildLessonPlanPayload(brief, contentBuilt.content, {
+      editedBy: sessionEmail || "curriculum-operator-phase7",
+    });
+    job.progress.currentAction = "lesson.create";
+    const created = await createOperatorLessonPlan({
+      store,
+      lessonPlan: payload,
+      adminEmail: sessionEmail,
+    });
+    if (!created?.ok) {
+      return {
+        ok: false,
+        code: created?.code || "create_failed",
+        error: created?.error || "Trusted lesson create failed.",
+        lr: {
+          ...lr,
+          status: "failed",
+          ownerReviewStatus: "BLOCKED",
+          creationBriefComplete: true,
+          duplicateCheckComplete: true,
+          baseContentComplete: true,
+          lessonCreated: false,
+          creationBrief: brief,
+          creationIdempotencyKey: brief.idempotencyKey,
+          error: created?.error || "Trusted lesson create failed.",
+        },
+      };
+    }
+
+    Object.assign(store, readStore());
+    const afterCurriculum = readSiteCurriculum(store);
+    const plan = schema.asArray(afterCurriculum.lessonPlans).find((p) => p.id === created.createdLessonId);
+    const activities = schema.asArray(afterCurriculum.activities).filter((a) => a.lessonPlanId === created.createdLessonId);
+    const idCheck = createApi.validateCreatedIds(plan, activities);
+    if (!idCheck.ok) {
+      return {
+        ok: false,
+        code: "ids_invalid",
+        error: "Created lesson IDs failed verification.",
+        lr: {
+          ...lr,
+          lessonId: created.createdLessonId,
+          createdLessonId: created.createdLessonId,
+          title: plan?.title || brief.title,
+          status: "failed",
+          ownerReviewStatus: "BLOCKED",
+          creationBriefComplete: true,
+          duplicateCheckComplete: true,
+          baseContentComplete: true,
+          lessonCreated: true,
+          idsVerified: false,
+          creationBrief: brief,
+          creationIdempotencyKey: brief.idempotencyKey,
+          textComplete: true,
+          error: "Created lesson IDs failed verification.",
+        },
+      };
+    }
+
+    const quality = createApi.qualityReviewNewLesson({ brief, lessonPlan: plan, activities });
+    jobApi.appendLog(
+      job,
+      `Created draft “${plan.title}” (${created.createdLessonId}) with ${activities.length} activities. Quality: ${quality.ok ? "ok" : quality.issues.join(",")}`,
+      quality.ok ? "info" : "warn",
+      created.createdLessonId,
+    );
+
+    return {
+      ok: true,
+      resumed: false,
+      lr: {
+        ...lr,
+        lessonId: created.createdLessonId,
+        createdLessonId: created.createdLessonId,
+        title: plan.title,
+        creationBriefComplete: true,
+        duplicateCheckComplete: true,
+        baseContentComplete: true,
+        lessonCreated: true,
+        idsVerified: true,
+        textComplete: true,
+        creationBrief: brief,
+        creationIdempotencyKey: brief.idempotencyKey,
+        qualityReview: quality,
+      },
+      plan,
+      curriculum: afterCurriculum,
+      quality,
+    };
+  }
+
   async function processOneLesson(job, lr, index, store, sessionEmail) {
     job.progress.lessonIndex = index;
     job.progress.currentLessonId = lr.lessonId;
 
-    const curriculum = readSiteCurriculum(store);
-    const plan = schema.asArray(curriculum.lessonPlans).find((p) => p.id === lr.lessonId);
+    const creating = wantsCreate(job.command);
+    let workingLr = lr;
+    let curriculum = readSiteCurriculum(store);
+    let plan = schema.asArray(curriculum.lessonPlans).find((p) => p.id === workingLr.lessonId);
+
+    if (creating) {
+      const ensured = await ensureCreatedLesson(job, workingLr, store, sessionEmail);
+      if (!ensured.ok) {
+        return {
+          ...ensured.lr,
+          published: false,
+          actions: markSteps(workingLr.actions, schema.asArray(workingLr.actions).map((a) => a.type), "failed", {
+            error: ensured.code || "create_failed",
+            retryable: ensured.code !== "POSSIBLE_DUPLICATE" && ensured.code !== "NEEDS_OWNER_INPUT",
+          }),
+        };
+      }
+      workingLr = ensured.lr;
+      plan = ensured.plan;
+      curriculum = ensured.curriculum;
+      job.progress.currentLessonId = workingLr.lessonId;
+      // Persist createdLessonId on job before kit steps (resume safety)
+      job.lessonResults = schema.asArray(job.lessonResults).map((row, i) => (
+        i === index ? { ...row, ...workingLr } : row
+      ));
+      // Use created lesson identity for the rest of this function (kit finish).
+      lr = workingLr;
+    }
+
     if (!plan) {
       jobApi.appendLog(job, `Lesson not found: ${lr.lessonId}`, "error", lr.lessonId);
       return {
@@ -676,7 +933,7 @@ function createCurriculumOperatorApi(deps) {
       const before = auditOneLesson(plan, curriculum);
       if (!before.verification.ok) {
         return {
-          ...lr,
+          ...workingLr,
           title: plan.title,
           status: "failed",
           audit: before.audit,
@@ -684,7 +941,7 @@ function createCurriculumOperatorApi(deps) {
           beforeScores: before.audit.scores,
           error: "Pre-upgrade audit verification failed.",
           ownerReviewStatus: "BLOCKED",
-          actions: markSteps(lr.actions, ["lesson.get", "lesson.audit", "asset.plan", "teachingKit.score"], "failed", {
+          actions: markSteps(workingLr.actions, ["lesson.get", "lesson.audit", "asset.plan", "teachingKit.score", "lesson.create", "lesson.validate"], "failed", {
             error: "verification_failed",
           }),
         };
@@ -708,14 +965,14 @@ function createCurriculumOperatorApi(deps) {
       let updated = [];
       let aiUsage = null;
       let upgradeVerification = null;
-      let ownerReviewStatus = "AUDIT_ONLY";
+      let ownerReviewStatus = creating ? "PARTIAL" : "AUDIT_ONLY";
       let afterScores = before.audit.scores;
       let auditAfter = before.audit;
-      let textComplete = lr.textComplete === true;
+      let textComplete = lr.textComplete === true || creating;
       let textOk = true;
       let textRan = false;
 
-      // --- Phase 2.5 text upgrade (optional) ---
+      // --- Phase 2.5 text upgrade (optional; skipped for Phase 7 create — base content already written) ---
       if (upgrade && !textComplete) {
         textRan = true;
         job.progress.currentAction = "lesson.updateFields";
@@ -1146,7 +1403,7 @@ function createCurriculumOperatorApi(deps) {
         ownerReviewStatus = orchestrator.classifyFullKitOwnerReview({
           kitScope,
           textOk: textOk && (upgradeVerification ? upgradeVerification.ok : true),
-          textRan: textRan || (upgrade && textComplete),
+          textRan: textRan || (upgrade && textComplete) || creating,
           songsBooksOk,
           songsBooksRan: songsBooksRan || (songsBooks && songsBooksComplete),
           imagesOk,
@@ -1157,15 +1414,26 @@ function createCurriculumOperatorApi(deps) {
           criticalBlockers,
           partialErrors,
         });
+        if (creating && lr.qualityReview && lr.qualityReview.ok === false) {
+          ownerReviewStatus = ownerReviewStatus === "BLOCKED" ? "BLOCKED" : "PARTIAL";
+        }
+        if (creating && (!lr.lessonCreated || !lr.idsVerified)) {
+          ownerReviewStatus = "BLOCKED";
+        }
       }
 
       const combinedError = imageError || printableError || songsBooksError
         || (!finalVerification.ok ? "Final stored-state verification failed." : null);
-      const ok = !combinedError && (upgradeVerification ? upgradeVerification.ok : true) && finalVerification.ok;
+      const ok = !combinedError && (upgradeVerification ? upgradeVerification.ok : true) && finalVerification.ok
+        && (!creating || (lr.lessonCreated && lr.idsVerified));
       const stepTypes = schema.asArray(lr.actions).map((a) => a.type);
       return {
         ...lr,
         title: plan.title,
+        lessonId: plan.id,
+        createdLessonId: creating ? (lr.createdLessonId || plan.id) : lr.createdLessonId,
+        lessonCreated: creating ? true : lr.lessonCreated,
+        idsVerified: creating ? true : lr.idsVerified,
         status: ok || ownerReviewStatus === "PARTIAL" || ownerReviewStatus === "READY_FOR_OWNER_REVIEW"
           ? "success"
           : "failed",
@@ -1192,7 +1460,7 @@ function createCurriculumOperatorApi(deps) {
         songCounts,
         bookCounts,
         songsBooksComplete: songsBooks ? songsBooksComplete : undefined,
-        textComplete: upgrade ? textComplete : undefined,
+        textComplete: (upgrade || creating) ? textComplete : undefined,
         finalVerification,
         finalVerificationComplete: finalVerification.ok,
         ownerReviewStatus: combinedError && ownerReviewStatus !== "BLOCKED" ? "PARTIAL" : ownerReviewStatus,
@@ -1210,6 +1478,7 @@ function createCurriculumOperatorApi(deps) {
             ownerReviewStatus,
             published: false,
             historyId,
+            createdLessonId: creating ? plan.id : undefined,
           },
           error: ok ? null : (combinedError ? "actions_partial" : "processing_failed"),
           retryable: !ok,
@@ -1238,9 +1507,12 @@ function createCurriculumOperatorApi(deps) {
     const images = wantsImages(job.command);
     const printables = wantsPrintables(job.command);
     const songsBooks = wantsSongsBooks(job.command);
+    const create = wantsCreate(job.command);
     const phaseNum = Number(job.command?.completion?.phase) || Number(job.phase) || 1;
     let startMsg = "Starting audit-only run.";
-    if (phaseNum >= 6 && (upgrade || images || printables || songsBooks)) {
+    if (create) {
+      startMsg = "Starting Phase 7 new draft lesson create + Teaching Kit finish (no publish).";
+    } else if (phaseNum >= 6 && (upgrade || images || printables || songsBooks)) {
       startMsg = "Starting Phase 6 full Teaching Kit finish (no publish, no lesson.create).";
     } else if (songsBooks && phaseNum === 5) {
       startMsg = "Starting Phase 5 songs+books run (no publish, no image/printable regeneration).";
@@ -1261,6 +1533,7 @@ function createCurriculumOperatorApi(deps) {
       const resumeOk = lr.status === "success"
         && (
           (phaseNum >= 6 && lr.finalVerificationComplete
+            && (!create || (lr.lessonCreated && lr.idsVerified))
             && (!upgrade || lr.textComplete !== false)
             && (!songsBooks || lr.songsBooksComplete)
             && (!images || lr.imagesComplete)
@@ -1334,7 +1607,7 @@ function createCurriculumOperatorApi(deps) {
       return;
     }
 
-    const phase = schema.clampInt(body.phase, 1, 8, 6);
+    const phase = schema.clampInt(body.phase, 1, 8, 7);
     const curriculum = typeof readSiteCurriculum === "function"
       ? readSiteCurriculum(store)
       : (store.siteContent?.curriculum || { lessonPlans: [], activities: [], resources: [] });
@@ -1367,7 +1640,8 @@ function createCurriculumOperatorApi(deps) {
         });
 
       const command = parsed.command;
-      if (!command.rawCommand && !(command.scope.lessonIds?.length || command.scope.titles?.length)) {
+      if (!command.rawCommand && !(command.scope.lessonIds?.length || command.scope.titles?.length)
+        && !wantsCreate(command)) {
         jsonResponse(response, 400, {
           error: "Provide a natural-language command or typed command schema.",
           code: "command_required",
@@ -1380,22 +1654,98 @@ function createCurriculumOperatorApi(deps) {
         parsed.confirmReasons = [...new Set([...(parsed.confirmReasons || []), "publish_requested"])];
       }
 
-      const selection = selectApi.selectLessons(curriculum, command, {
-        currentlySelectedLessonId: body.currentlySelectedLessonId,
-      });
-      if (selection.ambiguous || !selection.selected.length) {
-        jsonResponse(response, 409, {
-          ok: false,
-          code: selection.selected.length ? "ambiguous_scope" : "no_lessons_selected",
-          error: selection.selected.length
-            ? "Command scope is ambiguous. Narrow the request."
-            : (selection.selectionNote || "No lessons matched this command."),
-          command,
-          selection,
-          needsConfirmation: true,
-          confirmReasons: ["ambiguous_scope"],
+      if (schema.asArray(parsed.confirmReasons).includes("scope_review_required")) {
+        parsed.needsConfirmation = true;
+      }
+
+      let selection;
+      if (wantsCreate(command)) {
+        const briefResult = createApi.parseCreationBrief(command.rawCommand || "", { defaultAccessPlan: "Free" });
+        if (!briefResult.ok) {
+          jsonResponse(response, 409, {
+            ok: false,
+            code: "NEEDS_OWNER_INPUT",
+            error: `Needs owner input: ${(briefResult.needsOwnerInput || []).join(", ")}`,
+            command,
+            needsOwnerInput: briefResult.needsOwnerInput,
+            creationBrief: briefResult.brief,
+          });
+          return;
+        }
+        const dup = createApi.findCreationDuplicates(briefResult.brief, curriculum);
+        if (!dup.ok) {
+          const ack = body.confirmDuplicate === true
+            || /\b(separate|anyway|still create|force create|not a duplicate)\b/i.test(command.rawCommand || "");
+          if (!ack && !body.confirm) {
+            parsed.needsConfirmation = true;
+            parsed.confirmReasons = [...new Set([...(parsed.confirmReasons || []), "possible_duplicate"])];
+            jsonResponse(response, 409, {
+              ok: false,
+              code: "POSSIBLE_DUPLICATE",
+              error: dup.message,
+              command,
+              creationBrief: briefResult.brief,
+              duplicateMatches: dup.matches,
+              duplicateLevel: dup.level,
+              needsConfirmation: true,
+              confirmReasons: parsed.confirmReasons,
+            });
+            return;
+          }
+        }
+        // Cost/scope: single lesson create only; large activity targets still ok within clamp
+        const estimatedCalls = 2
+          + (wantsSongsBooks(command) ? 2 : 0)
+          + (wantsImages(command) ? Math.min(briefResult.brief.activityTarget || 12, command.limits.maxImageGenerations) : 0)
+          + (wantsPrintables(command) ? Math.min(8, command.limits.maxPrintableGenerations) : 0);
+        if (estimatedCalls > command.limits.maxOpenAiCalls) {
+          jsonResponse(response, 409, {
+            ok: false,
+            code: "SCOPE_REVIEW_REQUIRED",
+            error: "Planned create job exceeds OpenAI call budget.",
+            needsConfirmation: true,
+            confirmReasons: ["unexpectedly_large_scope"],
+          });
+          return;
+        }
+        selection = {
+          selected: [{
+            id: "pending-create",
+            title: briefResult.brief.title,
+            theme: briefResult.brief.theme,
+            age: briefResult.brief.ageLabel,
+            ageBand: briefResult.brief.ageBand,
+            plan: briefResult.brief.accessPlan,
+            readinessPercent: 0,
+            completionPercent: 0,
+            creationBrief: briefResult.brief,
+            creationIdempotencyKey: briefResult.brief.idempotencyKey,
+          }],
+          selectionNote: `Create new draft lesson “${briefResult.brief.title}” (${briefResult.brief.ageBand}, ${briefResult.brief.accessPlan}, ${briefResult.brief.activityTarget} activities).`,
+          candidatesConsidered: schema.asArray(curriculum.lessonPlans).length,
+          unresolvedTitles: [],
+          ambiguous: false,
+          creationBrief: briefResult.brief,
+          pendingCreateId: "pending-create",
+        };
+      } else {
+        selection = selectApi.selectLessons(curriculum, command, {
+          currentlySelectedLessonId: body.currentlySelectedLessonId,
         });
-        return;
+        if (selection.ambiguous || !selection.selected.length) {
+          jsonResponse(response, 409, {
+            ok: false,
+            code: selection.selected.length ? "ambiguous_scope" : "no_lessons_selected",
+            error: selection.selected.length
+              ? "Command scope is ambiguous. Narrow the request."
+              : (selection.selectionNote || "No lessons matched this command."),
+            command,
+            selection,
+            needsConfirmation: true,
+            confirmReasons: ["ambiguous_scope"],
+          });
+          return;
+        }
       }
 
       if (selection.selected.length > command.limits.hardMaxLessons) {
@@ -1417,7 +1767,9 @@ function createCurriculumOperatorApi(deps) {
         && !body.confirm
         && (planSummary.confirmReasons.includes("ambiguous_scope")
           || planSummary.confirmReasons.includes("unexpectedly_large_scope")
-          || planSummary.confirmReasons.includes("publish_requested"));
+          || planSummary.confirmReasons.includes("publish_requested")
+          || planSummary.confirmReasons.includes("scope_review_required")
+          || planSummary.confirmReasons.includes("possible_duplicate"));
 
       if (action === "plan" || mustConfirm) {
         const planned = jobApi.createJobFromPlan({
@@ -1463,6 +1815,7 @@ function createCurriculumOperatorApi(deps) {
       const songsBooks = wantsSongsBooks(command);
       const printables = wantsPrintables(command);
       const images = wantsImages(command);
+      const created = wantsCreate(command);
       jsonResponse(response, 200, {
         ok: true,
         action: "run",
@@ -1471,9 +1824,9 @@ function createCurriculumOperatorApi(deps) {
         job,
         publishEnabled: false,
         published: false,
-        draftOnly: upgraded || songsBooks || printables || images,
-        curriculumUnchanged: !(upgraded || songsBooks || printables || images),
-        mutationsEnabled: upgraded || songsBooks || printables || images,
+        draftOnly: upgraded || songsBooks || printables || images || created,
+        curriculumUnchanged: !(upgraded || songsBooks || printables || images || created),
+        mutationsEnabled: upgraded || songsBooks || printables || images || created,
       });
       return;
     }
@@ -1563,6 +1916,7 @@ function createCurriculumOperatorApi(deps) {
     wantsImages,
     wantsPrintables,
     wantsSongsBooks,
+    wantsCreate,
   };
 }
 

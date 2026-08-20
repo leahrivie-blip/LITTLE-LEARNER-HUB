@@ -247,13 +247,13 @@
           <div>
             <p class="eyebrow">Content · Owner</p>
             <h3>AI Curriculum Operator</h3>
-            <p class="muted-copy">Phase 6: finish a full Teaching Kit draft (text → songs/books → images → printables). <strong>No publishing. No new lessons. Cover locked unless you ask.</strong></p>
+            <p class="muted-copy">Phase 7: create a new draft Teaching Kit from a command, then finish songs/books/images/printables as allowed. <strong>No publishing.</strong> Open the draft in Owner Admin to review and publish yourself.</p>
           </div>
         </div>
         ${state.message ? `<p class="access-notice ${state.isError ? "error" : ""}" role="status">${esc(state.message)}</p>` : ""}
         <label class="co-command-label">
           <span>Command</span>
-          <textarea id="coCommandInput" rows="3" placeholder="Example: Finish Weather Watchers and get it ready for me to review.">${esc(state.command)}</textarea>
+          <textarea id="coCommandInput" rows="3" placeholder="Example: Create a Preschool Bakery lesson with 15 activities and leave it ready for review.">${esc(state.command)}</textarea>
         </label>
         <div class="account-actions-row">
           <button type="button" class="ghost-button" id="coParseBtn" ${state.busy ? "disabled" : ""}>Interpret</button>
@@ -268,10 +268,14 @@
           </section>` : ""}
         ${plan ? `
           <section class="co-panel">
-            <h4>Execution plan</h4>
+            <h4>${plan.createsLesson ? "Create new lesson" : "Execution plan"}</h4>
+            ${plan.creationBrief ? `
+              <p><strong>Parsed brief:</strong> ${esc(plan.creationBrief.ageBand || "")} · ${esc(plan.creationBrief.accessPlan || "")} · ${esc(plan.creationBrief.title || "")} · ${esc(plan.creationBrief.activityTarget || "")} activities · Draft only</p>
+              <p class="muted-copy">Images ${plan.creationBrief.requestedFeatures?.images === false ? "off" : "on"} · Printables ${plan.creationBrief.requestedFeatures?.printables === false ? "off" : "on"} · Songs ${plan.creationBrief.requestedFeatures?.songs === false ? "off" : "on"} · Books ${plan.creationBrief.requestedFeatures?.books === false ? "off" : "on"}</p>
+            ` : ""}
             <p>${esc(plan.selectionNote || "")}</p>
             <p class="muted-copy">${esc(plan.lessons?.length || 0)} lesson(s) · candidates considered ${esc(plan.candidatesConsidered || 0)}</p>
-            <ol>${(plan.lessons || []).map((l, i) => `
+            <ol>${(plan.lessons || []).map((l) => `
               <li><strong>${esc(l.title)}</strong> — readiness ${esc(l.readinessPercent)}% · ${esc(l.plan)} · ${esc(l.ageBand)}</li>`).join("")}</ol>
             <p class="muted-copy">${esc(plan.phaseNote || plan.phase1?.note || "")}</p>
           </section>` : ""}
@@ -281,6 +285,8 @@
             <p>Status: <strong>${esc(job.status)}</strong> · ${esc(job.progress?.completed || 0)}/${esc(job.progress?.lessonCount || 0)} complete · failed ${esc(job.progress?.failed || 0)} · Publish: NOT PUBLISHED</p>
             <pre class="co-log">${esc((job.log || []).slice(-12).map((e) => `${e.at} [${e.level}] ${e.message}`).join("\n"))}</pre>
             <div class="co-lesson-results">${(job.lessonResults || []).map(renderAuditCard).join("")}</div>
+            ${(job.lessonResults || []).some((lr) => lr.createdLessonId || (lr.lessonId && String(lr.lessonId).startsWith("cur-lp-"))) ? `
+              <p class="muted-copy">Open the new draft in Owner Admin → Curriculum to inspect and manually publish.</p>` : ""}
             ${job.status === "awaiting_confirm" ? `
               <button type="button" class="primary-button" id="coConfirmResumeBtn">Confirm &amp; run</button>` : ""}
           </section>` : ""}
@@ -339,16 +345,25 @@
     state.isError = false;
     render();
     try {
-      const result = await api("parse", { command: state.command, phase: 6 });
+      const result = await api("parse", { command: state.command, phase: 7 });
       state.commandParsed = result;
-      const planned = await api("plan", { command: state.command, phase: 6 });
+      const planned = await api("plan", { command: state.command, phase: 7 });
       state.planSummary = planned.planSummary;
       state.job = planned.job || null;
-      state.message = "Command interpreted. Review the plan, then run the job.";
+      state.message = planned.planSummary?.createsLesson
+        ? "Create plan ready. Review the brief, then run the job."
+        : "Command interpreted. Review the plan, then run the job.";
     } catch (error) {
       state.isError = true;
       state.message = error.message || "Interpret failed.";
-      state.planSummary = error.payload?.planSummary || null;
+      state.planSummary = error.payload?.planSummary || error.payload?.creationBrief
+        ? {
+          selectionNote: error.payload?.error || error.message,
+          lessons: [],
+          creationBrief: error.payload?.creationBrief,
+          duplicateMatches: error.payload?.duplicateMatches,
+        }
+        : state.planSummary;
     } finally {
       state.busy = false;
       render();
@@ -361,14 +376,17 @@
     state.isError = false;
     render();
     try {
-      const result = await api("run", { command: state.command, confirm: true, phase: 6 });
+      const result = await api("run", { command: state.command, confirm: true, phase: 7 });
       state.commandParsed = { command: result.command };
       state.planSummary = result.planSummary;
       state.job = result.job;
       if (result.awaitingConfirm) {
         state.message = "Confirmation required before running. Review scope, then confirm.";
       } else if (result.draftOnly) {
-        state.message = "Full Teaching Kit draft job complete — NOT PUBLISHED. Open the lesson to review.";
+        const createdId = result.job?.lessonResults?.[0]?.createdLessonId || result.job?.lessonResults?.[0]?.lessonId;
+        state.message = createdId
+          ? `Draft lesson created (${createdId}) — READY FOR OWNER REVIEW / NOT PUBLISHED. Open the lesson to inspect.`
+          : "Full Teaching Kit draft job complete — NOT PUBLISHED. Open the lesson to review.";
       } else {
         state.message = "Audit job complete. No curriculum data was changed.";
       }
