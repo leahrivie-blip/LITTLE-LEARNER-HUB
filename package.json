@@ -143,6 +143,8 @@
     "test:master-lesson-paste-replace": "NODE_ENV=test node scripts/test-master-lesson-paste-replace.js",
     "test:master-paste-lesson-identity-guard": "NODE_ENV=test node scripts/test-master-paste-lesson-identity-guard.js",
     "test:owner-lesson-delete": "NODE_ENV=test node scripts/test-owner-lesson-delete.js",
+    "test:owner-lesson-delete-persist": "NODE_ENV=test node scripts/test-owner-lesson-delete-persist.js",
+    "test:owner-lesson-lifecycle": "NODE_ENV=test node scripts/test-owner-lesson-lifecycle.js",
     "test:owner-workspace-editor": "NODE_ENV=test node scripts/test-owner-workspace-editor.js",
     "test:curriculum-import-v4": "node scripts/test-curriculum-import-v4.js",
     "test:curriculum-import-v5": "node scripts/test-curriculum-import-v5.js",

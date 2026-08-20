@@ -126,10 +126,31 @@ function previewAccessPlanChange(lessonPlans, lessonPlanIds, accessPlan) {
   };
 }
 
+/**
+ * Startup seed/repair: when a live lesson already exists, keep the owner's
+ * Free/Pro access (`plan`) and publication `status`. Content may be repaired
+ * from the import source without resetting access or demoting/publishing.
+ *
+ * @param {object} parsed
+ * @param {object | null | undefined} existingPlan
+ * @returns {object}
+ */
+function mergeSeedImportPreservingOwnerAccess(parsed, existingPlan) {
+  const incoming = parsed && typeof parsed === "object" ? parsed : {};
+  if (!existingPlan || typeof existingPlan !== "object") return incoming;
+  const existingStatus = String(existingPlan.status || "").trim();
+  return {
+    ...incoming,
+    plan: existingPlan.plan === "Pro" ? "Pro" : "Free",
+    status: existingStatus || incoming.status || "draft",
+  };
+}
+
 module.exports = {
   ALLOWED_ACCESS_PLANS,
   normalizeAccessPlan,
   sanitizeLessonPlanIds,
   applyAccessPlanToLessonPlans,
   previewAccessPlanChange,
+  mergeSeedImportPreservingOwnerAccess,
 };

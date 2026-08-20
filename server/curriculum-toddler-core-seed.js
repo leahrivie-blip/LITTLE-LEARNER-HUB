@@ -1,3 +1,4 @@
+const curriculumLessonAccessPlan = require("./curriculum-lesson-access-plan.js");
 /**
  * Startup seed/repair for toddler jul2026 core plans that shipped with Mon/Tue only.
  */
@@ -100,7 +101,7 @@ async function ensureToddlerCoreCurriculumSeeded(deps) {
 
   const applyPlan = (target, parsed, existingPlan) => {
     const planInput = {
-      ...parsed,
+      ...curriculumLessonAccessPlan.mergeSeedImportPreservingOwnerAccess(parsed, existingPlan),
       createdAt: existingPlan?.createdAt || now,
       publishedAt: existingPlan?.publishedAt || existingPlan?.createdAt || "2026-01-01T00:00:00.000Z",
       updatedAt: now,

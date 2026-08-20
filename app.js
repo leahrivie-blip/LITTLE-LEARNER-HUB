@@ -10845,12 +10845,27 @@ async function publishAdminCurriculumLessonToLibrary(planId) {
   if (data.curriculum && typeof applyCurriculumState === "function") {
     applyCurriculumState(data.curriculum, { siteContentUpdatedAt: data.siteContentUpdatedAt });
   }
-  const success = `Published lesson “${data.lessonPlan?.title || record.title}”. Visible to users.`;
+  const savedPlan = data.lessonPlan || null;
+  const savedStatus = String(savedPlan?.status || "").toLowerCase();
+  if (!["published", "featured"].includes(savedStatus)) {
+    const msg = "Publish did not persist. The lesson is still not published — refresh and try again.";
+    if (typeof showActionFeedback === "function") showActionFeedback(msg);
+    if (typeof setAdminCurriculumLessonSaveBanner === "function") {
+      setAdminCurriculumLessonSaveBanner(msg, false);
+    }
+    return {
+      ok: false,
+      code: "publish_not_persisted",
+      lessonPlan: savedPlan,
+      status: savedStatus || "unknown",
+    };
+  }
+  const success = `Published lesson “${savedPlan?.title || record.title}”. Visible to users.`;
   if (typeof setAdminCurriculumLessonSaveBanner === "function") {
     setAdminCurriculumLessonSaveBanner(success, true);
   }
   if (typeof showActionFeedback === "function") showActionFeedback(success);
-  return { ok: true, lessonPlan: data.lessonPlan };
+  return { ok: true, lessonPlan: savedPlan };
 }
 
 async function startBlankAdminCurriculumLessonPlan() {
@@ -12312,8 +12327,8 @@ function renderUserLessonPlanEditorForm(plan) {
       <div class="form-grid-two">
         <label>Theme<input name="theme" value="${escapeHtml(record.theme || "")}" /></label>
         <label>Free / Pro
-          <select name="plan">
-            ${["Free", "Pro"].map((tier) => `<option${record.plan === tier ? " selected" : ""}>${tier}</option>`).join("")}
+          <select name="plan" data-curriculum-lesson-access-plan aria-label="Lesson access plan Free or Pro">
+            ${["Free", "Pro"].map((tier) => `<option value="${tier}"${record.plan === tier ? " selected" : ""}>${tier === "Pro" ? "PRO" : "FREE"}</option>`).join("")}
           </select>
         </label>
       </div>
@@ -12982,6 +12997,7 @@ function renderAdminCurriculumLessonPlanForm(plan) {
           <div>
             <strong>${escapeHtml(record.title || "New Lesson Plan")}</strong>
             <small>${escapeHtml(record.age || "Age not set")} · ${escapeHtml(statusSummary)}</small>
+            <span class="tag admin-access-plan-badge is-${record.plan === "Pro" ? "pro" : "free"}" data-access-plan="${escapeHtml(record.plan === "Pro" ? "Pro" : "Free")}" title="Customer access plan">Access: ${record.plan === "Pro" ? "PRO" : "FREE"}</span>
             ${unpublished ? `<span class="tag cover-quality-needs-upgrade">Unpublished Changes</span>` : ""}
           </div>
         </div>
@@ -13020,8 +13036,8 @@ function renderAdminCurriculumLessonPlanForm(plan) {
       <div class="form-grid-two">
         <label>Theme<input name="theme" value="${escapeHtml(record.theme || "")}" /></label>
         <label>Free / Pro
-          <select name="plan">
-            ${["Free", "Pro"].map((tier) => `<option${record.plan === tier ? " selected" : ""}>${tier}</option>`).join("")}
+          <select name="plan" data-curriculum-lesson-access-plan aria-label="Lesson access plan Free or Pro">
+            ${["Free", "Pro"].map((tier) => `<option value="${tier}"${record.plan === tier ? " selected" : ""}>${tier === "Pro" ? "PRO" : "FREE"}</option>`).join("")}
           </select>
         </label>
       </div>
@@ -13378,7 +13394,7 @@ function curriculumLessonPlanAdminCardHtml(plan) {
           <div class="tag-row" style="margin:2px 0 4px">
             <span class="tag">${curriculumLessonPlanStatusLabel(plan.status || "draft")}</span>
             <span class="tag">${escapeHtml(String(plan.age || "").trim() || "Age not set")}</span>
-            <span class="tag">${escapeHtml(plan.plan || "Free")}</span>
+            <span class="tag admin-access-plan-badge is-${plan.plan === "Pro" ? "pro" : "free"}" data-access-plan="${escapeHtml(plan.plan === "Pro" ? "Pro" : "Free")}" title="Customer access plan">Access: ${plan.plan === "Pro" ? "PRO" : "FREE"}</span>
             <span class="tag">${isKit ? "Teaching Kit" : "Legacy"}</span>
             <span class="${coverQualityStatusTagClass(coverQuality)}">Cover: ${escapeHtml(coverQualityStatusLabel(coverQuality))}</span>
             ${enrichEnabled ? `<span class="tag tk-enrich-lib-badge" title="Workflow status" data-workflow-status>${escapeHtml(stage)}</span>` : ""}
@@ -13543,6 +13559,81 @@ async function bulkUpdateAdminCurriculumLessonStatus(status) {
   );
   renderAdminCurriculumLessonPlanManager();
   showActionFeedback(adminCurriculumLessonSaveBanner.text);
+}
+
+/**
+ * Owner Admin — set Free/Pro for one lesson via the surgical access-plan API.
+ * Does not publish, demote, or rewrite lesson content.
+ */
+async function setAdminCurriculumLessonAccessPlan(lessonPlanId, accessPlan, options = {}) {
+  const targetPlan = accessPlan === "Pro" ? "Pro" : "Free";
+  const id = String(lessonPlanId || "").trim();
+  if (!id) return { ok: false, code: "missing_plan_id" };
+  const token = adminSession()?.token || "";
+  const endpoint = curriculumLessonPlanConfig.accessPlanEndpoint;
+  if (!token || !endpoint) {
+    const msg = "Admin unlock and backend are required for Free/Pro.";
+    if (options.silent !== true && typeof showActionFeedback === "function") showActionFeedback(msg);
+    return { ok: false, code: "backend_required" };
+  }
+  const record = typeof curriculumLessonPlanById === "function" ? curriculumLessonPlanById(id) : null;
+  if (!record?.id) {
+    return { ok: false, code: "lesson_not_found" };
+  }
+  const previous = record.plan === "Pro" ? "Pro" : "Free";
+  if (previous === targetPlan) {
+    return { ok: true, unchanged: true, plan: targetPlan, lessonPlan: record };
+  }
+  if (options.confirm !== false) {
+    const confirmed = await confirmAction({
+      title: `Set “${record.title || "Lesson"}” to ${targetPlan}?`,
+      message: "This changes only Free/Pro access. Publication status and lesson content stay the same.",
+      confirmLabel: `Set ${targetPlan}`,
+      cancelLabel: "Cancel",
+    });
+    if (!confirmed) return { ok: false, code: "cancelled", cancelled: true };
+  }
+  try {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        expectedUpdatedAt: curriculumExpectedUpdatedAt(),
+        lessonPlanIds: [id],
+        plan: targetPlan,
+        confirm: true,
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok && response.status !== 207) {
+      throw new Error(data?.error || `HTTP ${response.status}`);
+    }
+    if (data.curriculum && typeof applyCurriculumState === "function") {
+      applyCurriculumState(data.curriculum, { siteContentUpdatedAt: data.siteContentUpdatedAt });
+    }
+    const saved = typeof curriculumLessonPlanById === "function" ? curriculumLessonPlanById(id) : null;
+    const persisted = saved?.plan === "Pro" ? "Pro" : "Free";
+    if (persisted !== targetPlan) {
+      return { ok: false, code: "access_plan_not_persisted", plan: persisted, lessonPlan: saved };
+    }
+    if (options.silent !== true) {
+      const msg = `Access set to ${targetPlan} for “${saved?.title || record.title}”.`;
+      if (typeof setAdminCurriculumLessonSaveBanner === "function") {
+        setAdminCurriculumLessonSaveBanner(`✅ ${msg}`, true);
+      }
+      if (typeof showActionFeedback === "function") showActionFeedback(msg);
+    }
+    return { ok: true, plan: targetPlan, lessonPlan: saved, previousPlan: previous };
+  } catch (error) {
+    const message = error?.message || "Could not update Free/Pro access.";
+    if (options.silent !== true) {
+      if (typeof setAdminCurriculumLessonSaveBanner === "function") {
+        setAdminCurriculumLessonSaveBanner(`❌ ${message}`, false);
+      }
+      if (typeof showActionFeedback === "function") showActionFeedback(message);
+    }
+    return { ok: false, code: "server_failure", error: message };
+  }
 }
 
 /**
@@ -14343,7 +14434,14 @@ function collectCurriculumLessonPlanFromForm(form, existingOverride = null) {
     title: normalizedShortText(formData.get("title")) || "Untitled Lesson Plan",
     age: normalizedShortText(formData.get("age")),
     theme: normalizedShortText(formData.get("theme")),
-    plan: normalizedShortText(formData.get("plan")) === "Pro" ? "Pro" : "Free",
+    plan: (() => {
+      const rawPlan = formData.get("plan");
+      // Prefer explicit Free/Pro from the form; if the control is absent, keep the stored value.
+      if (rawPlan === null) {
+        return (existing?.plan === "Pro" || enrichmentSource.plan === "Pro") ? "Pro" : "Free";
+      }
+      return normalizedShortText(rawPlan) === "Pro" ? "Pro" : "Free";
+    })(),
     status: CURRICULUM_LESSON_STATUSES.includes(formData.get("status")) ? formData.get("status") : "draft",
     learningDomains: formData.getAll("learningDomains").map((item) => normalizedShortText(item)).filter(Boolean),
     weeklyOverview: normalizedMultilineText(formData.get("weeklyOverview")),
@@ -14574,7 +14672,10 @@ async function saveAdminCurriculumLessonPlanForm(form, options = {}) {
     adminCurriculumLessonImportDraft = null;
     adminCurriculumCoverPending = null;
     const syncedCount = (data.activities || []).filter((item) => item.status !== "archived").length;
-    const savedStatus = String(data.lessonPlan.status || lessonPlan.status || "").toLowerCase();
+    const savedStatus = String(data.lessonPlan.status || "").toLowerCase();
+    if (publishing && !["published", "featured"].includes(savedStatus)) {
+      throw new Error("Publish did not persist. The lesson is still not published — refresh and try again.");
+    }
     successMessage = ["published", "featured"].includes(savedStatus)
       ? `✅ Published “${data.lessonPlan.title || lessonPlan.title}”. ${syncedCount} linked activities synced.`
       : `✅ Draft saved for “${data.lessonPlan.title || lessonPlan.title}”. Not visible to customers until you Publish. ${syncedCount} linked activities synced.`;
@@ -73644,7 +73745,14 @@ document.addEventListener("click", async (event) => {
   if (event.target.closest("[data-curriculum-lesson-save-draft]") && isAdminUnlocked()) {
     event.preventDefault();
     const form = document.querySelector("#adminCurriculumLessonPlanForm");
-    if (form) saveAdminCurriculumLessonPlanForm(form, { forceStatus: "draft" });
+    if (form) {
+      // Match Lesson Review Editor: content saves must not silently demote a live lesson.
+      // Demote only via Move to Draft / status control — not via Save Draft after Publish.
+      const existingId = String(form.querySelector('[name="id"]')?.value || "").trim();
+      const existing = typeof curriculumLessonPlanById === "function" ? curriculumLessonPlanById(existingId) : null;
+      const keepPublic = /^(published|featured)$/i.test(String(existing?.status || ""));
+      saveAdminCurriculumLessonPlanForm(form, keepPublic ? {} : { forceStatus: "draft" });
+    }
     return;
   }
 

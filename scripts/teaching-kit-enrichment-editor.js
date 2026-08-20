@@ -2904,6 +2904,14 @@
           <div class="tk-enrich-progress-block">
             <div class="tk-enrich-percent-row" data-owner-workspace-status>
               <span>Status: <span class="tag ${gate.published ? "is-success" : (gate.canPublish ? "is-success" : "")}">${esc(gate.displayLabel)}</span></span>
+              <span class="tag admin-access-plan-badge is-${plan.plan === "Pro" ? "pro" : "free"}" data-access-plan="${esc(plan.plan === "Pro" ? "Pro" : "Free")}" title="Customer access plan">Access: ${plan.plan === "Pro" ? "PRO" : "FREE"}</span>
+              <label class="tk-enrich-access-plan">
+                <span class="visually-hidden">Set Free or Pro access</span>
+                <select data-enrich-access-plan aria-label="Lesson access plan Free or Pro">
+                  <option value="Free" ${plan.plan === "Pro" ? "" : "selected"}>FREE</option>
+                  <option value="Pro" ${plan.plan === "Pro" ? "selected" : ""}>PRO</option>
+                </select>
+              </label>
               <strong title="Core lesson usability">Core ${core.title ? "✓" : "○"} Title · ${core.age ? "✓" : "○"} Age · ${core.activities ? "✓" : "○"} Activities</strong>
               <span class="muted-copy">Optional ${optional.cover ? "✓" : "○"} Cover image · ${optional.printables ? "✓" : "○"} Printables · ${optional.books ? "✓" : "○"} Books · ${optional.family ? "✓" : "○"} Family connection · ${optional.todos ? "✓" : "○"} My own todo items</span>
               ${gate.blockers.length ? `
@@ -5105,13 +5113,29 @@
           return;
         }
         try {
-          await saveDraft({ silent: true });
+          // Save current enrichment draft first when dirty — never publish stale content.
+          if (state.dirty) {
+            const saved = await saveDraft({ silent: true });
+            if (!saved || state.dirty) {
+              state.statusText = state.lastSaveError
+                || "Save the current draft before publishing. Draft save did not complete.";
+              render();
+              return;
+            }
+          }
           if (typeof root.publishAdminCurriculumLessonToLibrary === "function") {
             const result = await root.publishAdminCurriculumLessonToLibrary(plan.id);
             if (result?.ok) {
-              state.statusText = "Published lesson — visible to users.";
+              const persisted = String(result.lessonPlan?.status || "").toLowerCase();
+              if (!["published", "featured"].includes(persisted)) {
+                state.statusText = "Publish did not persist. Refresh and try again.";
+              } else {
+                state.statusText = "Published lesson — visible to users.";
+              }
             } else if (result?.code === "true_publish_blockers") {
               state.statusText = `Cannot publish yet: ${(result.blockers || []).map((item) => item.message).join("; ")}`;
+            } else if (result?.code === "publish_not_persisted") {
+              state.statusText = "Publish did not persist. Refresh and try again.";
             } else if (result && result.ok === false) {
               state.statusText = result.code === "backend_required"
                 ? "Backend server and admin login are required."
@@ -5949,6 +5973,40 @@
 
     document.addEventListener("change", async (event) => {
       if (!state.open) return;
+      if (event.target.matches("[data-enrich-access-plan]")) {
+        const plan = getPlan();
+        if (!plan?.id) return;
+        const nextPlan = String(event.target.value || "").trim() === "Pro" ? "Pro" : "Free";
+        const previous = plan.plan === "Pro" ? "Pro" : "Free";
+        if (nextPlan === previous) return;
+        if (typeof root.setAdminCurriculumLessonAccessPlan !== "function") {
+          state.statusText = "Free/Pro control is unavailable in this session.";
+          event.target.value = previous;
+          renderChromeOnly();
+          return;
+        }
+        state.statusText = `Saving access plan ${nextPlan}…`;
+        renderChromeOnly();
+        const result = await root.setAdminCurriculumLessonAccessPlan(plan.id, nextPlan, {
+          confirm: true,
+          silent: true,
+        });
+        if (result?.cancelled) {
+          event.target.value = previous;
+          state.statusText = "Access plan unchanged.";
+          render();
+          return;
+        }
+        if (!result?.ok) {
+          event.target.value = previous;
+          state.statusText = result?.error || "Could not update Free/Pro access.";
+          render();
+          return;
+        }
+        state.statusText = `Access set to ${nextPlan}. Publication status unchanged.`;
+        render();
+        return;
+      }
       if (event.target.matches("[data-ai-select]")) {
         const index = Number(event.target.getAttribute("data-ai-select"));
         const sug = state.aiTray.suggestions[index];
