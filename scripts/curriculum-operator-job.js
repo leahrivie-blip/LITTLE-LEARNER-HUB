@@ -82,6 +82,11 @@ function normalizeLessonResult(raw = {}) {
     printableActions: schema.asArray(input.printableActions).slice(0, 200),
     printableCounts: input.printableCounts && typeof input.printableCounts === "object" ? input.printableCounts : null,
     printablesComplete: input.printablesComplete === true,
+    songActions: schema.asArray(input.songActions).slice(0, 200),
+    bookActions: schema.asArray(input.bookActions).slice(0, 200),
+    songCounts: input.songCounts && typeof input.songCounts === "object" ? input.songCounts : null,
+    bookCounts: input.bookCounts && typeof input.bookCounts === "object" ? input.bookCounts : null,
+    songsBooksComplete: input.songsBooksComplete === true,
     aiUsage: input.aiUsage && typeof input.aiUsage === "object" ? input.aiUsage : null,
     ownerReviewStatus: ownerReviewStatus || null,
     readyForReview: input.readyForReview === true || ownerReviewStatus === "READY_FOR_OWNER_REVIEW",
@@ -114,6 +119,7 @@ function normalizeOperatorJob(raw = {}) {
       command.actions?.saveDraft === true
       || command.actions?.generateImages === true
       || command.actions?.generatePrintables === true
+      || command.actions?.generateSongsBooks === true
     ),
     publishEnabled: false,
     command,
@@ -138,6 +144,12 @@ function normalizeOperatorJob(raw = {}) {
         printables: Number(input.costCounters.printables) || 0,
         openaiCalls: Number(input.costCounters.openaiCalls) || 0,
         lessonsAudited: Number(input.costCounters.lessonsAudited) || 0,
+        songPlannerCalls: Number(input.costCounters.songPlannerCalls) || 0,
+        songsCreated: Number(input.costCounters.songsCreated) || 0,
+        songsImproved: Number(input.costCounters.songsImproved) || 0,
+        bookGuideCalls: Number(input.costCounters.bookGuideCalls) || 0,
+        booksLinked: Number(input.costCounters.booksLinked) || 0,
+        bookGuidesImproved: Number(input.costCounters.bookGuidesImproved) || 0,
       } : {}),
     },
     log: schema.asArray(input.log).slice(-500),
@@ -162,14 +174,15 @@ function createJobFromPlan({ command, planSummary, createdBy, status = "planned"
   const doImages = phase >= 3 && phase < 4
     && command?.actions?.generateImages === true
     && command?.actions?.touchImages !== false;
-  const doPrintables = phase >= 4 && command?.actions?.generatePrintables === true;
+  const doPrintables = phase === 4 && command?.actions?.generatePrintables === true;
+  const doSongsBooks = phase === 5 && command?.actions?.generateSongsBooks === true;
   const job = normalizeOperatorJob({
     createdBy,
     status,
     command,
     planSummary,
     phase,
-    mutationsEnabled: Boolean(doUpgrade || doImages || doPrintables),
+    mutationsEnabled: Boolean(doUpgrade || doImages || doPrintables || doSongsBooks),
     publishEnabled: false,
     progress: {
       lessonIndex: 0,
@@ -216,6 +229,16 @@ function createJobFromPlan({ command, planSummary, createdBy, status = "planned"
           { id: newStepId(), type: "printable.verify", status: "pending", idempotencyKey: `pr-verify:${id}` },
         );
       }
+      if (doSongsBooks) {
+        actions.push(
+          { id: newStepId(), type: "song.audit", status: "pending", idempotencyKey: `song-audit:${id}` },
+          { id: newStepId(), type: "song.upsert", status: "pending", idempotencyKey: `song-upsert:${id}` },
+          { id: newStepId(), type: "book.audit", status: "pending", idempotencyKey: `book-audit:${id}` },
+          { id: newStepId(), type: "book.upsert", status: "pending", idempotencyKey: `book-upsert:${id}` },
+          { id: newStepId(), type: "lesson.saveDraft", status: "pending", idempotencyKey: `sb-draft:${id}` },
+          { id: newStepId(), type: "lesson.validate", status: "pending", idempotencyKey: `sb-validate:${id}` },
+        );
+      }
       return {
         lessonId: id,
         title: lesson.title,
@@ -227,12 +250,19 @@ function createJobFromPlan({ command, planSummary, createdBy, status = "planned"
         printableActions: [],
         printableCounts: null,
         printablesComplete: false,
+        songActions: [],
+        bookActions: [],
+        songCounts: null,
+        bookCounts: null,
+        songsBooksComplete: false,
       };
     }),
     log: [],
   });
   let createdMsg = `Job created (${status}). Audit-only — no curriculum mutations.`;
-  if (doPrintables) {
+  if (doSongsBooks) {
+    createdMsg = `Job created (${status}). Phase 5 songs+books — no publish / no image or printable regeneration.`;
+  } else if (doPrintables) {
     createdMsg = `Job created (${status}). Phase 4 printables — no publish / no image regeneration.`;
   } else if (doUpgrade && doImages) {
     createdMsg = `Job created (${status}). Phase 2.5 text + Phase 3 images — no publish.`;
@@ -284,6 +314,22 @@ function buildOwnerSummary(job) {
       );
       schema.asArray(lr.printableActions).slice(0, 12).forEach((a) => {
         lines.push(`      ${a.activityTitle || a.activityId}: ${a.decision}${a.spec?.title ? ` — ${a.spec.title}` : ""}${a.reason ? ` — ${String(a.reason).slice(0, 80)}` : ""}`);
+      });
+    }
+    if (lr.songCounts || lr.bookCounts) {
+      const sc = lr.songCounts || {};
+      const bc = lr.bookCounts || {};
+      lines.push(
+        `    songs: KEEP ${sc.KEEP || 0} · ADD ${sc.ADD || 0} · IMPROVE ${sc.IMPROVE || 0} · REPLACE ${sc.REPLACE || 0} · NOT NEEDED ${sc.NOT_NEEDED || 0}`,
+      );
+      schema.asArray(lr.songActions).slice(0, 10).forEach((a) => {
+        lines.push(`      ${a.weekday || "?"}: ${a.decision}${a.title || a.existingTitle ? ` — ${a.title || a.existingTitle}` : ""}${a.reason ? ` — ${String(a.reason).slice(0, 80)}` : ""}`);
+      });
+      lines.push(
+        `    books: KEEP ${bc.KEEP || 0} · ADD ${bc.ADD || 0} · IMPROVE_GUIDE ${bc.IMPROVE_GUIDE || 0} · REPLACE ${bc.REPLACE || 0} · NOT NEEDED ${bc.NOT_NEEDED || 0}`,
+      );
+      schema.asArray(lr.bookActions).slice(0, 6).forEach((a) => {
+        lines.push(`      ${a.title || a.existingTitle || "book"}: ${a.decision}${a.reason ? ` — ${String(a.reason).slice(0, 80)}` : ""}`);
       });
     }
   });

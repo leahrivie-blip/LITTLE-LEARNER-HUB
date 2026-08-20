@@ -1,9 +1,9 @@
 /**
  * Owner-only AI Curriculum Operator API
- * (Phase 1–3 + Phase 4 printables + Phase 4.5 intelligent printable content).
+ * (Phase 1–3 + Phase 4 printables + Phase 4.5/4.6 + Phase 5 songs/books).
  *
  * Saves enrichmentDraft only. Never publishes.
- * Phase 4.5: AI plans printable CONTENTS; pdf-lib renders; upload/link unchanged.
+ * Phase 5: songs + books into enrichmentDraft; never touches images/printables/publish.
  */
 "use strict";
 
@@ -14,6 +14,7 @@ const auditApi = require("../scripts/curriculum-operator-audit.js");
 const upgradeApi = require("../scripts/curriculum-operator-upgrade.js");
 const imagesApi = require("../scripts/curriculum-operator-images.js");
 const printablesApi = require("../scripts/curriculum-operator-printables.js");
+const songsBooksApi = require("../scripts/curriculum-operator-songs-books.js");
 const jobApi = require("../scripts/curriculum-operator-job.js");
 
 const ACTIONS = Object.freeze([
@@ -63,6 +64,21 @@ function createCurriculumOperatorApi(deps) {
         return callOperatorAi(systemPrompt, userPrompt);
       }
       throw new Error("Printable content planner AI is not configured.");
+    };
+  }
+
+  function songsBooksCallAi() {
+    return async (systemPrompt, userPrompt) => {
+      const forceFixture = process.env.NODE_ENV === "test"
+        || ["1", "true", "yes"].includes(String(process.env.LLH_OPERATOR_AI_FIXTURE || "").trim().toLowerCase())
+        || ["1", "true", "yes"].includes(String(process.env.LLH_OPERATOR_SONGS_BOOKS_FIXTURE || "").trim().toLowerCase());
+      if (forceFixture) {
+        return songsBooksApi.buildOperatorSongBookAiFixtureResponse(userPrompt);
+      }
+      if (typeof callOperatorAi === "function") {
+        return callOperatorAi(systemPrompt, userPrompt);
+      }
+      throw new Error("Songs/books planner AI is not configured.");
     };
   }
 
@@ -116,21 +132,28 @@ function createCurriculumOperatorApi(deps) {
 
   function wantsImages(command) {
     const phase = Number(command?.completion?.phase) || 1;
-    if (phase < 3 || phase >= 4) return false; // Phase 4 does not regenerate images
+    if (phase < 3 || phase >= 4) return false; // Phase 4+ does not regenerate images
     if (command?.actions?.touchImages === false) return false;
     return command?.actions?.generateImages === true;
   }
 
   function wantsPrintables(command) {
     const phase = Number(command?.completion?.phase) || 1;
-    if (phase < 4) return false;
+    if (phase !== 4) return false; // Phase 5+ does not regenerate printables
     return command?.actions?.generatePrintables === true;
+  }
+
+  function wantsSongsBooks(command) {
+    const phase = Number(command?.completion?.phase) || 1;
+    if (phase < 5) return false;
+    return command?.actions?.generateSongsBooks === true;
   }
 
   function buildPlanSummary(command, selection) {
     const upgrade = wantsUpgrade(command);
     const images = wantsImages(command);
     const printables = wantsPrintables(command);
+    const songsBooks = wantsSongsBooks(command);
     const expected = ["lesson.get", "lesson.audit", "asset.plan", "teachingKit.score"];
     if (upgrade) {
       expected.push(
@@ -159,6 +182,16 @@ function createCurriculumOperatorApi(deps) {
         "printable.verify",
       );
     }
+    if (songsBooks) {
+      expected.push(
+        "song.audit",
+        "song.upsert",
+        "book.audit",
+        "book.upsert",
+        "lesson.saveDraft",
+        "lesson.validate",
+      );
+    }
     const lessons = schema.asArray(selection.selected).map((row) => ({
       id: row.id,
       title: row.title,
@@ -173,7 +206,9 @@ function createCurriculumOperatorApi(deps) {
       publishRequested: false,
     }));
     let phaseNote = "Audit/plan only. No curriculum mutations.";
-    if (printables) {
+    if (songsBooks) {
+      phaseNote = "Phase 5: songs + books into enrichmentDraft only. NOT published. No image/printable regeneration. No new lessons.";
+    } else if (printables) {
       phaseNote = "Phase 4.6: intelligent printables — no generic fallback success; optional generated_asset embeds. NOT published. No image regeneration. No new lessons.";
     } else if (upgrade && images) {
       phaseNote = "Phase 2.5+3: AI draft text + useful activity images into enrichmentDraft. NOT published. No printables.";
@@ -195,6 +230,7 @@ function createCurriculumOperatorApi(deps) {
       phaseNote,
       generatesImages: images,
       generatesPrintables: printables,
+      generatesSongsBooks: songsBooks,
       publishes: false,
     };
   }
@@ -213,6 +249,117 @@ function createCurriculumOperatorApi(deps) {
       if (a.status === "success" && a.idempotencyKey) keys.add(a.idempotencyKey);
     });
     return keys;
+  }
+
+  function collectSucceededSongBookKeys(lr) {
+    const keys = new Set();
+    schema.asArray(lr?.songActions).forEach((a) => {
+      if (a.status === "success" && a.idempotencyKey) keys.add(a.idempotencyKey);
+    });
+    schema.asArray(lr?.bookActions).forEach((a) => {
+      if (a.status === "success" && a.idempotencyKey) keys.add(a.idempotencyKey);
+    });
+    return keys;
+  }
+
+  async function runSongsBooksForLesson(job, plan, audit, store, sessionEmail, lr) {
+    const curriculum = readSiteCurriculum(store);
+    const linked = schema.asArray(curriculum.activities).filter((a) => a.lessonPlanId === plan.id);
+    const planned = await songsBooksApi.planSongsAndBooks({
+      plan,
+      activities: linked,
+      audit,
+      callAi: songsBooksCallAi(),
+      alreadySucceededKeys: collectSucceededSongBookKeys(lr),
+    });
+
+    if (planned.usage) {
+      job.costCounters.songPlannerCalls = (job.costCounters.songPlannerCalls || 0)
+        + Number(planned.usage.songPlannerCalls || 0);
+      job.costCounters.bookGuideCalls = (job.costCounters.bookGuideCalls || 0)
+        + Number(planned.usage.bookGuideCalls || 0);
+      job.costCounters.songsCreated = (job.costCounters.songsCreated || 0)
+        + Number(planned.usage.songsCreated || 0);
+      job.costCounters.songsImproved = (job.costCounters.songsImproved || 0)
+        + Number(planned.usage.songsImproved || 0);
+      job.costCounters.booksLinked = (job.costCounters.booksLinked || 0)
+        + Number(planned.usage.booksLinked || 0);
+      job.costCounters.bookGuidesImproved = (job.costCounters.bookGuidesImproved || 0)
+        + Number(planned.usage.bookGuidesImproved || 0);
+      job.costCounters.openaiCalls = (job.costCounters.openaiCalls || 0)
+        + Number(planned.usage.songPlannerCalls || 0);
+    }
+
+    const counts = songsBooksApi.summarizeSongBookActions(planned.songActions, planned.bookActions);
+    if (!planned.ok && !planned.skipped) {
+      return {
+        ok: false,
+        partial: false,
+        songBookRun: planned,
+        afterPlan: plan,
+        historyId: null,
+        counts,
+        error: planned.error || "Songs/books planning failed.",
+      };
+    }
+
+    let afterPlan = plan;
+    let historyId = null;
+    if (planned.changed && planned.enrichmentDraft) {
+      if (typeof saveOperatorEnrichmentDraft !== "function") {
+        throw new Error("Draft save helper is not configured.");
+      }
+      const saveResult = await saveOperatorEnrichmentDraft({
+        store,
+        lessonPlanId: plan.id,
+        enrichmentDraft: planned.enrichmentDraft,
+        adminEmail: sessionEmail,
+      });
+      if (!saveResult?.ok) {
+        throw new Error(saveResult?.error || "enrichment_draft save failed");
+      }
+      historyId = saveResult.versionId || null;
+      afterPlan = saveResult.lessonPlan;
+      Object.assign(store, readStore());
+    }
+
+    const verification = songsBooksApi.verifySongBookJobDraft({
+      beforePlan: plan,
+      afterPlan,
+      songActions: planned.songActions,
+      bookActions: planned.bookActions,
+    });
+    const songActions = schema.asArray(planned.songActions).map((a) => {
+      if (a.status === "success" && !verification.ok) {
+        return { ...a, status: "failed", error: "post_save_verification_failed" };
+      }
+      return a;
+    });
+    const bookActions = schema.asArray(planned.bookActions).map((a) => {
+      if (a.status === "success" && !verification.ok) {
+        return { ...a, status: "failed", error: "post_save_verification_failed" };
+      }
+      return a;
+    });
+    const finalCounts = songsBooksApi.summarizeSongBookActions(songActions, bookActions);
+    const ok = verification.ok && (planned.ok || planned.skipped);
+    return {
+      ok,
+      partial: !ok && (
+        songActions.some((a) => a.status === "success")
+        || bookActions.some((a) => a.status === "success")
+      ),
+      songBookRun: {
+        ...planned,
+        songActions,
+        bookActions,
+        jobVerification: verification,
+      },
+      afterPlan,
+      historyId,
+      counts: finalCounts,
+      error: ok ? null : (planned.error || "Post-save songs/books verification failed."),
+    };
   }
 
   async function runPrintablesForLesson(job, plan, audit, store, sessionEmail, lr) {
@@ -495,6 +642,7 @@ function createCurriculumOperatorApi(deps) {
     const upgrade = wantsUpgrade(job.command);
     const images = wantsImages(job.command);
     const printables = wantsPrintables(job.command);
+    const songsBooks = wantsSongsBooks(job.command);
     try {
       job.progress.currentAction = "lesson.audit";
       const before = auditOneLesson(plan, curriculum);
@@ -810,7 +958,53 @@ function createCurriculumOperatorApi(deps) {
         );
       }
 
-      if (!upgrade && !images && !printables) {
+      // --- Phase 5 songs + books (optional; never regenerates images/printables) ---
+      let songActions = schema.asArray(lr.songActions);
+      let bookActions = schema.asArray(lr.bookActions);
+      let songCounts = lr.songCounts || null;
+      let bookCounts = lr.bookCounts || null;
+      let songsBooksComplete = lr.songsBooksComplete === true;
+      let songsBooksError = null;
+
+      if (songsBooks) {
+        job.progress.currentAction = "song.audit";
+        const sbAuditSource = auditOneLesson(workingPlan, readSiteCurriculum(store));
+        const sbResult = await runSongsBooksForLesson(
+          job,
+          workingPlan,
+          sbAuditSource.audit,
+          store,
+          sessionEmail,
+          lr,
+        );
+
+        songActions = sbResult.songBookRun.songActions || [];
+        bookActions = sbResult.songBookRun.bookActions || [];
+        songCounts = sbResult.counts?.songCounts || null;
+        bookCounts = sbResult.counts?.bookCounts || null;
+        songsBooksComplete = sbResult.ok || sbResult.partial;
+        if (sbResult.historyId) historyId = sbResult.historyId;
+        workingPlan = sbResult.afterPlan;
+        const finalAudit = auditOneLesson(workingPlan, readSiteCurriculum(store));
+        auditAfter = finalAudit.audit;
+        afterScores = finalAudit.audit.scores;
+        if (!sbResult.ok) {
+          songsBooksError = sbResult.error || "One or more song/book actions failed.";
+          ownerReviewStatus = "PARTIAL";
+        } else if (!upgrade && !images && !printables) {
+          ownerReviewStatus = "READY_FOR_OWNER_REVIEW";
+        } else if (ownerReviewStatus === "AUDIT_ONLY") {
+          ownerReviewStatus = "READY_FOR_OWNER_REVIEW";
+        }
+        jobApi.appendLog(
+          job,
+          `Songs/books for “${plan.title}”: songs KEEP ${songCounts?.KEEP || 0} · ADD ${songCounts?.ADD || 0} · IMPROVE ${songCounts?.IMPROVE || 0} · books KEEP ${bookCounts?.KEEP || 0} · ADD ${bookCounts?.ADD || 0} · IMPROVE_GUIDE ${bookCounts?.IMPROVE_GUIDE || 0}.`,
+          sbResult.ok ? "info" : "warn",
+          plan.id,
+        );
+      }
+
+      if (!upgrade && !images && !printables && !songsBooks) {
         jobApi.appendLog(
           job,
           `Audited “${plan.title}” — ${before.audit.currentStatus}.`,
@@ -840,14 +1034,15 @@ function createCurriculumOperatorApi(deps) {
         };
       }
 
-      const combinedError = imageError || printableError;
+      const combinedError = imageError || printableError || songsBooksError;
       const ok = !combinedError && (upgradeVerification ? upgradeVerification.ok : true);
       const stepTypes = schema.asArray(lr.actions).map((a) => a.type);
       return {
         ...lr,
         title: plan.title,
         status: ok ? "success" : (
-          combinedError && (updated.length || imageCounts?.SUCCESS || printableCounts?.SUCCESS)
+          combinedError && (updated.length || imageCounts?.SUCCESS || printableCounts?.SUCCESS
+            || songCounts?.SUCCESS || bookCounts?.SUCCESS)
             ? "success"
             : "failed"
         ),
@@ -867,8 +1062,14 @@ function createCurriculumOperatorApi(deps) {
         printableActions,
         printableCounts,
         printablesComplete: printables ? printablesComplete : undefined,
+        songActions,
+        bookActions,
+        songCounts,
+        bookCounts,
+        songsBooksComplete: songsBooks ? songsBooksComplete : undefined,
         ownerReviewStatus: combinedError ? "PARTIAL" : ownerReviewStatus,
-        readyForReview: ok || Boolean(imageCounts?.SUCCESS) || Boolean(printableCounts?.SUCCESS) || Boolean(updated.length),
+        readyForReview: ok || Boolean(imageCounts?.SUCCESS) || Boolean(printableCounts?.SUCCESS)
+          || Boolean(songCounts?.SUCCESS) || Boolean(bookCounts?.SUCCESS) || Boolean(updated.length),
         published: false,
         aiUsage,
         error: ok ? null : (combinedError || "Lesson processing incomplete."),
@@ -877,6 +1078,8 @@ function createCurriculumOperatorApi(deps) {
             changed: updated.length,
             imageCounts,
             printableCounts,
+            songCounts,
+            bookCounts,
             ownerReviewStatus: combinedError ? "PARTIAL" : ownerReviewStatus,
             published: false,
             historyId,
@@ -907,8 +1110,10 @@ function createCurriculumOperatorApi(deps) {
     const upgrade = wantsUpgrade(job.command);
     const images = wantsImages(job.command);
     const printables = wantsPrintables(job.command);
+    const songsBooks = wantsSongsBooks(job.command);
     let startMsg = "Starting audit-only run.";
-    if (printables) startMsg = "Starting Phase 4 printable run (no publish, no image regeneration).";
+    if (songsBooks) startMsg = "Starting Phase 5 songs+books run (no publish, no image/printable regeneration).";
+    else if (printables) startMsg = "Starting Phase 4 printable run (no publish, no image regeneration).";
     else if (upgrade && images) startMsg = "Starting Phase 2.5 draft upgrade + Phase 3 activity images (no publish).";
     else if (upgrade) startMsg = "Starting Phase 2.5 draft upgrade run (no publish).";
     else if (images) startMsg = "Starting Phase 3 activity image run (no publish).";
@@ -919,10 +1124,11 @@ function createCurriculumOperatorApi(deps) {
       const lr = job.lessonResults[index];
       const resumeOk = lr.status === "success"
         && (
-          (printables && lr.printablesComplete && (lr.auditAfter || lr.audit))
+          (songsBooks && lr.songsBooksComplete && (lr.auditAfter || lr.audit))
+          || (printables && lr.printablesComplete && (lr.auditAfter || lr.audit))
           || (images && lr.imagesComplete && (lr.auditAfter || lr.audit))
-          || (!images && !printables && upgrade && lr.auditAfter)
-          || (!images && !printables && !upgrade && lr.audit)
+          || (!images && !printables && !songsBooks && upgrade && lr.auditAfter)
+          || (!images && !printables && !songsBooks && !upgrade && lr.audit)
         );
       if (resumeOk) {
         results.push(lr);
@@ -986,7 +1192,7 @@ function createCurriculumOperatorApi(deps) {
       return;
     }
 
-    const phase = schema.clampInt(body.phase, 1, 8, 4);
+    const phase = schema.clampInt(body.phase, 1, 8, 5);
     const curriculum = typeof readSiteCurriculum === "function"
       ? readSiteCurriculum(store)
       : (store.siteContent?.curriculum || { lessonPlans: [], activities: [], resources: [] });
@@ -1112,6 +1318,9 @@ function createCurriculumOperatorApi(deps) {
       await writeJobs(store, bag2);
 
       const upgraded = wantsUpgrade(command);
+      const songsBooks = wantsSongsBooks(command);
+      const printables = wantsPrintables(command);
+      const images = wantsImages(command);
       jsonResponse(response, 200, {
         ok: true,
         action: "run",
@@ -1120,9 +1329,9 @@ function createCurriculumOperatorApi(deps) {
         job,
         publishEnabled: false,
         published: false,
-        draftOnly: upgraded,
-        curriculumUnchanged: !upgraded,
-        mutationsEnabled: upgraded,
+        draftOnly: upgraded || songsBooks || printables || images,
+        curriculumUnchanged: !(upgraded || songsBooks || printables || images),
+        mutationsEnabled: upgraded || songsBooks || printables || images,
       });
       return;
     }
@@ -1209,6 +1418,9 @@ function createCurriculumOperatorApi(deps) {
     runJob,
     buildPlanSummary,
     wantsUpgrade,
+    wantsImages,
+    wantsPrintables,
+    wantsSongsBooks,
   };
 }
 

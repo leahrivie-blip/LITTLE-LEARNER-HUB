@@ -98,6 +98,13 @@ function parseOperatorCommand(rawCommand, options = {}) {
   const mentionsImages = /\b(picture|pictures|image|images|photo|photos)\b/i.test(raw);
   const wantsImages = mentionsImages
     && /\b(fix|make|generate|create|upgrade|replace|keep|need)\b/i.test(raw);
+  const wantsSongsBooks = (
+    /\b(songs?\s+and\s+books?|books?\s+and\s+songs?|song\/book|songs\/books)\b/i.test(raw)
+    || (/\b(songs?|books?)\b/i.test(raw)
+      && /\b(finish|complete|fix|add|improve|check|fill)\b/i.test(raw)
+      && !wantsImages
+      && !/\bprintable/i.test(raw))
+  );
   const wantsPrintables = /\b(printable|printables|pdf|resource pack)\b/i.test(raw)
     && /\b(fix|make|generate|create|upgrade|replace|keep|finish|need)\b/i.test(raw);
   const noTouchPrintables = /\bdo\s+not\s+touch\s+(?:the\s+)?printables?\b/i.test(raw)
@@ -122,27 +129,50 @@ function parseOperatorCommand(rawCommand, options = {}) {
     notes.push("Image actions disabled for this command.");
   }
 
+  if (wantsSongsBooks) {
+    intent = titles.length === 1 ? "fix_lesson" : "finish_songs_books";
+    if (/\b(finish|complete|fill)\s+(the\s+)?(songs?|books?)/i.test(raw)
+      || /\bsongs?\s+and\s+books?\b/i.test(raw)
+      || /\bbooks?\s+and\s+songs?\b/i.test(raw)) {
+      intent = "finish_songs_books";
+    }
+    actions.generateSongsBooks = phase >= 5;
+    actions.checkSongs = true;
+    actions.checkBooks = true;
+    actions.saveDraft = phase >= 5;
+    actions.generateImages = false;
+    actions.generatePrintables = false;
+    if (phase >= 5) {
+      notes.push("Phase 5 will finish songs/books into enrichmentDraft only (not published). No image/printable changes.");
+    } else {
+      notes.push("Songs/books generation is Phase 5+; not executed now.");
+    }
+  }
+
   if (wantsImages && !noTouchImages) {
     intent = selection === "needs_activity_images" || /\bweakest\b/i.test(raw)
       ? "finish_images"
       : (titles.length === 1 ? "fix_lesson" : "finish_images");
-    actions.generateImages = phase >= 3;
+    actions.generateImages = phase >= 3 && phase < 5;
     actions.checkImages = true;
-    actions.saveDraft = phase >= 3;
+    actions.saveDraft = phase >= 3 && phase < 5 ? true : actions.saveDraft;
     if (replaceBadOnly) actions.replaceBadImages = true;
-    if (phase >= 3) {
+    if (phase >= 3 && phase < 5) {
       notes.push("Phase 3 will generate/replace only useful activity images into enrichmentDraft (not published).");
+    } else if (phase >= 5) {
+      actions.generateImages = false;
+      notes.push("Phase 5 does not regenerate activity images.");
     } else {
       notes.push("Image generation is Phase 3+; not executed now.");
     }
   }
 
-  if (wantsUpgrade) {
+  if (wantsUpgrade && !wantsSongsBooks) {
     intent = titles.length === 1 ? "fix_lesson" : (intent === "finish_images" ? intent : "upgrade_batch");
     actions.upgradeLesson = true;
     actions.upgradeActivities = true;
     actions.saveDraft = true;
-    if (/\bincluding\s+(?:the\s+)?pictures?\b/i.test(raw) && !noTouchImages && phase >= 3) {
+    if (/\bincluding\s+(?:the\s+)?pictures?\b/i.test(raw) && !noTouchImages && phase >= 3 && phase < 5) {
       actions.generateImages = true;
       actions.checkImages = true;
     }
@@ -163,17 +193,25 @@ function parseOperatorCommand(rawCommand, options = {}) {
     notes.push("Publishing is disabled until Phase 8. Draft upgrades only.");
   }
   if (/\b(generate|create|make)\b.+\b(image|picture|photo)s?\b/i.test(raw) && !noTouchImages) {
-    actions.generateImages = phase >= 3;
+    actions.generateImages = phase >= 3 && phase < 5;
     if (phase < 3) notes.push("Image generation is Phase 3+; not executed now.");
+    if (phase >= 5) {
+      actions.generateImages = false;
+      notes.push("Phase 5 does not regenerate activity images.");
+    }
   }
   if (/\b(generate|create|make|finish)\b.+\bprintable/i.test(raw) || (wantsPrintables && !noTouchPrintables)) {
-    actions.generatePrintables = phase >= 4;
+    actions.generatePrintables = phase === 4;
     actions.checkPrintables = true;
-    actions.saveDraft = phase >= 4 || actions.saveDraft;
-    if (phase >= 4) {
+    actions.saveDraft = phase === 4 || actions.saveDraft;
+    if (phase === 4) {
       intent = selection === "weak_printables" ? "finish_printables" : (titles.length === 1 ? "fix_lesson" : "finish_printables");
       actions.generateImages = false; // Phase 4 must not regenerate images
+      actions.generateSongsBooks = false;
       notes.push("Phase 4 will create/replace only useful activity-driven printables into draft resources (not published).");
+    } else if (phase >= 5) {
+      actions.generatePrintables = false;
+      notes.push("Phase 5 does not regenerate printables.");
     } else {
       notes.push("Printable generation is Phase 4+; not executed now.");
     }
@@ -213,9 +251,17 @@ function parseOperatorCommand(rawCommand, options = {}) {
     notes.push("Will produce Ready-for-Review draft work without publishing.");
   }
 
-  // "Fix Weather Watchers" / "Fix this lesson" — text upgrade unless image/printable-focused
+  // "Fix Weather Watchers" / "Fix this lesson" — text upgrade unless image/printable/songs-books-focused
   if (/\bfix\b/i.test(raw) && (titles.length || selection === "currently_selected" || selection === "named_titles" || selection === "weak_printables")) {
-    if (printableFocusedFix && phase >= 4) {
+    if (wantsSongsBooks && phase >= 5) {
+      intent = "finish_songs_books";
+      actions.generateSongsBooks = true;
+      actions.checkSongs = true;
+      actions.checkBooks = true;
+      actions.saveDraft = true;
+      actions.generateImages = false;
+      actions.generatePrintables = false;
+    } else if (printableFocusedFix && phase === 4) {
       intent = "finish_printables";
       actions.generatePrintables = true;
       actions.checkPrintables = true;
@@ -227,13 +273,13 @@ function parseOperatorCommand(rawCommand, options = {}) {
         actions.upgradeLesson = true;
         actions.upgradeActivities = true;
         actions.saveDraft = true;
-      } else if (phase >= 3) {
+      } else if (phase >= 3 && phase < 5) {
         actions.generateImages = true;
         actions.checkImages = true;
         actions.saveDraft = true;
         actions.replaceBadImages = true;
       }
-    } else {
+    } else if (!wantsSongsBooks) {
       intent = "fix_lesson";
       actions.upgradeLesson = true;
       actions.upgradeActivities = true;

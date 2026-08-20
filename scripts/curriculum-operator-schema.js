@@ -158,6 +158,13 @@ const PHASE4_EXECUTABLE_ACTIONS = Object.freeze([
   "printable.verify",
 ]);
 
+/** Phase 5 adds song/book upsert into enrichmentDraft — still no publish/create/images/printables. */
+const PHASE5_EXECUTABLE_ACTIONS = Object.freeze([
+  ...PHASE4_EXECUTABLE_ACTIONS,
+  "song.upsert",
+  "book.upsert",
+]);
+
 const OWNER_REVIEW_STATUSES = Object.freeze([
   "READY_FOR_OWNER_REVIEW",
   "PARTIAL",
@@ -223,6 +230,7 @@ const INTENTS = Object.freeze([
   "create_lesson",
   "finish_printables",
   "finish_images",
+  "finish_songs_books",
   "validate",
   "unknown",
 ]);
@@ -285,6 +293,7 @@ function emptyActionsFlags() {
     createLesson: false,
     generateImages: false,
     generatePrintables: false,
+    generateSongsBooks: false,
     replaceBadImages: false,
     touchImages: true,
     validate: true,
@@ -359,6 +368,7 @@ function normalizeOperatorCommand(raw = {}, options = {}) {
     createLesson: actionsIn.createLesson === true,
     generateImages: actionsIn.generateImages === true,
     generatePrintables: actionsIn.generatePrintables === true,
+    generateSongsBooks: actionsIn.generateSongsBooks === true,
     replaceBadImages: actionsIn.replaceBadImages === true,
     touchImages: actionsIn.touchImages !== false,
     validate: actionsIn.validate !== false,
@@ -366,15 +376,15 @@ function normalizeOperatorCommand(raw = {}, options = {}) {
     publish: actionsIn.publish === true,
   };
 
-  // Always block create / publish. Printables unlock only at Phase 4+.
+  // Always block create / publish.
   actions.createLesson = false;
   actions.publish = false;
-  if (phase < 4) {
-    actions.generatePrintables = false;
-  }
+  if (phase < 4) actions.generatePrintables = false;
+  if (phase < 5) actions.generateSongsBooks = false;
 
   const phase3 = phase === 3;
-  const phase4 = phase >= 4;
+  const phase4 = phase === 4;
+  const phase5 = phase >= 5;
   if (phase1) {
     actions.upgradeLesson = false;
     actions.upgradeActivities = false;
@@ -382,12 +392,14 @@ function normalizeOperatorCommand(raw = {}, options = {}) {
     actions.generateImages = false;
     actions.replaceBadImages = false;
     actions.generatePrintables = false;
+    actions.generateSongsBooks = false;
     actions.audit = true;
     actions.validate = true;
   } else if (phase2) {
     actions.generateImages = false;
     actions.replaceBadImages = false;
     actions.generatePrintables = false;
+    actions.generateSongsBooks = false;
     if (actions.upgradeLesson || actions.upgradeActivities || intent === "upgrade_batch" || intent === "fix_lesson") {
       actions.saveDraft = true;
       actions.upgradeLesson = true;
@@ -395,6 +407,7 @@ function normalizeOperatorCommand(raw = {}, options = {}) {
     }
   } else if (phase3) {
     actions.generatePrintables = false;
+    actions.generateSongsBooks = false;
     if (actions.upgradeLesson || actions.upgradeActivities || intent === "upgrade_batch" || intent === "fix_lesson") {
       actions.saveDraft = true;
       actions.upgradeLesson = true;
@@ -410,10 +423,10 @@ function normalizeOperatorCommand(raw = {}, options = {}) {
       actions.replaceBadImages = false;
     }
   } else if (phase4) {
-    // Phase 4 / 4.5: printables only — do not regenerate activity images.
-    // Phase 4.5 adds AI content planning before pdf-lib render (same action flags).
+    // Phase 4 / 4.5 / 4.6: printables only
     actions.generateImages = false;
     actions.replaceBadImages = false;
+    actions.generateSongsBooks = false;
     if (actions.upgradeLesson || actions.upgradeActivities || intent === "upgrade_batch" || intent === "fix_lesson") {
       actions.saveDraft = true;
       actions.upgradeLesson = true;
@@ -424,13 +437,31 @@ function normalizeOperatorCommand(raw = {}, options = {}) {
       actions.saveDraft = true;
       actions.checkPrintables = true;
     }
-    if (intent === "finish_images") {
-      // Image finish commands in phase 4 still must not auto-run images.
+    if (intent === "finish_images") actions.generateImages = false;
+  } else if (phase5) {
+    // Phase 5: songs + books only — no images/printables/publish/create
+    actions.generateImages = false;
+    actions.replaceBadImages = false;
+    actions.generatePrintables = false;
+    if (actions.upgradeLesson || actions.upgradeActivities || intent === "upgrade_batch" || intent === "fix_lesson") {
+      actions.saveDraft = true;
+      actions.upgradeLesson = true;
+      actions.upgradeActivities = true;
+    }
+    if (intent === "finish_songs_books" || actions.generateSongsBooks || actionsIn.generateSongsBooks === true) {
+      actions.generateSongsBooks = true;
+      actions.saveDraft = true;
+      actions.checkSongs = true;
+      actions.checkBooks = true;
+    }
+    if (intent === "finish_images" || intent === "finish_printables") {
       actions.generateImages = false;
+      actions.generatePrintables = false;
     }
   } else {
     actions.generateImages = false;
     actions.generatePrintables = false;
+    actions.generateSongsBooks = false;
   }
 
   const limits = normalizeLimits(input.limits);
@@ -460,6 +491,7 @@ function normalizeOperatorCommand(raw = {}, options = {}) {
         actions.saveDraft === true
         || actions.generateImages === true
         || actions.generatePrintables === true
+        || actions.generateSongsBooks === true
       ),
       phase,
     },
@@ -495,6 +527,12 @@ function emptyCostCounters() {
     printables: 0,
     openaiCalls: 0,
     lessonsAudited: 0,
+    songPlannerCalls: 0,
+    songsCreated: 0,
+    songsImproved: 0,
+    bookGuideCalls: 0,
+    booksLinked: 0,
+    bookGuidesImproved: 0,
   };
 }
 
@@ -558,6 +596,10 @@ function isPhase4Executable(actionType) {
   return PHASE4_EXECUTABLE_ACTIONS.includes(text(actionType, 60));
 }
 
+function isPhase5Executable(actionType) {
+  return PHASE5_EXECUTABLE_ACTIONS.includes(text(actionType, 60));
+}
+
 module.exports = {
   FIELD_DECISIONS,
   IMAGE_DECISIONS,
@@ -568,6 +610,7 @@ module.exports = {
   PHASE2_EXECUTABLE_ACTIONS,
   PHASE3_EXECUTABLE_ACTIONS,
   PHASE4_EXECUTABLE_ACTIONS,
+  PHASE5_EXECUTABLE_ACTIONS,
   OWNER_REVIEW_STATUSES,
   MUTATION_ACTIONS,
   JOB_STATUSES,
@@ -589,6 +632,7 @@ module.exports = {
   isPhase2Executable,
   isPhase3Executable,
   isPhase4Executable,
+  isPhase5Executable,
   text,
   asArray,
   clampInt,

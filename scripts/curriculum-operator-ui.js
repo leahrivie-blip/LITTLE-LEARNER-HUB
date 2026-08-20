@@ -147,7 +147,7 @@
           <h5>Activity images</h5>
           ${lr.imageCounts ? `
             <p>KEEP — ${esc(lr.imageCounts.KEEP || 0)} · GENERATED — ${esc(lr.imageCounts.GENERATE || 0)} · REPLACED — ${esc(lr.imageCounts.REPLACE || 0)} · NOT NEEDED — ${esc(lr.imageCounts.NOT_NEEDED || 0)} · FAILED — ${esc(lr.imageCounts.FAILED || 0)}</p>
-          ` : `<p class="muted-copy">Images unchanged in Phase 4 printable jobs.</p>`}
+          ` : `<p class="muted-copy">Images unchanged in this job.</p>`}
         </section>
         <section>
           <h5>Printables</h5>
@@ -163,6 +163,31 @@
                 ${pr.downloadVerified ? " · download ✓" : ""}
               </li>`).join("")}</ul>
           ` : `<p class="muted-copy">Planning: KEEP ${esc(prints.KEEP_EXISTING || prints.KEEP || 0)} · CREATE ${esc(prints.CREATE || 0)} · REPLACE ${esc(prints.REPLACE || 0)}.</p>`}
+        </section>
+        <section>
+          <h5>Songs</h5>
+          ${lr.songCounts ? `
+            <p>KEEP — ${esc(lr.songCounts.KEEP || 0)} · ADD — ${esc(lr.songCounts.ADD || 0)} · IMPROVE — ${esc(lr.songCounts.IMPROVE || 0)} · REPLACE — ${esc(lr.songCounts.REPLACE || 0)} · NOT NEEDED — ${esc(lr.songCounts.NOT_NEEDED || 0)}</p>
+            <ul>${(Array.isArray(lr.songActions) ? lr.songActions : []).slice(0, 12).map((s) => `
+              <li><strong>${esc((s.weekday || "").charAt(0).toUpperCase() + (s.weekday || "").slice(1))}</strong>
+                — ${esc(s.decision)}
+                ${s.title || s.existingTitle ? ` · ${esc(s.title || s.existingTitle)}` : ""}
+                ${s.status === "success" ? " · ✓ saved" : ""}
+                <span class="muted-copy"> — ${esc(s.reason || s.error || "")}</span>
+              </li>`).join("")}</ul>
+          ` : `<p class="muted-copy">Songs unchanged in this job.</p>`}
+        </section>
+        <section>
+          <h5>Books</h5>
+          ${lr.bookCounts ? `
+            <p>KEEP — ${esc(lr.bookCounts.KEEP || 0)} · ADD — ${esc(lr.bookCounts.ADD || 0)} · IMPROVE GUIDE — ${esc(lr.bookCounts.IMPROVE_GUIDE || 0)} · REPLACE — ${esc(lr.bookCounts.REPLACE || 0)} · NOT NEEDED — ${esc(lr.bookCounts.NOT_NEEDED || 0)}</p>
+            <ul>${(Array.isArray(lr.bookActions) ? lr.bookActions : []).slice(0, 8).map((b) => `
+              <li><strong>${esc(b.title || b.existingTitle || "Book")}</strong>
+                — ${esc(b.decision)}
+                ${b.status === "success" ? " · ✓ saved" : ""}
+                <span class="muted-copy"> — ${esc(b.reason || b.error || "")}</span>
+              </li>`).join("")}</ul>
+          ` : `<p class="muted-copy">Books unchanged in this job.</p>`}
         </section>
       </div>
       <section>
@@ -204,13 +229,13 @@
           <div>
             <p class="eyebrow">Content · Owner</p>
             <h3>AI Curriculum Operator</h3>
-            <p class="muted-copy">Phase 4.6: intelligent printables with quality hard-stops (no generic filler fallback) and optional recognition visuals. <strong>No publishing. No new lessons. No activity image regeneration.</strong></p>
+            <p class="muted-copy">Phase 5: songs + books into enrichment drafts (KEEP / ADD / IMPROVE / REPLACE / NOT_NEEDED). <strong>No publishing. No new lessons. No activity image or printable regeneration.</strong></p>
           </div>
         </div>
         ${state.message ? `<p class="access-notice ${state.isError ? "error" : ""}" role="status">${esc(state.message)}</p>` : ""}
         <label class="co-command-label">
           <span>Command</span>
-          <textarea id="coCommandInput" rows="3" placeholder="Example: Upgrade the 5 weakest Toddler Pro lessons.">${esc(state.command)}</textarea>
+          <textarea id="coCommandInput" rows="3" placeholder="Example: Finish the songs and books for Weather Watchers.">${esc(state.command)}</textarea>
         </label>
         <div class="account-actions-row">
           <button type="button" class="ghost-button" id="coParseBtn" ${state.busy ? "disabled" : ""}>Interpret</button>
@@ -296,9 +321,9 @@
     state.isError = false;
     render();
     try {
-      const result = await api("parse", { command: state.command, phase: 3 });
+      const result = await api("parse", { command: state.command, phase: 5 });
       state.commandParsed = result;
-      const planned = await api("plan", { command: state.command, phase: 3 });
+      const planned = await api("plan", { command: state.command, phase: 5 });
       state.planSummary = planned.planSummary;
       state.job = planned.job || null;
       state.message = "Command interpreted. Review the plan, then run the job.";
@@ -318,14 +343,14 @@
     state.isError = false;
     render();
     try {
-      const result = await api("run", { command: state.command, confirm: true, phase: 3 });
+      const result = await api("run", { command: state.command, confirm: true, phase: 5 });
       state.commandParsed = { command: result.command };
       state.planSummary = result.planSummary;
       state.job = result.job;
       if (result.awaitingConfirm) {
         state.message = "Confirmation required before running. Review scope, then confirm.";
       } else if (result.draftOnly) {
-        state.message = "Draft upgrade job complete. Enrichment drafts updated only — NOT PUBLISHED. No images/printables changed.";
+        state.message = "Draft job complete. Enrichment drafts updated only — NOT PUBLISHED. Images/printables unchanged unless this was an earlier phase job.";
       } else {
         state.message = "Audit job complete. No curriculum data was changed.";
       }
