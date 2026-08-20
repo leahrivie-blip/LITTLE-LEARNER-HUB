@@ -105,3 +105,22 @@ No lesson/activity content rewrites. No Free/Pro changes. Unrelated lessons unto
 - Super Badge Emblem Template kept: `cur-res-59fbca5ee3088b9c`.
 
 Result JSON: `docs/audits/PRO_PRIORITY1_PRINTABLE_QUALITY_REPLACE_RESULT.json`
+
+---
+
+## Improvements applied (draft only)
+
+None reclassified as REPLACE. Purpose preserved; artwork upgraded; filler Extra cards removed.
+
+| Title | Old ID | New ID | Change |
+|---|---|---|---|
+| Pet Care Action Cards | `cur-res-b722ba10ee070a6b` | `cur-res-3fd99cf0cbda6614` | Realistic care action photos; dropped Extra duplicate Wash/Feed/Brush; kept Wash/Brush/Feed/Listen + Rest |
+| Pet Friend Picture Cards | `cur-res-f69bee309aa41f32` | `cur-res-d5fb15c9a6082097` | Clear illustrated pet portraits; dropped Extra dog/cat/bird; kept Dog/Cat/Bird/Fish/Rabbit |
+| Vet Check Picture Chart | `cur-res-ab46a19506a160f1` | `cur-res-fe61d224e61c345f` | Realistic stuffed-pet hero + step photos for eyes/ears/paws/tummy |
+| Day & Night Scene Cards | `cur-res-739b44750866b0e1` | `cur-res-e9f147755bef47d8` | Rich scene illustrations for Sunny Day / Camp Evening / Starry Night / Flashlight Look |
+| Nature Treasure Hunt Cards | `cur-res-72b3d0b06da14a7f` | `cur-res-8049b2e0463a970f` | Clear object illustrations; removed Extra Leaf filler (5 unique finds) |
+
+Pack Backpack (`cur-res-046771f59434cc05`) remains linked on Camping (KEEP untouched).
+
+Result JSON: `docs/audits/PRO_PRIORITY1_PRINTABLE_QUALITY_IMPROVE_RESULT.json`  
+Final QA: `docs/audits/PRO_PRIORITY1_PRINTABLE_QUALITY_FINAL_QA.json`

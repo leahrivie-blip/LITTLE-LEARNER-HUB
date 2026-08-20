@@ -1,0 +1,122 @@
+{
+  "at": "2026-08-20T19:08:13.820Z",
+  "site": "https://littlelearnershubbyleah.com",
+  "uploads": [
+    {
+      "lessonId": "cur-lp-toddler-pet-vet-clinic",
+      "title": "Pet Care Action Cards",
+      "oldResourceId": "cur-res-b722ba10ee070a6b",
+      "newResourceId": "cur-res-3fd99cf0cbda6614",
+      "status": "draft",
+      "oldDeleted": false,
+      "published": false,
+      "kind": "improve"
+    },
+    {
+      "lessonId": "cur-lp-toddler-pet-vet-clinic",
+      "title": "Pet Friend Picture Cards",
+      "oldResourceId": "cur-res-f69bee309aa41f32",
+      "newResourceId": "cur-res-d5fb15c9a6082097",
+      "status": "draft",
+      "oldDeleted": false,
+      "published": false,
+      "kind": "improve"
+    },
+    {
+      "lessonId": "cur-lp-toddler-pet-vet-clinic",
+      "title": "Vet Check Picture Chart",
+      "oldResourceId": "cur-res-ab46a19506a160f1",
+      "newResourceId": "cur-res-fe61d224e61c345f",
+      "status": "draft",
+      "oldDeleted": false,
+      "published": false,
+      "kind": "improve"
+    },
+    {
+      "lessonId": "cur-lp-toddler-camping-under-the-stars",
+      "title": "Day & Night Scene Cards",
+      "oldResourceId": "cur-res-739b44750866b0e1",
+      "newResourceId": "cur-res-e9f147755bef47d8",
+      "status": "draft",
+      "oldDeleted": false,
+      "published": false,
+      "kind": "improve"
+    },
+    {
+      "lessonId": "cur-lp-toddler-camping-under-the-stars",
+      "title": "Nature Treasure Hunt Cards",
+      "oldResourceId": "cur-res-72b3d0b06da14a7f",
+      "newResourceId": "cur-res-8049b2e0463a970f",
+      "status": "draft",
+      "oldDeleted": false,
+      "published": false,
+      "kind": "improve"
+    }
+  ],
+  "lessons": [
+    {
+      "lessonId": "cur-lp-toddler-pet-vet-clinic",
+      "title": "Pet Vet Clinic",
+      "enrichmentPublished": false,
+      "printableIds": [
+        "cur-res-3fd99cf0cbda6614",
+        "cur-res-d5fb15c9a6082097",
+        "cur-res-fe61d224e61c345f"
+      ],
+      "rows": [
+        {
+          "title": "Pet Care Action Cards",
+          "newId": "cur-res-3fd99cf0cbda6614",
+          "newStatus": "draft",
+          "oldId": "cur-res-b722ba10ee070a6b",
+          "oldStillExists": true,
+          "oldStatus": "draft"
+        },
+        {
+          "title": "Pet Friend Picture Cards",
+          "newId": "cur-res-d5fb15c9a6082097",
+          "newStatus": "draft",
+          "oldId": "cur-res-f69bee309aa41f32",
+          "oldStillExists": true,
+          "oldStatus": "draft"
+        },
+        {
+          "title": "Vet Check Picture Chart",
+          "newId": "cur-res-fe61d224e61c345f",
+          "newStatus": "draft",
+          "oldId": "cur-res-ab46a19506a160f1",
+          "oldStillExists": true,
+          "oldStatus": "draft"
+        }
+      ]
+    },
+    {
+      "lessonId": "cur-lp-toddler-camping-under-the-stars",
+      "title": "Camping Under the Stars",
+      "enrichmentPublished": false,
+      "printableIds": [
+        "cur-res-e9f147755bef47d8",
+        "cur-res-8049b2e0463a970f",
+        "cur-res-046771f59434cc05"
+      ],
+      "rows": [
+        {
+          "title": "Day & Night Scene Cards",
+          "newId": "cur-res-e9f147755bef47d8",
+          "newStatus": "draft",
+          "oldId": "cur-res-739b44750866b0e1",
+          "oldStillExists": true,
+          "oldStatus": "draft"
+        },
+        {
+          "title": "Nature Treasure Hunt Cards",
+          "newId": "cur-res-8049b2e0463a970f",
+          "newStatus": "draft",
+          "oldId": "cur-res-72b3d0b06da14a7f",
+          "oldStillExists": true,
+          "oldStatus": "draft"
+        }
+      ]
+    }
+  ]
+}
