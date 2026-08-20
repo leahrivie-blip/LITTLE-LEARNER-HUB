@@ -4,6 +4,8 @@
  */
 "use strict";
 
+const printableOverlay = require("./visual-production-printable-overlay.js");
+
 const BRAND_URL = "littlelearnershubbyleah.com";
 const OPENAI_IMAGES_URL = "https://api.openai.com/v1/images/generations";
 const REALISTIC_STYLES = new Set(["REALISTIC_PHOTO", "REALISTIC_CLASSROOM"]);
@@ -86,7 +88,8 @@ async function createMockGeneratedImage(options = {}) {
       background: { r: 214, g: 226, b: 238 },
     },
   }).png().toBuffer();
-  const buffer = await applyBrandWatermark(raw);
+  const withText = await printableOverlay.applyPrintableTextOverlay(raw, options.brief || {});
+  const buffer = await applyBrandWatermark(withText);
   return {
     buffer,
     mimeType: "image/png",
@@ -113,7 +116,7 @@ async function generateVisualProductionImage(input) {
 
   if (process.env.VISUAL_PRODUCTION_MOCK_GENERATE === "1") {
     const [w, h] = size.split("x").map((value) => Number(value || 0));
-    return createMockGeneratedImage({ width: w || 64, height: h || 64 });
+    return createMockGeneratedImage({ width: w || 64, height: h || 64, brief });
   }
 
   const apiKey = String(source.apiKey || "").trim();
@@ -156,7 +159,8 @@ async function generateVisualProductionImage(input) {
   }
 
   const rawBuffer = Buffer.from(b64, "base64");
-  const buffer = await applyBrandWatermark(rawBuffer);
+  const withText = await printableOverlay.applyPrintableTextOverlay(rawBuffer, brief);
+  const buffer = await applyBrandWatermark(withText);
   return {
     buffer,
     mimeType: "image/png",
