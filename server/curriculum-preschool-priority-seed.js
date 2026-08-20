@@ -1,3 +1,4 @@
+const curriculumLessonAccessPlan = require("./curriculum-lesson-access-plan.js");
 /**
  * Startup seed/repair: ensure Preschool Pro high-value priority lesson plans exist
  * (starting with Construction Engineers) with Activity Library sync.
@@ -106,7 +107,7 @@ async function ensurePreschoolPriorityCurriculumSeeded(deps) {
 
   const applyPlan = (target, parsed, existingPlan) => {
     const planInput = {
-      ...parsed,
+      ...curriculumLessonAccessPlan.mergeSeedImportPreservingOwnerAccess(parsed, existingPlan),
       createdAt: existingPlan?.createdAt || now,
       publishedAt: existingPlan?.publishedAt || existingPlan?.createdAt || "2026-01-15T00:00:00.000Z",
       updatedAt: now,

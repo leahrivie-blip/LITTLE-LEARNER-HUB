@@ -1,3 +1,4 @@
+const curriculumLessonAccessPlan = require("./curriculum-lesson-access-plan.js");
 /**
  * Startup seed/repair: ensure Infant holiday Pro published lesson plans exist
  * (Easter, Fourth of July, New Year's) with Activity Library sync.
@@ -106,7 +107,7 @@ async function ensureInfantHolidayCurriculumSeeded(deps) {
 
   const applyPlan = (target, parsed, existingPlan) => {
     const planInput = {
-      ...parsed,
+      ...curriculumLessonAccessPlan.mergeSeedImportPreservingOwnerAccess(parsed, existingPlan),
       createdAt: existingPlan?.createdAt || now,
       publishedAt: existingPlan?.publishedAt || existingPlan?.createdAt || "2026-01-01T00:00:00.000Z",
       updatedAt: now,

@@ -1,3 +1,4 @@
+const curriculumLessonAccessPlan = require("./curriculum-lesson-access-plan.js");
 /**
  * Startup seed/repair: ensure preschool Free and Pro published lesson plans exist
  * and repair incomplete weeks (e.g. Space Adventure with only Mon/Tue).
@@ -108,7 +109,7 @@ async function ensurePreschoolCurriculumSeeded(deps) {
 
   const applyPlan = (target, parsed, existingPlan) => {
     const planInput = {
-      ...parsed,
+      ...curriculumLessonAccessPlan.mergeSeedImportPreservingOwnerAccess(parsed, existingPlan),
       createdAt: existingPlan?.createdAt || now,
       // Stable historical stamp so startup seeds never look like "new this week".
       publishedAt: existingPlan?.publishedAt || existingPlan?.createdAt || "2026-01-01T00:00:00.000Z",

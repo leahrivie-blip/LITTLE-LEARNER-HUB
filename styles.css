@@ -27322,6 +27322,28 @@ body.tk-enrich-open #adminTeachingKitEnrichmentHost {
   background: rgba(31, 107, 74, 0.12);
   color: #1f6b4a;
 }
+.admin-access-plan-badge.is-free {
+  background: rgba(36, 49, 42, 0.08);
+  color: #24312a;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.admin-access-plan-badge.is-pro {
+  background: rgba(31, 107, 74, 0.14);
+  color: #145239;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.tk-enrich-access-plan {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+}
+.tk-enrich-access-plan select {
+  min-height: 2rem;
+  font-weight: 700;
+}
 .tk-enrich-bar,
 .tk-enrich-lib-bar {
   height: 0.45rem;
