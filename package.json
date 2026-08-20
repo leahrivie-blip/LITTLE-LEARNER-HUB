@@ -190,6 +190,7 @@
     "test:doc-helpers-simplify-qa": "node scripts/test-doc-helpers-simplify-qa.js",
     "test:center-surfaces-phase7": "node scripts/test-center-surfaces-phase7.js",
     "test:staff-invite-flow": "NODE_ENV=test node scripts/test-staff-invite-flow.js",
+    "test:staff-beta-access": "NODE_ENV=test node scripts/test-staff-beta-access.js",
     "test:daily-logs-attendance": "node scripts/test-daily-logs-attendance.js",
     "test:child-data-sync": "node scripts/test-child-data-sync.js",
     "test:child-documents-tab": "node scripts/test-child-documents-tab.js",

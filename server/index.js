@@ -6,6 +6,7 @@ const { URL } = require("node:url");
 const membershipAccess = require("../scripts/membership-access.js");
 const stripeBillingReconciliation = require("../scripts/stripe-billing-reconciliation.js");
 const accountAccess = require("../scripts/account-access.js");
+const staffBetaAccess = require("../scripts/staff-beta-access.js");
 const curriculumStandards = require("../scripts/curriculum-standards.js");
 const freeCurriculumSample = require("../scripts/free-curriculum-sample.js");
 const curriculumLessonAccessPlan = require("./curriculum-lesson-access-plan.js");
@@ -18033,6 +18034,11 @@ async function handleStaffInviteCreate(request, response) {
     identity = await resolveStaffIdentity(request);
   } catch (error) {
     jsonResponse(response, 401, { error: error.message || "Please log in before inviting staff." });
+    return;
+  }
+  // Beta allowlist: owner/admin or explicit staff-beta emails only (authenticated identity).
+  if (!staffBetaAccess.canAccessStaffBeta(identity, { isConfiguredAdminEmail })) {
+    jsonResponse(response, 403, { error: staffBetaAccess.STAFF_BETA_FORBIDDEN_MESSAGE });
     return;
   }
   const store = ensureStaffInviteCollections(readStore());
