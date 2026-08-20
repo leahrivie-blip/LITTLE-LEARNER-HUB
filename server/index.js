@@ -7140,7 +7140,7 @@ async function createOperatorPrintableResource({
   ageGroup = "",
   theme = "",
   printingInstructions = "",
-  disposableQaFixture = true,
+  disposableQaFixture = false,
   replaceResourceId = null,
   adminEmail = "",
 } = {}) {
@@ -23316,6 +23316,31 @@ async function handlePublishEnrichment(request, response, ctx) {
   };
   const promotedPrintables = publishLinkedDraftResourcesForLesson(nextCurriculum, id, { now });
   nextCurriculum = promotedPrintables.curriculum;
+  // Phase 8 Owner publish: never leave Operator-linked printables as disposable QA
+  // fixtures after they become live curriculum (hard-delete would wipe published assets).
+  if (allowOperatorOwnerPublish) {
+    const clearDisposableIds = new Set([
+      ...(promotedPrintables.publishedResourceIds || []),
+      ...((nextCurriculum.resources || [])
+        .filter((resource) => resource?.id
+          && resource.disposableQaFixture === true
+          && (
+            (resource.lessonPlanIds || []).includes(id)
+            || (Array.isArray(nextPlan.resourceIds) && nextPlan.resourceIds.includes(resource.id))
+          ))
+        .map((resource) => resource.id)),
+    ]);
+    if (clearDisposableIds.size) {
+      nextCurriculum = {
+        ...nextCurriculum,
+        resources: (nextCurriculum.resources || []).map((resource) => (
+          clearDisposableIds.has(resource?.id) && resource.disposableQaFixture === true
+            ? { ...resource, disposableQaFixture: false }
+            : resource
+        )),
+      };
+    }
+  }
 
   const touchedLessonPlanIds = [...new Set([
     id,
@@ -23559,14 +23584,43 @@ async function runTrustedOwnerPublish({
       },
     },
   };
-  const nextCurriculum = {
+  let nextCurriculum = {
     ...curriculum,
     lessonPlans: (curriculum.lessonPlans || []).map((item) => (item.id === id ? publishedPlan : item)),
     updatedAt: stamp,
   };
+  // Promote linked draft printables now that the lesson is public, and clear any
+  // leftover disposable QA markers from earlier Operator draft creates.
+  const promotedPrintables = publishLinkedDraftResourcesForLesson(nextCurriculum, id, { now: stamp });
+  nextCurriculum = promotedPrintables.curriculum;
+  const clearDisposableIds = new Set([
+    ...(promotedPrintables.publishedResourceIds || []),
+    ...((nextCurriculum.resources || [])
+      .filter((resource) => resource?.id
+        && resource.disposableQaFixture === true
+        && (
+          (resource.lessonPlanIds || []).includes(id)
+          || (Array.isArray(publishedPlan.resourceIds) && publishedPlan.resourceIds.includes(resource.id))
+        ))
+      .map((resource) => resource.id)),
+  ]);
+  if (clearDisposableIds.size) {
+    nextCurriculum = {
+      ...nextCurriculum,
+      resources: (nextCurriculum.resources || []).map((resource) => (
+        clearDisposableIds.has(resource?.id) && resource.disposableQaFixture === true
+          ? { ...resource, disposableQaFixture: false }
+          : resource
+      )),
+    };
+  }
   const writeResult = writeSiteCurriculumTouched(afterEnrichment, nextCurriculum, {
     updatedAt: stamp,
     touchedLessonPlanIds: [id],
+    touchedResourceIds: [...new Set([
+      ...(promotedPrintables.publishedResourceIds || []),
+      ...clearDisposableIds,
+    ])],
   });
   if (writeResult.wipeBlocked) {
     return {
@@ -23591,6 +23645,7 @@ async function runTrustedOwnerPublish({
     previousHistoryRef,
     trustedPath: hasDraft ? "publish_enrichment+draft_status_publish" : "draft_status_publish",
     enrichmentResult: enrichmentResult?.payload || null,
+    promotedPrintableIds: promotedPrintables.publishedResourceIds || [],
   };
 }
 

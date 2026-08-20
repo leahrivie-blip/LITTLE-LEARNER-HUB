@@ -1393,7 +1393,9 @@ async function runPrintablePlanForLesson({
           enrichedSpec.cutRequired ? "Cut apart cards/pieces before use." : "",
           enrichedSpec.laminateRecommended ? "Laminate for reuse if desired." : "",
         ].filter(Boolean).join(" "),
-        disposableQaFixture: true,
+        // Live Operator drafts must not be disposable QA fixtures — Owner may
+        // publish them via Phase 8. Hard-delete semantics are for explicit fixtures only.
+        disposableQaFixture: false,
         replaceResourceId: decision === "REPLACE" ? existingIds[0] || null : null,
       });
 

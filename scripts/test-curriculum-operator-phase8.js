@@ -590,6 +590,24 @@ async function main() {
   ok(SIBLING_ID.includes("phase8-sibling"), "sibling fixture namespaced");
   ok(!String(process.env.PRODUCTION_DATABASE_URL || ""), "no production DB URL in test env");
 
+  console.log("DISPOSABLE FIXTURE SAFETY (pre-merge defect fix)");
+  {
+    const fs = require("node:fs");
+    const printablesSrc = fs.readFileSync(require("node:path").join(__dirname, "curriculum-operator-printables.js"), "utf8");
+    ok(/disposableQaFixture:\s*false/.test(printablesSrc), "Operator printable create sets disposableQaFixture false");
+    ok(!/disposableQaFixture:\s*true/.test(printablesSrc), "Operator printable create no longer hardcodes disposableQaFixture true");
+    const indexSrc = fs.readFileSync(require("node:path").join(__dirname, "../server/index.js"), "utf8");
+    const createFn = indexSrc.slice(
+      indexSrc.indexOf("async function createOperatorPrintableResource"),
+      indexSrc.indexOf("async function createOperatorPrintableResource") + 1200,
+    );
+    ok(/disposableQaFixture\s*=\s*false/.test(createFn), "createOperatorPrintableResource defaults disposableQaFixture false");
+    ok(indexSrc.includes("Phase 8 Owner publish: never leave Operator-linked printables as disposable"),
+      "Owner publish clears disposable markers on Operator-linked printables");
+    ok(indexSrc.includes("Promote linked draft printables now that the lesson is public"),
+      "status-only Owner publish promotes draft printables");
+  }
+
   console.log(`\nPhase 8 passed ${passed} assertions.`);
 }
 
