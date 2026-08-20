@@ -102,67 +102,63 @@
   }
 
   function renderAuditCard(lr) {
-    const a = lr.audit;
-    if (!a) {
+    const a = lr.auditAfter || lr.audit;
+    const before = lr.beforeScores || lr.audit?.scores || {};
+    const after = lr.afterScores || a?.scores || {};
+    if (!a && !lr.audit) {
       return `<article class="co-lesson-card"><h4>${esc(lr.title || lr.lessonId)}</h4>
         <p class="muted-copy">${esc(lr.status)}${lr.error ? `: ${esc(lr.error)}` : ""}</p></article>`;
     }
-    const scope = a.estimatedJobScope || {};
-    const imgs = a.images || {};
-    const prints = a.printables?.counts || {};
+    const scope = (lr.audit || a)?.estimatedJobScope || {};
+    const imgs = (lr.audit || a)?.images || {};
+    const prints = (lr.audit || a)?.printables?.counts || {};
+    const review = lr.ownerReviewStatus || "AUDIT_ONLY";
+    const changed = Array.isArray(lr.updated) ? lr.updated : [];
+    const kept = Array.isArray(lr.kept) ? lr.kept : [];
     return `<article class="co-lesson-card">
       <header class="co-lesson-card-head">
         <div>
-          <h4>${esc(a.title)}</h4>
-          <p class="muted-copy">${esc(a.age)} · ${esc(a.accessPlan)} · readiness ${esc(a.scores?.premiumReadinessPercent)}%</p>
+          <h4>${esc((lr.audit || a)?.title || lr.title)}</h4>
+          <p class="muted-copy">${esc((lr.audit || a)?.age || "")} · ${esc((lr.audit || a)?.accessPlan || "")}</p>
+          <p class="muted-copy">Readiness ${esc(before.premiumReadinessPercent ?? "—")}% → ${esc(after.premiumReadinessPercent ?? "—")}%</p>
         </div>
-        <span class="co-status-pill">${esc(a.currentStatus)}</span>
+        <span class="co-status-pill">${esc(review)}</span>
       </header>
+      ${changed.length ? `
+      <section>
+        <h5>Changed (${changed.length})</h5>
+        <ul>${changed.slice(0, 16).map((c) => `<li><code>${esc(c.path || c)}</code>${c.activityTitle ? ` — ${esc(c.activityTitle)}` : ""}</li>`).join("")}</ul>
+      </section>` : ""}
+      ${kept.length ? `
+      <section>
+        <h5>Kept</h5>
+        <p class="muted-copy">${esc(kept.slice(0, 12).join(", "))}${kept.length > 12 ? "…" : ""}</p>
+      </section>` : ""}
       <div class="co-grid">
         <section>
           <h5>Weekly content</h5>
-          ${renderFieldList(a.weeklyContent)}
+          ${renderFieldList((lr.auditAfter || lr.audit)?.weeklyContent)}
         </section>
         <section>
           <h5>Activities</h5>
-          <p>${esc(a.activities?.strong || 0)} strong · ${esc(a.activities?.incomplete || 0)} incomplete · ${esc(a.activities?.weakGeneric || 0)} weak/generic</p>
+          <p>${esc((lr.auditAfter || lr.audit)?.activities?.strong || 0)} strong · ${esc((lr.auditAfter || lr.audit)?.activities?.incomplete || 0)} incomplete · ${esc((lr.auditAfter || lr.audit)?.activities?.weakGeneric || 0)} weak/generic</p>
         </section>
         <section>
-          <h5>Songs</h5>
-          ${renderFieldList(a.songs)}
-        </section>
-        <section>
-          <h5>Images (plan only)</h5>
-          <p>KEEP ${esc(imgs.KEEP_EXISTING || 0)} · GENERATE ${esc(imgs.GENERATE || 0)} · NOT NEEDED ${esc(imgs.NOT_NEEDED || 0)} · REPLACE ${esc(imgs.REPLACE || 0)}</p>
-        </section>
-        <section>
-          <h5>Printables (plan only)</h5>
-          <p>KEEP ${esc(prints.KEEP_EXISTING || 0)} · CREATE ${esc(prints.CREATE || 0)} · REPLACE ${esc(prints.REPLACE || 0)} · NOT NEEDED ${esc(prints.NOT_NEEDED || 0)}</p>
-          ${(a.printables?.lessonResources || []).slice(0, 6).map((r) => `
-            <p class="muted-copy">${esc(r.title)}: <strong>${esc(r.decision)}</strong> — ${esc(r.reason)}</p>`).join("")}
+          <h5>Images / printables</h5>
+          <p class="muted-copy">Planning only in Phase 2 — not generated. Images KEEP ${esc(imgs.KEEP_EXISTING || 0)} · GENERATE ${esc(imgs.GENERATE || 0)}. Printables CREATE ${esc(prints.CREATE || 0)}.</p>
         </section>
       </div>
       <section>
         <h5>Teaching Kit blockers</h5>
-        ${(a.teachingKitBlockers || []).length
-          ? `<ul>${a.teachingKitBlockers.slice(0, 8).map((b) => `<li>${esc(b.message)}</li>`).join("")}</ul>`
+        ${((lr.auditAfter || lr.audit)?.teachingKitBlockers || []).length
+          ? `<ul>${(lr.auditAfter || lr.audit).teachingKitBlockers.slice(0, 8).map((b) => `<li>${esc(b.message)}</li>`).join("")}</ul>`
           : "<p class=\"muted-copy\">None listed</p>"}
       </section>
-      <section>
-        <h5>Estimated future job scope</h5>
-        <p class="muted-copy">Fields ${esc(scope.lessonFieldsNeedingWork || 0)} · Activities ${esc(scope.activitiesNeedingWork || 0)} · Images likely ${esc(scope.imagesLikelyNeeded || 0)} · Printables likely ${esc(scope.printablesLikelyNeeded || 0)}</p>
-      </section>
-      <section>
-        <h5>Recommended future actions</h5>
-        <ol class="co-action-list">${(a.recommendedFutureActions || []).slice(0, 14).map((act) => `
-          <li><code>${esc(act.type)}</code> ${esc(act.reason || "")}
-            ${act.mutation ? "<em>(later phase)</em>" : ""}
-          </li>`).join("")}</ol>
-      </section>
-      <p class="muted-copy"><strong>NO changes saved. NOT published.</strong>
-        ${a.verification?.ok ? " Verification passed." : " Verification issues recorded."}</p>
+      <p class="muted-copy"><strong>Publish: NOT PUBLISHED.</strong>
+        ${lr.upgradeVerification?.ok === false ? " Post-save verification reported issues." : ""}
+        ${lr.preSnapshotHistoryId ? ` Recovery snapshot: ${esc(lr.preSnapshotHistoryId)}` : ""}</p>
       <div class="account-actions-row">
-        <button type="button" class="ghost-button" data-co-open-lesson="${esc(a.lessonId)}">Open in Enrichment Editor</button>
+        <button type="button" class="ghost-button" data-co-open-lesson="${esc((lr.audit || a)?.lessonId || lr.lessonId)}">Open in Enrichment Editor</button>
       </div>
     </article>`;
   }
@@ -191,17 +187,17 @@
           <div>
             <p class="eyebrow">Content · Owner</p>
             <h3>AI Curriculum Operator</h3>
-            <p class="muted-copy">Phase 1: interpret commands, select lessons, audit against Teaching Kit standards, and build a production plan. <strong>No curriculum mutations. No publishing.</strong></p>
+            <p class="muted-copy">Phase 2: interpret commands, audit, upgrade weak lesson/activity fields into <strong>enrichmentDraft</strong>, re-validate, and leave Ready for Owner Review. <strong>No publishing. No image/printable generation.</strong></p>
           </div>
         </div>
         ${state.message ? `<p class="access-notice ${state.isError ? "error" : ""}" role="status">${esc(state.message)}</p>` : ""}
         <label class="co-command-label">
           <span>Command</span>
-          <textarea id="coCommandInput" rows="3" placeholder="Example: Find the 10 weakest Toddler Pro lesson plans.">${esc(state.command)}</textarea>
+          <textarea id="coCommandInput" rows="3" placeholder="Example: Upgrade the 5 weakest Toddler Pro lessons.">${esc(state.command)}</textarea>
         </label>
         <div class="account-actions-row">
           <button type="button" class="ghost-button" id="coParseBtn" ${state.busy ? "disabled" : ""}>Interpret</button>
-          <button type="button" class="primary-button" id="coRunBtn" ${state.busy ? "disabled" : ""}>Run audit job</button>
+          <button type="button" class="primary-button" id="coRunBtn" ${state.busy ? "disabled" : ""}>Run job</button>
           <button type="button" class="ghost-button" id="coRefreshJobsBtn" ${state.busy ? "disabled" : ""}>Refresh jobs</button>
         </div>
         ${state.commandParsed ? `
@@ -217,16 +213,16 @@
             <p class="muted-copy">${esc(plan.lessons?.length || 0)} lesson(s) · candidates considered ${esc(plan.candidatesConsidered || 0)}</p>
             <ol>${(plan.lessons || []).map((l, i) => `
               <li><strong>${esc(l.title)}</strong> — readiness ${esc(l.readinessPercent)}% · ${esc(l.plan)} · ${esc(l.ageBand)}</li>`).join("")}</ol>
-            <p class="muted-copy">${esc(plan.phase1?.note || "")}</p>
+            <p class="muted-copy">${esc(plan.phaseNote || plan.phase1?.note || "")}</p>
           </section>` : ""}
         ${job ? `
           <section class="co-panel">
             <h4>Job ${esc(job.id)}</h4>
-            <p>Status: <strong>${esc(job.status)}</strong> · ${esc(job.progress?.completed || 0)}/${esc(job.progress?.lessonCount || 0)} complete · failed ${esc(job.progress?.failed || 0)}</p>
+            <p>Status: <strong>${esc(job.status)}</strong> · ${esc(job.progress?.completed || 0)}/${esc(job.progress?.lessonCount || 0)} complete · failed ${esc(job.progress?.failed || 0)} · Publish: NOT PUBLISHED</p>
             <pre class="co-log">${esc((job.log || []).slice(-12).map((e) => `${e.at} [${e.level}] ${e.message}`).join("\n"))}</pre>
             <div class="co-lesson-results">${(job.lessonResults || []).map(renderAuditCard).join("")}</div>
             ${job.status === "awaiting_confirm" ? `
-              <button type="button" class="primary-button" id="coConfirmResumeBtn">Confirm &amp; run audit</button>` : ""}
+              <button type="button" class="primary-button" id="coConfirmResumeBtn">Confirm &amp; run</button>` : ""}
           </section>` : ""}
         <section class="co-panel">
           <h4>Recent jobs</h4>
@@ -283,12 +279,12 @@
     state.isError = false;
     render();
     try {
-      const result = await api("parse", { command: state.command });
+      const result = await api("parse", { command: state.command, phase: 2 });
       state.commandParsed = result;
-      const planned = await api("plan", { command: state.command });
+      const planned = await api("plan", { command: state.command, phase: 2 });
       state.planSummary = planned.planSummary;
       state.job = planned.job || null;
-      state.message = "Command interpreted. Review the plan, then run the audit job.";
+      state.message = "Command interpreted. Review the plan, then run the job.";
     } catch (error) {
       state.isError = true;
       state.message = error.message || "Interpret failed.";
@@ -305,12 +301,14 @@
     state.isError = false;
     render();
     try {
-      const result = await api("run", { command: state.command, confirm: true });
+      const result = await api("run", { command: state.command, confirm: true, phase: 2 });
       state.commandParsed = { command: result.command };
       state.planSummary = result.planSummary;
       state.job = result.job;
       if (result.awaitingConfirm) {
         state.message = "Confirmation required before running. Review scope, then confirm.";
+      } else if (result.draftOnly) {
+        state.message = "Draft upgrade job complete. Enrichment drafts updated only — NOT PUBLISHED. No images/printables changed.";
       } else {
         state.message = "Audit job complete. No curriculum data was changed.";
       }
@@ -336,7 +334,7 @@
     try {
       const result = await api("resume", { jobId: state.job.id, confirm: true });
       state.job = result.job;
-      state.message = "Confirmed audit finished. No curriculum mutations.";
+      state.message = "Confirmed job finished. Publish remains blocked.";
       await refreshJobs(false);
     } catch (error) {
       state.isError = true;

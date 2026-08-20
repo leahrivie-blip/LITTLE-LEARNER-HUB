@@ -315,20 +315,26 @@ function assertUnitContracts() {
   ok(flags.teachingKitCurriculumOperator === false, "operator flag defaults false");
   ok(typeof teachingKit.isTeachingKitCurriculumOperatorEnabled === "function", "operator flag helper exported");
 
-  const parsed = commandApi.parseOperatorCommand("Find the 10 weakest Toddler Pro lesson plans.");
+  const parsed = commandApi.parseOperatorCommand("Find the 10 weakest Toddler Pro lesson plans.", { phase: 1 });
   ok(parsed.command.scope.selection === "lowest_readiness", "weakest → lowest_readiness");
   ok(parsed.command.scope.plan === "Pro", "parses Pro");
   ok(parsed.command.scope.ageBand === "toddler", "parses toddler");
   ok(parsed.command.scope.count === 10, "parses count 10");
   ok(parsed.command.actions.publish === false, "phase1 strips publish");
   ok(parsed.command.actions.generateImages === false, "phase1 strips generateImages");
+  ok(parsed.command.actions.saveDraft === false, "phase1 strips saveDraft");
   ok(parsed.command.completion.publish === false, "completion.publish false");
+  ok(parsed.command.completion.phase === 1, "phase 1 recorded");
 
-  const named = commandApi.parseOperatorCommand("Check Weather Watchers and tell me everything that would need to be done to make it Ready to Publish.");
+  const named = commandApi.parseOperatorCommand(
+    "Check Weather Watchers and tell me everything that would need to be done to make it Ready to Publish.",
+    { phase: 1 },
+  );
   ok(named.command.scope.titles.some((t) => /weather watchers/i.test(t)), "extracts Weather Watchers title");
   ok(named.command.actions.validate === true, "ready-to-publish ask enables validate");
+  ok(named.command.actions.saveDraft === false, "phase1 ready-to-publish ask stays audit-only");
 
-  const today = commandApi.parseOperatorCommand("Audit the lessons we worked on today.");
+  const today = commandApi.parseOperatorCommand("Audit the lessons we worked on today.", { phase: 1 });
   ok(today.command.scope.selection === "updated_today", "today → updated_today");
 
   const curriculum = seedCurriculum();
@@ -358,7 +364,7 @@ function assertUnitContracts() {
     rawCommand: "upgrade and publish everything",
     actions: { publish: true, saveDraft: true, generateImages: true },
     completion: { publish: true },
-  }, { phase1: true });
+  }, { phase: 1 });
   ok(cmd.actions.publish === false && cmd.actions.saveDraft === false && cmd.actions.generateImages === false, "normalize strips mutations in phase1");
 
   const serverJs = fs.readFileSync(path.join(ROOT, "server/index.js"), "utf8");
@@ -403,6 +409,7 @@ async function assertHttpContracts() {
       DATABASE_PROVIDER: "local-json",
       LLH_STORE_PATH: STORE_PATH,
       NODE_ENV: "test",
+      LLH_SKIP_STARTUP_CURRICULUM_SEED: "1",
       LLH_ENFORCE_TK_OWNER_ADMIN: "1",
       ADMIN_EMAIL: OWNER.email,
       ADMIN_PASSWORD: OWNER.password,
@@ -427,12 +434,14 @@ async function assertHttpContracts() {
 
     const denied = await requestJson("POST", "/api/admin/curriculum/operator", {
       action: "run",
+      phase: 1,
       command: "Find the 10 weakest Toddler Pro lesson plans.",
     }, otherAuth);
     ok(denied.status === 403, "non-owner cannot run operator");
 
     const run = await requestJson("POST", "/api/admin/curriculum/operator", {
       action: "run",
+      phase: 1,
       command: "Find the 10 weakest Toddler Pro lesson plans.",
     }, ownerAuth);
     ok(run.status === 200, "owner run succeeds");
@@ -447,6 +456,7 @@ async function assertHttpContracts() {
 
     const named = await requestJson("POST", "/api/admin/curriculum/operator", {
       action: "run",
+      phase: 1,
       command: "Check Weather Watchers and tell me everything that would need to be done to make it Ready to Publish.",
     }, ownerAuth);
     ok(named.status === 200, "named lesson audit succeeds");

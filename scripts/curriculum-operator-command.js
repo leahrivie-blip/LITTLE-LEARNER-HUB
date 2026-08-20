@@ -52,7 +52,7 @@ function extractNamedLessonHints(command) {
 
 /**
  * @param {string} rawCommand
- * @param {{ currentlySelectedLessonId?: string }} [options]
+ * @param {{ currentlySelectedLessonId?: string, phase?: number }} [options]
  */
 function parseOperatorCommand(rawCommand, options = {}) {
   const raw = schema.text(rawCommand, 4000);
@@ -68,14 +68,16 @@ function parseOperatorCommand(rawCommand, options = {}) {
   let updatedSince = null;
   let ambiguous = false;
   const confirmReasons = [];
+  const phase = schema.clampInt(options.phase, 1, 8, 2);
 
   if (/\b(weakest|lowest\s+readiness|need(?:s|ed)?\s+the\s+most\s+work|most\s+incomplete)\b/i.test(raw)) {
     selection = "lowest_readiness";
     intent = "audit";
-  } else if (/\b(updated|worked\s+on)\s+today\b/i.test(raw) || /\btoday\b/i.test(raw) && /\b(lesson|plan|worked|updated)\b/i.test(raw)) {
+  } else if (/\b(updated|worked\s+on)\s+today\b/i.test(raw) || (/\btoday\b/i.test(raw) && /\b(lesson|plan|worked|updated)\b/i.test(raw))) {
     selection = "updated_today";
     updatedSince = "today";
-  } else if (/\bmissing\s+teaching\s+kit\b/i.test(raw) || /\bneed(?:s)?\s+teaching\s+kit\b/i.test(raw)) {
+  } else if (/\bmissing\s+teaching\s+kit\b/i.test(raw) || /\bneed(?:s)?\s+teaching\s+kit\b/i.test(raw)
+    || /\bfill\s+(?:the\s+)?missing\b/i.test(raw)) {
     selection = "missing_teaching_kit";
   } else if (/\bweak\s+printables?\b/i.test(raw) || /\bprintables?\s+(?:are\s+)?(?:weak|generic|bad|wrong)\b/i.test(raw)
     || /\bmissing\s+printables?\b/i.test(raw) || /\bneed(?:s)?\s+printables?\b/i.test(raw)) {
@@ -91,36 +93,39 @@ function parseOperatorCommand(rawCommand, options = {}) {
     selection = "currently_selected";
   }
 
-  // Intent / future actions (recorded but Phase 1 will strip mutations)
-  if (/\b(upgrade|improve|fix|finish|complete|make\s+ready)\b/i.test(raw)) {
+  const wantsUpgrade = /\b(upgrade|improve|fix|finish|complete|make\s+ready|fill\s+(?:the\s+)?missing|ready\s+for\s+(?:me\s+to\s+)?review)\b/i.test(raw);
+  if (wantsUpgrade) {
     intent = titles.length === 1 ? "fix_lesson" : "upgrade_batch";
     actions.upgradeLesson = true;
     actions.upgradeActivities = true;
-    notes.push("Command implies future upgrade work; Phase 1 will audit and plan only.");
+    actions.saveDraft = true;
+    if (phase >= 2) {
+      notes.push("Phase 2 will upgrade fields into enrichmentDraft only (not published).");
+    } else {
+      notes.push("Upgrade requested, but phase 1 will audit/plan only.");
+    }
   }
-  if (/\b(create|make\s+me|build)\b.+\b(lesson|week)\b/i.test(raw)) {
+  if (/\b(create|make\s+me|build)\b.+\b(lesson|week)\b/i.test(raw) && !wantsUpgrade) {
     intent = "create_lesson";
     actions.createLesson = true;
-    notes.push("New-lesson creation is planned for a later phase; Phase 1 will not create lessons.");
+    notes.push("New-lesson creation is planned for a later phase.");
   }
-  if (/\bpublish\b/i.test(raw)) {
+  if (/\bpublish\b/i.test(raw) && !/\bready\s+to\s+publish\b/i.test(raw)) {
     actions.publish = true;
     confirmReasons.push("publish_requested");
-    notes.push("Publishing is disabled until Phase 8.");
+    notes.push("Publishing is disabled until Phase 8. Draft upgrades only.");
   }
   if (/\b(generate|create|make)\b.+\b(image|picture|photo)s?\b/i.test(raw)) {
     actions.generateImages = true;
-    intent = intent === "audit" ? "finish_images" : intent;
-    notes.push("Image generation is planned for Phase 3; Phase 1 will only recommend image decisions.");
+    notes.push("Image generation is Phase 3+; not executed now.");
   }
   if (/\b(generate|create|make|finish)\b.+\bprintable/i.test(raw)) {
     actions.generatePrintables = true;
-    intent = intent === "audit" ? "finish_printables" : intent;
-    notes.push("Printable generation is planned for Phase 4; Phase 1 will only recommend printable decisions.");
+    notes.push("Printable generation is Phase 4+; not executed now.");
   }
 
   if (!selection || selection === "filter") {
-    if (!plan && !ageBand && !titles.length && !count && !/\baudit|find|check|list|show\b/i.test(lower)) {
+    if (!plan && !ageBand && !titles.length && !count && !/\baudit|find|check|list|show|upgrade|fix|fill|finish\b/i.test(lower)) {
       ambiguous = true;
       confirmReasons.push("ambiguous_scope");
     }
@@ -140,7 +145,21 @@ function parseOperatorCommand(rawCommand, options = {}) {
     actions.checkBooks = true;
     actions.checkImages = true;
     actions.checkPrintables = true;
-    notes.push("Will produce a Ready-to-Publish gap plan without mutating data.");
+    if (wantsUpgrade || /\bfix\b/i.test(raw)) {
+      actions.upgradeLesson = true;
+      actions.upgradeActivities = true;
+      actions.saveDraft = true;
+      intent = titles.length === 1 ? "fix_lesson" : intent;
+    }
+    notes.push("Will produce Ready-for-Review draft work without publishing.");
+  }
+
+  // "Fix Weather Watchers" / "Fix this lesson"
+  if (/\bfix\b/i.test(raw) && (titles.length || selection === "currently_selected" || selection === "named_titles")) {
+    intent = "fix_lesson";
+    actions.upgradeLesson = true;
+    actions.upgradeActivities = true;
+    actions.saveDraft = true;
   }
 
   const command = schema.normalizeOperatorCommand({
@@ -166,7 +185,8 @@ function parseOperatorCommand(rawCommand, options = {}) {
       reasons: confirmReasons,
     },
     parsedNotes: notes,
-  }, { phase1: true });
+    completion: { phase },
+  }, { phase });
 
   return {
     command,
@@ -175,7 +195,8 @@ function parseOperatorCommand(rawCommand, options = {}) {
       || confirmReasons.includes("unexpectedly_large_scope"),
     confirmReasons: [...new Set(confirmReasons)],
     phase1Executable: true,
-    mutationsStripped: true,
+    phase2Executable: phase >= 2,
+    mutationsStripped: !command.completion.mutationsEnabled,
   };
 }
 

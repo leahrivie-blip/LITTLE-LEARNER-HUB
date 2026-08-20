@@ -125,6 +125,24 @@ const PHASE1_EXECUTABLE_ACTIONS = Object.freeze([
   "job.resume",
 ]);
 
+/** Phase 2 adds draft field upgrades only — still no images/printables/publish/create. */
+const PHASE2_EXECUTABLE_ACTIONS = Object.freeze([
+  ...PHASE1_EXECUTABLE_ACTIONS,
+  "lesson.updateFields",
+  "activity.update",
+  "lesson.saveDraft",
+  "lesson.validate",
+  "song.upsert",
+  "book.upsert",
+]);
+
+const OWNER_REVIEW_STATUSES = Object.freeze([
+  "READY_FOR_OWNER_REVIEW",
+  "PARTIAL",
+  "BLOCKED",
+  "AUDIT_ONLY",
+]);
+
 const MUTATION_ACTIONS = Object.freeze([
   "lesson.create",
   "lesson.updateFields",
@@ -273,15 +291,17 @@ function normalizeLimits(raw = {}) {
 }
 
 /**
- * Strict typed command schema. Phase 1 forces publish/saveDraft/generate* off at normalize.
+ * Strict typed command schema.
+ * options.phase: 1 = audit-only, 2 = draft upgrades (no publish/images/printables).
  */
 function normalizeOperatorCommand(raw = {}, options = {}) {
   const input = raw && typeof raw === "object" ? raw : {};
-  const phase1 = options.phase1 !== false;
+  const phase = clampInt(options.phase != null ? options.phase : (input.completion?.phase || 1), 1, 8, 1);
+  const phase1 = phase <= 1;
+  const phase2 = phase === 2;
   const scopeIn = input.scope && typeof input.scope === "object" ? input.scope : {};
   const actionsIn = input.actions && typeof input.actions === "object" ? input.actions : {};
   const completionIn = input.completion && typeof input.completion === "object" ? input.completion : {};
-  const defaults = emptyActionsFlags();
 
   const intent = INTENTS.includes(text(input.intent, 40))
     ? text(input.intent, 40)
@@ -306,17 +326,25 @@ function normalizeOperatorCommand(raw = {}, options = {}) {
     publish: actionsIn.publish === true,
   };
 
-  // Phase 1 hard rails — never execute mutations even if NL implied them.
+  // Always block create / media / publish through Phase 2.
+  actions.createLesson = false;
+  actions.generateImages = false;
+  actions.generatePrintables = false;
+  actions.publish = false;
+
   if (phase1) {
     actions.upgradeLesson = false;
     actions.upgradeActivities = false;
-    actions.createLesson = false;
-    actions.generateImages = false;
-    actions.generatePrintables = false;
     actions.saveDraft = false;
-    actions.publish = false;
     actions.audit = true;
     actions.validate = true;
+  } else if (phase2) {
+    // Upgrade intents persist as draft saves only.
+    if (actions.upgradeLesson || actions.upgradeActivities || intent === "upgrade_batch" || intent === "fix_lesson") {
+      actions.saveDraft = true;
+      actions.upgradeLesson = true;
+      actions.upgradeActivities = true;
+    }
   }
 
   const limits = normalizeLimits(input.limits);
@@ -339,11 +367,11 @@ function normalizeOperatorCommand(raw = {}, options = {}) {
     },
     actions,
     completion: {
-      saveAsDraft: phase1 ? true : completionIn.saveAsDraft !== false,
-      readyForOwnerReview: phase1 ? false : completionIn.readyForOwnerReview === true,
-      publish: phase1 ? false : completionIn.publish === true,
-      mutationsEnabled: false,
-      phase: phase1 ? 1 : clampInt(completionIn.phase, 1, 8, 1),
+      saveAsDraft: phase2 ? true : (phase1 ? true : completionIn.saveAsDraft !== false),
+      readyForOwnerReview: phase2 ? true : false,
+      publish: false,
+      mutationsEnabled: phase2 && (actions.saveDraft === true),
+      phase,
     },
     limits,
     confirmations: {
@@ -428,6 +456,10 @@ function isPhase1Executable(actionType) {
   return PHASE1_EXECUTABLE_ACTIONS.includes(text(actionType, 60));
 }
 
+function isPhase2Executable(actionType) {
+  return PHASE2_EXECUTABLE_ACTIONS.includes(text(actionType, 60));
+}
+
 module.exports = {
   FIELD_DECISIONS,
   IMAGE_DECISIONS,
@@ -435,6 +467,8 @@ module.exports = {
   PRINTABLE_TYPES,
   ACTION_TYPES,
   PHASE1_EXECUTABLE_ACTIONS,
+  PHASE2_EXECUTABLE_ACTIONS,
+  OWNER_REVIEW_STATUSES,
   MUTATION_ACTIONS,
   JOB_STATUSES,
   STEP_STATUSES,
@@ -452,6 +486,7 @@ module.exports = {
   normalizeFieldDecision,
   isMutationAction,
   isPhase1Executable,
+  isPhase2Executable,
   text,
   asArray,
   clampInt,

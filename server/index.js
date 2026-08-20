@@ -6949,6 +6949,107 @@ function appendEnrichmentEditorAudit(store, details = {}) {
   return entry;
 }
 
+/**
+ * Trusted enrichmentDraft save for AI Curriculum Operator (Phase 2).
+ * Same semantics as saveMode "enrichment_draft": history snapshot, single-lesson write,
+ * published body unchanged. Never publishes.
+ */
+async function saveOperatorEnrichmentDraft({
+  store,
+  lessonPlanId,
+  enrichmentDraft,
+  adminEmail = "",
+} = {}) {
+  const id = normalizedShortText(lessonPlanId, 160);
+  if (!id) return { ok: false, error: "lessonPlanId required" };
+  const siteContent = store.siteContent && typeof store.siteContent === "object"
+    ? store.siteContent
+    : defaultSiteContentStore();
+  const existingCurriculum = siteContent.curriculum || defaultCurriculumStore();
+  const existingPlan = (existingCurriculum.lessonPlans || []).find((item) => item.id === id);
+  if (!existingPlan) return { ok: false, error: "Lesson plan not found for enrichment draft." };
+
+  const now = new Date().toISOString();
+  const previousDraft = existingPlan.enrichmentDraft && typeof existingPlan.enrichmentDraft === "object"
+    ? existingPlan.enrichmentDraft
+    : null;
+  const draftInputRaw = enrichmentDraft && typeof enrichmentDraft === "object"
+    ? enrichmentMedia.sanitizeEnrichmentDraftPhotos(enrichmentDraft)
+    : {};
+  const mergeResult = mergeEnrichmentDraftForSave(previousDraft, draftInputRaw, {
+    allowEmptyOverwrite: false,
+  });
+  if (mergeResult.rejectedEmptyOverwrite) {
+    return { ok: false, error: "Draft save refused: empty overwrite blocked.", code: "enrichment_draft_empty_overwrite" };
+  }
+  const draftForSave = {
+    ...(mergeResult.draft || {}),
+    updatedAt: now,
+    lastEditedBy: normalizedShortText(adminEmail, 180) || "curriculum-operator",
+  };
+  const previousHistory = Array.isArray(existingPlan.enrichmentPublishHistory)
+    ? existingPlan.enrichmentPublishHistory
+    : [];
+  let nextHistory = previousHistory;
+  let versionId = "";
+  if (
+    enrichmentDraftHasContent(previousDraft)
+    && enrichmentHistoryFingerprint(previousDraft) !== enrichmentHistoryFingerprint(draftForSave)
+  ) {
+    versionId = `edraft-${crypto.randomBytes(10).toString("hex")}`;
+    nextHistory = prependEnrichmentPublishHistory(previousHistory, {
+      versionId,
+      kind: "draft",
+      publishedAt: now,
+      publishedBy: normalizedShortText(adminEmail, 180) || "curriculum-operator",
+      fingerprint: `draft:${enrichmentHistoryFingerprint(previousDraft)}`,
+      lessonPlanId: id,
+      snapshot: { enrichmentDraft: cloneJson(previousDraft) },
+      note: "AI Curriculum Operator Phase 2 pre-upgrade snapshot",
+    });
+  }
+  const draftPlan = {
+    ...existingPlan,
+    enrichmentDraft: draftForSave,
+    enrichmentPublishHistory: nextHistory,
+    updatedAt: existingPlan.updatedAt,
+  };
+  if (enrichmentDraftHasContent(draftForSave) && !enrichmentDraftHasContent(draftPlan.enrichmentDraft)) {
+    return { ok: false, error: "Draft save failed verification.", code: "enrichment_draft_verify_failed" };
+  }
+  const nextCurriculum = {
+    ...existingCurriculum,
+    lessonPlans: (existingCurriculum.lessonPlans || []).map((item) => (
+      item.id === id ? draftPlan : item
+    )),
+    updatedAt: now,
+  };
+  const writeResult = writeSiteCurriculumTouched(store, nextCurriculum, {
+    updatedAt: now,
+    touchedLessonPlanIds: [id],
+  });
+  if (writeResult.wipeBlocked) {
+    return { ok: false, error: "curriculum_wipe_blocked", code: "curriculum_wipe_blocked" };
+  }
+  appendEnrichmentEditorAudit(store, {
+    action: "operator_save_draft",
+    lessonPlanId: id,
+    versionId,
+    adminEmail: normalizedShortText(adminEmail, 180) || "curriculum-operator",
+    fingerprint: enrichmentHistoryFingerprint(draftForSave),
+    note: "Operator Phase 2 draft save; published content unchanged.",
+  });
+  await writeStoreAsync(store);
+  const saved = (store.siteContent.curriculum.lessonPlans || []).find((item) => item.id === id);
+  return {
+    ok: true,
+    saveMode: "enrichment_draft",
+    lessonPlan: saved,
+    versionId,
+    publishedUnchanged: true,
+  };
+}
+
 function appendCurriculumRestoreAudit(store, { adminToken, before, after, note = "" } = {}) {
   store.curriculumRestoreAudit = Array.isArray(store.curriculumRestoreAudit) ? store.curriculumRestoreAudit : [];
   const session = adminSessionStore.validate(adminToken);
@@ -31063,6 +31164,7 @@ const server = http.createServer(async (request, response) => {
           teachingKit,
           normalizeEmail,
           readSiteCurriculum,
+          saveOperatorEnrichmentDraft,
         });
       }
       return await globalThis.__llhCurriculumOperatorApi.handle(request, response);
