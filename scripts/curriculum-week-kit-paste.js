@@ -23,7 +23,7 @@
       .toLowerCase()
       .replace(/[_/&]+/g, " ")
       .replace(/[:：]+$/g, "")
-      .replace(/[–—−]/g, "-")
+      .replace(/[–—−⸻]/g, "-")
       .replace(/\s+/g, " ")
       .trim();
   }
@@ -246,7 +246,13 @@
     if (!trimmed || trimmed.length > 80) return false;
     if (/[.!?]$/.test(trimmed)) return false;
     if (trimmed.split(/\s+/).length > 8) return false;
-    return /^[A-Za-z][A-Za-z0-9 /&'’:,-]*$/.test(trimmed);
+    return /^[A-Za-z][A-Za-z0-9 /&'’:,–—−⸻-]*$/.test(trimmed);
+  }
+
+  function isDecorativePasteSeparator(trimmed) {
+    const value = String(trimmed || "").trim();
+    if (!value) return false;
+    return /^(?:⸻+|[–—−─━⎯]+)$/.test(value);
   }
 
   function matchLabeledHeading(trimmed, aliasMap) {
@@ -289,6 +295,7 @@
     }
     lines.forEach((line) => {
       const trimmed = line.trim();
+      if (isDecorativePasteSeparator(trimmed)) return;
       const heading = matchLabeledHeading(trimmed, aliasMap);
       if (heading) {
         flush();
@@ -650,7 +657,10 @@
       thurs: "thursday",
       fri: "friday",
     };
-    return map[cleaned] || "";
+    if (map[cleaned]) return map[cleaned];
+    const withDash = cleaned.replace(/[–—−⸻]/g, "-");
+    const themed = withDash.match(/^(monday|tuesday|wednesday|thursday|friday)\s*-\s+/);
+    return themed ? themed[1] : "";
   }
 
   /** Canonical need label for unstructured "Use X" substitution lines. Schema requires need+use. */

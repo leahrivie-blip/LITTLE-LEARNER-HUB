@@ -23,6 +23,8 @@ const {
   rainbowCoffeeFilterArtFixture,
   weatherWatchersTwentyActivityFixture,
   runStructuredActivityParserRegressionTests,
+  colorsAllAroundUsMasterPaste,
+  COLORS_ALL_AROUND_US_FIXTURE,
 } = require("./test-master-lesson-activity-import-parser.js");
 const weekKit = require("./curriculum-week-kit-paste.js");
 const enrich = require("./teaching-kit-enrichment.js");
@@ -274,10 +276,10 @@ function assertSupportedFieldsPresent(act, label) {
   });
 }
 
-async function createDraftFromPaste(token, stamp, pasteText) {
+async function createDraftFromPaste(token, stamp, pasteText, extra = {}) {
   const parsed = parseFullLessonStructurePaste(pasteText);
   assert.equal(parsed.ok, true, parsed.errors.join("; "));
-  const plan = buildCanonicalLessonPlan(parsed, { lastEditedBy: ADMIN.email });
+  const plan = buildCanonicalLessonPlan(parsed, { id: extra.id, lastEditedBy: ADMIN.email });
   assert.equal(plan.status, "draft");
   assert.deepEqual(plan.resourceIds, []);
   const saved = await requestJson("POST", "/api/admin/curriculum/lesson-plans", {
@@ -558,6 +560,33 @@ async function runWriteTests() {
     assert.equal(findActivity(twentyActs, "Friday Storm Stories").dayOfWeek, "friday");
     console.log("PASS  20-activity Weather Watchers write does not overwrite sibling activities");
 
+    stamp = twentyWrite.saved.siteContentUpdatedAt;
+    const colorsPaste = colorsAllAroundUsMasterPaste();
+    const colorsParsed = parseFullLessonStructurePaste(colorsPaste);
+    const colorsCanonical = buildCanonicalLessonPlan(colorsParsed, { lastEditedBy: ADMIN.email });
+    const colorsWrite = await createDraftFromPaste(token, stamp, colorsPaste, {
+      id: COLORS_ALL_AROUND_US_FIXTURE.COLORS_LESSON_ID,
+    });
+    const colorsId = colorsWrite.saved.lessonPlan.id;
+    assert.equal(colorsId, COLORS_ALL_AROUND_US_FIXTURE.COLORS_LESSON_ID);
+    assert.equal(colorsWrite.saved.lessonPlan.title, "Colors All Around Us");
+    assert.equal(colorsWrite.saved.lessonPlan.age, "Infant 0–6 Months");
+    assert.equal(colorsWrite.saved.lessonPlan.status, "draft");
+    const colorsActs = persistedActivities(colorsWrite.saved, colorsId);
+    assert.equal(colorsActs.length, 15);
+    COLORS_ALL_AROUND_US_FIXTURE.ACTIVITIES.forEach((spec) => {
+      const act = findActivity(colorsActs, spec.title);
+      assert.ok(act, spec.title);
+      assert.equal(act.dayOfWeek, spec.day.toLowerCase(), spec.title);
+      const parsedItem = colorsCanonical.dailyPlans[spec.day.toLowerCase()].items.find((row) => row.title === spec.title);
+      assert.equal(parsedItem.activityCategory, spec.category, spec.title);
+      assert.match(act.setup || "", new RegExp(`${spec.token} setup only`), spec.title);
+      assert.match(act.steps || "", new RegExp(`${spec.token} step one`), spec.title);
+      assert.equal(act.setup, parsedItem.setup);
+    });
+    assert.equal(colorsWrite.saved.lessonPlan.weeklyOverview, colorsCanonical.weeklyOverview);
+    console.log("PASS  Colors All Around Us create write+read-back keeps 15 activity boundaries");
+
     const pub = await requestJson("GET", "/api/site-content");
     const publicIds = (pub.json.siteContent?.curriculumLibrary?.lessonPlans
       || pub.json.curriculumLibrary?.lessonPlans
@@ -566,6 +595,7 @@ async function runWriteTests() {
     assert.ok(!publicIds.includes(fifteenId));
     assert.ok(!publicIds.includes(rainbowId));
     assert.ok(!publicIds.includes(twentyWrite.saved.lessonPlan.id));
+    assert.ok(!publicIds.includes(colorsId));
     const resourcesAfterFifteen = (fifteen.saved.curriculum?.resources || []).length;
     assert.equal(resourcesAfterFifteen, resourcesBefore);
     const resourcesAfterRainbow = (rainbowWrite.saved.curriculum?.resources || []).length;
