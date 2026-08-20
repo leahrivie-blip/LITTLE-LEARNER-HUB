@@ -1,0 +1,323 @@
+#!/usr/bin/env node
+/**
+ * Complete one Owner Admin lesson (enrichment DRAFT only) from a config module.
+ *
+ * Usage:
+ *   LLH_APPLY_PRODUCTION_DRAFTS=1 node scripts/complete-owner-lesson.js bugs-butterflies
+ *   LLH_APPLY_PRODUCTION_DRAFTS=1 node scripts/complete-owner-lesson.js big-feelings
+ *   LLH_APPLY_PRODUCTION_DRAFTS=1 node scripts/complete-owner-lesson.js black-white-discovery
+ *
+ * Does NOT publish enrichment. Does NOT change Free/Pro or lesson status.
+ */
+"use strict";
+
+const fs = require("fs");
+const path = require("path");
+const {
+  createClient,
+  generateRealisticActivityPng,
+  compressCoverJpeg,
+  mergeActivityPatch,
+  text,
+} = require("./lib/owner-lesson-complete/runtime.js");
+
+const ROOT = path.join(__dirname, "..");
+const OUT_DIR = path.join(ROOT, "curriculum-drafts/owner-lesson-complete");
+
+const CONFIGS = {
+  "bugs-butterflies": "./lib/owner-lesson-complete/configs/bugs-butterflies.js",
+  "big-feelings": "./lib/owner-lesson-complete/configs/big-feelings.js",
+  "black-white-discovery": "./lib/owner-lesson-complete/configs/black-white-discovery.js",
+};
+
+async function main() {
+  const key = String(process.argv[2] || "").trim();
+  if (!CONFIGS[key]) {
+    console.error("Usage: complete-owner-lesson.js <bugs-butterflies|big-feelings|black-white-discovery>");
+    process.exit(2);
+  }
+  if (process.env.LLH_APPLY_PRODUCTION_DRAFTS !== "1") {
+    console.error("Refusing to write: set LLH_APPLY_PRODUCTION_DRAFTS=1");
+    process.exit(2);
+  }
+
+  const config = require(CONFIGS[key]);
+  const client = createClient();
+  const genDir = path.join(OUT_DIR, key, "generated");
+  fs.mkdirSync(genDir, { recursive: true });
+
+  const report = {
+    startedAt: new Date().toISOString(),
+    configKey: key,
+    planId: config.planId,
+    title: config.title,
+    audit: { keep: [], improve: [], replace: [] },
+    images: { created: [], skipped: [], failed: [] },
+    printables: config.printables?.notes || [],
+    cover: null,
+    verify: null,
+  };
+
+  Object.values(config.activities).forEach((a) => {
+    const d = String(a.decision || "improve").toLowerCase();
+    if (d === "replace") report.audit.replace.push(a.title || "");
+    else if (d === "keep") report.audit.keep.push(a.title || "");
+    else report.audit.improve.push(a.title || "");
+  });
+  // Fix audit titles from keys
+  report.audit = { keep: [], improve: [], replace: [] };
+  Object.entries(config.activities).forEach(([title, a]) => {
+    const d = String(a.decision || "improve").toLowerCase();
+    if (d === "replace") report.audit.replace.push(title);
+    else if (d === "keep") report.audit.keep.push(title);
+    else report.audit.improve.push(title);
+  });
+
+  const token = await client.login();
+  let site = await client.loadAdminSite(token);
+  const exactTitleMatches = (site.curriculum.lessonPlans || []).filter((p) =>
+    String(p.title || "").trim().toLowerCase() === String(config.title).trim().toLowerCase()
+  );
+  if (exactTitleMatches.length > 1) {
+    throw new Error(`Duplicate exact titles for “${config.title}”: ${exactTitleMatches.map((p) => p.id).join(", ")}`);
+  }
+  const plan = (site.curriculum.lessonPlans || []).find((p) => p.id === config.planId);
+  if (!plan) throw new Error(`Lesson ${config.planId} not found`);
+  if (String(plan.plan || "") !== String(config.expectedPlan || "")) {
+    console.warn(`WARN Free/Pro is ${plan.plan}, config expected ${config.expectedPlan} — preserving live value`);
+  }
+  if (config.expectedStatus && String(plan.status || "") !== String(config.expectedStatus)) {
+    console.warn(`WARN status is ${plan.status}, config expected ${config.expectedStatus} — preserving live value`);
+  }
+
+  report.before = {
+    id: plan.id,
+    title: plan.title,
+    age: plan.age,
+    status: plan.status,
+    plan: plan.plan,
+    activityCount: (site.curriculum.activities || []).filter((a) => a.lessonPlanId === config.planId && a.status !== "archived").length,
+    hasDraft: !!(plan.enrichmentDraft && Object.keys(plan.enrichmentDraft).length),
+    coverImageUrl: plan.coverImageUrl || "",
+    resourceIds: plan.resourceIds || [],
+  };
+  console.log("TARGET", JSON.stringify(report.before, null, 2));
+
+  const liveActs = (site.curriculum.activities || []).filter((a) => a.lessonPlanId === config.planId && a.status !== "archived");
+  const byTitle = new Map(liveActs.map((a) => [String(a.title || "").trim().toLowerCase(), a]));
+
+  const priorDraft = plan.enrichmentDraft && typeof plan.enrichmentDraft === "object" ? plan.enrichmentDraft : { activities: {}, week: {} };
+  const activities = {};
+  const imageJobs = [];
+
+  for (const [title, overlay] of Object.entries(config.activities)) {
+    const live = byTitle.get(title.toLowerCase());
+    if (!live?.id) {
+      console.warn("SKIP missing live activity", title);
+      continue;
+    }
+    const patch = mergeActivityPatch(live, { ...overlay, title });
+    activities[live.id] = {
+      ...(priorDraft.activities?.[live.id] || {}),
+      ...patch,
+      activityId: live.id,
+      itemId: live.itemId,
+      sourceKey: `${config.planId}:${live.itemId}`,
+    };
+    if (live.itemId) activities[live.itemId] = { ...activities[live.id] };
+
+    const planImg = String(overlay.imagePlan || "IMAGE_NOT_NEEDED");
+    if (planImg === "IMAGE_NOT_NEEDED") {
+      report.images.skipped.push({ title, reason: planImg });
+    } else {
+      imageJobs.push({
+        activityKey: live.id,
+        title,
+        brief: overlay.imageBriefSetup || overlay.description || title,
+        requirement: planImg,
+      });
+    }
+  }
+
+  const printableIds = [
+    ...(config.printables?.keepResourceIds || []),
+    ...((priorDraft.week && priorDraft.week.printableIds) || []),
+  ].filter((id, i, arr) => id && arr.indexOf(id) === i);
+
+  let enrichmentDraft = {
+    schemaVersion: 1,
+    draftOnly: true,
+    neverAutoPublish: true,
+    previewReady: true,
+    updatedAt: new Date().toISOString(),
+    lastEditedBy: client.adminEmail || "owner-complete-script",
+    activities,
+    week: {
+      ...(priorDraft.week || {}),
+      ...config.week,
+      printableIds,
+      draftOnly: true,
+      neverAutoPublish: true,
+    },
+    meta: {
+      purpose: `${config.title} complete for Owner Admin review — enrichment_draft only`,
+      sourceLessonId: config.planId,
+      completedAt: new Date().toISOString(),
+      configKey: key,
+    },
+  };
+
+  site = await client.loadAdminSite(token);
+  let save = await client.saveEnrichmentDraft(token, config.planId, site.updatedAt, enrichmentDraft);
+  if (save.status !== 200) {
+    throw new Error(`enrichment_draft save failed (${save.status}): ${save.json?.error || save.raw?.slice(0, 300)}`);
+  }
+  console.log("ENRICHMENT DRAFT SAVED");
+
+  let imgIndex = 0;
+  const localByTitle = new Map();
+  for (const job of imageJobs) {
+    const slug = job.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 48);
+    const outPath = path.join(genDir, `${slug}.png`);
+    try {
+      if (!process.env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY missing");
+      console.log("GEN START", job.title);
+      await generateRealisticActivityPng({
+        title: job.title,
+        brief: job.brief,
+        index: imgIndex,
+        outPath,
+        ageLabel: config.ageLabel,
+      });
+      const st = fs.statSync(outPath);
+      if (st.size < 20000) throw new Error("generated image too small");
+      localByTitle.set(job.title, outPath);
+      const up = await client.uploadSetupPhoto(token, config.planId, job.activityKey, outPath);
+      if (up.status === 200 && up.json?.mediaUrl) {
+        activities[job.activityKey].setupImageUrl = up.json.mediaUrl;
+        activities[job.activityKey].setupMediaAssetId = up.json.mediaAssetId || "";
+        if (activities[activities[job.activityKey].itemId]) {
+          activities[activities[job.activityKey].itemId].setupImageUrl = up.json.mediaUrl;
+          activities[activities[job.activityKey].itemId].setupMediaAssetId = up.json.mediaAssetId || "";
+        }
+        report.images.created.push({
+          title: job.title,
+          activityKey: job.activityKey,
+          requirement: job.requirement,
+          source: "openai_realistic",
+          url: String(up.json.mediaUrl).slice(0, 160),
+          mediaAssetId: up.json.mediaAssetId || "",
+          localPath: outPath,
+        });
+        console.log("IMAGE OK", job.title);
+      } else {
+        report.images.failed.push({ title: job.title, error: up.json?.error || `HTTP ${up.status}`, stage: "upload" });
+      }
+    } catch (error) {
+      report.images.failed.push({ title: job.title, error: error.message || String(error), stage: "generate" });
+      console.warn("GEN FAIL", job.title, error.message);
+    }
+    imgIndex += 1;
+  }
+
+  enrichmentDraft = {
+    ...enrichmentDraft,
+    activities: { ...activities },
+    week: { ...enrichmentDraft.week, printableIds },
+    updatedAt: new Date().toISOString(),
+  };
+  site = await client.loadAdminSite(token);
+  save = await client.saveEnrichmentDraft(token, config.planId, site.updatedAt, enrichmentDraft);
+  if (save.status !== 200) throw new Error(`post-photo draft save failed (${save.status})`);
+
+  // Cover from preferred generated scene
+  let coverSrc = null;
+  for (const title of config.imageCoverPreference || []) {
+    if (localByTitle.has(title)) {
+      coverSrc = localByTitle.get(title);
+      report.cover = { selectedActivity: title };
+      break;
+    }
+  }
+  if (!coverSrc && report.images.created[0]?.localPath) {
+    coverSrc = report.images.created[0].localPath;
+    report.cover = { selectedActivity: report.images.created[0].title };
+  }
+  if (coverSrc) {
+    const coverJpg = path.join(genDir, "cover.jpg");
+    await compressCoverJpeg(coverSrc, coverJpg);
+    const coverRes = await client.uploadCoverJpeg(
+      token,
+      config.planId,
+      coverJpg,
+      `${config.title} classroom activity`,
+    );
+    report.cover = {
+      ...report.cover,
+      uploadStatus: coverRes.upload?.status,
+      assignStatus: coverRes.assign?.status,
+      ok: coverRes.upload?.status === 200 && coverRes.assign?.status === 200,
+      url: coverRes.upload?.json?.url || null,
+      coverId: coverRes.upload?.json?.id || null,
+      error: coverRes.upload?.json?.error || coverRes.assign?.json?.error || null,
+    };
+    console.log("COVER", report.cover);
+  } else {
+    report.cover = { ok: false, error: "no_generated_image_for_cover" };
+  }
+
+  site = await client.loadAdminSite(token);
+  const finalPlan = (site.curriculum.lessonPlans || []).find((p) => p.id === config.planId);
+  const draft = finalPlan?.enrichmentDraft || {};
+  const draftActKeys = Object.keys(draft.activities || {}).filter((k) => k.startsWith("cur-act-"));
+  const withImages = draftActKeys.filter((k) => draft.activities[k]?.setupImageUrl || draft.activities[k]?.exampleImageUrl);
+  const linkedRes = (site.curriculum.resources || []).filter((r) =>
+    (r.lessonPlanIds || []).includes(config.planId) || (finalPlan.resourceIds || []).includes(r.id)
+  );
+  const titleDupes = (site.curriculum.lessonPlans || []).filter((p) =>
+    String(p.title || "").trim().toLowerCase() === String(finalPlan.title || "").trim().toLowerCase()
+  );
+
+  report.verify = {
+    id: finalPlan?.id,
+    title: finalPlan?.title,
+    age: finalPlan?.age,
+    status: finalPlan?.status,
+    plan: finalPlan?.plan,
+    activityCount: liveActs.length,
+    draftActivityCount: draftActKeys.length,
+    draftActivitiesWithImages: withImages.length,
+    coverImageUrl: (finalPlan?.coverImageUrl || "").slice(0, 200),
+    linkedResources: linkedRes.map((r) => ({ id: r.id, title: r.title, status: r.status, lessonPlanIds: r.lessonPlanIds || [] })),
+    freeProUnchanged: finalPlan?.plan === report.before.plan,
+    statusUnchanged: finalPlan?.status === report.before.status,
+    idUnchanged: finalPlan?.id === config.planId,
+    enrichmentPublished: !!(finalPlan?.enrichmentPublished && Object.keys(finalPlan.enrichmentPublished || {}).length),
+    exactTitleCount: titleDupes.length,
+  };
+
+  if (!report.verify.freeProUnchanged) throw new Error("Free/Pro changed");
+  if (!report.verify.statusUnchanged) throw new Error("Status changed");
+  if (report.verify.enrichmentPublished) throw new Error("Enrichment published unexpectedly");
+
+  report.finishedAt = new Date().toISOString();
+  const reportPath = path.join(OUT_DIR, `${key}-report.json`);
+  fs.writeFileSync(reportPath, JSON.stringify(report, null, 2));
+  console.log("REPORT", reportPath);
+  console.log(JSON.stringify({
+    verify: report.verify,
+    auditCounts: {
+      keep: report.audit.keep.length,
+      improve: report.audit.improve.length,
+      replace: report.audit.replace.length,
+    },
+    imagesCreated: report.images.created.length,
+    imagesSkipped: report.images.skipped.length,
+    cover: report.cover,
+  }, null, 2));
+}
+
+main().catch((error) => {
+  console.error("FAIL", error);
+  process.exitCode = 1;
+});
