@@ -85,11 +85,28 @@ function createClient(env = process.env) {
     const res = await requestJson("GET", "/api/admin/site-content", null, {
       Authorization: `Bearer ${token}`,
     }, siteUrl);
+    if (res.status === 401) {
+      const error = new Error("site-content failed (401)");
+      error.code = "admin_session_expired";
+      throw error;
+    }
     if (res.status !== 200) throw new Error(`site-content failed (${res.status})`);
     return {
       updatedAt: res.json.siteContent?.updatedAt || "",
       curriculum: res.json.siteContent?.curriculum || {},
     };
+  }
+
+  /** Re-login helper for long image-generation runs (sessions can expire). */
+  async function ensureToken(tokenRef) {
+    try {
+      await loadAdminSite(tokenRef.token);
+      return tokenRef.token;
+    } catch (error) {
+      if (error.code !== "admin_session_expired" && !/401/.test(String(error.message || ""))) throw error;
+      tokenRef.token = await login();
+      return tokenRef.token;
+    }
   }
 
   async function saveEnrichmentDraft(token, planId, expectedUpdatedAt, enrichmentDraft) {
@@ -174,6 +191,7 @@ function createClient(env = process.env) {
     adminEmail,
     login,
     loadAdminSite,
+    ensureToken,
     saveEnrichmentDraft,
     uploadSetupPhoto,
     uploadCoverJpeg,

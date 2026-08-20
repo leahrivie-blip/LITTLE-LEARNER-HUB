@@ -73,8 +73,8 @@ async function main() {
     else report.audit.improve.push(title);
   });
 
-  const token = await client.login();
-  let site = await client.loadAdminSite(token);
+  const tokenRef = { token: await client.login() };
+  let site = await client.loadAdminSite(tokenRef.token);
   const exactTitleMatches = (site.curriculum.lessonPlans || []).filter((p) =>
     String(p.title || "").trim().toLowerCase() === String(config.title).trim().toLowerCase()
   );
@@ -167,8 +167,9 @@ async function main() {
     },
   };
 
-  site = await client.loadAdminSite(token);
-  let save = await client.saveEnrichmentDraft(token, config.planId, site.updatedAt, enrichmentDraft);
+  await client.ensureToken(tokenRef);
+  site = await client.loadAdminSite(tokenRef.token);
+  let save = await client.saveEnrichmentDraft(tokenRef.token, config.planId, site.updatedAt, enrichmentDraft);
   if (save.status !== 200) {
     throw new Error(`enrichment_draft save failed (${save.status}): ${save.json?.error || save.raw?.slice(0, 300)}`);
   }
@@ -192,7 +193,8 @@ async function main() {
       const st = fs.statSync(outPath);
       if (st.size < 20000) throw new Error("generated image too small");
       localByTitle.set(job.title, outPath);
-      const up = await client.uploadSetupPhoto(token, config.planId, job.activityKey, outPath);
+      await client.ensureToken(tokenRef);
+      const up = await client.uploadSetupPhoto(tokenRef.token, config.planId, job.activityKey, outPath);
       if (up.status === 200 && up.json?.mediaUrl) {
         activities[job.activityKey].setupImageUrl = up.json.mediaUrl;
         activities[job.activityKey].setupMediaAssetId = up.json.mediaAssetId || "";
@@ -226,8 +228,9 @@ async function main() {
     week: { ...enrichmentDraft.week, printableIds },
     updatedAt: new Date().toISOString(),
   };
-  site = await client.loadAdminSite(token);
-  save = await client.saveEnrichmentDraft(token, config.planId, site.updatedAt, enrichmentDraft);
+  await client.ensureToken(tokenRef);
+  site = await client.loadAdminSite(tokenRef.token);
+  save = await client.saveEnrichmentDraft(tokenRef.token, config.planId, site.updatedAt, enrichmentDraft);
   if (save.status !== 200) throw new Error(`post-photo draft save failed (${save.status})`);
 
   // Cover from preferred generated scene
@@ -246,8 +249,9 @@ async function main() {
   if (coverSrc) {
     const coverJpg = path.join(genDir, "cover.jpg");
     await compressCoverJpeg(coverSrc, coverJpg);
+    await client.ensureToken(tokenRef);
     const coverRes = await client.uploadCoverJpeg(
-      token,
+      tokenRef.token,
       config.planId,
       coverJpg,
       `${config.title} classroom activity`,
@@ -266,7 +270,8 @@ async function main() {
     report.cover = { ok: false, error: "no_generated_image_for_cover" };
   }
 
-  site = await client.loadAdminSite(token);
+  await client.ensureToken(tokenRef);
+  site = await client.loadAdminSite(tokenRef.token);
   const finalPlan = (site.curriculum.lessonPlans || []).find((p) => p.id === config.planId);
   const draft = finalPlan?.enrichmentDraft || {};
   const draftActKeys = Object.keys(draft.activities || {}).filter((k) => k.startsWith("cur-act-"));
