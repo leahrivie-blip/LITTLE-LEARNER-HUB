@@ -379,7 +379,8 @@ function drawFooter(page, font, size = 9) {
 }
 
 /**
- * Deterministic multi-page PDF from a validated spec + activity (CI-safe, no live AI).
+ * Deterministic multi-page PDF from a validated (optionally AI-enriched) spec.
+ * CI-safe: no live AI inside the renderer — content must already be on the spec.
  */
 async function generatePrintablePdfBuffer({ spec, plan, activity }) {
   const pdfLib = loadPdfLib();
@@ -406,67 +407,69 @@ async function generatePrintablePdfBuffer({ spec, plan, activity }) {
     }));
 
   const age = text(spec.ageBand || plan?.age || activity?.age, 60);
-  const objective = text(activity?.objective, 240);
   const materials = text(activity?.materials, 200);
+  const teacherUse = text(spec.teacherUse || spec.purpose, 240);
 
   for (const pageMeta of pagesMeta) {
     const page = doc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
-    const title = text(spec.title, 100);
+    const title = asciiPdfText(spec.title, 100);
     page.drawText(title.slice(0, 70), { x: 36, y: PAGE_HEIGHT - 48, size: 16, font: fontBold });
-    page.drawText(`Activity: ${text(activity?.title, 80)}`, { x: 36, y: PAGE_HEIGHT - 72, size: 11, font });
-    page.drawText(`Age: ${age}`, { x: 36, y: PAGE_HEIGHT - 88, size: 10, font });
-    page.drawText(`Type: ${text(spec.resourceType, 40)} · Page ${pageMeta.index} of ${pagesMeta.length}`, {
+    page.drawText(`Activity: ${asciiPdfText(activity?.title, 80)}`, { x: 36, y: PAGE_HEIGHT - 70, size: 11, font });
+    page.drawText(`Age: ${asciiPdfText(age, 60)}`, { x: 36, y: PAGE_HEIGHT - 86, size: 10, font });
+    const pageType = asciiPdfText(pageMeta.type || pageMeta.kind || spec.resourceType, 40);
+    page.drawText(`Page ${pageMeta.index || 1} of ${pagesMeta.length} · ${pageType}`, {
       x: 36,
-      y: PAGE_HEIGHT - 104,
+      y: PAGE_HEIGHT - 102,
       size: 10,
       font,
     });
 
-    let y = PAGE_HEIGHT - 140;
-    const purpose = text(spec.purpose, 400);
-    if (purpose) {
-      page.drawText("Purpose:", { x: 36, y, size: 11, font: fontBold });
-      y -= 16;
-      wrapText(purpose, 70).forEach((line) => {
-        page.drawText(line, { x: 36, y, size: 10, font });
-        y -= 14;
-      });
-      y -= 8;
+    let y = PAGE_HEIGHT - 128;
+    const heading = asciiPdfText(pageMeta.heading || pageMeta.label, 120);
+    if (heading) {
+      page.drawText(heading.slice(0, 70), { x: 36, y, size: 13, font: fontBold });
+      y -= 20;
     }
-    if (objective) {
-      page.drawText("Objective:", { x: 36, y, size: 11, font: fontBold });
-      y -= 16;
-      wrapText(objective, 70).forEach((line) => {
-        page.drawText(line, { x: 36, y, size: 10, font });
-        y -= 14;
+    if (teacherUse && (pageMeta.index === 1 || pageMeta.index == null)) {
+      wrapText(`Teacher: ${teacherUse}`, 78).slice(0, 2).forEach((line) => {
+        page.drawText(asciiPdfText(line, 120), { x: 36, y, size: 9, font });
+        y -= 12;
       });
-      y -= 8;
+      y -= 6;
     }
 
-    const label = text(pageMeta.label, 120);
-    page.drawText(`This page: ${label}`, { x: 36, y, size: 12, font: fontBold });
-    y -= 24;
+    // Prefer enriched content drawers when the page carries real items/pairs.
+    const hasRichContent = schema.asArray(pageMeta.items).length
+      || schema.asArray(pageMeta.pairs).length
+      || schema.asArray(pageMeta.categories).length
+      || schema.asArray(pageMeta.numbers).length
+      || pageMeta.intentionalBlank === true
+      || pageMeta.workAreaLabel;
 
-    // Type-specific usable layout (not giant-word + icon filler).
-    const kind = text(pageMeta.kind || spec.resourceType, 40);
-    if (/dramatic|menu|order|ticket|recipe/i.test(kind) || /menu|order|ticket|recipe/i.test(label)) {
-      y = drawDramaticPlayBlocks(page, font, fontBold, y, label, activity);
-    } else if (/match|sort|flash|picture|card|vocab/i.test(kind) || /card|match|sort/i.test(label)) {
-      y = drawCardGrid(page, font, fontBold, y, label, activity);
-    } else if (/count/i.test(kind) || /count/i.test(label)) {
-      y = drawCountingMat(page, font, fontBold, y);
-    } else if (/handprint|footprint|art_template/i.test(kind) || pageMeta.intentionalBlank) {
-      y = drawIntentionalBlank(page, font, fontBold, y, label);
-    } else if (/movement|scavenger/i.test(kind)) {
-      y = drawMovementCards(page, font, fontBold, y, activity);
+    if (hasRichContent) {
+      y = drawEnrichedPageContent(page, font, fontBold, y, pageMeta, activity);
     } else {
-      y = drawGenericUsefulPanel(page, font, fontBold, y, label, materials);
+      // Legacy Phase 4 fallback templates (kept for older specs).
+      const label = text(pageMeta.label || heading, 120);
+      const kind = text(pageMeta.kind || spec.resourceType, 40);
+      if (/dramatic|menu|order|ticket|recipe/i.test(kind) || /menu|order|ticket|recipe/i.test(label)) {
+        y = drawDramaticPlayBlocks(page, font, fontBold, y, label, activity);
+      } else if (/match|sort|flash|picture|card|vocab/i.test(kind) || /card|match|sort/i.test(label)) {
+        y = drawCardGrid(page, font, fontBold, y, label, activity);
+      } else if (/count/i.test(kind) || /count/i.test(label)) {
+        y = drawCountingMat(page, font, fontBold, y);
+      } else if (/handprint|footprint|art_template/i.test(kind) || pageMeta.intentionalBlank) {
+        y = drawIntentionalBlank(page, font, fontBold, y, label);
+      } else if (/movement|scavenger/i.test(kind)) {
+        y = drawMovementCards(page, font, fontBold, y, activity);
+      } else {
+        y = drawGenericUsefulPanel(page, font, fontBold, y, label, materials);
+      }
     }
 
     drawFooter(page, font);
-    // Keep content above footer margin
     if (y < 48) {
-      /* already constrained by layouts */
+      /* layouts keep content above footer */
     }
   }
 
@@ -475,13 +478,177 @@ async function generatePrintablePdfBuffer({ spec, plan, activity }) {
     buffer: bytes,
     mimeType: "application/pdf",
     pageCount: pagesMeta.length,
-    fileName: sanitizePrintableFileName(spec.filename),
+    fileName: sanitizePrintableFileName(spec.filename || titleToFileName(spec.title, plan?.title)),
     title: text(spec.title, 180),
   };
 }
 
+function drawEnrichedPageContent(page, font, fontBold, startY, pageMeta, activity) {
+  const type = text(pageMeta.type || pageMeta.kind, 40);
+  if (type === "matching_pairs" || schema.asArray(pageMeta.pairs).length) {
+    return drawMatchingPairs(page, font, fontBold, startY, pageMeta);
+  }
+  if (type === "sorting" || schema.asArray(pageMeta.categories).length) {
+    return drawSortingPack(page, font, fontBold, startY, pageMeta);
+  }
+  if (type === "menu") {
+    return drawMenuPage(page, font, fontBold, startY, pageMeta);
+  }
+  if (type === "order_cards") {
+    return drawOrderTickets(page, font, fontBold, startY, pageMeta);
+  }
+  if (type === "counting_mat" || schema.asArray(pageMeta.numbers).length) {
+    return drawCountingMatFromSpec(page, font, fontBold, startY, pageMeta);
+  }
+  if (type === "handprint_template" || type === "footprint_template" || pageMeta.intentionalBlank) {
+    return drawIntentionalBlank(
+      page,
+      font,
+      fontBold,
+      startY,
+      text(pageMeta.workAreaLabel || pageMeta.heading || "Work area", 120),
+    );
+  }
+  if (type === "movement_cards" || type === "scavenger_hunt") {
+    return drawItemsAsCards(page, font, fontBold, startY, pageMeta, { columns: 2, height: 100 });
+  }
+  if (type === "teacher_tool") {
+    return drawGenericUsefulPanel(
+      page,
+      font,
+      fontBold,
+      startY,
+      text(pageMeta.heading, 80),
+      schema.asArray(pageMeta.items).map((i) => i.name).join("; "),
+    );
+  }
+  // flashcards, picture_cards, emotion_cards, pretend_food_cards, sequencing, dramatic_play_props
+  return drawItemsAsCards(page, font, fontBold, startY, pageMeta, { columns: 3, height: 120 });
+}
+
+function drawMatchingPairs(page, font, fontBold, startY, pageMeta) {
+  let y = startY;
+  page.drawText("Match each pair · cut apart · laminate if desired", { x: 36, y, size: 10, font });
+  y -= 18;
+  schema.asArray(pageMeta.pairs).slice(0, 8).forEach((pair, i) => {
+    const rowY = y - (i * 78);
+    page.drawRectangle({ x: 36, y: rowY - 64, width: 250, height: 64, borderWidth: 1 });
+    page.drawText(asciiPdfText(pair.left?.name, 28), { x: 46, y: rowY - 22, size: 12, font: fontBold });
+    page.drawText(asciiPdfText(pair.left?.visualConcept, 40).slice(0, 36), { x: 46, y: rowY - 40, size: 8, font });
+    page.drawText("<->", { x: 292, y: rowY - 30, size: 12, font: fontBold });
+    page.drawRectangle({ x: 326, y: rowY - 64, width: 250, height: 64, borderWidth: 1 });
+    page.drawText(asciiPdfText(pair.right?.name, 28), { x: 336, y: rowY - 22, size: 12, font: fontBold });
+    page.drawText(asciiPdfText(pair.right?.visualConcept, 40).slice(0, 36), { x: 336, y: rowY - 40, size: 8, font });
+  });
+  return y - (Math.min(8, schema.asArray(pageMeta.pairs).length) * 78) - 8;
+}
+
+function drawSortingPack(page, font, fontBold, startY, pageMeta) {
+  let y = startY;
+  page.drawText("Sorting mats", { x: 36, y, size: 11, font: fontBold });
+  y -= 16;
+  const cats = schema.asArray(pageMeta.categories).slice(0, 4);
+  cats.forEach((cat, i) => {
+    const x = 36 + (i % 4) * 135;
+    page.drawRectangle({ x, y: y - 70, width: 125, height: 70, borderWidth: 1 });
+    page.drawText(asciiPdfText(cat.name, 16), { x: x + 8, y: y - 24, size: 12, font: fontBold });
+    page.drawText("mat", { x: x + 8, y: y - 42, size: 9, font });
+  });
+  y -= 90;
+  page.drawText("Pieces to sort (cut apart)", { x: 36, y, size: 11, font: fontBold });
+  y -= 16;
+  return drawItemsAsCards(page, font, fontBold, y, {
+    ...pageMeta,
+    items: schema.asArray(pageMeta.items),
+  }, { columns: 3, height: 90 });
+}
+
+function drawMenuPage(page, font, fontBold, startY, pageMeta) {
+  let y = startY;
+  page.drawRectangle({ x: 72, y: 120, width: 468, height: y - 140, borderWidth: 1.5 });
+  page.drawText(asciiPdfText(pageMeta.heading || "Menu", 40), { x: 96, y: y - 36, size: 16, font: fontBold });
+  let ly = y - 70;
+  schema.asArray(pageMeta.items).slice(0, 10).forEach((item, idx) => {
+    page.drawText(`${idx + 1}. ${asciiPdfText(item.name, 40)}`, { x: 96, y: ly, size: 12, font: fontBold });
+    ly -= 14;
+    page.drawText(asciiPdfText(item.visualConcept, 60).slice(0, 55), { x: 110, y: ly, size: 9, font });
+    ly -= 22;
+  });
+  return 110;
+}
+
+function drawOrderTickets(page, font, fontBold, startY, pageMeta) {
+  let y = startY;
+  const tickets = schema.asArray(pageMeta.items).slice(0, 6);
+  tickets.forEach((ticket, i) => {
+    const col = i % 2;
+    const row = Math.floor(i / 2);
+    const x = 36 + col * 270;
+    const boxY = y - row * 150;
+    page.drawRectangle({ x, y: boxY - 130, width: 250, height: 130, borderWidth: 1 });
+    page.drawText(asciiPdfText(ticket.name, 28), { x: x + 12, y: boxY - 24, size: 12, font: fontBold });
+    page.drawText("Order:", { x: x + 12, y: boxY - 48, size: 10, font });
+    page.drawText("1. ____________________", { x: x + 12, y: boxY - 68, size: 10, font });
+    page.drawText("2. ____________________", { x: x + 12, y: boxY - 88, size: 10, font });
+    page.drawText("3. ____________________", { x: x + 12, y: boxY - 108, size: 10, font });
+  });
+  return y - (Math.ceil(tickets.length / 2) * 150) - 8;
+}
+
+function drawCountingMatFromSpec(page, font, fontBold, startY, pageMeta) {
+  let y = startY;
+  const nums = schema.asArray(pageMeta.numbers).length
+    ? schema.asArray(pageMeta.numbers)
+    : [1, 2, 3, 4, 5];
+  page.drawText("Place objects in each numbered space", { x: 36, y, size: 10, font });
+  y -= 20;
+  nums.slice(0, 6).forEach((n) => {
+    page.drawRectangle({ x: 36, y: y - 70, width: 540, height: 70, borderWidth: 1 });
+    page.drawText(String(n), { x: 48, y: y - 42, size: 28, font: fontBold });
+    page.drawText("counting spaces", { x: 100, y: y - 38, size: 10, font });
+    y -= 84;
+  });
+  return y;
+}
+
+function drawItemsAsCards(page, font, fontBold, startY, pageMeta, { columns = 3, height = 120 } = {}) {
+  let y = startY;
+  page.drawText("Cut along boxes · laminate if desired", { x: 36, y, size: 9, font });
+  y -= 16;
+  const items = schema.asArray(pageMeta.items).slice(0, columns * 4);
+  const width = columns === 2 ? 250 : 170;
+  const gap = columns === 2 ? 270 : 180;
+  items.forEach((item, i) => {
+    const col = i % columns;
+    const row = Math.floor(i / columns);
+    const x = 36 + col * gap;
+    const boxY = y - row * (height + 12);
+    page.drawRectangle({ x, y: boxY - height, width, height, borderWidth: 1 });
+    page.drawText(asciiPdfText(item.name, 22).slice(0, 20), { x: x + 10, y: boxY - 22, size: 11, font: fontBold });
+    if (item.category) {
+      page.drawText(asciiPdfText(item.category, 20), { x: x + 10, y: boxY - 38, size: 8, font });
+    }
+    page.drawText(asciiPdfText(item.visualConcept, 40).slice(0, 28), { x: x + 10, y: boxY - 56, size: 8, font });
+    if (item.prompt) {
+      page.drawText(asciiPdfText(item.prompt, 40).slice(0, 28), { x: x + 10, y: boxY - 74, size: 8, font });
+    }
+    page.drawText("[picture]", { x: x + 10, y: boxY - height + 16, size: 8, font });
+  });
+  const rows = Math.ceil(items.length / columns) || 1;
+  return y - rows * (height + 12) - 8;
+}
+
+function asciiPdfText(value, max = 200) {
+  return text(value, max)
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\x20-\x7E]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function wrapText(value, width) {
-  const words = String(value || "").split(/\s+/).filter(Boolean);
+  const words = String(asciiPdfText(value, 2000) || "").split(/\s+/).filter(Boolean);
   const lines = [];
   let current = "";
   words.forEach((w) => {
@@ -547,7 +714,7 @@ function drawCardGrid(page, font, fontBold, startY, label, activity) {
 
 function drawCountingMat(page, font, fontBold, startY) {
   let y = startY;
-  page.drawText("Counting mat — place objects in each space", { x: 36, y, size: 11, font: fontBold });
+  page.drawText("Counting mat - place objects in each space", { x: 36, y, size: 11, font: fontBold });
   y -= 24;
   for (let n = 1; n <= 5; n += 1) {
     page.drawRectangle({ x: 36, y: y - 70, width: 540, height: 70, borderWidth: 1 });
@@ -562,7 +729,7 @@ function drawIntentionalBlank(page, font, fontBold, startY, label) {
   let y = startY;
   page.drawText(label.slice(0, 70), { x: 36, y, size: 12, font: fontBold });
   y -= 20;
-  page.drawText("Intentional work area for the child’s print / drawing.", { x: 36, y, size: 10, font });
+  page.drawText("Intentional work area for the child's print / drawing.", { x: 36, y, size: 10, font });
   y -= 16;
   page.drawRectangle({ x: 72, y: 120, width: 468, height: y - 140, borderWidth: 1 });
   return 100;
@@ -765,6 +932,8 @@ async function runPrintablePlanForLesson({
   alreadySucceededKeys = new Set(),
   lessonCount = 1,
   saveDraft,
+  callAi = null,
+  useContentPlanner = true,
 } = {}) {
   if (touchPrintables === false) {
     return {
@@ -894,7 +1063,60 @@ async function runPrintablePlanForLesson({
       });
       if (!specCheck.ok) throw new Error(`Invalid printable spec: ${specCheck.errors.join(", ")}`);
 
-      const generated = await generatePrintablePdfBuffer({ spec, plan, activity });
+      // Phase 4.5: AI (or fixture) enriches page CONTENTS before trusted pdf-lib render.
+      let enrichedSpec = spec;
+      let plannerMeta = null;
+      if (useContentPlanner !== false) {
+        let planner;
+        try {
+          planner = require("./curriculum-operator-printable-planner.js");
+        } catch (_e) {
+          planner = null;
+        }
+        if (planner?.planPrintableContent) {
+          const effectiveCallAi = typeof callAi === "function"
+            ? callAi
+            : async (systemPrompt, userPrompt) => planner.buildOperatorPrintableAiFixtureResponse(userPrompt);
+          // eslint-disable-next-line no-await-in-loop
+          const planned = await planner.planPrintableContent({
+            plan,
+            activity,
+            baseSpec: spec,
+            callAi: effectiveCallAi,
+            usePlanner: true,
+          });
+          if (!planned.ok) {
+            throw new Error(planned.error || planned.code || "printable content planner failed");
+          }
+          if (!planned.skipped && planned.spec) {
+            enrichedSpec = {
+              ...planned.spec,
+              filename: sanitizePrintableFileName(
+                planned.spec.filename || titleToFileName(planned.spec.title, plan?.title),
+              ),
+              lessonId: plan.id,
+              activityIds: [action.activityId],
+              decision,
+            };
+            const recheck = validatePrintableSpec(enrichedSpec, {
+              expectedLessonId: plan.id,
+              knownActivityIds,
+            });
+            if (!recheck.ok) {
+              throw new Error(`Enriched printable spec invalid: ${recheck.errors.join(", ")}`);
+            }
+            plannerMeta = {
+              contentSource: enrichedSpec.contentSource || "ai_planner",
+              visualPlan: enrichedSpec.visualPlan || null,
+              gate: planned.gate || null,
+              review: planned.review || null,
+              usage: planned.usage || null,
+            };
+          }
+        }
+      }
+
+      const generated = await generatePrintablePdfBuffer({ spec: enrichedSpec, plan, activity });
       generations += 1;
       const validated = await validateGeneratedPdf(generated.buffer, {
         expectedPageCount: generated.pageCount,
@@ -915,17 +1137,18 @@ async function runPrintablePlanForLesson({
         fileName: generated.fileName,
         fileData: bufferToPdfDataUrl(generated.buffer),
         pageCount: generated.pageCount,
-        resourceType: spec.resourceType,
+        resourceType: enrichedSpec.resourceType,
         description: [
-          text(spec.purpose, 500),
+          text(enrichedSpec.purpose, 500),
           `Operator activityId=${action.activityId}`,
           `Operator decision=${decision}`,
-        ].join("\n"),
+          plannerMeta?.contentSource ? `Operator contentSource=${plannerMeta.contentSource}` : "",
+        ].filter(Boolean).join("\n"),
         ageGroup: plan.age || "",
         theme: plan.theme || "",
         printingInstructions: [
-          spec.cutRequired ? "Cut apart cards/pieces before use." : "",
-          spec.laminateRecommended ? "Laminate for reuse if desired." : "",
+          enrichedSpec.cutRequired ? "Cut apart cards/pieces before use." : "",
+          enrichedSpec.laminateRecommended ? "Laminate for reuse if desired." : "",
         ].filter(Boolean).join(" "),
         disposableQaFixture: true,
         replaceResourceId: decision === "REPLACE" ? existingIds[0] || null : null,
@@ -976,7 +1199,8 @@ async function runPrintablePlanForLesson({
         title: generated.title,
         fileName: generated.fileName,
         pageCount: generated.pageCount,
-        spec,
+        spec: enrichedSpec,
+        plannerMeta,
         previewVerified: true,
         downloadVerified: true,
       });

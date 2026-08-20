@@ -396,7 +396,8 @@ function normalizeOperatorCommand(raw = {}, options = {}) {
       actions.replaceBadImages = false;
     }
   } else if (phase4) {
-    // Phase 4: printables only — do not regenerate activity images.
+    // Phase 4 / 4.5: printables only — do not regenerate activity images.
+    // Phase 4.5 adds AI content planning before pdf-lib render (same action flags).
     actions.generateImages = false;
     actions.replaceBadImages = false;
     if (actions.upgradeLesson || actions.upgradeActivities || intent === "upgrade_batch" || intent === "fix_lesson") {

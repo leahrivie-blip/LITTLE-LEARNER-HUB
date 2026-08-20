@@ -1,10 +1,9 @@
 /**
  * Owner-only AI Curriculum Operator API
- * (Phase 1 audit · Phase 2.5 AI draft upgrades · Phase 3 activity images).
+ * (Phase 1–3 + Phase 4 printables + Phase 4.5 intelligent printable content).
  *
  * Saves enrichmentDraft only. Never publishes.
- * Never mutates printables, access plan, or lesson IDs.
- * Phase 3 images: Visual Production generate → enrichment media → draft attach.
+ * Phase 4.5: AI plans printable CONTENTS; pdf-lib renders; upload/link unchanged.
  */
 "use strict";
 
@@ -47,6 +46,22 @@ function createCurriculumOperatorApi(deps) {
     readOperatorPrintableFile,
     unlinkOperatorPrintableResource,
   } = deps;
+
+  function printableCallAi() {
+    return async (systemPrompt, userPrompt) => {
+      const forceFixture = process.env.NODE_ENV === "test"
+        || ["1", "true", "yes"].includes(String(process.env.LLH_OPERATOR_AI_FIXTURE || "").trim().toLowerCase())
+        || ["1", "true", "yes"].includes(String(process.env.LLH_OPERATOR_PRINTABLE_FIXTURE || "").trim().toLowerCase());
+      if (forceFixture) {
+        const planner = require("../scripts/curriculum-operator-printable-planner.js");
+        return planner.buildOperatorPrintableAiFixtureResponse(userPrompt);
+      }
+      if (typeof callOperatorAi === "function") {
+        return callOperatorAi(systemPrompt, userPrompt);
+      }
+      throw new Error("Printable content planner AI is not configured.");
+    };
+  }
 
   function requireOwner(request, body, response) {
     const session = requireTeachingKitOwnerAdminSession(request, body, response);
@@ -156,7 +171,7 @@ function createCurriculumOperatorApi(deps) {
     }));
     let phaseNote = "Audit/plan only. No curriculum mutations.";
     if (printables) {
-      phaseNote = "Phase 4: activity-driven printables only (KEEP/CREATE/REPLACE/REMOVE/NOT_NEEDED). NOT published. No image regeneration. No new lessons.";
+      phaseNote = "Phase 4.5: intelligent activity-driven printables (AI content plan → validated spec → pdf-lib). NOT published. No image regeneration. No new lessons.";
     } else if (upgrade && images) {
       phaseNote = "Phase 2.5+3: AI draft text + useful activity images into enrichmentDraft. NOT published. No printables.";
     } else if (upgrade) {
@@ -248,6 +263,8 @@ function createCurriculumOperatorApi(deps) {
           versionId: saveResult.versionId,
         };
       },
+      callAi: printableCallAi(),
+      useContentPlanner: true,
     });
 
     if (printableRun.code === "SCOPE_REVIEW_REQUIRED") {
