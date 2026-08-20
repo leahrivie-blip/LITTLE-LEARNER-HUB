@@ -13,9 +13,9 @@ Status after rebuild: resources remain **draft / unpublished** for owner Publish
 | Clinic Zone Signs (Draft) | **REMOVE** | One giant word + blank page; not needed for toddler vet play | — | — |
 | Pet Care Choice Cards (Draft) | **REPLACE** | Right idea (care actions) but blank-template execution | Pet Bath, Brush & Groom, Feed the Pets, Vet Exam | **Pet Care Action Cards** (5 picture cards) |
 
-**New pack**
-1. **Pet Care Action Cards** (5 pages) — wash / brush / feed / listen / rest with clear pictures + short teacher tip. Use: child points to choose next care action at bath/groom/exam centers.
-2. **Pet Friend Picture Cards** (5 pages) — dog, cat, bird, fish, rabbit. Use: Meet the Pets, Animal Investigation, Adoption Center naming/matching.
+**New pack (uploaded as draft)**
+1. **Pet Care Action Cards** (2 cut-sheet pages) — wash / brush / feed / listen / rest picture cards. Use: child points to choose next care action at bath/groom/exam centers.
+2. **Pet Friend Picture Cards** (2 cut-sheet pages) — dog, cat, bird, fish, rabbit. Use: Meet the Pets, Animal Investigation, Adoption Center naming/matching.
 3. **Vet Check Picture Chart** (1 page) — eyes / ears / paws / tummy picture checks. Use: Vet Examination Station.
 
 ---
@@ -27,9 +27,9 @@ Status after rebuild: resources remain **draft / unpublished** for owner Publish
 | Habitat Zone Signs (Draft) | **REMOVE** | Generic zone labels | — | — |
 | Animal Choice Cards (Draft) | **REPLACE** | Giant word + star icon; weak for matching/movement | Habitat Matching, Move Like An Animal, parade | Real animal picture cards + habitat match set |
 
-**New pack**
-1. **Zoo Animal Picture Cards** (6 pages) — lion, monkey, giraffe, zebra, elephant, fish. Use: discovery table, parade, movement cues.
-2. **Animal–Habitat Match Cards** (6 pages / 3 pairs printable as cut cards) — animal + habitat scene pairs. Use: Habitat Matching Game.
+**New pack (uploaded as draft)**
+1. **Zoo Animal Picture Cards** (1 page · 6 cut cards) — lion, monkey, giraffe, zebra, elephant, fish. Use: discovery table, parade, movement cues.
+2. **Animal–Habitat Match Cards** (1 page · 3 animal + 3 habitat cut cards) — match pairs. Use: Habitat Matching Game.
 
 ---
 
@@ -40,10 +40,10 @@ Status after rebuild: resources remain **draft / unpublished** for owner Publish
 | Trail Signs (Draft) | **REMOVE** | Blank TRAIL START style signs | — | — |
 | Day and Night Cards (Draft) | **REPLACE** | Concept useful; layout too empty | Flashlight Exploration, Campfire Story, Owl Flight | Rich day/night scene + hunt cards |
 
-**New pack**
-1. **Day & Night Scene Cards** (4 pages) — sunny day play, sunset camp, night stars, flashlight look. Use: circle talk + flashlight/campfire play.
-2. **Nature Treasure Hunt Cards** (5 pages) — leaf, pinecone, stick, rock, feather. Use: Nature Treasure Hunt (find/match real or tray items).
-3. **Pack the Backpack Cards** (4 pages) — bottle, snack, map, flashlight. Use: Pack the Backpack fine-motor packing game.
+**New pack (uploaded as draft)**
+1. **Day & Night Scene Cards** (1 page · 4 cut cards) — sunny day, camp evening, starry night, flashlight look. Use: circle talk + flashlight/campfire play.
+2. **Nature Treasure Hunt Cards** (1 page · cut cards) — leaf, pinecone, stick, rock, feather. Use: Nature Treasure Hunt.
+3. **Pack the Backpack Cards** (1 page · 4 cut cards) — bottle, snack, map, flashlight. Use: Pack the Backpack packing game.
 
 ---
 
@@ -54,9 +54,9 @@ Status after rebuild: resources remain **draft / unpublished** for owner Publish
 | Ship / Island Zone Signs (Draft) | **REMOVE** | Generic SHIP/ISLAND words | — | — |
 | Photo Treasure Map Template (Draft) | **REPLACE** | Useful purpose but mostly empty box | Follow the Treasure Map, Create a Treasure Map | Illustrated toddler treasure map + coin sort |
 
-**New pack**
+**New pack (uploaded as draft)**
 1. **Toddler Treasure Map** (1 page) — path, island, ship, X; space to stamp/stick treasures. Use: map art + follow-the-map play.
-2. **Gold Coin Cutouts + Sort Mat** (2 pages) — large coins + color/size sort areas. Use: Gold Coin Sorting.
+2. **Gold Coin Sort Mat & Cutouts** (2 pages) — big/little sort mat + large coin cutouts. Use: Gold Coin Sorting.
 
 ---
 
@@ -67,10 +67,10 @@ Status after rebuild: resources remain **draft / unpublished** for owner Publish
 | Helper Zone Signs (Draft) | **REMOVE** | TRAINING/HELPING blank signs | — | — |
 | Kindness Mission Picture Cards (Draft) | **REPLACE** | Right theme; giant HELP-style cards | Kindness Mission Cards, Helping Hands, rescue play | Scene-based mission + movement + badge template |
 
-**New pack**
-1. **Kindness Mission Cards** (5 pages) — help carry, share, clean up, cheer, gentle hands (scene illustrations). Use: Kindness Mission Cards circle + dramatic rescue play.
-2. **Hero Movement Action Cards** (5 pages) — stretch, jump, tiptoe, freeze, fly-arms. Use: Training Obstacle Course, Hero Movement Dance.
-3. **Super Badge Emblem Template** (1 page) — large blank emblem for stickers/markers. Use: Super Badge Creation / Hero Medal.
+**New pack (uploaded as draft)**
+1. **Kindness Mission Cards** (1 page · 6 cut cards) — help carry, share, clean up, cheer, gentle hands. Use: circle + rescue play.
+2. **Hero Movement Action Cards** (1 page · 6 cut cards) — stretch, jump, tiptoe, freeze, fly-arms. Use: obstacle course / hero dance.
+3. **Super Badge Emblem Template** (1 page) — decorate then cut. Use: Super Badge Creation / Hero Medal.
 
 ---
 
@@ -82,10 +82,10 @@ Status after rebuild: resources remain **draft / unpublished** for owner Publish
 | Picture Recipe Cards (Draft) | **REPLACE** | Good purpose; needs real recipe-card look | Make Homemade Applesauce, Mash the Apples | Applesauce picture recipe |
 | Café Menu Picture Cards (Draft) | **REPLACE** | Good purpose; needs menu + order ticket design | Apple Juice Café | Café menu + order tickets |
 
-**New pack**
-1. **Applesauce Picture Recipe** (1 page, 4 steps) — wash hands → mash → stir → optional taste. Use: mash/applesauce stations.
-2. **Apple Juice Café Menu + Order Tickets** (2 pages) — menu board + cut-apart order tickets. Use: Apple Juice Café dramatic play.
-3. **Apple Color Sort Mat + Cutouts** (2 pages) — red/green/yellow apples. Use: kitchen measuring/dramatic play sorting.
+**New pack (uploaded as draft)**
+1. **Applesauce Picture Recipe** (1 page, 4 pictured steps) — wash → mash → stir → optional taste. Use: mash/applesauce stations.
+2. **Apple Juice Café Menu & Order Tickets** (2 pages) — menu board + cut-apart order tickets. Use: Apple Juice Café dramatic play.
+3. **Apple Color Sort Mat & Cutouts** (2 pages) — red/green/yellow apples. Use: sorting / dramatic play.
 
 ---
 
@@ -97,10 +97,10 @@ Status after rebuild: resources remain **draft / unpublished** for owner Publish
 | Oversized Apple Life-Cycle Cards (Draft) | **REPLACE** | Correct purpose; improve sequencing clarity | Life Cycle Sequencing + Review | Proper seed→sprout→tree→apple sequence cards |
 | Seed–Plant–Water Choice Cards (Draft) | **REPLACE** | Correct purpose; improve planting-step clarity | Plant Your Own Apple Seed | Planting steps + counting mat |
 
-**New pack**
-1. **Apple Tree Life Cycle Sequence Cards** (4 pages) — seed, sprout, tree, apple with “1–4” dots for playful order. Use: sequencing + Friday review.
-2. **Planting Steps Cards** (4 pages) — seed, cover, water, grow. Use: Plant Your Own Apple Seed table.
-3. **Apple Tree Counting Mat + Apple Cutouts** (2 pages) — tree mat + 8 large apples. Use: Count the Apples / Orchard Counting Challenge.
+**New pack (uploaded as draft)**
+1. **Apple Tree Life Cycle Sequence Cards** (1 page · 4 cut cards) — seed → sprout → tree → apple. Use: sequencing + Friday review.
+2. **Planting Steps Cards** (1 page · 4 cut cards) — seed, cover, water, grow. Use: Plant Your Own Apple Seed table.
+3. **Apple Tree Counting Mat & Cutouts** (2 pages) — tree mat + 8 large apples. Use: Count the Apples / Orchard Counting Challenge.
 
 ---
 
