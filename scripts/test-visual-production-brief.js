@@ -110,6 +110,22 @@ async function assertImageProviderContract() {
     brief: { generationPrompt: "test prompt", visualStyle: "REALISTIC_CLASSROOM" },
   });
   ok(mocked.buffer?.length > 0, "mock generation returns PNG bytes when VISUAL_PRODUCTION_MOCK_GENERATE=1");
+
+  const overlay = require("../server/visual-production-printable-overlay.js");
+  const brandedFooter = visualProductionImage.buildBrandWatermarkSvg(1024, 1536);
+  ok((brandedFooter.svg.toString("utf8").match(/littlelearnershubbyleah\.com/g) || []).length === 1, "brand footer still appears once after overlay module exists");
+  const printableMock = await visualProductionImage.generateVisualProductionImage({
+    apiKey: "sk-test-visual-production-local",
+    model: "gpt-image-2",
+    brief: {
+      generationPrompt: "test printable prompt",
+      visualStyle: "CLEAN_PRINTABLE",
+      pageTitle: "Color Tummy-Time Cards",
+      pageNumber: 3,
+    },
+  });
+  ok(printableMock.buffer?.length > 0, "printable mock generation still returns PNG bytes");
+  ok(overlay.overlayKindForBrief({ pageTitle: "Black, White + Bright Color Visual Cards" }) === "none", "cards without required text skip overlay");
 }
 
 function requestJson(method, urlPath, body, headers = {}) {
@@ -371,6 +387,7 @@ function assertPackAndColorsPlanContract() {
   ok(!pending.reviewFlags.includes("unmatched_activity"), "pending path does not keep unmatched_activity flag");
 
   const colorsPlan = require("./lib/visual-production-colors-all-around-us-plan.js");
+  const overlay = require("../server/visual-production-printable-overlay.js");
   const planned = colorsPlan.buildColorsAllAroundUsStructuredBriefs({ activities: [] });
   ok(planned.lessonId === "cur-lp-infant-colors-all-around-us", "colors plan uses stable lesson id");
   ok(planned.printablePackId === "vpp-infant-colors-all-around-us", "colors pack id is stable");
@@ -380,31 +397,69 @@ function assertPackAndColorsPlanContract() {
   const pageRows = planned.structuredBriefs.filter((row) => row.printablePackId);
   ok(activityRows.length === 15, "15 activity briefs");
   ok(pageRows.length === 6, "6 printable pack pages");
+  ok(activityRows.map((row) => row.activityName).join("|") === colorsPlan.EXPECTED_ACTIVITY_NAMES.join("|"), "activity briefs follow exact new names, not kit ordinals");
   ok(pageRows.map((row) => row.pageTitle).join("|") === colorsPlan.PAGE_TITLES.join("|"), "printable page titles stay in owner order");
   ok(activityRows.every((row) => !row.activityId), "no invented activity ids when catalog is empty");
   ok(pageRows[5].assetType === "HANDPRINT_FOOTPRINT_TEMPLATE", "keepsake page is a footprint template");
-  ok(pageRows[5].textOverlayRequirements.includes("Name") && pageRows[5].textOverlayRequirements.includes("Date"), "footprint overlay keeps Name/Date");
-  ok(pageRows[4].textOverlayRequirements.some((line) => /look, look, see the bright color/i.test(line)), "song page overlay keeps owner lyrics");
+  ok(pageRows[5].textOverlayRequirements.some((line) => /Name:/i.test(line)) && pageRows[5].textOverlayRequirements.some((line) => /Date:/i.test(line)), "footprint overlay keeps Name/Date");
+  ok(pageRows[4].textOverlayRequirements.some((line) => /Red, red, red so bright/i.test(line)), "song page overlay keeps Rainbow Scarf Song lyrics");
+  ok(pageRows[2].textOverlayRequirements.join("|") === "RED|YELLOW|BLUE|GREEN", "tummy-time labels are exact color names");
+  ok(!pageRows[1].textOverlayRequirements.length, "black/white/bright cards have no extra text overlay");
+  ok(!pageRows[3].textOverlayRequirements.length, "favorite color look cards have no text overlay");
+
+  const linked = colorsPlan.buildColorsAllAroundUsStructuredBriefs({
+    activities: [
+      { id: "cur-act-gallery", itemId: "item-gallery", title: "Color Tummy-Time Gallery" },
+      { id: "cur-act-colors-scarf", title: "Rainbow Scarf Tracking" },
+    ],
+  });
+  const linkedScarf = linked.structuredBriefs.find((row) => row.activityName === "Rainbow Scarf Tracking");
+  const linkedGallery = linked.structuredBriefs.find((row) => row.activityName === "Color Tummy-Time Gallery");
+  ok(linkedScarf.activityId === "cur-act-colors-scarf", "relink uses exact Rainbow Scarf Tracking name, not position 0");
+  ok(linkedGallery.activityId === "cur-act-gallery", "relink uses exact Color Tummy-Time Gallery name even when it is not first");
+  ok(!linked.ambiguousMatches.length, "unique exact names are not ambiguous");
+
+  const ambiguous = colorsPlan.buildColorsAllAroundUsStructuredBriefs({
+    activities: [
+      { id: "cur-act-a", title: "Rainbow Scarf Tracking" },
+      { id: "cur-act-b", title: "Rainbow Scarf Tracking" },
+    ],
+  });
+  ok(ambiguous.ambiguousMatches.some((item) => item.activityName === "Rainbow Scarf Tracking"), "duplicate exact names stop relink");
+  ok(!ambiguous.structuredBriefs.find((row) => row.activityName === "Rainbow Scarf Tracking").activityId, "ambiguous name does not pick an id by position");
 
   const scarf = model.planStructuredVisualBrief({
     ...activityRows[0],
     lessonId: planned.lessonId,
-    activities: [{ id: "cur-act-colors-scarf", title: "Bright Scarf Slow Track" }],
+    activities: [{ id: "cur-act-colors-scarf", title: "Rainbow Scarf Tracking" }],
     allowPendingActivity: true,
   });
   ok(scarf.activityId === "cur-act-colors-scarf" && scarf.activityLinkStatus === "linked", "unique title match links without inventing ids");
   ok(scarf.status === "READY_FOR_REVIEW", "linked colors activity is READY_FOR_REVIEW");
-  ok(scarf.originalInstruction.includes("Caregiver kneeling on mat holding one bright scarf"), "activity originalInstruction keeps owner image brief");
+  ok(scarf.originalInstruction.includes("An adult safely holds one bright scarf"), "activity originalInstruction keeps owner image brief");
 
   const cover = model.planStructuredVisualBrief({
     ...pageRows[0],
     lessonId: planned.lessonId,
-    activities: [{ id: "cur-act-colors-scarf", title: "Bright Scarf Slow Track" }],
+    activities: [{ id: "cur-act-colors-scarf", title: "Rainbow Scarf Tracking" }],
   });
   ok(cover.printablePackId === planned.printablePackId && cover.pageNumber === 1, "cover brief keeps pack fields");
   ok(cover.status === "READY_FOR_REVIEW", "printable cover is READY_FOR_REVIEW");
   ok(/POST-GENERATION TEXT OVERLAY/i.test(cover.generationPrompt), "cover prompt preserves overlay text as post-generation");
   ok(!/require:.*littlelearnershubbyleah\.com/i.test(cover.generationPrompt), "printable prompt does not ask the model to draw the URL");
+
+  const tummySvg = overlay.buildPrintableOverlaySvg(1024, 1536, pageRows[2]);
+  ok(tummySvg.kind === "tummyTimeLabels", "tummy-time overlay kind is selected by page title");
+  ok(tummySvg.exactLines.join("|") === "RED|YELLOW|BLUE|GREEN", "tummy-time overlay spells RED YELLOW BLUE GREEN");
+  ok(!tummySvg.svg.toString("utf8").includes("littlelearnershubbyleah.com"), "printable overlay does not duplicate the brand footer");
+  const songSvg = overlay.buildPrintableOverlaySvg(1024, 1536, pageRows[4]);
+  ok(songSvg.exactLines.includes("Rainbow Scarf Song"), "song overlay includes exact title");
+  ok(songSvg.exactLines.includes("Red, red, red so bright"), "song overlay includes exact lyrics");
+  ok(songSvg.exactLines.includes("Are your eyes following it?"), "song overlay includes exact teacher prompt");
+  const coverSvg = overlay.buildPrintableOverlaySvg(1024, 1536, pageRows[0]);
+  ok(coverSvg.exactLines.includes("Colors All Around Us") && coverSvg.exactLines.includes("Infant Visual & Keepsake Pack"), "cover overlay uses exact pack titles");
+  const footSvg = overlay.buildPrintableOverlaySvg(1024, 1536, pageRows[5]);
+  ok(footSvg.exactLines.includes("My Color Footprint") && footSvg.exactLines.includes("Name: __________"), "footprint overlay uses exact Name/Date lines");
 }
 
 async function main() {
