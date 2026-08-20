@@ -606,8 +606,10 @@ async function main() {
       "Owner publish clears disposable markers on Operator-linked printables");
     ok(indexSrc.includes("Promote linked draft printables now that the lesson is public"),
       "status-only Owner publish promotes draft printables");
-    ok(indexSrc.includes("applyOwnerPublishIdentity"),
+    ok(indexSrc.includes("applySurgicalLessonIdentityFields"),
       "writeSiteCurriculumTouched applies status/publishedAt on surgical Owner publish merges");
+    ok(indexSrc.includes("curriculum-surgical-lesson-identity.js"),
+      "surgical identity helper is wired into writeSiteCurriculumTouched");
     ok(indexSrc.includes("Phase 8 Owner publish must still be able to flip status/publishedAt/teachingKit"),
       "surgical merge documents draft→published identity fields");
   }
