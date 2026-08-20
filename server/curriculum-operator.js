@@ -18,6 +18,7 @@ const songsBooksApi = require("../scripts/curriculum-operator-songs-books.js");
 const orchestrator = require("../scripts/curriculum-operator-orchestrator.js");
 const jobApi = require("../scripts/curriculum-operator-job.js");
 const createApi = require("../scripts/curriculum-operator-create.js");
+const createArchitect = require("../scripts/curriculum-operator-create-architect.js");
 
 const ACTIONS = Object.freeze([
   "parse",
@@ -227,7 +228,7 @@ function createCurriculumOperatorApi(deps) {
     }));
     let phaseNote = "Audit/plan only. No curriculum mutations.";
     if (create) {
-      phaseNote = "Phase 7: create one new draft Teaching Kit via trusted lesson.create, then finish permitted assets. NOT PUBLISHED. Access default Free unless command specifies Free/Pro.";
+      phaseNote = "Phase 7.5: AI lesson architect designs a new draft Teaching Kit, then trusted lesson.create + Phase 6 kit finish. NOT PUBLISHED. Access default Free unless Free/Pro specified. No deterministic production fallback.";
     } else if (phase >= 6 && (upgrade || images || printables || songsBooks)) {
       phaseNote = "Phase 6: full Teaching Kit finish into enrichmentDraft. NOT published. No lesson.create. Cover locked unless explicitly requested.";
     } else if (songsBooks && phase === 5) {
@@ -750,13 +751,36 @@ function createCurriculumOperatorApi(deps) {
       jobApi.appendLog(job, `Duplicate warning acknowledged — continuing create (${dup.message}).`, "warn");
     }
 
-    const contentBuilt = createApi.buildBaseLessonContent(brief);
+    const contentBuilt = await createArchitect.composeNewLessonContent(brief, {
+      callAi: typeof callOperatorAi === "function"
+        ? async (systemPrompt, userPrompt) => {
+          // Prefer create-architect fixture when in fixture mode so upgrade fixture
+          // JSON is not mistaken for a full lesson payload.
+          if (createArchitect.isCreateFixtureMode()) {
+            return createArchitect.buildOperatorCreateArchitectFixtureResponse(userPrompt);
+          }
+          return callOperatorAi(systemPrompt, userPrompt);
+        }
+        : undefined,
+    });
     job.progress.currentAction = "creation.base_content";
+    if (contentBuilt.usage) {
+      job.costCounters.lessonArchitectCalls = (job.costCounters.lessonArchitectCalls || 0)
+        + Number(contentBuilt.usage.lessonArchitectCalls || 0);
+      job.costCounters.lessonRevisionCalls = (job.costCounters.lessonRevisionCalls || 0)
+        + Number(contentBuilt.usage.lessonRevisionCalls || 0);
+      job.costCounters.openaiCalls = (job.costCounters.openaiCalls || 0)
+        + Number(contentBuilt.usage.lessonArchitectCalls || 0)
+        + Number(contentBuilt.usage.lessonRevisionCalls || 0);
+    }
+    if (brief.researchRequested) {
+      jobApi.appendLog(job, "Research requested: RESEARCH_NOT_AVAILABLE (no approved research mechanism).", "info");
+    }
     if (!contentBuilt.ok) {
       return {
         ok: false,
-        code: contentBuilt.code || "content_failed",
-        error: contentBuilt.error || "Base lesson content generation failed.",
+        code: contentBuilt.code || "AI_CREATION_FAILED",
+        error: contentBuilt.error || "AI lesson architect failed.",
         lr: {
           ...lr,
           status: "failed",
@@ -764,11 +788,19 @@ function createCurriculumOperatorApi(deps) {
           creationBriefComplete: true,
           duplicateCheckComplete: true,
           baseContentComplete: false,
+          lessonCreated: false,
           creationBrief: brief,
-          error: contentBuilt.error || "Base lesson content generation failed.",
+          error: contentBuilt.error || "AI lesson architect failed.",
+          code: contentBuilt.code || "AI_CREATION_FAILED",
+          aiUsage: contentBuilt.usage || null,
         },
       };
     }
+    jobApi.appendLog(
+      job,
+      `AI lesson architect ok (${contentBuilt.source || "ai"}; activities=${contentBuilt.activityCount}${contentBuilt.revised ? "; revised" : ""}).`,
+      "info",
+    );
 
     if (typeof createOperatorLessonPlan !== "function") {
       return {

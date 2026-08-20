@@ -247,7 +247,7 @@
           <div>
             <p class="eyebrow">Content · Owner</p>
             <h3>AI Curriculum Operator</h3>
-            <p class="muted-copy">Phase 7: create a new draft Teaching Kit from a command, then finish songs/books/images/printables as allowed. <strong>No publishing.</strong> Open the draft in Owner Admin to review and publish yourself.</p>
+            <p class="muted-copy">Phase 7.5: create a new draft Teaching Kit with the structured AI lesson architect, then finish songs/books/images/printables as allowed. <strong>No publishing.</strong> Open the draft in Owner Admin to review and publish yourself.</p>
           </div>
         </div>
         ${state.message ? `<p class="access-notice ${state.isError ? "error" : ""}" role="status">${esc(state.message)}</p>` : ""}

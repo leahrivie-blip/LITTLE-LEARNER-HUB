@@ -261,7 +261,7 @@ function weekdayProgression(theme, ageBand) {
 
 function activitySeedForDay({ theme, weekday, dayFocus, domain, index, ageBand, ageLabel }) {
   const itemId = structurePaste.generateItemId();
-  const name = `${dayFocus}: ${domain.split("/")[0].trim()}`;
+  const name = `${dayFocus}: ${domain.split("/")[0].trim()} ${index + 1}`;
   const isInfant = ageBand === "infant";
   const isToddler = ageBand === "toddler";
   return {
@@ -317,9 +317,26 @@ function activitySeedForDay({ theme, weekday, dayFocus, domain, index, ageBand, 
 }
 
 /**
- * Deterministic base lesson content (CI / fixture). Optional callAi can refine later.
+ * Deterministic base lesson content — CI / explicit fixture harness ONLY.
+ * Production Operator create must use composeNewLessonContent (Phase 7.5 architect).
+ * Never call this as a silent fallback when AI fails.
  */
-function buildBaseLessonContent(brief, { callAi } = {}) {
+function buildBaseLessonContent(brief, { allowDeterministicFixture = false } = {}) {
+  if (!allowDeterministicFixture && process.env.NODE_ENV !== "test") {
+    const flag = String(process.env.LLH_OPERATOR_AI_FIXTURE || "").trim().toLowerCase();
+    if (!["1", "true", "yes"].includes(flag)) {
+      return {
+        ok: false,
+        code: "AI_CREATION_FAILED",
+        error: "Deterministic base content is fixture-only. Production create requires the AI lesson architect.",
+      };
+    }
+  }
+  // Legacy deterministic builder retained for older unit tests that opt in.
+  return buildDeterministicFixtureContent(brief);
+}
+
+function buildDeterministicFixtureContent(brief) {
   const theme = text(brief.theme || brief.title, 80) || "Theme";
   const ageBand = brief.ageBand || "preschool";
   const ageLabelText = brief.ageLabel || ageLabel(ageBand);
@@ -367,7 +384,7 @@ function buildBaseLessonContent(brief, { callAi } = {}) {
     plan: brief.accessPlan === "Pro" ? "Pro" : "Free",
     status: "draft",
     weeklyOverview: `${theme} week for ${ageLabelText}: children explore through a Monday–Friday progression from introduction to celebration.`,
-    objectives: `Children will explore ${theme.toLowerCase()} through varied play, language, and movement matched to ${ageLabelText}.`,
+    objectives: `During ${theme} week, ${ageLabelText} children practice concrete play skills across domains with prepared materials and short teacher coaching.`,
     weeklyMaterials: `Theme props for ${theme}, trays, labels, books, and open-ended art/sensory materials.`,
     familyConnection: `Share one ${theme.toLowerCase()} word or photo from home and invite families to notice the same idea outdoors.`,
     observationOpportunities: "Notice engagement, new vocabulary, motor planning, and peer interaction across the week.",
@@ -397,18 +414,13 @@ function buildBaseLessonContent(brief, { callAi } = {}) {
     songs: [],
   };
 
-  // Optional AI refine hook (fixture-safe); base content is already valid without it
-  if (typeof callAi === "function") {
-    // Keep deterministic path as source of truth for CI; AI may only add notes.
-    payload.aiRefined = false;
-  }
-
   return {
     ok: true,
     content: payload,
     activityCount: target,
     progression,
     usage: { composerCalls: 0 },
+    source: "deterministic_fixture",
   };
 }
 
@@ -463,17 +475,30 @@ function qualityReviewNewLesson({ brief, lessonPlan, activities }) {
   const acts = schema.asArray(activities).filter((a) => a.lessonPlanId === lessonPlan?.id);
   if (!text(lessonPlan?.weeklyOverview, 40)) issues.push("missing_weekly_overview");
   if (!text(lessonPlan?.objectives, 20)) issues.push("missing_objectives");
+  const target = schema.clampInt(brief?.activityTarget, 4, 24, defaultActivityTarget(brief?.ageBand));
+  if (brief?.activityTarget && acts.length !== target) {
+    issues.push(`activity_count_mismatch:${acts.length}!=${target}`);
+  }
   if (acts.length < 4) issues.push("too_few_activities");
   const titles = acts.map((a) => text(a.title, 120).toLowerCase());
-  if (new Set(titles).size < Math.ceil(titles.length * 0.75)) issues.push("duplicate_activity_titles");
+  if (new Set(titles).size < titles.length) issues.push("duplicate_activity_titles");
+  for (let i = 0; i < titles.length; i += 1) {
+    for (let j = i + 1; j < titles.length; j += 1) {
+      if (similarityScore(titles[i], titles[j]) >= 0.75) {
+        issues.push(`similar_titles:${titles[i]}~${titles[j]}`);
+      }
+    }
+  }
   const days = new Set(acts.map((a) => text(a.dayOfWeek, 20).toLowerCase()).filter(Boolean));
-  if (days.size < 3) issues.push("weak_weekday_coverage");
+  if (days.size < 4) issues.push("weak_weekday_coverage");
   const ageBand = brief?.ageBand;
   if (ageBand === "infant" && acts.some((a) => /worksheet|cut out|tiny bead/i.test(`${a.title} ${a.steps}`))) {
     issues.push("infant_inappropriate");
   }
-  const generic = acts.filter((a) => /children will learn about|set out materials|what do you see/i.test(`${a.objective} ${a.steps}`));
-  if (generic.length > Math.ceil(acts.length / 3)) issues.push("generic_filler");
+  const generic = acts.filter((a) => /children will learn about|set out materials|what do you see|let children explore/i.test(`${a.objective} ${a.steps}`));
+  if (generic.length > 0) issues.push("generic_filler");
+  const domains = new Set(acts.map((a) => text(a.activityCategory || a.category, 80).toLowerCase()).filter(Boolean));
+  if (acts.length >= 8 && domains.size < 4) issues.push("weak_domain_variety");
   return {
     ok: issues.length === 0,
     issues,
@@ -481,13 +506,9 @@ function qualityReviewNewLesson({ brief, lessonPlan, activities }) {
 }
 
 function buildOperatorCreateAiFixtureResponse(userPrompt) {
-  // Deterministic: ignore model creativity; signal fixture ok
-  return JSON.stringify({
-    ok: true,
-    fixture: true,
-    note: "Phase 7 create uses deterministic base content in CI.",
-    echo: text(userPrompt, 200),
-  });
+  // Delegate to Phase 7.5 architect fixture (lazy require avoids circular load).
+  const architect = require("./curriculum-operator-create-architect.js");
+  return architect.buildOperatorCreateArchitectFixtureResponse(userPrompt);
 }
 
 function isCreateLessonCommand(rawCommand) {
@@ -508,6 +529,7 @@ module.exports = {
   similarityScore,
   weekdayProgression,
   buildBaseLessonContent,
+  buildDeterministicFixtureContent,
   buildLessonPlanPayload,
   validateCreatedIds,
   qualityReviewNewLesson,

@@ -169,9 +169,12 @@ async function main() {
   }, library);
   ok(distinct.ok === true, "distinct same-theme lesson allowed");
 
-  console.log("Base content");
-  const content = createApi.buildBaseLessonContent(bakery.brief);
-  ok(content.ok === true, "base content builds");
+  console.log("Base content (fixture architect)");
+  const content = await (async () => {
+    const architect = require("./curriculum-operator-create-architect.js");
+    return architect.composeNewLessonContent(bakery.brief, { forceFixture: true });
+  })();
+  ok(content.ok === true, "architect fixture content builds");
   ok(content.activityCount === 15, "activity count respected");
   const days = Object.keys(content.content.dailyPlans);
   ok(days.length === 5, "weekday structure present");
@@ -184,6 +187,13 @@ async function main() {
   const payload = createApi.buildLessonPlanPayload(bakery.brief, content.content);
   ok(payload.status === "draft", "payload status draft");
   ok(payload.plan === "Free", "payload access Free");
+
+  // Deterministic builder remains fixture-only (no production fallback)
+  const blockedDet = createApi.buildBaseLessonContent(bakery.brief, {});
+  // NODE_ENV=test still allows it for harnesses — assert opt-in path exists
+  const det = createApi.buildBaseLessonContent(bakery.brief, { allowDeterministicFixture: true });
+  ok(det.ok === true && det.source === "deterministic_fixture", "deterministic builder available only as explicit fixture");
+  ok(blockedDet.ok === true || blockedDet.code === "AI_CREATION_FAILED", "non-opt-in path gated or test-env allowed");
 
   console.log("Commands / schema");
   const createCmd = commandApi.parseOperatorCommand(

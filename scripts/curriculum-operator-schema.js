@@ -641,6 +641,8 @@ function emptyCostCounters() {
     bookGuideCalls: 0,
     booksLinked: 0,
     bookGuidesImproved: 0,
+    lessonArchitectCalls: 0,
+    lessonRevisionCalls: 0,
   };
 }
 
