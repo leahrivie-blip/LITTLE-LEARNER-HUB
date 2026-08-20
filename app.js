@@ -11017,10 +11017,10 @@ function beginAdminReplaceLessonConfirm() {
     renderAdminCreateLessonPlanDialog();
     return;
   }
-  if (comparison && comparison.ok === false) {
+  if (!comparison || comparison.ok !== true) {
     adminCreateLessonPlanUi.step = "paste";
-    adminCreateLessonPlanUi.error = (comparison.errors || []).join(" ")
-      || "Incoming activity mapping is ambiguous. Lesson was not replaced.";
+    adminCreateLessonPlanUi.error = (comparison?.errors || []).join(" ")
+      || "Preview this lesson’s paste before confirming replacement.";
     renderAdminCreateLessonPlanDialog();
     return;
   }
@@ -11030,17 +11030,36 @@ function beginAdminReplaceLessonConfirm() {
 }
 
 async function confirmAdminReplaceLessonPaste() {
+  if (adminCreateLessonPlanUi.creating) return;
   const api = curriculumLessonStructurePasteApi();
   const parsed = adminCreateLessonPlanUi.parsed;
+  const comparison = adminCreateLessonPlanUi.replaceComparison;
+  const targetId = String(adminCreateLessonPlanUi.targetLessonId || "").trim();
+  const snapshotId = String(adminCreateLessonPlanUi.currentSnapshot?.id || "").trim();
   if (!api || !parsed?.ok) {
+    adminCreateLessonPlanUi.creating = false;
     adminCreateLessonPlanUi.error = "Preview the paste before replacing this lesson.";
     adminCreateLessonPlanUi.step = "paste";
     renderAdminCreateLessonPlanDialog();
     return;
   }
+  if (!comparison || comparison.ok !== true) {
+    adminCreateLessonPlanUi.creating = false;
+    adminCreateLessonPlanUi.step = "paste";
+    adminCreateLessonPlanUi.error = (comparison?.errors || []).join(" ")
+      || "Incoming activity mapping is ambiguous. Lesson was not replaced.";
+    renderAdminCreateLessonPlanDialog();
+    return;
+  }
+  if (!targetId || (snapshotId && snapshotId !== targetId)) {
+    adminCreateLessonPlanUi.creating = false;
+    adminCreateLessonPlanUi.step = "paste";
+    adminCreateLessonPlanUi.error = "Preview the current lesson before confirming replacement.";
+    renderAdminCreateLessonPlanDialog();
+    return;
+  }
   adminCreateLessonPlanUi.creating = true;
   renderAdminCreateLessonPlanDialog();
-  const targetId = String(adminCreateLessonPlanUi.targetLessonId || "").trim();
   try {
     const lessonPlan = api.buildCanonicalLessonPlan(parsed, {
       id: targetId,

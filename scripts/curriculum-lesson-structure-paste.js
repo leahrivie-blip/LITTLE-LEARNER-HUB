@@ -1177,8 +1177,8 @@
 
   /**
    * Match incoming parsed activities to existing lesson activities.
-   * Unique weekday+title (including equal-count order) wins; unique title is a
-   * weekday-move fallback. Duplicate counts that cannot be paired fail closed.
+   * Unique 1:1 weekday+title wins; unique title is a weekday-move fallback.
+   * Same-title duplicates on one weekday fail closed (no order-based pairing).
    * @param {unknown} existingActivities
    * @param {unknown} incomingDailyPlans
    */
@@ -1221,7 +1221,7 @@
       const exRows = (existingByDayTitle.get(key) || []).filter((row) => !usedExisting.has(row._idx));
       const inRows = (incomingByDayTitle.get(key) || []).filter((row) => !matchedIncoming.has(`${row.day}:${row.index}`));
       if (!exRows.length && !inRows.length) return;
-      if (exRows.length && inRows.length && exRows.length !== inRows.length) {
+      if (exRows.length && inRows.length && (exRows.length !== 1 || inRows.length !== 1)) {
         inRows.forEach((row) => {
           blockedIncoming.add(`${row.day}:${row.index}`);
           details.push({
@@ -1232,8 +1232,8 @@
         });
         return;
       }
-      if (exRows.length && inRows.length && exRows.length === inRows.length) {
-        inRows.forEach((row, index) => markMatch(row, exRows[index], "day_title"));
+      if (exRows.length === 1 && inRows.length === 1) {
+        markMatch(inRows[0], exRows[0], "day_title");
       }
     });
 
@@ -1305,10 +1305,12 @@
   /**
    * Reuse existing activity itemIds + asset fields on the canonical plan
    * produced by buildCanonicalLessonPlan. Does not re-parse paste.
+   * Unmatched incoming activities never reuse occupied/archived itemIds.
    * @param {object} incomingPlan
    * @param {ReturnType<typeof matchMasterPasteActivitiesToExisting>} matchResult
+   * @param {{ occupiedItemIds?: unknown[] }} [options]
    */
-  function applyMasterPasteActivityMatches(incomingPlan, matchResult) {
+  function applyMasterPasteActivityMatches(incomingPlan, matchResult, options = {}) {
     const plan = incomingPlan && typeof incomingPlan === "object" ? { ...incomingPlan } : {};
     if (!matchResult || matchResult.ok !== true) return plan;
     /** @type {Map<string, object>} */
@@ -1316,6 +1318,15 @@
     (matchResult.matches || []).forEach((row) => {
       const incomingId = text(row?.incoming?.itemId);
       if (incomingId) byIncomingItemId.set(incomingId, row.existing);
+    });
+    const occupied = new Set();
+    (Array.isArray(options.occupiedItemIds) ? options.occupiedItemIds : []).forEach((id) => {
+      const key = text(id);
+      if (key) occupied.add(key);
+    });
+    (matchResult.matches || []).forEach((row) => {
+      const kept = text(row?.existing?.itemId);
+      if (kept) occupied.add(kept);
     });
     const sourcePlans = plan.dailyPlans && typeof plan.dailyPlans === "object" ? plan.dailyPlans : {};
     const nextDaily = emptyDailyPlans();
@@ -1328,16 +1339,27 @@
         items: (Array.isArray(dayPlan.items) ? dayPlan.items : []).map((item) => {
           if (!item || typeof item !== "object") return item;
           const existing = byIncomingItemId.get(text(item.itemId));
-          if (!existing) return { ...item };
-          const preservedId = text(existing.itemId) || text(item.itemId);
-          if (text(item.itemId) && preservedId && text(item.itemId) !== preservedId) {
-            itemIdRemap[text(item.itemId)] = preservedId;
+          if (existing) {
+            const preservedId = text(existing.itemId) || text(item.itemId);
+            if (text(item.itemId) && preservedId && text(item.itemId) !== preservedId) {
+              itemIdRemap[text(item.itemId)] = preservedId;
+            }
+            const next = { ...item, itemId: preservedId };
+            MASTER_PASTE_ASSET_FIELDS.forEach((field) => {
+              next[field] = existing[field] || "";
+            });
+            if (preservedId) occupied.add(preservedId);
+            return next;
           }
-          const next = { ...item, itemId: preservedId };
-          MASTER_PASTE_ASSET_FIELDS.forEach((field) => {
-            next[field] = existing[field] || "";
-          });
-          return next;
+          let itemId = text(item.itemId);
+          if (!itemId || occupied.has(itemId)) {
+            let nextId = generateItemId();
+            while (occupied.has(nextId)) nextId = generateItemId();
+            if (itemId && itemId !== nextId) itemIdRemap[itemId] = nextId;
+            itemId = nextId;
+          }
+          occupied.add(itemId);
+          return { ...item, itemId };
         }),
       };
     });

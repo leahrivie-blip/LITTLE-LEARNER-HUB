@@ -87,6 +87,7 @@ function writeEmptyStore(extraCurriculum = {}) {
   fs.writeFileSync(STORE_PATH, JSON.stringify({
     users: {},
     siteContent: {
+      featureFlags: { teachingKitEnrichmentEditor: true },
       curriculum: {
         lessonPlans: [],
         activities: [],
@@ -243,7 +244,93 @@ function assertActivityMatchingUnit() {
   );
   assert.equal(ambiguous.ok, false);
   assert.equal(ambiguous.details[0].reason, "ambiguous_day_title_count");
-  console.log("PASS  matching  unique day+title preserves itemId/assets; unequal duplicate counts fail closed");
+
+  const equalDuplicates = matchMasterPasteActivitiesToExisting(
+    [
+      { id: "a", itemId: "i1", title: "Circle Time", dayOfWeek: "monday", status: "draft" },
+      { id: "b", itemId: "i2", title: "Circle Time", dayOfWeek: "monday", status: "draft" },
+    ],
+    {
+      monday: {
+        items: [
+          { itemId: "n1", title: "Circle Time" },
+          { itemId: "n2", title: "Circle Time" },
+        ],
+      },
+    },
+  );
+  assert.equal(equalDuplicates.ok, false, "same title twice on the same weekday must fail closed");
+
+  const countDiff = matchMasterPasteActivitiesToExisting(
+    [
+      { id: "a", itemId: "i1", title: "Circle Time", dayOfWeek: "monday", status: "draft" },
+      { id: "b", itemId: "i2", title: "Circle Time", dayOfWeek: "monday", status: "draft" },
+    ],
+    { monday: { items: [{ itemId: "n1", title: "Circle Time" }] } },
+  );
+  assert.equal(countDiff.ok, false, "existing vs incoming count mismatch on the same title must fail closed");
+
+  const splitDays = matchMasterPasteActivitiesToExisting(
+    [
+      { id: "a", itemId: "i1", title: "Circle Time", dayOfWeek: "monday", status: "draft" },
+      { id: "b", itemId: "i2", title: "Circle Time", dayOfWeek: "tuesday", status: "draft" },
+    ],
+    {
+      monday: { items: [{ itemId: "n1", title: "Circle Time" }] },
+      tuesday: { items: [{ itemId: "n2", title: "Circle Time" }] },
+    },
+  );
+  assert.equal(splitDays.ok, true);
+  assert.equal(splitDays.matches.length, 2);
+
+  const moved = matchMasterPasteActivitiesToExisting(
+    [{
+      id: "cur-act-keep",
+      itemId: "item-keep-rainbow",
+      title: "Rainbow Coffee Filter Art",
+      dayOfWeek: "thursday",
+      status: "draft",
+      setupImageUrl: SETUP_URL,
+    }],
+    { monday: { items: [{ itemId: "fresh", title: "Rainbow Coffee Filter Art" }] } },
+  );
+  assert.equal(moved.ok, true);
+  assert.equal(moved.matches[0].strategy, "title");
+  assert.equal(moved.matches[0].existing.itemId, "item-keep-rainbow");
+
+  const normalized = matchMasterPasteActivitiesToExisting(
+    [{
+      id: "cur-act-keep",
+      itemId: "item-keep-rainbow",
+      title: "Rainbow Coffee Filter Art",
+      dayOfWeek: "thursday",
+      status: "draft",
+    }],
+    { thursday: { items: [{ itemId: "fresh", title: "  RAINBOW   Coffee Filter Art  " }] } },
+  );
+  assert.equal(normalized.ok, true);
+  assert.equal(normalized.matches[0].existing.itemId, "item-keep-rainbow");
+
+  const stolen = applyMasterPasteActivityMatches(
+    {
+      dailyPlans: {
+        monday: { items: [{ itemId: "item-keep-rainbow", title: "Cloud Watching Walk" }] },
+        tuesday: { items: [] },
+        wednesday: { items: [] },
+        thursday: { items: [] },
+        friday: { items: [] },
+      },
+    },
+    {
+      ok: true,
+      matches: [],
+      added: [{ day: "monday", index: 0, title: "Cloud Watching Walk", itemId: "item-keep-rainbow" }],
+      removed: [],
+    },
+    { occupiedItemIds: ["item-keep-rainbow"] },
+  );
+  assert.notEqual(stolen.dailyPlans.monday.items[0].itemId, "item-keep-rainbow");
+  console.log("PASS  matching  unique day+title preserves itemId/assets; duplicates and archived-id reuse fail closed");
 }
 
 async function stampLessonAssets(token, expectedUpdatedAt, lessonPlan, options) {
@@ -309,7 +396,7 @@ async function createDraftFromPaste(token, expectedUpdatedAt, pasteText, extra =
 async function replaceFromPaste(token, expectedUpdatedAt, lessonId, pasteText, extra = {}) {
   const parsed = parseFullLessonStructurePaste(pasteText);
   assert.equal(parsed.ok, true, parsed.errors.join("; "));
-  const plan = buildCanonicalLessonPlan(parsed, { id: lessonId, lastEditedBy: OWNER.email });
+  const plan = extra.lessonPlan || buildCanonicalLessonPlan(parsed, { id: lessonId, lastEditedBy: OWNER.email });
   const saved = await requestJson("POST", "/api/admin/curriculum/lesson-plans/replace-from-master-paste", {
     expectedUpdatedAt,
     saveMode: "replace_from_master_paste",
@@ -376,7 +463,10 @@ function assertStaticContract() {
   assert.match(appJs, /Confirm Replacement/);
   assert.match(appJs, /Replace Lesson Content/);
   assert.match(appJs, /replace-from-master-paste/);
-  assert.match(appJs, /confirmReplaceExistingLesson: true/);
+  assert.match(appJs, /if \(adminCreateLessonPlanUi.creating\) return;/);
+  assert.match(appJs, /if \(!comparison \|\| comparison\.ok !== true\)/);
+  assert.match(appJs, /snapshotId !== targetId/);
+  assert.match(appJs, /replaceComparison: null/);
   assert.match(appJs, /EXISTING LESSON → INCOMING MASTER PASTE/);
   assert.match(appJs, /ACTIVITIES BEING UPDATED/);
   assert.match(appJs, /ACTIVITIES BEING ADDED/);
@@ -385,12 +475,15 @@ function assertStaticContract() {
   assert.match(serverSrc, /function snapshotMasterPasteReplaceState\(/);
   assert.match(serverSrc, /confirmReplaceExistingLesson/);
   assert.match(serverSrc, /matchMasterPasteActivitiesToExisting/);
+  assert.match(serverSrc, /occupiedItemIds/);
   assert.match(serverSrc, /replace_from_master_paste/);
   assert.match(serverSrc, /lesson-plans\/replace-from-master-paste/);
   const pasteSrc = fs.readFileSync(path.join(ROOT, "scripts/curriculum-lesson-structure-paste.js"), "utf8");
   assert.match(pasteSrc, /function matchMasterPasteActivitiesToExisting\(/);
   assert.match(pasteSrc, /function applyMasterPasteActivityMatches\(/);
   assert.match(pasteSrc, /function parseFullLessonStructurePaste\(/);
+  assert.match(appJs, /api\.parseFullLessonStructurePaste\(/);
+  assert.match(appJs, /api\.buildCanonicalLessonPlan\(/);
   console.log("PASS  static contract: Replace From Master Paste UI + owner endpoint");
 }
 
@@ -500,6 +593,8 @@ async function runOwnerReplaceTests() {
     console.log("PASS  D  shrinking replacement leaves exactly 15 associated activities");
 
     const beforeFail = JSON.parse(fs.readFileSync(STORE_PATH, "utf8"));
+    const beforeFailPlan = beforeFail.siteContent.curriculum.lessonPlans.find((p) => p.id === originalId);
+    const historyBeforeFail = (beforeFailPlan.enrichmentPublishHistory || []).map((item) => item.versionId);
     const fail = await replaceFromPaste(token, expectedUpdatedAt, originalId, twenty.paste, {
       simulateActivityWriteFailure: true,
     });
@@ -510,11 +605,16 @@ async function runOwnerReplaceTests() {
       .find((item) => item.id === originalId);
     const afterFailActs = (afterFailGet.json.siteContent?.curriculum?.activities || [])
       .filter((item) => item.lessonPlanId === originalId && item.status !== "archived");
-    assert.equal(afterFailPlan.title, beforeFail.siteContent.curriculum.lessonPlans.find((p) => p.id === originalId).title);
+    assert.equal(afterFailPlan.title, beforeFailPlan.title);
     assert.equal(afterFailActs.length, 15);
     assert.ok(findActivity(afterFailActs, "Monday Mark Making"));
     assert.ok(!findActivity(afterFailActs, "Rainbow Coffee Filter Art"));
-    console.log("PASS  E  simulated activity write failure does not leave a partial replace");
+    assert.deepEqual(
+      (afterFailPlan.enrichmentPublishHistory || []).map((item) => item.versionId),
+      historyBeforeFail,
+      "failed replacement must not write a successful paste_replace history row",
+    );
+    console.log("PASS  E  simulated activity write failure does not leave a partial replace or history snapshot");
 
     const rainbowOnly = await replaceFromPaste(
       token,
@@ -598,6 +698,22 @@ async function runOwnerReplaceTests() {
     const rainbowActivityId = rainbowBefore.id;
     const rainbowItemId = rainbowBefore.itemId;
     const briefsBeforeRainbow = JSON.stringify(readVisualBriefs());
+    const overviewBeforeReplace = rainbowMeta.json.lessonPlan.weeklyOverview;
+
+    const mondayRainbowPaste = rainbowCoffeeFilterArtFixture().paste.replace("Weekday\nThursday", "Weekday\nMonday");
+    const moved = await replaceFromPaste(token, expectedUpdatedAt, RAINBOW_LESSON_ID, mondayRainbowPaste);
+    assert.equal(moved.saved.status, 200, moved.saved.text);
+    expectedUpdatedAt = moved.saved.json.siteContentUpdatedAt;
+    const movedAct = findActivity(activeActivities(moved.saved.json, RAINBOW_LESSON_ID), "Rainbow Coffee Filter Art");
+    assert.equal(movedAct.id, rainbowActivityId, "weekday-move preserves activity id");
+    assert.equal(movedAct.itemId, rainbowItemId);
+    assert.equal(movedAct.dayOfWeek, "monday");
+    assert.equal(movedAct.setupImageUrl, SETUP_URL);
+    assert.equal(movedAct.exampleImageUrl, EXAMPLE_URL);
+    assert.equal(movedAct.setupMediaAssetId, SETUP_ASSET);
+    assert.equal(movedAct.exampleMediaAssetId, EXAMPLE_ASSET);
+    assert.equal(moved.saved.json.lessonPlan.coverImageUrl, COVER_URL);
+    console.log("PASS  5b  same title moved to another weekday keeps itemId and images");
 
     const updatedOverviewPaste = rainbowCoffeeFilterArtFixture().paste
       .replace(
@@ -629,6 +745,35 @@ async function runOwnerReplaceTests() {
     assert.equal(JSON.stringify(readVisualBriefs()), briefsBeforeRainbow);
     console.log("PASS  1-6/8-9  identity, Pro, cover, images, printables, visual production preserved; text updated");
 
+    const historyEntry = (identityPlan.enrichmentPublishHistory || []).find((item) => item.kind === "paste_replace");
+    assert.ok(historyEntry?.versionId, "paste_replace snapshot exists before commit");
+    assert.equal(historyEntry.snapshot?.title, "Weather Watchers");
+    assert.match(historyEntry.snapshot?.weeklyOverview || "", /Children explore weather/);
+    const rollback = await requestJson("POST", "/api/admin/curriculum/enrichment-rollback", {
+      expectedUpdatedAt,
+      planId: RAINBOW_LESSON_ID,
+      versionId: historyEntry.versionId,
+      publishedBy: OWNER.email,
+    }, token);
+    assert.equal(rollback.status, 200, rollback.text);
+    assert.equal(rollback.json.autoPublished, false);
+    expectedUpdatedAt = rollback.json.siteContentUpdatedAt;
+    const rolledPlan = rollback.json.lessonPlan;
+    assert.equal(rolledPlan.id, RAINBOW_LESSON_ID);
+    assert.equal(rolledPlan.plan, "Pro");
+    assert.equal(rolledPlan.status, "draft");
+    assert.equal(rolledPlan.coverImageUrl, COVER_URL);
+    assert.deepEqual(rolledPlan.resourceIds, [RESOURCE_ID]);
+    assert.equal(rolledPlan.weeklyOverview, overviewBeforeReplace);
+    const rolledActs = activeActivities(rollback.json, RAINBOW_LESSON_ID);
+    const rolledRainbow = findActivity(rolledActs, "Rainbow Coffee Filter Art");
+    assert.equal(rolledRainbow.id, rainbowActivityId);
+    assert.equal(rolledRainbow.itemId, rainbowItemId);
+    assert.equal(rolledRainbow.setupImageUrl, SETUP_URL);
+    assert.equal(rolledRainbow.exampleImageUrl, EXAMPLE_URL);
+    assert.equal(JSON.stringify(readVisualBriefs()), briefsBeforeRainbow);
+    console.log("PASS  11  paste_replace rollback restores prior body, activities, images, resources, Free/Pro, cover; no auto-publish");
+
     const addPaste = `${updatedOverviewPaste}\n\n${RAINBOW_COFFEE_FILTER_ART_ACTIVITY
       .replace("Rainbow Coffee Filter Art", "Cloud Watching Walk")
       .replace("Weekday\nThursday", "Weekday\nMonday")
@@ -646,6 +791,83 @@ async function runOwnerReplaceTests() {
     assert.equal(added.saved.json.lessonPlan.plan, "Pro");
     assert.equal(added.saved.json.lessonPlan.status, "draft");
     console.log("PASS  10  new activities can be added without replacing matched IDs");
+
+    const stealPaste = rainbowCoffeeFilterArtFixture().paste
+      .replace("Rainbow Coffee Filter Art", "Puddle Splashing")
+      .replace("Weekday\nThursday", "Weekday\nMonday")
+      .replace("Activity weekday\nThursday", "Activity weekday\nMonday");
+    const stealParsed = parseFullLessonStructurePaste(stealPaste);
+    assert.equal(stealParsed.ok, true, stealParsed.errors.join("; "));
+    const stealPlan = buildCanonicalLessonPlan(stealParsed, {
+      id: RAINBOW_LESSON_ID,
+      lastEditedBy: OWNER.email,
+    });
+    (stealPlan.dailyPlans.monday.items || []).forEach((item) => {
+      item.itemId = keptRainbow.itemId;
+    });
+    expectedUpdatedAt = added.saved.json.siteContentUpdatedAt;
+    const stolen = await replaceFromPaste(token, expectedUpdatedAt, RAINBOW_LESSON_ID, stealPaste, {
+      lessonPlan: stealPlan,
+    });
+    assert.equal(stolen.saved.status, 200, stolen.saved.text);
+    expectedUpdatedAt = stolen.saved.json.siteContentUpdatedAt;
+    const stolenActs = activeActivities(stolen.saved.json, RAINBOW_LESSON_ID);
+    const puddle = findActivity(stolenActs, "Puddle Splashing");
+    assert.ok(puddle?.id);
+    assert.notEqual(puddle.itemId, keptRainbow.itemId, "new activities must not reuse archived itemIds");
+    assert.notEqual(puddle.id, keptRainbow.id);
+    assert.match(puddle.itemId, /^item-/);
+    const archivedRainbow = (stolen.saved.json.activities || []).find((item) => (
+      item.lessonPlanId === RAINBOW_LESSON_ID && item.id === keptRainbow.id && item.status === "archived"
+    ));
+    assert.ok(archivedRainbow, "unmatched rainbow row stays archived");
+    assert.equal(archivedRainbow.itemId, keptRainbow.itemId);
+    assert.equal(archivedRainbow.setupImageUrl, SETUP_URL);
+    assert.equal(archivedRainbow.exampleImageUrl, EXAMPLE_URL);
+    assert.equal(archivedRainbow.setupMediaAssetId, SETUP_ASSET);
+    assert.equal(archivedRainbow.exampleMediaAssetId, EXAMPLE_ASSET);
+    console.log("PASS  7  new activities do not steal archived itemIds or images");
+
+    const historyBeforeDouble = (stolen.saved.json.lessonPlan.enrichmentPublishHistory || [])
+      .filter((item) => item.kind === "paste_replace");
+    const stampForDouble = expectedUpdatedAt;
+    const firstDup = await replaceFromPaste(
+      token,
+      stampForDouble,
+      RAINBOW_LESSON_ID,
+      rainbowCoffeeFilterArtFixture().paste,
+    );
+    assert.equal(firstDup.saved.status, 200, firstDup.saved.text);
+    const secondDup = await replaceFromPaste(
+      token,
+      stampForDouble,
+      RAINBOW_LESSON_ID,
+      rainbowCoffeeFilterArtFixture().paste,
+    );
+    assert.equal(secondDup.saved.status, 409, secondDup.saved.text);
+    assert.equal(secondDup.saved.json.conflict, true);
+    const afterDouble = await requestJson("GET", "/api/admin/site-content", null, token);
+    const afterDoublePlan = (afterDouble.json.siteContent?.curriculum?.lessonPlans || [])
+      .find((item) => item.id === RAINBOW_LESSON_ID);
+    const afterDoubleActs = (afterDouble.json.siteContent?.curriculum?.activities || [])
+      .filter((item) => item.lessonPlanId === RAINBOW_LESSON_ID && item.status !== "archived");
+    const afterDoubleArchived = (afterDouble.json.siteContent?.curriculum?.activities || [])
+      .filter((item) => item.lessonPlanId === RAINBOW_LESSON_ID && item.status === "archived");
+    const historyAfterDouble = (afterDoublePlan.enrichmentPublishHistory || [])
+      .filter((item) => item.kind === "paste_replace");
+    assert.equal(afterDoubleActs.length, activeActivities(firstDup.saved.json, RAINBOW_LESSON_ID).length);
+    assert.equal(
+      historyAfterDouble.length,
+      historyBeforeDouble.length + 1,
+      "duplicate confirm must not write a second paste_replace snapshot",
+    );
+    assert.equal(
+      afterDoubleArchived.filter((item) => item.id === keptRainbow.id).length,
+      1,
+      "duplicate confirm must not archive the same row twice as divergent copies",
+    );
+    expectedUpdatedAt = afterDouble.json.siteContent.updatedAt;
+    console.log("PASS  13  sequential double-submit is rejected by expectedUpdatedAt; no duplicate activities or history");
 
     const parseFail = parseFullLessonStructurePaste("this is not a master lesson paste");
     assert.equal(parseFail.ok, false);

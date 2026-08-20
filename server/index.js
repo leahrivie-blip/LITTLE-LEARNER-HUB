@@ -22356,22 +22356,27 @@ async function handleEnrichmentRollback(request, response) {
       }),
       updatedAt: existingPlan.updatedAt,
     });
-    const restoredActivities = Array.isArray(snap.activities) ? snap.activities : [];
+    const restoredActivities = Array.isArray(snap.activities) ? cloneJson(snap.activities) : [];
+    const restoredIds = new Set(restoredActivities.map((item) => item?.id).filter(Boolean));
+    const leftover = (curriculum.activities || [])
+      .filter((item) => item && item.lessonPlanId === planId && item.id && !restoredIds.has(item.id))
+      .map((item) => ({
+        ...item,
+        status: "archived",
+        updatedAt: now,
+      }));
+    const activitiesToWrite = restoredActivities.concat(leftover);
     const otherActivities = (curriculum.activities || []).filter((item) => item.lessonPlanId !== planId);
     const nextCurriculum = normalizedCurriculumStore({
       ...curriculum,
       lessonPlans: (curriculum.lessonPlans || []).map((item) => (item.id === planId ? restoredPlan : item)),
-      activities: [...otherActivities, ...restoredActivities],
+      activities: [...otherActivities, ...activitiesToWrite],
       updatedAt: now,
     });
     const writeResult = writeSiteCurriculumTouched(store, nextCurriculum, {
       updatedAt: now,
       touchedLessonPlanIds: [planId],
-      touchedActivityIds: [...new Set(
-        [...restoredActivities, ...(curriculum.activities || []).filter((item) => item.lessonPlanId === planId)]
-          .map((item) => item?.id)
-          .filter(Boolean),
-      )],
+      touchedActivityIds: [...new Set(activitiesToWrite.map((item) => item?.id).filter(Boolean))],
     });
     if (writeResult.wipeBlocked) {
       jsonResponse(response, 409, {
@@ -23258,7 +23263,13 @@ async function handleAdminCurriculumLessonPlanSave(request, response, options = 
         });
         return;
       }
-      masterPasteIncomingPlan = pasteApi.applyMasterPasteActivityMatches(incomingPlan, matchResult);
+      const occupiedItemIds = (existingCurriculum.activities || [])
+        .filter((item) => item && item.lessonPlanId === id)
+        .map((item) => item.itemId)
+        .filter(Boolean);
+      masterPasteIncomingPlan = pasteApi.applyMasterPasteActivityMatches(incomingPlan, matchResult, {
+        occupiedItemIds,
+      });
       if (process.env.NODE_ENV === "test" && body.simulateActivityWriteFailure === true) {
         jsonResponse(response, 500, {
           error: "Simulated activity persistence failure. Lesson was not replaced.",
