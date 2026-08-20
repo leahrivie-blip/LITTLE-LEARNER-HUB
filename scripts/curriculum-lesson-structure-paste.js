@@ -1101,6 +1101,348 @@
     return plans.find((plan) => normalizeTitleKey(plan?.title) === key) || null;
   }
 
+  const MASTER_PASTE_ASSET_FIELDS = Object.freeze([
+    "setupImageUrl",
+    "exampleImageUrl",
+    "setupMediaAssetId",
+    "exampleMediaAssetId",
+  ]);
+
+  const MASTER_PASTE_LESSON_COMPARE_FIELDS = Object.freeze([
+    ["title", "Title"],
+    ["age", "Age band"],
+    ["weeklyOverview", "Weekly overview"],
+    ["objectives", "Learning objectives"],
+    ["weeklyMaterials", "Materials list"],
+    ["familyConnection", "Family connection"],
+  ]);
+
+  /**
+   * Deterministic activity identity for Master Paste replace.
+   * Does not parse paste — callers must use parseFullLessonStructurePaste.
+   * @param {unknown} title
+   * @returns {string}
+   */
+  function normalizeActivityMatchTitle(title) {
+    return text(title).toLowerCase();
+  }
+
+  /**
+   * @param {unknown} dailyPlans
+   * @returns {{ day: string, index: number, title: string, itemId: string, item: object }[]}
+   */
+  function listIncomingMasterPasteActivities(dailyPlans) {
+    const source = dailyPlans && typeof dailyPlans === "object" ? dailyPlans : {};
+    /** @type {{ day: string, index: number, title: string, itemId: string, item: object }[]} */
+    const out = [];
+    WEEKDAYS.forEach((day) => {
+      const items = Array.isArray(source[day]?.items) ? source[day].items : [];
+      items.forEach((item, index) => {
+        if (!item || typeof item !== "object") return;
+        const title = text(item.title);
+        if (!title) return;
+        out.push({
+          day,
+          index,
+          title,
+          itemId: text(item.itemId),
+          item,
+        });
+      });
+    });
+    return out;
+  }
+
+  /**
+   * @param {unknown} existingActivities
+   * @returns {{ id: string, itemId: string, title: string, dayOfWeek: string, setupImageUrl: string, exampleImageUrl: string, setupMediaAssetId: string, exampleMediaAssetId: string, _idx: number }[]}
+   */
+  function listExistingActivitiesForMasterPasteMatch(existingActivities) {
+    const rows = Array.isArray(existingActivities) ? existingActivities : [];
+    return rows
+      .filter((item) => item && typeof item === "object" && String(item.status || "") !== "archived")
+      .map((item, index) => ({
+        id: text(item.id),
+        itemId: text(item.itemId),
+        title: text(item.title),
+        dayOfWeek: text(item.dayOfWeek).toLowerCase(),
+        setupImageUrl: String(item.setupImageUrl || ""),
+        exampleImageUrl: String(item.exampleImageUrl || ""),
+        setupMediaAssetId: String(item.setupMediaAssetId || ""),
+        exampleMediaAssetId: String(item.exampleMediaAssetId || ""),
+        _idx: index,
+      }))
+      .filter((item) => item.title);
+  }
+
+  /**
+   * Match incoming parsed activities to existing lesson activities.
+   * Unique weekday+title (including equal-count order) wins; unique title is a
+   * weekday-move fallback. Duplicate counts that cannot be paired fail closed.
+   * @param {unknown} existingActivities
+   * @param {unknown} incomingDailyPlans
+   */
+  function matchMasterPasteActivitiesToExisting(existingActivities, incomingDailyPlans) {
+    const existing = listExistingActivitiesForMasterPasteMatch(existingActivities);
+    const incoming = listIncomingMasterPasteActivities(incomingDailyPlans);
+    /** @type {Map<string, typeof existing>} */
+    const existingByDayTitle = new Map();
+    /** @type {Map<string, typeof incoming>} */
+    const incomingByDayTitle = new Map();
+    existing.forEach((row) => {
+      const key = `${row.dayOfWeek}::${normalizeActivityMatchTitle(row.title)}`;
+      const list = existingByDayTitle.get(key) || [];
+      list.push(row);
+      existingByDayTitle.set(key, list);
+    });
+    incoming.forEach((row) => {
+      const key = `${row.day}::${normalizeActivityMatchTitle(row.title)}`;
+      const list = incomingByDayTitle.get(key) || [];
+      list.push(row);
+      incomingByDayTitle.set(key, list);
+    });
+
+    const usedExisting = new Set();
+    const matchedIncoming = new Set();
+    const blockedIncoming = new Set();
+    /** @type {{ incoming: object, existing: object, strategy: string }[]} */
+    const matches = [];
+    /** @type {{ title: string, day: string, reason: string }[]} */
+    const details = [];
+
+    function markMatch(inc, ex, strategy) {
+      usedExisting.add(ex._idx);
+      matchedIncoming.add(`${inc.day}:${inc.index}`);
+      matches.push({ incoming: inc, existing: ex, strategy });
+    }
+
+    const dayTitleKeys = new Set([...existingByDayTitle.keys(), ...incomingByDayTitle.keys()]);
+    dayTitleKeys.forEach((key) => {
+      const exRows = (existingByDayTitle.get(key) || []).filter((row) => !usedExisting.has(row._idx));
+      const inRows = (incomingByDayTitle.get(key) || []).filter((row) => !matchedIncoming.has(`${row.day}:${row.index}`));
+      if (!exRows.length && !inRows.length) return;
+      if (exRows.length && inRows.length && exRows.length !== inRows.length) {
+        inRows.forEach((row) => {
+          blockedIncoming.add(`${row.day}:${row.index}`);
+          details.push({
+            title: row.title,
+            day: row.day,
+            reason: "ambiguous_day_title_count",
+          });
+        });
+        return;
+      }
+      if (exRows.length && inRows.length && exRows.length === inRows.length) {
+        inRows.forEach((row, index) => markMatch(row, exRows[index], "day_title"));
+      }
+    });
+
+    const remainingIncoming = incoming.filter((row) => (
+      !matchedIncoming.has(`${row.day}:${row.index}`) && !blockedIncoming.has(`${row.day}:${row.index}`)
+    ));
+    const remainingExisting = existing.filter((row) => !usedExisting.has(row._idx));
+    /** @type {Map<string, typeof remainingExisting>} */
+    const existingByTitle = new Map();
+    /** @type {Map<string, typeof remainingIncoming>} */
+    const incomingByTitle = new Map();
+    remainingExisting.forEach((row) => {
+      const key = normalizeActivityMatchTitle(row.title);
+      const list = existingByTitle.get(key) || [];
+      list.push(row);
+      existingByTitle.set(key, list);
+    });
+    remainingIncoming.forEach((row) => {
+      const key = normalizeActivityMatchTitle(row.title);
+      const list = incomingByTitle.get(key) || [];
+      list.push(row);
+      incomingByTitle.set(key, list);
+    });
+    remainingIncoming.forEach((row) => {
+      if (matchedIncoming.has(`${row.day}:${row.index}`) || blockedIncoming.has(`${row.day}:${row.index}`)) return;
+      const key = normalizeActivityMatchTitle(row.title);
+      const exRows = (existingByTitle.get(key) || []).filter((item) => !usedExisting.has(item._idx));
+      const inRows = incomingByTitle.get(key) || [];
+      if (exRows.length === 1 && inRows.length === 1) {
+        markMatch(row, exRows[0], "title");
+        return;
+      }
+      if (exRows.length > 0 && inRows.length > 0 && (exRows.length !== 1 || inRows.length !== 1)) {
+        details.push({
+          title: row.title,
+          day: row.day,
+          reason: "ambiguous_title",
+        });
+      }
+    });
+
+    if (details.length) {
+      return {
+        ok: false,
+        errors: details.map((item) => (
+          `Ambiguous activity mapping for “${item.title}” (${item.day}). Lesson was not replaced.`
+        )),
+        details,
+        matches: [],
+        added: [],
+        removed: [],
+      };
+    }
+
+    const added = incoming.filter((row) => (
+      !matchedIncoming.has(`${row.day}:${row.index}`) && !blockedIncoming.has(`${row.day}:${row.index}`)
+    ));
+    const removed = existing.filter((row) => !usedExisting.has(row._idx));
+    return {
+      ok: true,
+      errors: [],
+      details: [],
+      matches,
+      added,
+      removed,
+    };
+  }
+
+  /**
+   * Reuse existing activity itemIds + asset fields on the canonical plan
+   * produced by buildCanonicalLessonPlan. Does not re-parse paste.
+   * @param {object} incomingPlan
+   * @param {ReturnType<typeof matchMasterPasteActivitiesToExisting>} matchResult
+   */
+  function applyMasterPasteActivityMatches(incomingPlan, matchResult) {
+    const plan = incomingPlan && typeof incomingPlan === "object" ? { ...incomingPlan } : {};
+    if (!matchResult || matchResult.ok !== true) return plan;
+    /** @type {Map<string, object>} */
+    const byIncomingItemId = new Map();
+    (matchResult.matches || []).forEach((row) => {
+      const incomingId = text(row?.incoming?.itemId);
+      if (incomingId) byIncomingItemId.set(incomingId, row.existing);
+    });
+    const sourcePlans = plan.dailyPlans && typeof plan.dailyPlans === "object" ? plan.dailyPlans : {};
+    const nextDaily = emptyDailyPlans();
+    /** @type {Record<string, string>} */
+    const itemIdRemap = {};
+    WEEKDAYS.forEach((day) => {
+      const dayPlan = sourcePlans[day] && typeof sourcePlans[day] === "object" ? sourcePlans[day] : { items: [] };
+      nextDaily[day] = {
+        ...dayPlan,
+        items: (Array.isArray(dayPlan.items) ? dayPlan.items : []).map((item) => {
+          if (!item || typeof item !== "object") return item;
+          const existing = byIncomingItemId.get(text(item.itemId));
+          if (!existing) return { ...item };
+          const preservedId = text(existing.itemId) || text(item.itemId);
+          if (text(item.itemId) && preservedId && text(item.itemId) !== preservedId) {
+            itemIdRemap[text(item.itemId)] = preservedId;
+          }
+          const next = { ...item, itemId: preservedId };
+          MASTER_PASTE_ASSET_FIELDS.forEach((field) => {
+            next[field] = existing[field] || "";
+          });
+          return next;
+        }),
+      };
+    });
+    plan.dailyPlans = nextDaily;
+    const draft = plan.enrichmentDraft && typeof plan.enrichmentDraft === "object" && !Array.isArray(plan.enrichmentDraft)
+      ? { ...plan.enrichmentDraft }
+      : null;
+    if (draft) {
+      const activities = draft.activities && typeof draft.activities === "object" && !Array.isArray(draft.activities)
+        ? { ...draft.activities }
+        : {};
+      Object.keys(itemIdRemap).forEach((fromId) => {
+        const toId = itemIdRemap[fromId];
+        if (!toId || fromId === toId) return;
+        if (activities[fromId] && typeof activities[fromId] === "object") {
+          activities[toId] = { ...(activities[toId] || {}), ...activities[fromId] };
+          delete activities[fromId];
+        }
+      });
+      plan.enrichmentDraft = { ...draft, activities };
+    }
+    return plan;
+  }
+
+  /**
+   * Owner-only replace preview. Parser output is passed through unchanged.
+   * @param {object} existingSnapshot
+   * @param {object} parsed
+   * @param {ReturnType<typeof matchMasterPasteActivitiesToExisting>} [matchResult]
+   */
+  function buildMasterPasteReplaceComparison(existingSnapshot, parsed, matchResult) {
+    const existing = existingSnapshot && typeof existingSnapshot === "object" ? existingSnapshot : {};
+    const lesson = parsed?.lesson || {};
+    const preview = buildStructurePreview(parsed);
+    const match = matchResult && typeof matchResult === "object"
+      ? matchResult
+      : matchMasterPasteActivitiesToExisting(existing.activities || [], parsed?.dailyPlans);
+    const existingWeekdays = existing.weekdayCounts && typeof existing.weekdayCounts === "object"
+      ? existing.weekdayCounts
+      : masterPasteWeekdayCountsFromActivities(existing.activities || []);
+    const incomingWeekdays = masterPasteWeekdayCountsFromParsed(parsed);
+    const sectionsChanging = [];
+    MASTER_PASTE_LESSON_COMPARE_FIELDS.forEach(([key, label]) => {
+      const before = text(existing[key] || (key === "age" ? existing.age : ""));
+      const after = text(lesson[key] || (key === "age" ? lesson.ageDisplay || lesson.age : ""));
+      if (before !== after) sectionsChanging.push(label);
+    });
+    if ((existing.milestones || []).join("|") !== (lesson.milestones || []).join("|")) {
+      sectionsChanging.push("Milestones");
+    }
+    const preservedImages = (match.matches || []).filter((row) => (
+      text(row.existing?.setupImageUrl) || text(row.existing?.exampleImageUrl)
+    )).map((row) => row.existing.title);
+    return {
+      ok: match.ok !== false,
+      errors: match.errors || [],
+      existingTitle: existing.title || "",
+      incomingTitle: preview.title || lesson.title || "",
+      existingAge: existing.age || "",
+      incomingAge: preview.age || lesson.age || "",
+      existingActivityCount: Number(existing.activityCount) || (Array.isArray(existing.activities) ? existing.activities.length : 0),
+      incomingActivityCount: Number(preview.activityCount) || 0,
+      existingWeekdays,
+      incomingWeekdays,
+      updated: (match.matches || []).map((row) => ({
+        title: row.incoming.title,
+        day: row.incoming.day,
+        existingId: row.existing.id || "",
+        existingItemId: row.existing.itemId || "",
+      })),
+      added: (match.added || []).map((row) => ({ title: row.title, day: row.day })),
+      removed: (match.removed || []).map((row) => ({ title: row.title, day: row.dayOfWeek })),
+      sectionsChanging,
+      preserved: {
+        lessonId: existing.id || "",
+        plan: existing.plan === "Pro" ? "Pro" : "Free",
+        coverImageUrl: existing.coverImageUrl || "",
+        resourceIds: Array.isArray(existing.resourceIds) ? existing.resourceIds.slice() : [],
+        activityImages: preservedImages,
+      },
+      preview,
+    };
+  }
+
+  function masterPasteWeekdayCountsFromParsed(parsed) {
+    const counts = { monday: 0, tuesday: 0, wednesday: 0, thursday: 0, friday: 0, total: 0 };
+    WEEKDAYS.forEach((day) => {
+      const items = parsed?.dailyPlans?.[day]?.items;
+      counts[day] = Array.isArray(items) ? items.length : 0;
+      counts.total += counts[day];
+    });
+    return counts;
+  }
+
+  function masterPasteWeekdayCountsFromActivities(activities) {
+    const counts = { monday: 0, tuesday: 0, wednesday: 0, thursday: 0, friday: 0, total: 0 };
+    (Array.isArray(activities) ? activities : []).forEach((item) => {
+      const day = text(item?.dayOfWeek).toLowerCase();
+      if (!Object.prototype.hasOwnProperty.call(counts, day) || day === "total") return;
+      counts[day] += 1;
+      counts.total += 1;
+    });
+    return counts;
+  }
+
   return {
     WEEKDAYS,
     WEEKDAY_LABEL,
@@ -1119,5 +1461,10 @@
     buildActivityDraftMap,
     findDuplicateLessonTitle,
     generateItemId,
+    normalizeActivityMatchTitle,
+    listIncomingMasterPasteActivities,
+    matchMasterPasteActivitiesToExisting,
+    applyMasterPasteActivityMatches,
+    buildMasterPasteReplaceComparison,
   };
 });

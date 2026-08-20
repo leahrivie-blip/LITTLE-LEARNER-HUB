@@ -3905,6 +3905,7 @@ function remapEnrichmentDraftActivityKeys(plan, syncedActivities) {
 /**
  * Owner replace: overlay parsed master-paste authored fields onto an existing
  * lesson while preserving identity, access plan, publish state, and linked resources.
+ * Cover / printable / media identity fields always stay on the existing lesson.
  */
 function replaceCurriculumLessonContentFromMasterPaste({ existingPlan, incomingPlan, now, id } = {}) {
   const incoming = incomingPlan && typeof incomingPlan === "object" ? incomingPlan : {};
@@ -3922,15 +3923,36 @@ function replaceCurriculumLessonContentFromMasterPaste({ existingPlan, incomingP
     teachingKit: existing.teachingKit,
     enrichmentPublishHistory: existing.enrichmentPublishHistory,
     enrichmentDraftUndo: existing.enrichmentDraftUndo,
+    enrichmentPublished: existing.enrichmentPublished,
     ownerWorkspace: existing.ownerWorkspace,
-    coverImageUrl: incoming.coverImageUrl || existing.coverImageUrl || "",
-    coverImageAlt: incoming.coverImageAlt || existing.coverImageAlt || "",
-    coverImageSource: incoming.coverImageSource || existing.coverImageSource || "",
-    coverImagePosition: incoming.coverImagePosition || existing.coverImagePosition || "center",
-    coverQualityStatus: Object.prototype.hasOwnProperty.call(incoming, "coverQualityStatus") && incoming.coverQualityStatus
-      ? incoming.coverQualityStatus
-      : (existing.coverQualityStatus || ""),
+    coverImageUrl: existing.coverImageUrl || "",
+    coverImageAlt: existing.coverImageAlt || "",
+    coverImageSource: existing.coverImageSource || "",
+    coverImagePosition: existing.coverImagePosition || "center",
+    coverQualityStatus: existing.coverQualityStatus || "",
     enrichmentDraft: incoming.enrichmentDraft,
+  };
+}
+
+/**
+ * Recoverable pre-replacement snapshot for Master Paste replace.
+ * Uses enrichmentPublishHistory — does not invent a separate backup store.
+ */
+function snapshotMasterPasteReplaceState(plan, activities) {
+  const planId = normalizedShortText(plan?.id, 160);
+  const linked = (Array.isArray(activities) ? activities : []).filter((item) => item && item.lessonPlanId === planId);
+  return {
+    title: plan?.title || "",
+    age: plan?.age || "",
+    theme: plan?.theme || "",
+    weeklyOverview: plan?.weeklyOverview || "",
+    objectives: plan?.objectives || "",
+    weeklyMaterials: plan?.weeklyMaterials || "",
+    familyConnection: plan?.familyConnection || "",
+    observationOpportunities: plan?.observationOpportunities || "",
+    dailyPlans: cloneJson(plan?.dailyPlans || {}),
+    enrichmentDraft: cloneJson(plan?.enrichmentDraft || null),
+    activities: cloneJson(linked),
   };
 }
 
@@ -22288,6 +22310,98 @@ async function handleEnrichmentRollback(request, response) {
   const now = new Date().toISOString();
   const adminEmail = normalizedShortText(body.publishedBy || body.adminEmail || "", 180) || "admin";
   const entryKind = normalizedShortText(entry.kind, 20) || "publish";
+  if (entryKind === "paste_replace" && snap.dailyPlans) {
+    const restoredPlan = normalizedCurriculumLessonPlan({
+      ...existingPlan,
+      title: snap.title || existingPlan.title,
+      age: snap.age || existingPlan.age,
+      theme: Object.prototype.hasOwnProperty.call(snap, "theme") ? snap.theme : existingPlan.theme,
+      weeklyOverview: Object.prototype.hasOwnProperty.call(snap, "weeklyOverview")
+        ? snap.weeklyOverview
+        : existingPlan.weeklyOverview,
+      objectives: Object.prototype.hasOwnProperty.call(snap, "objectives") ? snap.objectives : existingPlan.objectives,
+      weeklyMaterials: Object.prototype.hasOwnProperty.call(snap, "weeklyMaterials")
+        ? snap.weeklyMaterials
+        : existingPlan.weeklyMaterials,
+      familyConnection: Object.prototype.hasOwnProperty.call(snap, "familyConnection")
+        ? snap.familyConnection
+        : existingPlan.familyConnection,
+      observationOpportunities: Object.prototype.hasOwnProperty.call(snap, "observationOpportunities")
+        ? snap.observationOpportunities
+        : existingPlan.observationOpportunities,
+      dailyPlans: snap.dailyPlans,
+      enrichmentDraft: snap.enrichmentDraft && typeof snap.enrichmentDraft === "object"
+        ? snap.enrichmentDraft
+        : existingPlan.enrichmentDraft,
+      plan: existingPlan.plan,
+      status: existingPlan.status,
+      resourceIds: existingPlan.resourceIds,
+      coverImageUrl: existingPlan.coverImageUrl,
+      coverImageAlt: existingPlan.coverImageAlt,
+      coverImageSource: existingPlan.coverImageSource,
+      coverImagePosition: existingPlan.coverImagePosition,
+      coverQualityStatus: existingPlan.coverQualityStatus,
+      teachingKit: existingPlan.teachingKit,
+      enrichmentPublished: existingPlan.enrichmentPublished,
+      ownerWorkspace: existingPlan.ownerWorkspace,
+      enrichmentPublishHistory: prependEnrichmentPublishHistory(history, {
+        versionId: `eroll-${crypto.randomBytes(10).toString("hex")}`,
+        kind: "rollback",
+        publishedAt: now,
+        publishedBy: adminEmail,
+        fingerprint: `rollback-paste:${entry.versionId}`,
+        lessonPlanId: planId,
+        snapshot: snapshotMasterPasteReplaceState(existingPlan, curriculum.activities || []),
+        rollbackOf: entry.versionId,
+      }),
+      updatedAt: existingPlan.updatedAt,
+    });
+    const restoredActivities = Array.isArray(snap.activities) ? snap.activities : [];
+    const otherActivities = (curriculum.activities || []).filter((item) => item.lessonPlanId !== planId);
+    const nextCurriculum = normalizedCurriculumStore({
+      ...curriculum,
+      lessonPlans: (curriculum.lessonPlans || []).map((item) => (item.id === planId ? restoredPlan : item)),
+      activities: [...otherActivities, ...restoredActivities],
+      updatedAt: now,
+    });
+    const writeResult = writeSiteCurriculumTouched(store, nextCurriculum, {
+      updatedAt: now,
+      touchedLessonPlanIds: [planId],
+      touchedActivityIds: [...new Set(
+        [...restoredActivities, ...(curriculum.activities || []).filter((item) => item.lessonPlanId === planId)]
+          .map((item) => item?.id)
+          .filter(Boolean),
+      )],
+    });
+    if (writeResult.wipeBlocked) {
+      jsonResponse(response, 409, {
+        error: "Rollback refused to protect curriculum integrity.",
+        code: "curriculum_wipe_blocked",
+      });
+      return;
+    }
+    appendEnrichmentEditorAudit(store, {
+      action: "restore_master_paste_replace",
+      lessonPlanId: planId,
+      versionId: entry.versionId,
+      adminEmail,
+      fingerprint: `rollback-paste:${entry.versionId}`,
+      note: "Restored pre-Master-Paste lesson content for this lesson only. Publish status and linked resources unchanged.",
+    });
+    await writeStoreAsync(store);
+    const saved = (store.siteContent.curriculum.lessonPlans || []).find((item) => item.id === planId);
+    jsonResponse(response, 200, {
+      ok: true,
+      rolledBack: true,
+      restoredMasterPasteReplace: true,
+      autoPublished: false,
+      restoredFromVersionId: entry.versionId,
+      lessonPlan: saved,
+      curriculum: store.siteContent.curriculum,
+      siteContentUpdatedAt: store.siteContent.updatedAt,
+    });
+    return;
+  }
   const isDraftRestore = entryKind === "draft"
     || entryKind === "draft_review"
     || (snap.enrichmentDraft && !snap.dailyPlans);
@@ -23116,12 +23230,35 @@ async function handleAdminCurriculumLessonPlanSave(request, response, options = 
     }
 
     const isMasterPasteReplace = saveMode === "replace_from_master_paste";
+    let masterPasteIncomingPlan = incomingPlan;
     if (isMasterPasteReplace) {
       if (!requireTeachingKitOwnerAdminSession(request, body, response)) return;
       if (!existingPlan) {
         jsonResponse(response, 404, { error: "Lesson plan not found.", code: "lesson_not_found" });
         return;
       }
+      if (body.confirmReplaceExistingLesson !== true) {
+        jsonResponse(response, 400, {
+          error: "Replacement requires explicit confirmation (confirmReplaceExistingLesson).",
+          code: "confirm_replace_required",
+        });
+        return;
+      }
+      const pasteApi = require("../scripts/curriculum-lesson-structure-paste.js");
+      const existingActs = (existingCurriculum.activities || []).filter(
+        (item) => item && item.lessonPlanId === id && item.status !== "archived",
+      );
+      const matchResult = pasteApi.matchMasterPasteActivitiesToExisting(existingActs, incomingPlan.dailyPlans);
+      if (!matchResult.ok) {
+        jsonResponse(response, 400, {
+          error: (matchResult.errors && matchResult.errors[0])
+            || "Incoming activity mapping is ambiguous. Lesson was not replaced.",
+          code: "activity_mapping_ambiguous",
+          details: matchResult.details || [],
+        });
+        return;
+      }
+      masterPasteIncomingPlan = pasteApi.applyMasterPasteActivityMatches(incomingPlan, matchResult);
       if (process.env.NODE_ENV === "test" && body.simulateActivityWriteFailure === true) {
         jsonResponse(response, 500, {
           error: "Simulated activity persistence failure. Lesson was not replaced.",
@@ -23150,7 +23287,7 @@ async function handleAdminCurriculumLessonPlanSave(request, response, options = 
     const planInput = isMasterPasteReplace
       ? replaceCurriculumLessonContentFromMasterPaste({
         existingPlan,
-        incomingPlan,
+        incomingPlan: masterPasteIncomingPlan,
         now,
         id,
       })
@@ -23169,6 +23306,25 @@ async function handleAdminCurriculumLessonPlanSave(request, response, options = 
       updatedAt: now,
       publishedAt,
     });
+
+    if (isMasterPasteReplace) {
+      const previousHistory = Array.isArray(existingPlan.enrichmentPublishHistory)
+        ? existingPlan.enrichmentPublishHistory
+        : [];
+      const adminEmail = normalizedShortText(
+        body.adminEmail || incomingPlan.lastEditedBy || "",
+        180,
+      ) || "admin";
+      planInput.enrichmentPublishHistory = prependEnrichmentPublishHistory(previousHistory, {
+        versionId: `epaste-${crypto.randomBytes(10).toString("hex")}`,
+        kind: "paste_replace",
+        publishedAt: now,
+        publishedBy: adminEmail,
+        fingerprint: normalizedShortText(`paste-replace:${id}:${now}`, 80),
+        lessonPlanId: id,
+        snapshot: snapshotMasterPasteReplaceState(existingPlan, existingCurriculum.activities || []),
+      });
+    }
 
     if (willBePublic && !isMasterPasteReplace) {
       let ownerWorkspaceApi = null;
