@@ -76,8 +76,8 @@ function readToddlerCoreImportTarget(target) {
 }
 
 function toddlerCorePlansMissing(curriculum, targets = TODDLER_CORE_IMPORT_TARGETS) {
-  const plans = curriculum?.lessonPlans || [];
-  return targets.filter((target) => !plans.some((plan) => plan.id === target.stableId));
+  const { seedTargetsMissing } = require("./curriculum-deleted-lesson-tombstones.js");
+  return seedTargetsMissing(curriculum, targets);
 }
 
 module.exports = {

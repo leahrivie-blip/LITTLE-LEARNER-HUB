@@ -104,8 +104,8 @@ function readToddlerHolidayImportTarget(target) {
 }
 
 function toddlerHolidayPlansMissing(curriculum, targets = TODDLER_HOLIDAY_IMPORT_TARGETS) {
-  const plans = curriculum?.lessonPlans || [];
-  return targets.filter((target) => !plans.some((plan) => plan.id === target.stableId));
+  const { seedTargetsMissing } = require("./curriculum-deleted-lesson-tombstones.js");
+  return seedTargetsMissing(curriculum, targets);
 }
 
 module.exports = {

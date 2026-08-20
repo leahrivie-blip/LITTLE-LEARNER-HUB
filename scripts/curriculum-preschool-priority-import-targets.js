@@ -79,8 +79,8 @@ function readPreschoolPriorityImportTarget(target) {
 }
 
 function preschoolPriorityPlansMissing(curriculum, targets = PRESCHOOL_PRIORITY_IMPORT_TARGETS) {
-  const plans = curriculum?.lessonPlans || [];
-  return targets.filter((target) => !plans.some((plan) => plan.id === target.stableId));
+  const { seedTargetsMissing } = require("./curriculum-deleted-lesson-tombstones.js");
+  return seedTargetsMissing(curriculum, targets);
 }
 
 module.exports = {

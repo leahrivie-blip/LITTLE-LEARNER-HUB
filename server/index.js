@@ -23,6 +23,7 @@ const visualProductionImage = require("./visual-production-image.js");
 const visualProductionMedia = require("./visual-production-media.js");
 const curriculumSentinel = require("../scripts/curriculum-sentinel.js");
 const lessonPlanCoverAssign = require("../scripts/lesson-plan-cover-assign.js");
+const curriculumDeletedLessonTombstones = require("../scripts/curriculum-deleted-lesson-tombstones.js");
 const scheduleLib = require("./schedule-lib.js");
 const { createEmailEngagement, defaultEmailEngagementStore } = require("./email-engagement.js");
 const { createOnboardingWelcome, defaultOnboardingWelcomeStore } = require("./onboarding-welcome.js");
@@ -1727,6 +1728,7 @@ function defaultCurriculumStore() {
     activities: [],
     resources: [],
     series: [],
+    deletedLessonPlanIds: [],
     updatedAt: "",
   };
 }
@@ -2473,6 +2475,10 @@ function normalizedCurriculumStore(value) {
     activities: normalizedList(input.activities, MAX_CURRICULUM_ACTIVITIES, normalizedCurriculumActivity),
     resources: normalizedList(input.resources, MAX_CURRICULUM_RESOURCES, normalizedCurriculumResource),
     series: normalizedList(input.series, MAX_CURRICULUM_SERIES, normalizedCurriculumSeries),
+    // Owner Admin permanent deletes — must survive normalize/seed/write cycles.
+    deletedLessonPlanIds: curriculumDeletedLessonTombstones.normalizedDeletedLessonPlanIds(
+      input.deletedLessonPlanIds,
+    ),
     updatedAt: normalizedShortText(input.updatedAt, 80),
   };
 }
@@ -4099,6 +4105,8 @@ function syncCurriculumActivitiesForLessonPlan(curriculum, lessonPlanInput, opti
     // Preserve curriculum collections / age-track series across lesson saves.
     // Omitting series here previously wiped published collections on every plan upsert.
     series: store.series,
+    // Preserve Owner Admin delete tombstones across activity sync.
+    deletedLessonPlanIds: store.deletedLessonPlanIds,
     updatedAt: now,
   });
 }
@@ -22239,14 +22247,14 @@ async function handleAdminCurriculumLessonPlanDelete(request, response) {
     const nextPlans = (curriculum.lessonPlans || []).filter((item) => item.id !== planId);
     const nextActivities = (curriculum.activities || []).filter((act) => act.lessonPlanId !== planId);
     const detached = detachSharedLinksFromDeletedLessonPlan(curriculum, planId, now);
-    const nextCurriculum = {
+    const nextCurriculum = curriculumDeletedLessonTombstones.recordDeletedLessonPlanId({
       ...curriculum,
       lessonPlans: nextPlans,
       activities: nextActivities,
       resources: detached.resources,
       series: detached.series,
       updatedAt: now,
-    };
+    }, planId);
     const allowReplace = isSafeSingleLessonDelete(curriculum, nextCurriculum, planId);
     const writeResult = writeSiteCurriculum(store, nextCurriculum, { updatedAt: now, allowReplace });
     if (writeResult.wipeBlocked) {
@@ -23148,6 +23156,15 @@ async function handleAdminCurriculumLessonPlanSave(request, response, options = 
     }
     const existingCurriculum = siteContent.curriculum || defaultCurriculumStore();
     const existingPlan = (existingCurriculum.lessonPlans || []).find((item) => item.id === id);
+    // Owner Admin permanent delete tombstone — never silently reuse a deleted id.
+    if (!existingPlan && curriculumDeletedLessonTombstones.isLessonPlanIdTombstoned(existingCurriculum, id)) {
+      jsonResponse(response, 409, {
+        error: "This lesson plan was permanently deleted and its id cannot be reused. Create a new lesson instead.",
+        code: "lesson_id_tombstoned",
+        deletedPlanId: id,
+      });
+      return;
+    }
 
     // Teaching Kit Enrichment Editor — draft-only save (published member view unchanged).
     if (saveMode === "enrichment_draft") {
