@@ -204,7 +204,7 @@
           <div>
             <p class="eyebrow">Content · Owner</p>
             <h3>AI Curriculum Operator</h3>
-            <p class="muted-copy">Phase 4.5: activity-driven printables with <strong>AI content planning</strong> and trusted PDF rendering. <strong>No publishing. No new lessons. No activity image regeneration.</strong></p>
+            <p class="muted-copy">Phase 4.6: intelligent printables with quality hard-stops (no generic filler fallback) and optional recognition visuals. <strong>No publishing. No new lessons. No activity image regeneration.</strong></p>
           </div>
         </div>
         ${state.message ? `<p class="access-notice ${state.isError ? "error" : ""}" role="status">${esc(state.message)}</p>` : ""}

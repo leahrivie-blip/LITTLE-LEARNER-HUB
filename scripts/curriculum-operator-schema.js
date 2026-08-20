@@ -232,6 +232,8 @@ const DEFAULT_LIMITS = Object.freeze({
   hardMaxLessons: 20,
   maxImageGenerations: 40,
   maxPrintableGenerations: 30,
+  maxPrintableVisualsPerPack: 8,
+  maxPrintableVisualsPerJob: 24,
   maxOpenAiCalls: 80,
 });
 
@@ -309,6 +311,18 @@ function normalizeLimits(raw = {}) {
       0,
       200,
       DEFAULT_LIMITS.maxPrintableGenerations,
+    ),
+    maxPrintableVisualsPerPack: clampInt(
+      input.maxPrintableVisualsPerPack,
+      0,
+      40,
+      DEFAULT_LIMITS.maxPrintableVisualsPerPack,
+    ),
+    maxPrintableVisualsPerJob: clampInt(
+      input.maxPrintableVisualsPerJob,
+      0,
+      100,
+      DEFAULT_LIMITS.maxPrintableVisualsPerJob,
     ),
     maxOpenAiCalls: clampInt(input.maxOpenAiCalls, 0, 500, DEFAULT_LIMITS.maxOpenAiCalls),
   };

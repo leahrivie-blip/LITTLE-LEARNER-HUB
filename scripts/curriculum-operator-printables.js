@@ -319,12 +319,15 @@ function buildPrintableActionsFromAudit(plan, activities, audit, curriculum, opt
 
 function summarizePrintableActions(actions) {
   const counts = {
-    KEEP: 0, CREATE: 0, REPLACE: 0, REMOVE: 0, NOT_NEEDED: 0, FAILED: 0, SUCCESS: 0,
+    KEEP: 0, CREATE: 0, REPLACE: 0, REMOVE: 0, NOT_NEEDED: 0,
+    FAILED: 0, SUCCESS: 0, BLOCKED: 0, NEEDS_REVISION: 0,
   };
   schema.asArray(actions).forEach((a) => {
     const d = normalizePrintableDecision(a.decision);
     if (counts[d] != null) counts[d] += 1;
     if (a.status === "failed") counts.FAILED += 1;
+    if (a.status === "blocked" || a.code === "BLOCKED") counts.BLOCKED += 1;
+    if (a.status === "needs_revision" || a.code === "NEEDS_REVISION") counts.NEEDS_REVISION += 1;
     if (a.status === "success" && PRINTABLE_WRITE.includes(d)) counts.SUCCESS += 1;
   });
   return counts;
@@ -378,11 +381,58 @@ function drawFooter(page, font, size = 9) {
   });
 }
 
+function pageHasRichOperatorContent(pageMeta) {
+  return Boolean(
+    schema.asArray(pageMeta?.items).length
+    || schema.asArray(pageMeta?.pairs).length
+    || schema.asArray(pageMeta?.categories).length
+    || schema.asArray(pageMeta?.numbers).length
+    || pageMeta?.intentionalBlank === true
+    || text(pageMeta?.workAreaLabel, 80),
+  );
+}
+
+/**
+ * Classify render path for a printable spec.
+ * GENERIC_FALLBACK is forbidden for Operator CREATE/REPLACE success.
+ */
+function classifyPrintableRenderPath(spec, { operatorWrite = false } = {}) {
+  const pages = schema.asArray(spec?.pages);
+  if (!pages.length) {
+    return { path: "GENERIC_FALLBACK", ok: false, reason: "no_pages" };
+  }
+  const thinIndexes = [];
+  pages.forEach((p, i) => {
+    if (!pageHasRichOperatorContent(p)) thinIndexes.push(i + 1);
+  });
+  if (thinIndexes.length) {
+    return {
+      path: "GENERIC_FALLBACK",
+      ok: false,
+      reason: `thin_pages:${thinIndexes.join(",")}`,
+      thinIndexes,
+    };
+  }
+  return {
+    path: operatorWrite ? "OPERATOR_ENRICHED_RENDER" : "LEGACY_COMPATIBLE_RENDER",
+    ok: true,
+  };
+}
+
 /**
  * Deterministic multi-page PDF from a validated (optionally AI-enriched) spec.
  * CI-safe: no live AI inside the renderer — content must already be on the spec.
+ *
+ * @param {object} options
+ * @param {boolean} [options.forbidGenericFallback=false] When true (Operator CREATE/REPLACE),
+ *   thin specs throw instead of rendering Phase 4 generic templates.
  */
-async function generatePrintablePdfBuffer({ spec, plan, activity }) {
+async function generatePrintablePdfBuffer({
+  spec,
+  plan,
+  activity,
+  forbidGenericFallback = false,
+} = {}) {
   const pdfLib = loadPdfLib();
   if (!pdfLib?.PDFDocument) throw new Error("pdf-lib is unavailable for printable generation.");
   const validation = validatePrintableSpec(spec, {
@@ -392,6 +442,16 @@ async function generatePrintablePdfBuffer({ spec, plan, activity }) {
   if (!validation.ok) {
     const error = new Error(`Invalid printable spec: ${validation.errors.join(", ")}`);
     error.code = "invalid_spec";
+    throw error;
+  }
+
+  const renderPath = classifyPrintableRenderPath(spec, { operatorWrite: forbidGenericFallback });
+  if (forbidGenericFallback && !renderPath.ok) {
+    const error = new Error(
+      `GENERIC_FALLBACK forbidden for Operator CREATE/REPLACE (${renderPath.reason}). NO USEFUL SPEC = NO PRINTABLE.`,
+    );
+    error.code = "GENERIC_FALLBACK_FORBIDDEN";
+    error.renderPath = renderPath.path;
     throw error;
   }
 
@@ -409,6 +469,21 @@ async function generatePrintablePdfBuffer({ spec, plan, activity }) {
   const age = text(spec.ageBand || plan?.age || activity?.age, 60);
   const materials = text(activity?.materials, 200);
   const teacherUse = text(spec.teacherUse || spec.purpose, 240);
+  const imageCache = new Map();
+
+  async function embedItemImage(item) {
+    if (!item?.visualPngBase64) return null;
+    const key = text(item.visualAssetKey || item.visualPngBase64.slice(0, 32), 80);
+    if (imageCache.has(key)) return imageCache.get(key);
+    try {
+      const bytes = Buffer.from(String(item.visualPngBase64), "base64");
+      const embedded = await doc.embedPng(bytes);
+      imageCache.set(key, embedded);
+      return embedded;
+    } catch (_e) {
+      return null;
+    }
+  }
 
   for (const pageMeta of pagesMeta) {
     const page = doc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
@@ -438,18 +513,14 @@ async function generatePrintablePdfBuffer({ spec, plan, activity }) {
       y -= 6;
     }
 
-    // Prefer enriched content drawers when the page carries real items/pairs.
-    const hasRichContent = schema.asArray(pageMeta.items).length
-      || schema.asArray(pageMeta.pairs).length
-      || schema.asArray(pageMeta.categories).length
-      || schema.asArray(pageMeta.numbers).length
-      || pageMeta.intentionalBlank === true
-      || pageMeta.workAreaLabel;
+    const hasRichContent = pageHasRichOperatorContent(pageMeta);
 
     if (hasRichContent) {
-      y = drawEnrichedPageContent(page, font, fontBold, y, pageMeta, activity);
+      // eslint-disable-next-line no-await-in-loop
+      y = await drawEnrichedPageContent(page, font, fontBold, y, pageMeta, activity, { embedItemImage });
     } else {
-      // Legacy Phase 4 fallback templates (kept for older specs).
+      // LEGACY_COMPATIBLE_RENDER only — never reached for Operator CREATE/REPLACE
+      // when forbidGenericFallback is true (thrown above).
       const label = text(pageMeta.label || heading, 120);
       const kind = text(pageMeta.kind || spec.resourceType, 40);
       if (/dramatic|menu|order|ticket|recipe/i.test(kind) || /menu|order|ticket|recipe/i.test(label)) {
@@ -480,16 +551,17 @@ async function generatePrintablePdfBuffer({ spec, plan, activity }) {
     pageCount: pagesMeta.length,
     fileName: sanitizePrintableFileName(spec.filename || titleToFileName(spec.title, plan?.title)),
     title: text(spec.title, 180),
+    renderPath: renderPath.path,
   };
 }
 
-function drawEnrichedPageContent(page, font, fontBold, startY, pageMeta, activity) {
+async function drawEnrichedPageContent(page, font, fontBold, startY, pageMeta, activity, { embedItemImage } = {}) {
   const type = text(pageMeta.type || pageMeta.kind, 40);
   if (type === "matching_pairs" || schema.asArray(pageMeta.pairs).length) {
-    return drawMatchingPairs(page, font, fontBold, startY, pageMeta);
+    return drawMatchingPairs(page, font, fontBold, startY, pageMeta, { embedItemImage });
   }
   if (type === "sorting" || schema.asArray(pageMeta.categories).length) {
-    return drawSortingPack(page, font, fontBold, startY, pageMeta);
+    return drawSortingPack(page, font, fontBold, startY, pageMeta, { embedItemImage });
   }
   if (type === "menu") {
     return drawMenuPage(page, font, fontBold, startY, pageMeta);
@@ -510,7 +582,7 @@ function drawEnrichedPageContent(page, font, fontBold, startY, pageMeta, activit
     );
   }
   if (type === "movement_cards" || type === "scavenger_hunt") {
-    return drawItemsAsCards(page, font, fontBold, startY, pageMeta, { columns: 2, height: 100 });
+    return drawItemsAsCards(page, font, fontBold, startY, pageMeta, { columns: 2, height: 100, embedItemImage });
   }
   if (type === "teacher_tool") {
     return drawGenericUsefulPanel(
@@ -522,28 +594,39 @@ function drawEnrichedPageContent(page, font, fontBold, startY, pageMeta, activit
       schema.asArray(pageMeta.items).map((i) => i.name).join("; "),
     );
   }
-  // flashcards, picture_cards, emotion_cards, pretend_food_cards, sequencing, dramatic_play_props
-  return drawItemsAsCards(page, font, fontBold, startY, pageMeta, { columns: 3, height: 120 });
+  return drawItemsAsCards(page, font, fontBold, startY, pageMeta, { columns: 3, height: 120, embedItemImage });
 }
 
-function drawMatchingPairs(page, font, fontBold, startY, pageMeta) {
+async function drawMatchingPairs(page, font, fontBold, startY, pageMeta, { embedItemImage } = {}) {
   let y = startY;
   page.drawText("Match each pair · cut apart · laminate if desired", { x: 36, y, size: 10, font });
   y -= 18;
-  schema.asArray(pageMeta.pairs).slice(0, 8).forEach((pair, i) => {
+  const pairs = schema.asArray(pageMeta.pairs).slice(0, 8);
+  for (let i = 0; i < pairs.length; i += 1) {
+    const pair = pairs[i];
     const rowY = y - (i * 78);
     page.drawRectangle({ x: 36, y: rowY - 64, width: 250, height: 64, borderWidth: 1 });
     page.drawText(asciiPdfText(pair.left?.name, 28), { x: 46, y: rowY - 22, size: 12, font: fontBold });
     page.drawText(asciiPdfText(pair.left?.visualConcept, 40).slice(0, 36), { x: 46, y: rowY - 40, size: 8, font });
+    if (typeof embedItemImage === "function" && pair.left?.visualPngBase64) {
+      // eslint-disable-next-line no-await-in-loop
+      const img = await embedItemImage(pair.left);
+      if (img) page.drawImage(img, { x: 200, y: rowY - 58, width: 40, height: 40 });
+    }
     page.drawText("<->", { x: 292, y: rowY - 30, size: 12, font: fontBold });
     page.drawRectangle({ x: 326, y: rowY - 64, width: 250, height: 64, borderWidth: 1 });
     page.drawText(asciiPdfText(pair.right?.name, 28), { x: 336, y: rowY - 22, size: 12, font: fontBold });
     page.drawText(asciiPdfText(pair.right?.visualConcept, 40).slice(0, 36), { x: 336, y: rowY - 40, size: 8, font });
-  });
-  return y - (Math.min(8, schema.asArray(pageMeta.pairs).length) * 78) - 8;
+    if (typeof embedItemImage === "function" && pair.right?.visualPngBase64) {
+      // eslint-disable-next-line no-await-in-loop
+      const img = await embedItemImage(pair.right);
+      if (img) page.drawImage(img, { x: 520, y: rowY - 58, width: 40, height: 40 });
+    }
+  }
+  return y - (Math.min(8, pairs.length) * 78) - 8;
 }
 
-function drawSortingPack(page, font, fontBold, startY, pageMeta) {
+function drawSortingPack(page, font, fontBold, startY, pageMeta, { embedItemImage } = {}) {
   let y = startY;
   page.drawText("Sorting mats", { x: 36, y, size: 11, font: fontBold });
   y -= 16;
@@ -560,7 +643,7 @@ function drawSortingPack(page, font, fontBold, startY, pageMeta) {
   return drawItemsAsCards(page, font, fontBold, y, {
     ...pageMeta,
     items: schema.asArray(pageMeta.items),
-  }, { columns: 3, height: 90 });
+  }, { columns: 3, height: 90, embedItemImage });
 }
 
 function drawMenuPage(page, font, fontBold, startY, pageMeta) {
@@ -611,14 +694,15 @@ function drawCountingMatFromSpec(page, font, fontBold, startY, pageMeta) {
   return y;
 }
 
-function drawItemsAsCards(page, font, fontBold, startY, pageMeta, { columns = 3, height = 120 } = {}) {
+async function drawItemsAsCards(page, font, fontBold, startY, pageMeta, { columns = 3, height = 120, embedItemImage } = {}) {
   let y = startY;
   page.drawText("Cut along boxes · laminate if desired", { x: 36, y, size: 9, font });
   y -= 16;
   const items = schema.asArray(pageMeta.items).slice(0, columns * 4);
   const width = columns === 2 ? 250 : 170;
   const gap = columns === 2 ? 270 : 180;
-  items.forEach((item, i) => {
+  for (let i = 0; i < items.length; i += 1) {
+    const item = items[i];
     const col = i % columns;
     const row = Math.floor(i / columns);
     const x = 36 + col * gap;
@@ -632,8 +716,21 @@ function drawItemsAsCards(page, font, fontBold, startY, pageMeta, { columns = 3,
     if (item.prompt) {
       page.drawText(asciiPdfText(item.prompt, 40).slice(0, 28), { x: x + 10, y: boxY - 74, size: 8, font });
     }
-    page.drawText("[picture]", { x: x + 10, y: boxY - height + 16, size: 8, font });
-  });
+    if (typeof embedItemImage === "function" && item.visualPngBase64) {
+      // eslint-disable-next-line no-await-in-loop
+      const img = await embedItemImage(item);
+      if (img) {
+        page.drawImage(img, { x: x + 10, y: boxY - height + 12, width: 48, height: 48 });
+      } else {
+        page.drawText("[picture]", { x: x + 10, y: boxY - height + 16, size: 8, font });
+      }
+    } else if (text(pageMeta.visualMode, 40) === "generated_asset") {
+      // Required embed missing — leave explicit marker; caller should have blocked earlier.
+      page.drawText("[missing visual]", { x: x + 10, y: boxY - height + 16, size: 8, font });
+    } else {
+      page.drawText("[picture]", { x: x + 10, y: boxY - height + 16, size: 8, font });
+    }
+  }
   const rows = Math.ceil(items.length / columns) || 1;
   return y - rows * (height + 12) - 8;
 }
@@ -934,6 +1031,8 @@ async function runPrintablePlanForLesson({
   saveDraft,
   callAi = null,
   useContentPlanner = true,
+  generatePrintableVisual = null,
+  visualCache = null,
 } = {}) {
   if (touchPrintables === false) {
     return {
@@ -944,6 +1043,7 @@ async function runPrintablePlanForLesson({
       enrichmentDraft: plan?.enrichmentDraft || null,
       changed: false,
       generations: 0,
+      cost: { printablePlannerCalls: 0, printableRevisionCalls: 0, printableVisualGenerations: 0 },
     };
   }
 
@@ -962,6 +1062,7 @@ async function runPrintablePlanForLesson({
       changed: false,
       generations: 0,
       scope,
+      cost: { printablePlannerCalls: 0, printableRevisionCalls: 0, printableVisualGenerations: 0 },
     };
   }
 
@@ -972,9 +1073,15 @@ async function runPrintablePlanForLesson({
   if (!draft.activities) draft.activities = {};
 
   let generations = 0;
+  let printablePlannerCalls = 0;
+  let printableRevisionCalls = 0;
+  let printableVisualGenerations = 0;
   const hardMax = Number(limits?.maxPrintableGenerations) || schema.DEFAULT_LIMITS.maxPrintableGenerations;
   const results = [];
   const knownActivityIds = schema.asArray(activities).map((a) => text(a.id, 160)).filter(Boolean);
+  const packVisualCache = visualCache instanceof Map ? visualCache : new Map();
+  let visualsApi = null;
+  try { visualsApi = require("./curriculum-operator-printable-visuals.js"); } catch (_e) { visualsApi = null; }
 
   for (const action of actions) {
     const decision = normalizePrintableDecision(action.decision);
@@ -1063,7 +1170,7 @@ async function runPrintablePlanForLesson({
       });
       if (!specCheck.ok) throw new Error(`Invalid printable spec: ${specCheck.errors.join(", ")}`);
 
-      // Phase 4.5: AI (or fixture) enriches page CONTENTS before trusted pdf-lib render.
+      // Phase 4.5/4.6: AI enriches CONTENTS; thin specs cannot silently use generic fallback.
       let enrichedSpec = spec;
       let plannerMeta = null;
       if (useContentPlanner !== false) {
@@ -1076,7 +1183,11 @@ async function runPrintablePlanForLesson({
         if (planner?.planPrintableContent) {
           const effectiveCallAi = typeof callAi === "function"
             ? callAi
-            : async (systemPrompt, userPrompt) => planner.buildOperatorPrintableAiFixtureResponse(userPrompt);
+            : async (systemPrompt, userPrompt) => (
+              /REVISION MODE|Revise this printable/i.test(systemPrompt + userPrompt)
+                ? planner.buildOperatorPrintableAiRevisionFixtureResponse(userPrompt)
+                : planner.buildOperatorPrintableAiFixtureResponse(userPrompt)
+            );
           // eslint-disable-next-line no-await-in-loop
           const planned = await planner.planPrintableContent({
             plan,
@@ -1084,8 +1195,25 @@ async function runPrintablePlanForLesson({
             baseSpec: spec,
             callAi: effectiveCallAi,
             usePlanner: true,
+            allowRevision: true,
           });
+          printablePlannerCalls += Number(planned.usage?.plannerCalls) || 0;
+          printableRevisionCalls += Number(planned.usage?.revisionCalls) || 0;
+
           if (!planned.ok) {
+            const blocked = planned.blocked || planned.code === "BLOCKED" || planned.code === "NEEDS_REVISION";
+            results.push({
+              ...action,
+              decision,
+              status: planned.code === "NEEDS_REVISION" ? "needs_revision" : "blocked",
+              code: planned.code || "BLOCKED",
+              error: planned.error || "Printable blocked — inadequate spec after planning/revision.",
+              idempotencyKey,
+              preservedExisting: true,
+              plannerMeta: { usage: planned.usage, gate: planned.gate },
+              uploaded: false,
+            });
+            if (blocked) continue;
             throw new Error(planned.error || planned.code || "printable content planner failed");
           }
           if (!planned.skipped && planned.spec) {
@@ -1103,7 +1231,29 @@ async function runPrintablePlanForLesson({
               knownActivityIds,
             });
             if (!recheck.ok) {
-              throw new Error(`Enriched printable spec invalid: ${recheck.errors.join(", ")}`);
+              results.push({
+                ...action,
+                decision,
+                status: "blocked",
+                code: "BLOCKED",
+                error: `Enriched printable spec invalid: ${recheck.errors.join(", ")}`,
+                idempotencyKey,
+                preservedExisting: true,
+              });
+              continue;
+            }
+            const pathCheck = classifyPrintableRenderPath(enrichedSpec, { operatorWrite: true });
+            if (!pathCheck.ok) {
+              results.push({
+                ...action,
+                decision,
+                status: "blocked",
+                code: "GENERIC_FALLBACK_FORBIDDEN",
+                error: `Thin spec blocked (no generic fallback): ${pathCheck.reason}`,
+                idempotencyKey,
+                preservedExisting: true,
+              });
+              continue;
             }
             plannerMeta = {
               contentSource: enrichedSpec.contentSource || "ai_planner",
@@ -1111,12 +1261,104 @@ async function runPrintablePlanForLesson({
               gate: planned.gate || null,
               review: planned.review || null,
               usage: planned.usage || null,
+              revised: planned.revised === true,
+              renderPath: pathCheck.path,
             };
           }
         }
+      } else {
+        // Planner disabled: still forbid generic fallback success for CREATE/REPLACE.
+        const pathCheck = classifyPrintableRenderPath(enrichedSpec, { operatorWrite: true });
+        if (!pathCheck.ok) {
+          results.push({
+            ...action,
+            decision,
+            status: "blocked",
+            code: "GENERIC_FALLBACK_FORBIDDEN",
+            error: `Thin spec blocked (no generic fallback): ${pathCheck.reason}`,
+            idempotencyKey,
+            preservedExisting: true,
+          });
+          continue;
+        }
       }
 
-      const generated = await generatePrintablePdfBuffer({ spec: enrichedSpec, plan, activity });
+      // Phase 4.6: materialize generated_asset visuals before PDF (fixture in CI).
+      if (visualsApi?.materializePrintableVisuals) {
+        const forceFixture = process.env.NODE_ENV === "test"
+          || ["1", "true", "yes"].includes(String(process.env.LLH_OPERATOR_PRINTABLE_VISUAL_FIXTURE || "").trim().toLowerCase())
+          || ["1", "true", "yes"].includes(String(process.env.VISUAL_PRODUCTION_MOCK_GENERATE || "").trim().toLowerCase());
+        // eslint-disable-next-line no-await-in-loop
+        const visuals = await visualsApi.materializePrintableVisuals({
+          spec: enrichedSpec,
+          plan,
+          activity,
+          generateVisual: generatePrintableVisual,
+          visualCache: packVisualCache,
+          limits: {
+            maxPrintableVisualsPerPack: limits?.maxPrintableVisualsPerPack,
+            maxPrintableVisualsPerJob: limits?.maxPrintableVisualsPerJob,
+          },
+          alreadyUsed: printableVisualGenerations,
+          forceFixture: forceFixture || typeof generatePrintableVisual !== "function",
+        });
+        if (!visuals.ok) {
+          if (visuals.code === "SCOPE_REVIEW_REQUIRED") {
+            return {
+              ok: false,
+              code: "SCOPE_REVIEW_REQUIRED",
+              error: visuals.error,
+              actions: results.concat([{
+                ...action,
+                decision,
+                status: "blocked",
+                code: "SCOPE_REVIEW_REQUIRED",
+                error: visuals.error,
+                idempotencyKey,
+                preservedExisting: true,
+              }]),
+              counts: summarizePrintableActions(results),
+              enrichmentDraft: plan?.enrichmentDraft || null,
+              changed: false,
+              generations,
+              cost: { printablePlannerCalls, printableRevisionCalls, printableVisualGenerations },
+            };
+          }
+          results.push({
+            ...action,
+            decision,
+            status: "blocked",
+            code: visuals.code || "BLOCKED",
+            error: visuals.error || "Required printable visual missing.",
+            idempotencyKey,
+            preservedExisting: true,
+          });
+          continue;
+        }
+        enrichedSpec = visuals.spec;
+        printableVisualGenerations += Number(visuals.usage?.generations) || 0;
+        const embedCheck = visualsApi.validateEmbeddedVisuals(enrichedSpec);
+        if (!embedCheck.ok) {
+          results.push({
+            ...action,
+            decision,
+            status: "blocked",
+            code: "missing_required_visual",
+            error: `Visual embed validation failed: ${embedCheck.errors.join(", ")}`,
+            idempotencyKey,
+            preservedExisting: true,
+          });
+          continue;
+        }
+        if (plannerMeta) plannerMeta.visualUsage = visuals.usage;
+      }
+
+      const generated = await generatePrintablePdfBuffer({
+        spec: enrichedSpec,
+        plan,
+        activity,
+        forbidGenericFallback: true,
+      });
       generations += 1;
       const validated = await validateGeneratedPdf(generated.buffer, {
         expectedPageCount: generated.pageCount,
@@ -1143,6 +1385,7 @@ async function runPrintablePlanForLesson({
           `Operator activityId=${action.activityId}`,
           `Operator decision=${decision}`,
           plannerMeta?.contentSource ? `Operator contentSource=${plannerMeta.contentSource}` : "",
+          generated.renderPath ? `Operator renderPath=${generated.renderPath}` : "",
         ].filter(Boolean).join("\n"),
         ageGroup: plan.age || "",
         theme: plan.theme || "",
@@ -1158,7 +1401,6 @@ async function runPrintablePlanForLesson({
         throw new Error(uploaded?.error || "printable upload/link failed");
       }
 
-      // Preview/download verification via injected reader
       if (typeof readResourceFile === "function") {
         const fileCheck = await readResourceFile({ resourceId: uploaded.resourceId, lessonPlanId: plan.id });
         if (!fileCheck?.ok) {
@@ -1179,7 +1421,6 @@ async function runPrintablePlanForLesson({
       if (!linked.ok) throw new Error(linked.error || "draft link failed");
       draft = linked.enrichmentDraft;
 
-      // Safe REPLACE: only unlink old after new resource verified
       if (decision === "REPLACE" && existingIds.length && typeof unlinkPrintableResource === "function") {
         for (const oldId of existingIds) {
           if (oldId === uploaded.resourceId) continue;
@@ -1203,16 +1444,22 @@ async function runPrintablePlanForLesson({
         plannerMeta,
         previewVerified: true,
         downloadVerified: true,
+        renderPath: generated.renderPath,
       });
     } catch (error) {
+      const code = error?.code || "";
+      const blocked = code === "GENERIC_FALLBACK_FORBIDDEN"
+        || code === "missing_required_visual"
+        || code === "BLOCKED";
       results.push({
         ...action,
         decision,
-        status: "failed",
+        status: blocked ? "blocked" : "failed",
+        code: code || undefined,
         error: text(error?.message || "printable action failed", 400),
-        retryable: true,
+        retryable: !blocked,
         idempotencyKey,
-        preservedExisting: existingIds.length > 0,
+        preservedExisting: existingIds.length > 0 || blocked,
       });
     }
   }
@@ -1234,20 +1481,24 @@ async function runPrintablePlanForLesson({
         changed: false,
         generations,
         scope,
+        cost: { printablePlannerCalls, printableRevisionCalls, printableVisualGenerations },
       };
     }
     draft = saved.enrichmentDraft || draft;
   }
 
+  const hasBlocked = results.some((r) => r.status === "blocked" || r.status === "needs_revision");
+  const hasFailed = results.some((r) => r.status === "failed");
   return {
-    ok: results.every((r) => r.status !== "failed"),
-    partial: results.some((r) => r.status === "failed") && results.some((r) => r.status === "success"),
+    ok: !hasFailed && !hasBlocked,
+    partial: (hasFailed || hasBlocked) && results.some((r) => r.status === "success"),
     actions: results,
     counts: summarizePrintableActions(results),
     enrichmentDraft: draft,
     changed,
     generations,
     scope,
+    cost: { printablePlannerCalls, printableRevisionCalls, printableVisualGenerations },
   };
 }
 
@@ -1266,6 +1517,8 @@ module.exports = {
   assessPrintableScope,
   isWeakGenericPrintable,
   idealPrintableForActivity,
+  pageHasRichOperatorContent,
+  classifyPrintableRenderPath,
   generatePrintablePdfBuffer,
   validateGeneratedPdf,
   bufferToPdfDataUrl,

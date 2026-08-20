@@ -52,8 +52,11 @@ function createCurriculumOperatorApi(deps) {
       const forceFixture = process.env.NODE_ENV === "test"
         || ["1", "true", "yes"].includes(String(process.env.LLH_OPERATOR_AI_FIXTURE || "").trim().toLowerCase())
         || ["1", "true", "yes"].includes(String(process.env.LLH_OPERATOR_PRINTABLE_FIXTURE || "").trim().toLowerCase());
+      const planner = require("../scripts/curriculum-operator-printable-planner.js");
       if (forceFixture) {
-        const planner = require("../scripts/curriculum-operator-printable-planner.js");
+        if (/REVISION MODE|Revise this printable/i.test(String(systemPrompt || "") + String(userPrompt || ""))) {
+          return planner.buildOperatorPrintableAiRevisionFixtureResponse(userPrompt);
+        }
         return planner.buildOperatorPrintableAiFixtureResponse(userPrompt);
       }
       if (typeof callOperatorAi === "function") {
@@ -171,7 +174,7 @@ function createCurriculumOperatorApi(deps) {
     }));
     let phaseNote = "Audit/plan only. No curriculum mutations.";
     if (printables) {
-      phaseNote = "Phase 4.5: intelligent activity-driven printables (AI content plan → validated spec → pdf-lib). NOT published. No image regeneration. No new lessons.";
+      phaseNote = "Phase 4.6: intelligent printables — no generic fallback success; optional generated_asset embeds. NOT published. No image regeneration. No new lessons.";
     } else if (upgrade && images) {
       phaseNote = "Phase 2.5+3: AI draft text + useful activity images into enrichmentDraft. NOT published. No printables.";
     } else if (upgrade) {
@@ -265,6 +268,9 @@ function createCurriculumOperatorApi(deps) {
       },
       callAi: printableCallAi(),
       useContentPlanner: true,
+      generatePrintableVisual: typeof generateOperatorImage === "function"
+        ? async ({ prompt, mock }) => generateOperatorImage({ prompt, mock })
+        : null,
     });
 
     if (printableRun.code === "SCOPE_REVIEW_REQUIRED") {

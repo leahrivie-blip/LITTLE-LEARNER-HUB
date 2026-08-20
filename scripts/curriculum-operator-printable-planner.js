@@ -436,23 +436,54 @@ function validatePlannerOutput(rawText, { plan, activity, baseSpec }) {
   return { ok: true, contentPlan, spec: merged, gate, review };
 }
 
+function extractFirstJsonObject(rawText) {
+  const raw = String(rawText || "");
+  const start = raw.indexOf("{");
+  if (start < 0) return null;
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+  for (let i = start; i < raw.length; i += 1) {
+    const ch = raw[i];
+    if (inString) {
+      if (escape) escape = false;
+      else if (ch === "\\") escape = true;
+      else if (ch === "\"") inString = false;
+      continue;
+    }
+    if (ch === "\"") {
+      inString = true;
+      continue;
+    }
+    if (ch === "{") depth += 1;
+    if (ch === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        try {
+          return JSON.parse(raw.slice(start, i + 1));
+        } catch (_e) {
+          return null;
+        }
+      }
+    }
+  }
+  return null;
+}
+
 /**
  * Activity-specific deterministic fixture for CI / NODE_ENV=test.
  */
 function buildOperatorPrintableAiFixtureResponse(userPrompt) {
-  let ctx = {};
-  try {
-    const raw = String(userPrompt || "");
-    const idx = raw.indexOf("{");
-    if (idx >= 0) ctx = JSON.parse(raw.slice(idx));
-  } catch (_e) {
-    ctx = {};
+  let ctx = extractFirstJsonObject(userPrompt) || {};
+  // Revision prompts nest activity under context.activity
+  if (!ctx.activity && ctx.lesson && !ctx.title) {
+    /* already planner context */
   }
   const activity = ctx.activity || {};
-  const title = text(activity.title, 180);
+  const title = text(activity.title || ctx.baseTitle || ctx.title, 180);
   const lower = title.toLowerCase();
-  const lessonId = text(ctx.lesson?.id, 160);
-  const activityId = text(activity.id, 160);
+  const lessonId = text(ctx.lesson?.id || ctx.lessonId, 160);
+  const activityId = text(activity.id || ctx.activityId, 160);
 
   let pack;
   if (/cafe|café|restaurant|dramatic|market|bakery/i.test(lower)) {
@@ -509,12 +540,12 @@ function buildOperatorPrintableAiFixtureResponse(userPrompt) {
         {
           type: "matching_pairs",
           heading: "Weather / Clothing Match",
-          visualMode: "simple_vector",
+          visualMode: "generated_asset",
           pairs: [
-            { left: { name: "Sunny", visualConcept: "bright sun" }, right: { name: "Sun hat", visualConcept: "child sun hat" } },
-            { left: { name: "Rainy", visualConcept: "rain cloud with drops" }, right: { name: "Raincoat", visualConcept: "yellow raincoat" } },
-            { left: { name: "Snowy", visualConcept: "snowflakes" }, right: { name: "Winter coat", visualConcept: "puffy winter coat" } },
-            { left: { name: "Windy / Cold", visualConcept: "wind lines and chill" }, right: { name: "Boots", visualConcept: "rain or snow boots" } },
+            { left: { name: "Sunny", visualConcept: "bright yellow sun, isolated, clear front view, child-recognizable" }, right: { name: "Sun hat", visualConcept: "child sun hat, isolated, clear front view, child-recognizable" } },
+            { left: { name: "Rainy", visualConcept: "rain cloud with drops, isolated, child-recognizable" }, right: { name: "Raincoat", visualConcept: "yellow raincoat, isolated, clear front view, child-recognizable, printable card illustration" } },
+            { left: { name: "Snowy", visualConcept: "snowflakes and snow cloud, isolated, child-recognizable" }, right: { name: "Winter coat", visualConcept: "puffy winter coat, isolated, clear front view, child-recognizable" } },
+            { left: { name: "Windy / Cold", visualConcept: "cold wind lines, isolated, child-recognizable" }, right: { name: "Boots", visualConcept: "rain or snow boots, isolated, clear front view, child-recognizable" } },
           ],
         },
       ],
@@ -667,8 +698,46 @@ function buildOperatorPrintableAiFixtureResponse(userPrompt) {
   });
 }
 
+function buildRevisionSystemPrompt(ageRaw) {
+  return [
+    buildPlannerSystemPrompt(ageRaw),
+    "",
+    "REVISION MODE: Fix ONLY the listed quality failures.",
+    "Return a complete corrected printable JSON pack (same schema).",
+    "Do not invent a different activity. Do not add HTML/code/paths.",
+  ].join("\n");
+}
+
+function buildRevisionUserPrompt(context, failures, previousSpec) {
+  return [
+    "Revise this printable pack to fix the quality failures.",
+    "Activity/lesson context JSON:",
+    JSON.stringify(context),
+    "Failures:",
+    JSON.stringify(failures || []),
+    "Previous spec (for reference only):",
+    JSON.stringify({
+      title: previousSpec?.title,
+      resourceType: previousSpec?.resourceType,
+      purpose: previousSpec?.purpose,
+      teacherUse: previousSpec?.teacherUse,
+      pages: previousSpec?.pages,
+    }),
+  ].join("\n");
+}
+
+/**
+ * Deterministic revision fixture: if the user prompt embeds activity context,
+ * rebuild a strong pack via the normal fixture (one-shot fix).
+ */
+function buildOperatorPrintableAiRevisionFixtureResponse(userPrompt) {
+  // Prefer rebuilding from activity context (same fixture intelligence).
+  return buildOperatorPrintableAiFixtureResponse(userPrompt);
+}
+
 /**
  * Plan enriched printable content via injected callAi (fixture in CI).
+ * At most 1 planner call + 1 revision call for CREATE/REPLACE.
  */
 async function planPrintableContent({
   plan,
@@ -676,49 +745,106 @@ async function planPrintableContent({
   baseSpec,
   callAi,
   usePlanner = true,
+  allowRevision = true,
 } = {}) {
   if (usePlanner === false) {
-    return { ok: true, skipped: true, spec: baseSpec, usage: { calls: 0 } };
+    return { ok: true, skipped: true, spec: baseSpec, usage: { plannerCalls: 0, revisionCalls: 0, calls: 0 } };
   }
   if (!PRINTABLE_WRITE_DECISION(baseSpec?.decision)) {
-    return { ok: true, skipped: true, spec: baseSpec, usage: { calls: 0 } };
+    return { ok: true, skipped: true, spec: baseSpec, usage: { plannerCalls: 0, revisionCalls: 0, calls: 0 } };
   }
   if (typeof callAi !== "function") {
-    // Fail closed for CREATE/REPLACE when planner is required — caller may supply fixture callAi.
     return {
       ok: false,
       code: "ai_required",
       error: "Printable content planner requires callAi (fixture or live).",
-      usage: { calls: 0 },
+      usage: { plannerCalls: 0, revisionCalls: 0, calls: 0 },
     };
   }
 
   const context = buildPlannerContext({ plan, activity, baseSpec });
   const system = buildPlannerSystemPrompt(plan?.age || activity?.age);
   const user = buildPlannerUserPrompt(context);
+  let plannerCalls = 0;
+  let revisionCalls = 0;
   let raw;
   try {
     raw = await callAi(system, user);
+    plannerCalls += 1;
   } catch (error) {
     return {
       ok: false,
       code: "ai_call_failed",
       error: text(error?.message || "AI printable planner failed", 400),
-      usage: { calls: 1 },
+      usage: { plannerCalls: 1, revisionCalls: 0, calls: 1 },
     };
   }
 
-  const validated = validatePlannerOutput(raw, { plan, activity, baseSpec });
-  if (!validated.ok) {
-    return { ...validated, usage: { calls: 1 } };
+  let validated = validatePlannerOutput(raw, { plan, activity, baseSpec });
+  if (validated.ok) {
+    return {
+      ok: true,
+      spec: validated.spec,
+      contentPlan: validated.contentPlan,
+      gate: validated.gate,
+      review: validated.review,
+      usage: { plannerCalls, revisionCalls, calls: plannerCalls + revisionCalls },
+    };
   }
+
+  const revisable = allowRevision !== false
+    && (validated.code === "quality_gate_failed" || validated.code === "review_revise" || validated.code === "missing_pages");
+  if (!revisable) {
+    return {
+      ...validated,
+      code: validated.code === "quality_gate_failed" ? "NEEDS_REVISION" : validated.code,
+      blocked: true,
+      usage: { plannerCalls, revisionCalls, calls: plannerCalls + revisionCalls },
+    };
+  }
+
+  try {
+    const revSystem = buildRevisionSystemPrompt(plan?.age || activity?.age);
+    const revUser = buildRevisionUserPrompt(
+      context,
+      validated.gate?.errors || validated.review?.reasons || [validated.error],
+      validated.spec || baseSpec,
+    );
+    raw = await callAi(revSystem, revUser);
+    revisionCalls += 1;
+  } catch (error) {
+    return {
+      ok: false,
+      code: "BLOCKED",
+      error: text(error?.message || "Printable revision call failed", 400),
+      blocked: true,
+      usage: { plannerCalls, revisionCalls, calls: plannerCalls + revisionCalls },
+      preservedExisting: true,
+    };
+  }
+
+  validated = validatePlannerOutput(raw, { plan, activity, baseSpec });
+  if (!validated.ok) {
+    return {
+      ok: false,
+      code: "BLOCKED",
+      error: `Printable blocked after revision: ${validated.error || validated.code}`,
+      blocked: true,
+      gate: validated.gate,
+      review: validated.review,
+      usage: { plannerCalls, revisionCalls, calls: plannerCalls + revisionCalls },
+      preservedExisting: true,
+    };
+  }
+
   return {
     ok: true,
     spec: validated.spec,
     contentPlan: validated.contentPlan,
     gate: validated.gate,
     review: validated.review,
-    usage: { calls: 1 },
+    revised: true,
+    usage: { plannerCalls, revisionCalls, calls: plannerCalls + revisionCalls },
   };
 }
 
@@ -731,6 +857,7 @@ module.exports = {
   PAGE_TYPES,
   VISUAL_MODES,
   stripJsonFences,
+  extractFirstJsonObject,
   normalizePageType,
   normalizeContentPage,
   mergeContentIntoSpec,
@@ -739,8 +866,11 @@ module.exports = {
   buildPlannerSystemPrompt,
   buildPlannerUserPrompt,
   buildPlannerContext,
+  buildRevisionSystemPrompt,
+  buildRevisionUserPrompt,
   validatePlannerOutput,
   buildOperatorPrintableAiFixtureResponse,
+  buildOperatorPrintableAiRevisionFixtureResponse,
   planPrintableContent,
   ageBandKind,
 };
