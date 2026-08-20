@@ -19,6 +19,7 @@ const draftReviewModel = require("../scripts/curriculum-draft-review.js");
 const { createDraftReviewApi } = require("./curriculum-draft-review.js");
 const { createVisualProductionApi, mergeStorePreserveVisualProduction } = require("./visual-production.js");
 const { createCurriculumOperatorApi, mergeStorePreserveCurriculumOperatorJobs } = require("./curriculum-operator.js");
+const { createCurriculumOperatorOwnerPublishApi } = require("./curriculum-operator-owner-publish.js");
 const restoreIndependentLesson = require("./curriculum-restore-independent-lesson.js");
 const visualProductionImage = require("./visual-production-image.js");
 const visualProductionMedia = require("./visual-production-media.js");
@@ -23052,9 +23053,13 @@ async function handlePublishEnrichment(request, response, ctx) {
     now,
     body,
   } = ctx;
-  if (!requireTeachingKitOwnerAdminSession(request, body, response)) return;
+  if (!ctx.preAuthorizedOwnerSession) {
+    if (!requireTeachingKitOwnerAdminSession(request, body, response)) return;
+  }
   const enrichFlags = normalizedFeatureFlags(siteContent.featureFlags);
-  if (!teachingKit.isTeachingKitEnrichmentEditorEnabled(enrichFlags)) {
+  const allowOperatorOwnerPublish = body?.operatorOwnerPublish === true
+    && teachingKit.isTeachingKitCurriculumOperatorEnabled(enrichFlags);
+  if (!teachingKit.isTeachingKitEnrichmentEditorEnabled(enrichFlags) && !allowOperatorOwnerPublish) {
     jsonResponse(response, 404, {
       error: "Teaching Kit Enrichment Editor is disabled.",
       code: "enrichment_editor_disabled",
@@ -23128,6 +23133,17 @@ async function handlePublishEnrichment(request, response, ctx) {
   }
 
   const fingerprint = enrichmentPublishFingerprint(incomingDraft || {});
+  if (allowOperatorOwnerPublish && body?.expectedEnrichmentFingerprint) {
+    const expectedEnrichment = normalizedShortText(body.expectedEnrichmentFingerprint, 128);
+    if (expectedEnrichment && expectedEnrichment !== fingerprint) {
+      jsonResponse(response, 409, {
+        error: "Draft changed since confirmation opened. Review again before publishing.",
+        code: "DRAFT_CHANGED_REVIEW_AGAIN",
+        autoPublished: false,
+      });
+      return;
+    }
+  }
   const lastVersion = Array.isArray(existingPlan.enrichmentPublishHistory)
     ? existingPlan.enrichmentPublishHistory[0]
     : null;
@@ -23260,6 +23276,14 @@ async function handlePublishEnrichment(request, response, ctx) {
       lastEnrichmentPublishedBy: publishedBy,
       lastEnrichmentPublishFingerprint: fingerprint,
       lastEnrichmentVersionId: versionId,
+      ...(allowOperatorOwnerPublish ? {
+        lastOperatorOwnerPublish: {
+          at: now,
+          publishedBy,
+          operatorJobId: normalizedShortText(body.operatorJobId || "", 80) || null,
+          reviewedFingerprint: normalizedShortText(body.expectedReviewFingerprint || "", 128) || null,
+        },
+      } : {}),
       ...(ownerOverrideMeta ? {
         lastPublishOverride: {
           reason: ownerOverrideMeta.reason,
@@ -23274,6 +23298,11 @@ async function handlePublishEnrichment(request, response, ctx) {
     dailyPlans: surgicalDailyPlans,
     __llhSurgicalDailyPlans: true,
   };
+  // Phase 8 Owner bridge: draft lessons become published only via explicit Owner publish.
+  if (allowOperatorOwnerPublish && String(existingPlan.status || "").toLowerCase() === "draft") {
+    nextPlan.status = "published";
+    nextPlan.publishedAt = existingPlan.publishedAt || now;
+  }
 
   // Surgical curriculum graph — do NOT call normalizedCurriculumStore() here.
   // Whole-library normalize would rewrite sibling setupMinutes / custom fields.
@@ -23362,6 +23391,207 @@ async function handlePublishEnrichment(request, response, ctx) {
     ownerPublishOverride: ownerOverrideMeta || null,
     promotedPrintableIds: promotedPrintables.publishedResourceIds,
   });
+}
+
+/**
+ * Phase 8 Owner bridge: reuse trusted enrichment publish, then ensure draft
+ * lessons reach status=published. Never called by AI Operator jobs.
+ */
+async function runTrustedOwnerPublish({
+  lessonId,
+  session,
+  reviewedFingerprint = "",
+  expectedTitle = "",
+  expectedAge = "",
+  expectedAccessPlan = "",
+  operatorJobId = null,
+  publishedBy = "",
+} = {}) {
+  const id = normalizedShortText(lessonId, 160);
+  if (!id) {
+    return { ok: false, code: "LESSON_NOT_FOUND", error: "lessonId required" };
+  }
+  const store = readStore();
+  const siteContent = store.siteContent && typeof store.siteContent === "object"
+    ? store.siteContent
+    : defaultSiteContentStore();
+  const existingCurriculum = siteContent.curriculum || defaultCurriculumStore();
+  const existingPlan = (existingCurriculum.lessonPlans || []).find((item) => item.id === id);
+  if (!existingPlan) {
+    return { ok: false, code: "LESSON_NOT_FOUND", error: "Lesson plan not found." };
+  }
+  if (expectedTitle && normalizedShortText(existingPlan.title, 180) !== normalizedShortText(expectedTitle, 180)) {
+    return { ok: false, code: "TITLE_AGE_CHANGED", error: "Title changed since confirmation." };
+  }
+  if (expectedAge && normalizedShortText(existingPlan.age, 120) !== normalizedShortText(expectedAge, 120)) {
+    return { ok: false, code: "TITLE_AGE_CHANGED", error: "Age changed since confirmation." };
+  }
+  if (expectedAccessPlan) {
+    const currentPlan = existingPlan.plan === "Pro" ? "Pro" : "Free";
+    const expected = expectedAccessPlan === "Pro" ? "Pro" : "Free";
+    if (currentPlan !== expected) {
+      return { ok: false, code: "ACCESS_PLAN_CHANGED", error: "Access plan changed since confirmation." };
+    }
+  }
+
+  const now = new Date().toISOString();
+  const previousHistoryRef = Array.isArray(existingPlan.enrichmentPublishHistory)
+    && existingPlan.enrichmentPublishHistory[0]
+    ? existingPlan.enrichmentPublishHistory[0].versionId
+    : null;
+  const hasDraft = enrichmentDraftHasContent(existingPlan.enrichmentDraft);
+  let enrichmentResult = null;
+  let versionId = "";
+
+  if (hasDraft) {
+    let statusCode = 500;
+    let payload = null;
+    const capture = {
+      writeHead(code) { statusCode = code; },
+      end(chunk) {
+        try { payload = JSON.parse(String(chunk)); } catch (_error) { payload = { raw: String(chunk) }; }
+      },
+    };
+    const fakeRequest = { method: "POST", headers: {} };
+    await handlePublishEnrichment(fakeRequest, capture, {
+      store,
+      siteContent,
+      existingCurriculum,
+      existingPlan,
+      incomingPlan: {
+        id,
+        enrichmentDraft: existingPlan.enrichmentDraft,
+      },
+      id,
+      now,
+      body: {
+        operatorOwnerPublish: true,
+        expectedReviewFingerprint: reviewedFingerprint,
+        publishedBy: publishedBy || session?.email || "owner",
+        operatorJobId: operatorJobId || "",
+        saveMode: "publish_enrichment",
+      },
+      preAuthorizedOwnerSession: session || { email: publishedBy },
+    });
+    enrichmentResult = { statusCode, payload };
+    if (statusCode >= 400 || !payload?.ok) {
+      return {
+        ok: false,
+        statusCode,
+        code: payload?.code || "publish_enrichment_failed",
+        error: payload?.error || "Trusted enrichment publish failed.",
+        blockers: payload?.blockers,
+        trustedPath: "publish_enrichment",
+      };
+    }
+    versionId = payload.versionId || "";
+    if (payload.duplicate && String(existingPlan.status || "").toLowerCase() === "published") {
+      return {
+        ok: true,
+        duplicate: true,
+        versionId,
+        previousHistoryRef,
+        trustedPath: "publish_enrichment",
+        enrichmentResult: payload,
+      };
+    }
+  }
+
+  // Reload after enrichment publish (store mutated in place).
+  const afterEnrichment = readStore();
+  const curriculum = afterEnrichment.siteContent?.curriculum || existingCurriculum;
+  const planAfter = (curriculum.lessonPlans || []).find((item) => item.id === id);
+  if (!planAfter) {
+    return { ok: false, code: "LESSON_NOT_FOUND", error: "Lesson missing after enrichment publish." };
+  }
+
+  const status = String(planAfter.status || "").toLowerCase();
+  if (status === "published" || status === "featured") {
+    appendEnrichmentEditorAudit(afterEnrichment, {
+      action: "operator_owner_publish",
+      lessonPlanId: id,
+      versionId,
+      adminEmail: publishedBy || session?.email || "owner",
+      fingerprint: reviewedFingerprint,
+      note: "Phase 8 Owner manual publish via trusted path; AI Operator did not publish.",
+    });
+    await writeStoreAsync(afterEnrichment);
+    return {
+      ok: true,
+      versionId,
+      previousHistoryRef,
+      trustedPath: hasDraft ? "publish_enrichment" : "already_published",
+      enrichmentResult: enrichmentResult?.payload || null,
+    };
+  }
+
+  // Status-only trusted publish for draft lessons without (or after) enrichment merge.
+  const linkedActs = (curriculum.activities || []).filter((item) => item.lessonPlanId === id);
+  let ownerWorkspaceApi = null;
+  try { ownerWorkspaceApi = require("../scripts/teaching-kit-owner-workspace.js"); } catch (_error) { ownerWorkspaceApi = null; }
+  const trueBlockers = ownerWorkspaceApi?.collectTruePublishBlockers
+    ? ownerWorkspaceApi.collectTruePublishBlockers(planAfter, linkedActs)
+    : [];
+  if (trueBlockers.length) {
+    return {
+      ok: false,
+      code: "true_publish_blockers",
+      error: trueBlockers.map((item) => item.message).join(". "),
+      blockers: trueBlockers,
+      trustedPath: "draft_status_publish",
+    };
+  }
+
+  const stamp = new Date().toISOString();
+  const publishedPlan = {
+    ...planAfter,
+    status: "published",
+    publishedAt: planAfter.publishedAt || stamp,
+    updatedAt: stamp,
+    teachingKit: {
+      ...(planAfter.teachingKit || {}),
+      lastOperatorOwnerPublish: {
+        at: stamp,
+        publishedBy: publishedBy || session?.email || "owner",
+        operatorJobId: operatorJobId || null,
+        reviewedFingerprint: reviewedFingerprint || null,
+        path: hasDraft ? "publish_enrichment+status" : "draft_status_publish",
+      },
+    },
+  };
+  const nextCurriculum = {
+    ...curriculum,
+    lessonPlans: (curriculum.lessonPlans || []).map((item) => (item.id === id ? publishedPlan : item)),
+    updatedAt: stamp,
+  };
+  const writeResult = writeSiteCurriculumTouched(afterEnrichment, nextCurriculum, {
+    updatedAt: stamp,
+    touchedLessonPlanIds: [id],
+  });
+  if (writeResult.wipeBlocked) {
+    return {
+      ok: false,
+      code: "curriculum_wipe_blocked",
+      error: "Publish refused to protect curriculum integrity.",
+      trustedPath: "draft_status_publish",
+    };
+  }
+  appendEnrichmentEditorAudit(afterEnrichment, {
+    action: "operator_owner_publish_status",
+    lessonPlanId: id,
+    versionId: versionId || `opub-${crypto.randomBytes(8).toString("hex")}`,
+    adminEmail: publishedBy || session?.email || "owner",
+    fingerprint: reviewedFingerprint,
+    note: "Phase 8 Owner status publish for draft lesson; AI Operator did not publish.",
+  });
+  await writeStoreAsync(afterEnrichment);
+  return {
+    ok: true,
+    versionId: versionId || "",
+    previousHistoryRef,
+    trustedPath: hasDraft ? "publish_enrichment+draft_status_publish" : "draft_status_publish",
+    enrichmentResult: enrichmentResult?.payload || null,
+  };
 }
 
 async function handleAdminRestoreIndependentLessonFromHistory(request, response) {
@@ -31475,6 +31705,20 @@ const server = http.createServer(async (request, response) => {
         });
       }
       return await globalThis.__llhCurriculumOperatorApi.handle(request, response);
+    }
+    if (request.method === "POST" && url.pathname === "/api/admin/curriculum/operator-owner-publish") {
+      if (!globalThis.__llhCurriculumOperatorOwnerPublishApi) {
+        globalThis.__llhCurriculumOperatorOwnerPublishApi = createCurriculumOperatorOwnerPublishApi({
+          readJson,
+          jsonResponse,
+          readStore,
+          requireTeachingKitOwnerAdminSession,
+          teachingKit,
+          normalizeEmail,
+          runTrustedOwnerPublish,
+        });
+      }
+      return await globalThis.__llhCurriculumOperatorOwnerPublishApi.handle(request, response);
     }
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/draft-review") {
       if (!globalThis.__llhDraftReviewApi) {

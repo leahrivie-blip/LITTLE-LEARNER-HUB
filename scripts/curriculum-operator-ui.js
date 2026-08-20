@@ -16,6 +16,8 @@
     job: null,
     jobs: [],
     flagEnabled: false,
+    publishModal: null,
+    publishResult: null,
   };
 
   function esc(value) {
@@ -83,6 +85,27 @@
     return json;
   }
 
+  async function ownerPublishApi(action, extra = {}) {
+    const token = adminToken();
+    if (!token) throw new Error("Admin session required.");
+    if (!isOwner()) throw new Error("Owner publish is restricted to the owner account.");
+    const response = await fetch("/api/admin/curriculum/operator-owner-publish", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ action, ...extra }),
+    });
+    const json = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const error = new Error(json.error || `Owner publish failed (${response.status})`);
+      error.payload = json;
+      throw error;
+    }
+    return json;
+  }
+
   function decisionClass(decision) {
     const d = String(decision || "").toUpperCase();
     if (d === "KEEP" || d === "KEEP_EXISTING") return "keep";
@@ -99,6 +122,68 @@
         <strong>${esc(f.label || f.field)}</strong>: ${esc(f.decision)}
         <span class="muted-copy"> — ${esc(f.reason || "")}</span>
       </li>`).join("")}</ul>`;
+  }
+
+  function renderOwnerReviewPanel(lr) {
+    const review = lr.ownerReviewStatus || "";
+    const lessonId = (lr.auditAfter || lr.audit)?.lessonId || lr.createdLessonId || lr.lessonId || "";
+    const publishedUi = state.publishResult?.lessonId === lessonId && state.publishResult?.published;
+    if (publishedUi) {
+      const ui = state.publishResult.ui || {};
+      return `
+        <section class="co-owner-review">
+          <h5>PUBLISHED</h5>
+          <p>Published: ${esc(ui.publishedAt || "just now")}</p>
+          <p>Access: ${esc(ui.accessPlan || lr.audit?.accessPlan || "")}</p>
+          <p>Prepared by: ${esc(ui.preparedBy || "AI Curriculum Operator")}</p>
+          <p>Verified: ✓</p>
+          <div class="account-actions-row">
+            <button type="button" class="ghost-button" data-co-open-lesson="${esc(lessonId)}">Open Full Lesson</button>
+          </div>
+        </section>`;
+    }
+    if (review !== "READY_FOR_OWNER_REVIEW") {
+      return `<p class="muted-copy"><strong>Publish: NOT PUBLISHED.</strong> ${
+        review === "PARTIAL" || review === "BLOCKED" || review === "SCOPE_REVIEW_REQUIRED" || review === "RUNNING"
+          ? `Publish disabled (${esc(review)}).`
+          : ""
+      }</p>`;
+    }
+    const audit = lr.auditAfter || lr.audit || {};
+    const readiness = lr.afterScores?.premiumReadinessPercent ?? audit?.scores?.premiumReadinessPercent ?? "—";
+    const publishNote = lr.publishRequested
+      ? "<p class=\"access-notice\"><strong>READY FOR REVIEW — PUBLISH REQUESTED</strong> (Owner confirmation still required)</p>"
+      : "";
+    const changes = Array.isArray(lr.updated) ? lr.updated : [];
+    const kept = Array.isArray(lr.kept) ? lr.kept : [];
+    return `
+      <section class="co-owner-review">
+        ${publishNote}
+        <h5>${esc(audit.title || lr.title || "Lesson")}</h5>
+        <p class="co-status-pill">READY FOR OWNER REVIEW</p>
+        <p>Teaching Kit ${esc(readiness)}%</p>
+        <ul class="co-review-checks">
+          <li>Content — Weekly plan ${audit.weeklyContent ? "✓" : "·"} · Activities ✓ · Songs ${lr.songsBooksComplete || (lr.songCounts && (lr.songCounts.KEEP || lr.songCounts.ADD)) ? "✓" : "·"} · Books ${lr.songsBooksComplete || (lr.bookCounts && (lr.bookCounts.KEEP || lr.bookCounts.ADD)) ? "✓" : "·"}</li>
+          <li>Activity images — ${lr.imagesComplete ? "✓ Verified" : "Needs review"}</li>
+          <li>Printables — ${lr.printablesComplete ? "✓ Verified" : "Needs review"}</li>
+          <li>Final validation — ${lr.finalVerification?.ok !== false ? "✓ No critical blockers" : "✗ Issues remain"}</li>
+          <li>Last Operator job — Completed</li>
+        </ul>
+        <p><strong>PUBLISH STATUS</strong> — NOT PUBLISHED</p>
+        ${changes.length || kept.length ? `
+          <details class="co-review-changes">
+            <summary>Review Changes</summary>
+            ${changes.length ? `<p><strong>Changed:</strong></p><ul>${changes.slice(0, 12).map((c) => `<li>${esc(c.activityTitle || c.path || c)}</li>`).join("")}</ul>` : ""}
+            ${kept.length ? `<p><strong>Kept:</strong> ${esc(kept.slice(0, 10).join(", "))}${kept.length > 10 ? "…" : ""}</p>` : ""}
+          </details>` : ""}
+        <div class="account-actions-row">
+          <button type="button" class="ghost-button" data-co-open-lesson="${esc(lessonId)}">Open Full Lesson</button>
+          <button type="button" class="ghost-button" data-co-review-changes="${esc(lessonId)}">Review Changes</button>
+          <button type="button" class="primary-button" data-co-publish-lesson="${esc(lessonId)}"
+            data-co-publish-title="${esc(audit.title || lr.title || "")}"
+            data-co-publish-requested="${lr.publishRequested ? "1" : "0"}">Publish Lesson</button>
+        </div>
+      </section>`;
   }
 
   function renderAuditCard(lr) {
@@ -214,12 +299,11 @@
           ? `<ul>${(lr.auditAfter || lr.audit).teachingKitBlockers.slice(0, 8).map((b) => `<li>${esc(b.message)}</li>`).join("")}</ul>`
           : "<p class=\"muted-copy\">None listed</p>"}
       </section>
-      <p class="muted-copy"><strong>Publish: NOT PUBLISHED.</strong>
-        ${lr.upgradeVerification?.ok === false ? " Post-save verification reported issues." : ""}
-        ${lr.preSnapshotHistoryId ? ` Recovery snapshot: ${esc(lr.preSnapshotHistoryId)}` : ""}</p>
+      ${renderOwnerReviewPanel(lr)}
+      ${review === "READY_FOR_OWNER_REVIEW" ? "" : `
       <div class="account-actions-row">
         <button type="button" class="ghost-button" data-co-open-lesson="${esc((lr.audit || a)?.lessonId || lr.lessonId)}">Open in Enrichment Editor</button>
-      </div>
+      </div>`}
     </article>`;
   }
 
@@ -247,7 +331,7 @@
           <div>
             <p class="eyebrow">Content · Owner</p>
             <h3>AI Curriculum Operator</h3>
-            <p class="muted-copy">Phase 7.5: create a new draft Teaching Kit with the structured AI lesson architect, then finish songs/books/images/printables as allowed. <strong>No publishing.</strong> Open the draft in Owner Admin to review and publish yourself.</p>
+            <p class="muted-copy">Phase 8: AI jobs still end at <strong>READY FOR OWNER REVIEW</strong> (never auto-publish). You inspect the stored draft, then explicitly Publish through the trusted path — one lesson at a time.</p>
           </div>
         </div>
         ${state.message ? `<p class="access-notice ${state.isError ? "error" : ""}" role="status">${esc(state.message)}</p>` : ""}
@@ -298,6 +382,25 @@
             : "<p class=\"muted-copy\">No jobs yet.</p>"}
         </section>
       </div>
+      ${state.publishModal ? `
+        <div class="co-publish-modal" role="dialog" aria-modal="true">
+          <div class="co-publish-modal-card">
+            <h3>${esc(state.publishModal.message || "Publish lesson?")}</h3>
+            <p>${esc(state.publishModal.detail || "")}</p>
+            <ul>
+              <li><strong>Access:</strong> ${esc(state.publishModal.accessPlan || "")}</li>
+              <li><strong>Age:</strong> ${esc(state.publishModal.age || "")}</li>
+              <li><strong>Activities:</strong> ${esc(state.publishModal.activityCount ?? "")}</li>
+              <li><strong>Printables:</strong> ${esc(state.publishModal.printableCount ?? "")}</li>
+              <li><strong>Lesson ID:</strong> <code>${esc(state.publishModal.lessonId || "")}</code></li>
+            </ul>
+            <p class="muted-copy">This action changes the live curriculum.</p>
+            <div class="account-actions-row">
+              <button type="button" class="ghost-button" id="coPublishCancelBtn">Cancel</button>
+              <button type="button" class="primary-button" id="coPublishConfirmBtn" ${state.busy ? "disabled" : ""}>Publish</button>
+            </div>
+          </div>
+        </div>` : ""}
       <style>
         .co-operator textarea { width: 100%; max-width: 52rem; }
         .co-panel { margin: 1.25rem 0; padding: 1rem 0; border-top: 1px solid rgba(0,0,0,.08); }
@@ -313,6 +416,10 @@
         .co-field-list li[data-decision="replace"] strong { color: #8a1f1f; }
         .co-field-list li[data-decision="fill"] strong { color: #1f4b8a; }
         .co-action-list { margin: .25rem 0 0 1.1rem; }
+        .co-owner-review { margin-top: 1rem; padding-top: .75rem; border-top: 1px dashed rgba(0,0,0,.12); }
+        .co-review-checks { margin: .5rem 0; padding-left: 1.1rem; }
+        .co-publish-modal { position: fixed; inset: 0; background: rgba(20,16,12,.45); display: flex; align-items: center; justify-content: center; z-index: 80; padding: 1rem; }
+        .co-publish-modal-card { background: #fffaf3; max-width: 28rem; width: 100%; padding: 1.25rem; border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,.18); }
         button.linkish { background: none; border: none; color: inherit; text-decoration: underline; cursor: pointer; padding: 0; font: inherit; }
       </style>
     `;
@@ -324,6 +431,11 @@
     el.querySelector("#coRunBtn")?.addEventListener("click", () => void onRun());
     el.querySelector("#coRefreshJobsBtn")?.addEventListener("click", () => void refreshJobs());
     el.querySelector("#coConfirmResumeBtn")?.addEventListener("click", () => void onConfirmResume());
+    el.querySelector("#coPublishCancelBtn")?.addEventListener("click", () => {
+      state.publishModal = null;
+      render();
+    });
+    el.querySelector("#coPublishConfirmBtn")?.addEventListener("click", () => void onConfirmPublish());
     el.querySelectorAll("[data-co-load-job]").forEach((btn) => {
       btn.addEventListener("click", () => void loadJob(btn.getAttribute("data-co-load-job")));
     });
@@ -337,6 +449,89 @@
         }
       });
     });
+    el.querySelectorAll("[data-co-review-changes]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const card = btn.closest(".co-lesson-card");
+        const details = card?.querySelector(".co-review-changes");
+        if (details) details.open = true;
+        details?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      });
+    });
+    el.querySelectorAll("[data-co-publish-lesson]").forEach((btn) => {
+      btn.addEventListener("click", () => void onOpenPublishConfirm(btn.getAttribute("data-co-publish-lesson")));
+    });
+  }
+
+  async function onOpenPublishConfirm(lessonId) {
+    state.busy = true;
+    state.message = "";
+    state.isError = false;
+    render();
+    try {
+      const lr = (state.job?.lessonResults || []).find((row) => (
+        row.lessonId === lessonId || row.createdLessonId === lessonId
+        || row.audit?.lessonId === lessonId || row.auditAfter?.lessonId === lessonId
+      ));
+      const result = await ownerPublishApi("confirm", {
+        lessonId,
+        ownerReviewStatus: lr?.ownerReviewStatus || "READY_FOR_OWNER_REVIEW",
+        publishRequested: lr?.publishRequested === true,
+      });
+      state.publishModal = {
+        ...result.confirmation,
+        lessonId,
+        reviewedFingerprint: result.confirmation?.fingerprint || result.fingerprint?.fingerprint,
+      };
+      state.message = "Review the publish confirmation carefully. This changes the live curriculum.";
+    } catch (error) {
+      state.isError = true;
+      state.message = error.message || "Publish eligibility failed.";
+      state.publishModal = null;
+    } finally {
+      state.busy = false;
+      render();
+    }
+  }
+
+  async function onConfirmPublish() {
+    if (!state.publishModal?.lessonId) return;
+    state.busy = true;
+    state.isError = false;
+    render();
+    try {
+      const modal = state.publishModal;
+      const result = await ownerPublishApi("publish", {
+        lessonId: modal.lessonId,
+        confirmPublish: true,
+        reviewedFingerprint: modal.reviewedFingerprint || modal.fingerprint,
+        title: modal.title,
+        age: modal.age,
+        accessPlan: modal.accessPlan,
+        ownerReviewStatus: "READY_FOR_OWNER_REVIEW",
+      });
+      state.publishModal = null;
+      state.publishResult = {
+        lessonId: modal.lessonId,
+        published: true,
+        ui: result.ui,
+      };
+      state.message = `PUBLISHED — verified. Access: ${result.ui?.accessPlan || ""}.`;
+      await refreshJobs(false);
+    } catch (error) {
+      state.isError = true;
+      const code = error.payload?.code || "";
+      if (code === "DRAFT_CHANGED_REVIEW_AGAIN") {
+        state.message = "DRAFT_CHANGED_REVIEW_AGAIN — the draft changed since confirmation. Review again before publishing.";
+        state.publishModal = null;
+      } else if (code === "PUBLISH_VERIFY_FAILED") {
+        state.message = "PUBLISH_VERIFY_FAILED — publish did not verify cleanly. Investigate before retrying.";
+      } else {
+        state.message = error.message || "Publish failed.";
+      }
+    } finally {
+      state.busy = false;
+      render();
+    }
   }
 
   async function onParse() {
@@ -384,9 +579,17 @@
         state.message = "Confirmation required before running. Review scope, then confirm.";
       } else if (result.draftOnly) {
         const createdId = result.job?.lessonResults?.[0]?.createdLessonId || result.job?.lessonResults?.[0]?.lessonId;
-        state.message = createdId
-          ? `Draft lesson created (${createdId}) — READY FOR OWNER REVIEW / NOT PUBLISHED. Open the lesson to inspect.`
-          : "Full Teaching Kit draft job complete — NOT PUBLISHED. Open the lesson to review.";
+        const publishRequested = (result.job?.lessonResults || []).some((lr) => lr.publishRequested)
+          || (result.command?.confirmations?.reasons || []).includes("publish_requested");
+        if (publishRequested) {
+          state.message = createdId
+            ? `READY FOR REVIEW — PUBLISH REQUESTED (${createdId}). AI did not publish. Confirm Publish in the Owner review panel.`
+            : "READY FOR REVIEW — PUBLISH REQUESTED. AI did not publish. Confirm Publish in the Owner review panel.";
+        } else {
+          state.message = createdId
+            ? `Draft lesson created (${createdId}) — READY FOR OWNER REVIEW / NOT PUBLISHED. Open the lesson to inspect.`
+            : "Full Teaching Kit draft job complete — NOT PUBLISHED. Open the lesson to review.";
+        }
       } else {
         state.message = "Audit job complete. No curriculum data was changed.";
       }

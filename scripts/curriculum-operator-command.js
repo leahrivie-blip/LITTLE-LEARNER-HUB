@@ -276,7 +276,7 @@ function parseOperatorCommand(rawCommand, options = {}) {
   if (/\bpublish\b/i.test(raw) && !/\bready\s+to\s+publish\b/i.test(raw)) {
     actions.publish = true;
     confirmReasons.push("publish_requested");
-    notes.push("Publishing is disabled until Phase 8. Draft upgrades only.");
+    notes.push("READY FOR REVIEW — PUBLISH REQUESTED. AI will finish the draft only; Owner must explicitly confirm Publish in the UI (Phase 8). No automatic publishing.");
   }
   if (/\b(generate|create|make)\b.+\b(image|picture|photo)s?\b/i.test(raw) && !noTouchImages) {
     actions.generateImages = phase === 3 || phase >= 6;

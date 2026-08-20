@@ -1,9 +1,10 @@
 /**
  * Owner-only AI Curriculum Operator API
- * (Phase 1–7: audit → upgrades → images → printables → songs/books → full kit → new draft create).
+ * (Phase 1–8: audit → upgrades → images → printables → songs/books → full kit →
+ *  new draft create → Owner-gated manual publish bridge).
  *
- * Saves enrichmentDraft / trusted draft create only. Never publishes.
- * Phase 7: create new draft lesson via trusted path, then reuse Phase 6 kit finish.
+ * Saves enrichmentDraft / trusted draft create only from AI jobs. Never publishes
+ * from Operator job actions. Phase 8 Owner publish is a separate API.
  */
 "use strict";
 

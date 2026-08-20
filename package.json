@@ -46,6 +46,7 @@
     "test:curriculum-operator-phase7-live": "node scripts/test-curriculum-operator-phase7-live.js",
     "test:curriculum-operator-phase75": "NODE_ENV=test LLH_OPERATOR_AI_FIXTURE=1 LLH_OPERATOR_SONGS_BOOKS_FIXTURE=1 LLH_OPERATOR_PRINTABLE_FIXTURE=1 VISUAL_PRODUCTION_MOCK_GENERATE=1 LLH_OPERATOR_IMAGE_FIXTURE=1 node scripts/test-curriculum-operator-phase75.js",
     "test:curriculum-operator-phase75-live": "node scripts/test-curriculum-operator-phase75-live.js",
+    "test:curriculum-operator-phase8": "NODE_ENV=test node scripts/test-curriculum-operator-phase8.js",
     "test:teaching-kit-quality-review": "NODE_ENV=test node scripts/test-teaching-kit-quality-review.js",
     "test:teaching-kit-admin-workflow-scoring": "NODE_ENV=test node scripts/test-teaching-kit-admin-workflow-scoring.js",
     "test:teaching-kit-curriculum-production": "NODE_ENV=test node scripts/test-teaching-kit-curriculum-production.js",

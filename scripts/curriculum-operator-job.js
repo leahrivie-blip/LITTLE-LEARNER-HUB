@@ -106,6 +106,7 @@ function normalizeLessonResult(raw = {}) {
     aiUsage: input.aiUsage && typeof input.aiUsage === "object" ? input.aiUsage : null,
     ownerReviewStatus: ownerReviewStatus || null,
     readyForReview: input.readyForReview === true || ownerReviewStatus === "READY_FOR_OWNER_REVIEW",
+    publishRequested: input.publishRequested === true,
     published: false,
     error: input.error ? schema.text(input.error, 500) : null,
     code: input.code ? schema.text(input.code, 80) : null,
@@ -292,6 +293,8 @@ function createJobFromPlan({ command, planSummary, createdBy, status = "planned"
           { id: newStepId(), type: "lesson.validate", status: "pending", idempotencyKey: `final-validate:${id}` },
         );
       }
+      const publishRequested = Array.isArray(command?.confirmations?.reasons)
+        && command.confirmations.reasons.includes("publish_requested");
       return {
         lessonId: id,
         title: lesson.title,
@@ -320,6 +323,8 @@ function createJobFromPlan({ command, planSummary, createdBy, status = "planned"
         creationIdempotencyKey: createKey,
         workPlan: lesson.workPlan || null,
         kitScope: lesson.kitScope || null,
+        publishRequested,
+        published: false,
       };
     }),
     log: [],
