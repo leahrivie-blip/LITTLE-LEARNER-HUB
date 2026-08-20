@@ -8,7 +8,11 @@ const printableOverlay = require("./visual-production-printable-overlay.js");
 
 const BRAND_URL = "littlelearnershubbyleah.com";
 const OPENAI_IMAGES_URL = "https://api.openai.com/v1/images/generations";
-const REALISTIC_STYLES = new Set(["REALISTIC_PHOTO", "REALISTIC_CLASSROOM"]);
+const REALISTIC_STYLES = new Set([
+  "REALISTIC_PHOTO",
+  "REALISTIC_CLASSROOM",
+  "TEACHING_CARD_REALISTIC",
+]);
 const FLAT_PRINTABLE_STYLES = new Set([
   "FLAT_2D_ILLUSTRATION",
   "CLEAN_PRINTABLE",
