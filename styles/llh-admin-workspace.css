@@ -546,7 +546,7 @@ body:has(#view-admin.active-view) .llh-public-nav {
 .admin-create-lesson-overlay {
   position: fixed;
   inset: 0;
-  z-index: 12100;
+  z-index: 14100;
   display: flex;
   align-items: flex-start;
   justify-content: center;
@@ -555,8 +555,8 @@ body:has(#view-admin.active-view) .llh-public-nav {
   background: rgba(28, 18, 12, 0.45);
 }
 
-/* Teaching Kit editor is z-index 13050. Without this, Replace From Master Paste
-   opens behind the editor and the button appears to do nothing. */
+/* Teaching Kit editor is z-index 13050. Keep the paste dialog above it even if
+   a more specific editor rule is added later. */
 body.tk-enrich-open .admin-create-lesson-overlay {
   z-index: 14100;
 }

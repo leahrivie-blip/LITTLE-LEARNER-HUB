@@ -10492,11 +10492,13 @@ function renderAdminCreateLessonPlanDialog() {
     host = document.createElement("div");
     host.id = "adminCreateLessonPlanOverlay";
     host.className = "admin-create-lesson-overlay";
+    host.style.zIndex = "14100";
     host.addEventListener("click", (event) => {
       if (event.target === host) resetAdminCreateLessonPlanUi();
     });
     document.body.appendChild(host);
   }
+  host.style.zIndex = "14100";
   const busy = ui.creating ? " disabled" : "";
   let body = "";
   if (ui.step === "choose") {

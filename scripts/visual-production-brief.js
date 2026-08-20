@@ -108,17 +108,27 @@
     "fake shadows or depth effects",
   ]);
 
-  /** Permanent site credit. Never shorten or invent a different URL. */
+  /**
+   * Permanent site credit spelling for post-process watermark only.
+   * The image model must never be asked to draw this URL.
+   */
   const BRAND_URL = "littlelearnershubbyleah.com";
+  /** Model-facing rules: leave room for sharp; never ask the model to render the site credit. */
   const BRANDING_REQUIRED = Object.freeze([
-    `small but clearly readable website credit along the bottom edge: ${BRAND_URL}`,
-    "place the credit on the bottom edge without covering important activity content",
-    "keep placement consistent, intentional, and professional — not a large advertisement",
+    "no text",
+    "no labels",
+    "no logos",
+    "no website URLs",
+    "leave the bottom edge visually clear enough for a footer overlay",
   ]);
   const BRANDING_FORBIDDEN = Object.freeze([
-    "omitting littlelearnershubbyleah.com",
-    "shortened or invented website URL",
-    "large advertisement-style branding overlay",
+    "text of any kind rendered by the image model",
+    "labels",
+    "logos",
+    "website URLs",
+    "watermarks",
+    "footer captions",
+    "branded website credit drawn inside the artwork",
   ]);
   const OMIT_BRANDING_PATTERN = /\b(?:omit|skip|without|no)\s+(?:the\s+)?(?:website(?:\s+credit)?|branding|url|littlelearnershubbyleah\.com)\b/i;
 
@@ -344,6 +354,8 @@
    * @param {string} params.printableLayout
    * @param {string} params.subject
    * @param {string} params.originalInstruction
+   * @param {boolean} [params.includeBranding]
+   * @param {string[]} [params.textOverlayRequirements]
    * @returns {{ generationPrompt: string, negativePrompt: string }}
    */
   function buildGenerationPrompts(params) {
@@ -380,9 +392,17 @@
     }
     promptParts.push("- Do not invent extra subjects, decorations, people, or props beyond the owner direction.");
     if (params.includeBranding !== false) {
-      promptParts.push("", "PERMANENT BRANDING (required unless the owner explicitly omitted it for this asset):");
+      // Branding text is applied after generation by sharp — never instruct the model to draw it.
+      promptParts.push("", "POST-PROCESS FOOTER ONLY — do not render branding in the image:");
+      promptParts.push("- Do not render any text, labels, logos, or website URLs.");
+      promptParts.push("- Leave the bottom edge visually clear enough for a footer overlay.");
+      promptParts.push("- Do not draw watermarks, captions, or website addresses; a single footer is applied after generation.");
       BRANDING_REQUIRED.forEach((rule) => promptParts.push(`- Require: ${rule}`));
-      promptParts.push(`- Use the exact spelling ${BRAND_URL}. Never shorten or invent a different URL.`);
+    }
+    const overlayLines = uniqueStrings(params.textOverlayRequirements);
+    if (overlayLines.length) {
+      promptParts.push("", "POST-GENERATION TEXT OVERLAY — do not render this text in the image:");
+      overlayLines.forEach((line) => promptParts.push(`- ${line}`));
     }
 
     const negative = uniqueStrings([
@@ -510,9 +530,14 @@
     ]).join(". ");
 
     let activityId = text(source.activityId);
-    const match = matchActivity(activityName, source.activities || []);
+    const isPrintableAsset = assetType === "PRINTABLE_PAGE"
+      || assetType === "PRINTABLE_CARDS"
+      || assetType === "HANDPRINT_FOOTPRINT_TEMPLATE"
+      || assetType === "VISUAL_STRIP"
+      || assetType === "LESSON_COVER";
+    const match = isPrintableAsset ? { activityId: "", reviewFlag: "" } : matchActivity(activityName, source.activities || []);
     if (!activityId && match.activityId) activityId = match.activityId;
-    if (activityName && (source.activities || []).length && match.reviewFlag) {
+    if (!isPrintableAsset && activityName && (source.activities || []).length && match.reviewFlag) {
       reviewFlags.push(match.reviewFlag);
     }
     if (assetType === "ACTIVITY_IMAGE" && activityName && !activityId && match.reviewFlag === "unmatched_activity") {
@@ -526,6 +551,7 @@
     }
 
     const uniqueFlags = uniqueStrings(reviewFlags);
+    const textOverlayRequirements = uniqueStrings(source.textOverlayRequirements);
     const prompts = buildGenerationPrompts({
       assetType,
       visualStyle,
@@ -540,17 +566,23 @@
       subject,
       originalInstruction,
       includeBranding,
+      textOverlayRequirements,
     });
 
     const status = uniqueFlags.length || !assetType || !visualStyle || !originalInstruction
       ? "NEEDS_REVIEW"
       : "READY_FOR_REVIEW";
 
+    const activityLinkStatus = activityId
+      ? "linked"
+      : (assetType === "ACTIVITY_IMAGE" && activityName ? "pending" : "");
+
     return normalizeVisualBrief({
       id: text(source.id),
       lessonId: text(source.lessonId),
       activityId,
       activityName,
+      activityLinkStatus,
       assetType,
       visualStyle,
       subject,
@@ -567,6 +599,11 @@
       status,
       originalInstruction,
       reviewFlags: uniqueFlags,
+      textOverlayRequirements,
+      printablePackId: source.printablePackId,
+      packTitle: source.packTitle,
+      pageNumber: source.pageNumber,
+      pageTitle: source.pageTitle,
       createdAt: now,
       updatedAt: now,
     }, { now });
@@ -598,11 +635,15 @@
     const visualStyle = pickAllowed(entry.visualStyle, VISUAL_STYLES);
     const status = pickAllowed(entry.status, STATUSES) || "DRAFT";
     const id = text(entry.id) || `vb-${Math.random().toString(16).slice(2, 10)}${Date.now().toString(16).slice(-6)}`;
+    const pageNumberRaw = Number(entry.pageNumber);
+    const pageNumber = Number.isFinite(pageNumberRaw) && pageNumberRaw > 0 ? Math.floor(pageNumberRaw) : 0;
+    const activityLinkStatus = pickAllowed(entry.activityLinkStatus, ["linked", "pending"]);
     return {
       id,
       lessonId: text(entry.lessonId).slice(0, 160),
       activityId: text(entry.activityId).slice(0, 160),
       activityName: text(entry.activityName).slice(0, 180),
+      activityLinkStatus,
       assetType,
       visualStyle,
       subject: text(entry.subject).slice(0, 4000),
@@ -624,6 +665,11 @@
       status: /** @type {VisualBriefStatus} */ (status),
       originalInstruction: text(entry.originalInstruction).slice(0, 12000),
       reviewFlags: uniqueStrings(entry.reviewFlags).slice(0, 20),
+      textOverlayRequirements: uniqueStrings(entry.textOverlayRequirements).slice(0, 40),
+      printablePackId: text(entry.printablePackId).slice(0, 160),
+      packTitle: text(entry.packTitle).slice(0, 180),
+      pageNumber,
+      pageTitle: text(entry.pageTitle).slice(0, 180),
       createdAt: text(entry.createdAt) || now,
       updatedAt: text(entry.updatedAt) || now,
     };
@@ -658,6 +704,7 @@
       lessonId: item.lessonId,
       activityId: item.activityId,
       activityName: item.activityName,
+      activityLinkStatus: item.activityLinkStatus,
       assetType: item.assetType,
       visualStyle: item.visualStyle,
       originalInstruction: item.originalInstruction,
@@ -677,6 +724,11 @@
       status: item.status,
       statusLabel: STATUS_LABELS[item.status] || item.status,
       reviewFlags: item.reviewFlags,
+      textOverlayRequirements: item.textOverlayRequirements,
+      printablePackId: item.printablePackId,
+      packTitle: item.packTitle,
+      pageNumber: item.pageNumber,
+      pageTitle: item.pageTitle,
       generatedPreviewMediaAssetId: item.generatedPreviewMediaAssetId,
       generatedPreviewUrl: item.generatedPreviewUrl,
       generatedAt: item.generatedAt,
@@ -783,6 +835,43 @@
     return { ok: true, brief: next };
   }
 
+  /**
+   * Plan a brief from structured owner fields. Does not generate or attach.
+   * When allowPendingActivity is true, an unmatched activity stays READY_FOR_REVIEW
+   * with activityLinkStatus "pending" instead of unmatched_activity / NEEDS_REVIEW.
+   *
+   * @param {object} input
+   */
+  function planStructuredVisualBrief(input) {
+    const source = input && typeof input === "object" ? input : {};
+    const created = createVisualBriefFromInstruction(source);
+    const allowPendingActivity = source.allowPendingActivity === true;
+    const flags = allowPendingActivity
+      ? created.reviewFlags.filter((flag) => flag !== "unmatched_activity")
+      : created.reviewFlags.slice();
+    const activityId = text(source.activityId) || created.activityId;
+    const activityLinkStatus = activityId
+      ? "linked"
+      : (created.assetType === "ACTIVITY_IMAGE" ? "pending" : "");
+    const status = flags.length || !created.assetType || !created.visualStyle || !created.originalInstruction
+      ? "NEEDS_REVIEW"
+      : "READY_FOR_REVIEW";
+    return normalizeVisualBrief({
+      ...created,
+      id: text(source.id) || created.id,
+      activityId,
+      activityName: text(source.activityName) || created.activityName,
+      activityLinkStatus,
+      printablePackId: source.printablePackId,
+      packTitle: source.packTitle,
+      pageNumber: source.pageNumber,
+      pageTitle: source.pageTitle,
+      textOverlayRequirements: source.textOverlayRequirements || created.textOverlayRequirements,
+      reviewFlags: flags,
+      status,
+    }, { now: source.now || created.updatedAt });
+  }
+
   return {
     ASSET_TYPES,
     VISUAL_STYLES,
@@ -800,6 +889,7 @@
     normalizeVisualProductionStore,
     createVisualBriefFromInstruction,
     createVisualBriefsFromInstructions,
+    planStructuredVisualBrief,
     toReviewCard,
     transitionVisualBriefStatus,
     applyVisualBriefPatch,

@@ -463,6 +463,7 @@ function assertStaticContract() {
   const workspaceCss = fs.readFileSync(path.join(ROOT, "styles/llh-admin-workspace.css"), "utf8");
   assert.match(workspaceCss, /body\.tk-enrich-open \.admin-create-lesson-overlay/);
   assert.match(workspaceCss, /z-index:\s*14100/);
+  assert.match(appJs, /host\.style\.zIndex = "14100"/);
   assert.match(appJs, /Parse \/ Preview/);
   assert.match(appJs, /Confirm Replacement/);
   assert.match(appJs, /Replace Lesson Content/);

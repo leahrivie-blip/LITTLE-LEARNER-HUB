@@ -70,6 +70,24 @@ function ok(condition, message) {
 
 async function assertImageProviderContract() {
   ok(visualProductionImage.OPENAI_IMAGES_URL === "https://api.openai.com/v1/images/generations", "uses OpenAI images generations endpoint");
+  ok(visualProductionImage.BRAND_URL === "littlelearnershubbyleah.com", "sharp watermark uses exact site spelling");
+  const footer = visualProductionImage.buildBrandWatermarkSvg(200, 100);
+  ok(footer.brandUrl === "littlelearnershubbyleah.com", "watermark svg receives exact littlelearnershubbyleah.com");
+  ok(footer.layerCount === 1, "exactly one footer layer is defined for sharp");
+  const svgText = footer.svg.toString("utf8");
+  const brandMatches = svgText.match(/littlelearnershubbyleah\.com/g) || [];
+  ok(brandMatches.length === 1, "watermark svg contains the brand URL exactly once");
+  ok((svgText.match(/<text\b/g) || []).length === 1, "watermark svg has exactly one text node");
+
+  const farmPrompt = model.createVisualBriefFromInstruction({
+    lessonId: LESSON_ID,
+    instruction: FARM_INSTRUCTION,
+    activities: seedActivities(),
+  }).generationPrompt;
+  ok(!/require:[^\n]*littlelearnershubbyleah\.com|website credit along the bottom edge:[^\n]*littlelearnershubbyleah/i.test(farmPrompt), "provider prompt has no instruction to render the URL");
+  ok(/do not render any text, labels, logos, or website URLs/i.test(farmPrompt), "provider prompt explicitly prohibits text/URLs/logos");
+  ok(!farmPrompt.includes("Use the exact spelling littlelearnershubbyleah.com"), "provider prompt no longer asks the model to spell the URL");
+
   const prevMock = process.env.VISUAL_PRODUCTION_MOCK_GENERATE;
   delete process.env.VISUAL_PRODUCTION_MOCK_GENERATE;
   try {
@@ -216,8 +234,11 @@ function assertParserContract() {
   ok(farm.forbiddenElements.some((item) => /glossy CGI/i.test(item)), "realistic CGI forbidden list applied");
   ok(farm.status === "READY_FOR_REVIEW", "complete farm brief is READY_FOR_REVIEW");
   ok(farm.generationPrompt.includes("OWNER VISUAL DIRECTION"), "prompt keeps owner direction as source of truth");
-  ok(farm.generationPrompt.includes("littlelearnershubbyleah.com"), "farm prompt requires exact site credit");
-  ok(farm.requiredElements.some((item) => item.includes("littlelearnershubbyleah.com")), "farm required elements include branding");
+  ok(!/require:.*littlelearnershubbyleah\.com|website credit along the bottom edge:.*littlelearnershubbyleah/i.test(farm.generationPrompt), "farm prompt does not instruct the model to render the site URL");
+  ok(!farm.requiredElements.some((item) => item.includes("littlelearnershubbyleah.com")), "farm required elements do not ask the model to draw the URL");
+  ok(/do not render any text, labels, logos, or website URLs/i.test(farm.generationPrompt), "farm prompt prohibits text/labels/logos/URLs");
+  ok(/bottom edge visually clear/i.test(farm.generationPrompt), "farm prompt requires a clear bottom edge for footer overlay");
+  ok(farm.forbiddenElements.some((item) => /website URLs/i.test(item)), "farm forbidden list includes website URLs");
   ok(!/llh\.com|littlelearnerhub/i.test(farm.generationPrompt), "farm prompt does not invent a shortened URL");
 
   const apple = model.createVisualBriefFromInstruction({
@@ -235,15 +256,17 @@ function assertParserContract() {
   ok(apple.forbiddenElements.some((item) => /no border/i.test(item)), "no border forbidden");
   ok(!/puffy 3D/i.test(apple.requiredElements.join(" ")), "printable does not require 3D cartoon style");
   ok(apple.status === "READY_FOR_REVIEW", "complete apple brief is READY_FOR_REVIEW");
-  ok(apple.generationPrompt.includes("littlelearnershubbyleah.com"), "apple printable prompt requires exact site credit");
-  ok(/bottom edge/i.test(apple.generationPrompt), "branding is placed along the bottom edge");
+  ok(!/require:.*littlelearnershubbyleah\.com|website credit along the bottom edge:.*littlelearnershubbyleah/i.test(apple.generationPrompt), "apple prompt does not instruct the model to render the site URL");
+  ok(/do not render any text, labels, logos, or website URLs/i.test(apple.generationPrompt), "apple prompt prohibits text/labels/logos/URLs");
+  ok(/bottom edge visually clear/i.test(apple.generationPrompt), "apple prompt keeps bottom edge clear for footer");
 
   const omitBrand = model.createVisualBriefFromInstruction({
     lessonId: LESSON_ID,
     instruction: `${APPLE_INSTRUCTION}\nOmit the website credit for this asset only.`,
     activities: seedActivities(),
   });
-  ok(!omitBrand.requiredElements.some((item) => item.includes("littlelearnershubbyleah.com")), "explicit omit skips branding for that asset only");
+  ok(!omitBrand.requiredElements.some((item) => /no website URLs/i.test(item)), "explicit omit skips model branding-clear rules for that asset only");
+  ok(!/POST-PROCESS FOOTER ONLY/i.test(omitBrand.generationPrompt), "explicit omit skips post-process footer prompt section");
 
   const vague = model.createVisualBriefFromInstruction({
     lessonId: LESSON_ID,
@@ -291,14 +314,104 @@ function assertStaticContract() {
   ok(uiJs.includes("void run(refreshList)"), "mount always refreshes planned visuals");
   ok(serverJs.includes("/api/admin/media/visual-production-previews/"), "admin preview media route registered");
   ok(serverJs.includes("OPENAI_IMAGE_MODEL"), "image model env wired server-side");
+  ok(uiJs.includes("Activity link pending"), "review UI marks pending activity links");
+  ok(uiJs.includes("Post-generation text overlay"), "review UI shows overlay text requirements");
   ok(indexHtml.includes("visual-production-brief.js"), "brief module loaded");
   ok(indexHtml.includes("visual-production-ui.js"), "review UI loaded");
+}
+
+function assertPackAndColorsPlanContract() {
+  const roundtrip = model.normalizeVisualBrief({
+    lessonId: LESSON_ID,
+    activityName: "Page 2 — Cards",
+    assetType: "PRINTABLE_CARDS",
+    visualStyle: "CLEAN_PRINTABLE",
+    originalInstruction: "Black, White + Bright Color Visual Cards",
+    status: "READY_FOR_REVIEW",
+    printablePackId: "vpp-test-pack",
+    packTitle: "Test Pack",
+    pageNumber: 2,
+    pageTitle: "Black, White + Bright Color Visual Cards",
+    textOverlayRequirements: ["Red", "Blue"],
+  });
+  ok(roundtrip.printablePackId === "vpp-test-pack", "normalize keeps printablePackId");
+  ok(roundtrip.packTitle === "Test Pack", "normalize keeps packTitle");
+  ok(roundtrip.pageNumber === 2, "normalize keeps pageNumber");
+  ok(roundtrip.pageTitle === "Black, White + Bright Color Visual Cards", "normalize keeps pageTitle");
+  ok(roundtrip.textOverlayRequirements.includes("Red"), "normalize keeps text overlay requirements");
+  const review = model.toReviewCard(roundtrip);
+  ok(review.printablePackId === "vpp-test-pack" && review.pageNumber === 2, "review card keeps pack fields");
+
+  const stored = model.normalizeVisualProductionStore({ briefs: [roundtrip], updatedAt: "2026-08-20T00:00:00.000Z" });
+  ok(stored.briefs[0].printablePackId === "vpp-test-pack", "store roundtrip keeps pack id");
+
+  const unmatched = model.createVisualBriefFromInstruction({
+    lessonId: LESSON_ID,
+    instruction: "No such activity\nActivity image.\nRealistic daycare setup.\nOne bright scarf.",
+    activityName: "No such activity",
+    assetType: "ACTIVITY_IMAGE",
+    visualStyle: "REALISTIC_CLASSROOM",
+    activities: seedActivities(),
+  });
+  ok(unmatched.status === "NEEDS_REVIEW", "parser unmatched activity stays NEEDS_REVIEW");
+  ok(unmatched.reviewFlags.includes("unmatched_activity"), "parser unmatched activity is flagged");
+
+  const pending = model.planStructuredVisualBrief({
+    lessonId: LESSON_ID,
+    instruction: "No such activity\nActivity image.\nRealistic daycare setup.\nOne bright scarf.",
+    activityName: "No such activity",
+    assetType: "ACTIVITY_IMAGE",
+    visualStyle: "REALISTIC_CLASSROOM",
+    activities: seedActivities(),
+    allowPendingActivity: true,
+  });
+  ok(pending.status === "READY_FOR_REVIEW", "pending unmatched activity is READY_FOR_REVIEW");
+  ok(pending.activityLinkStatus === "pending", "pending link status marked clearly");
+  ok(!pending.activityId, "pending activity does not invent an activity id");
+  ok(!pending.reviewFlags.includes("unmatched_activity"), "pending path does not keep unmatched_activity flag");
+
+  const colorsPlan = require("./lib/visual-production-colors-all-around-us-plan.js");
+  const planned = colorsPlan.buildColorsAllAroundUsStructuredBriefs({ activities: [] });
+  ok(planned.lessonId === "cur-lp-infant-colors-all-around-us", "colors plan uses stable lesson id");
+  ok(planned.printablePackId === "vpp-infant-colors-all-around-us", "colors pack id is stable");
+  ok(planned.packTitle === "Colors All Around Us Infant Visual & Keepsake Pack", "colors pack title is exact");
+  ok(planned.structuredBriefs.length === 21, "15 activity + 6 printable briefs");
+  const activityRows = planned.structuredBriefs.filter((row) => row.assetType === "ACTIVITY_IMAGE");
+  const pageRows = planned.structuredBriefs.filter((row) => row.printablePackId);
+  ok(activityRows.length === 15, "15 activity briefs");
+  ok(pageRows.length === 6, "6 printable pack pages");
+  ok(pageRows.map((row) => row.pageTitle).join("|") === colorsPlan.PAGE_TITLES.join("|"), "printable page titles stay in owner order");
+  ok(activityRows.every((row) => !row.activityId), "no invented activity ids when catalog is empty");
+  ok(pageRows[5].assetType === "HANDPRINT_FOOTPRINT_TEMPLATE", "keepsake page is a footprint template");
+  ok(pageRows[5].textOverlayRequirements.includes("Name") && pageRows[5].textOverlayRequirements.includes("Date"), "footprint overlay keeps Name/Date");
+  ok(pageRows[4].textOverlayRequirements.some((line) => /look, look, see the bright color/i.test(line)), "song page overlay keeps owner lyrics");
+
+  const scarf = model.planStructuredVisualBrief({
+    ...activityRows[0],
+    lessonId: planned.lessonId,
+    activities: [{ id: "cur-act-colors-scarf", title: "Bright Scarf Slow Track" }],
+    allowPendingActivity: true,
+  });
+  ok(scarf.activityId === "cur-act-colors-scarf" && scarf.activityLinkStatus === "linked", "unique title match links without inventing ids");
+  ok(scarf.status === "READY_FOR_REVIEW", "linked colors activity is READY_FOR_REVIEW");
+  ok(scarf.originalInstruction.includes("Caregiver kneeling on mat holding one bright scarf"), "activity originalInstruction keeps owner image brief");
+
+  const cover = model.planStructuredVisualBrief({
+    ...pageRows[0],
+    lessonId: planned.lessonId,
+    activities: [{ id: "cur-act-colors-scarf", title: "Bright Scarf Slow Track" }],
+  });
+  ok(cover.printablePackId === planned.printablePackId && cover.pageNumber === 1, "cover brief keeps pack fields");
+  ok(cover.status === "READY_FOR_REVIEW", "printable cover is READY_FOR_REVIEW");
+  ok(/POST-GENERATION TEXT OVERLAY/i.test(cover.generationPrompt), "cover prompt preserves overlay text as post-generation");
+  ok(!/require:.*littlelearnershubbyleah\.com/i.test(cover.generationPrompt), "printable prompt does not ask the model to draw the URL");
 }
 
 async function main() {
   console.log("Visual production brief tests");
   assertParserContract();
   assertStaticContract();
+  assertPackAndColorsPlanContract();
   process.env.VISUAL_PRODUCTION_MOCK_GENERATE = "1";
   await assertImageProviderContract();
 
@@ -309,7 +422,23 @@ async function main() {
     siteContent: {
       featureFlags: { playBasedCurriculum: true },
       curriculum: {
-        lessonPlans: [lesson],
+        lessonPlans: [lesson, {
+          id: "cur-lp-infant-colors-all-around-us",
+          title: "Colors All Around Us",
+          age: "Infant 0–6 Months",
+          theme: "Colors",
+          plan: "Free",
+          status: "published",
+          coverImageUrl: COVER_URL,
+          resourceIds: [RESOURCE_ID],
+          dailyPlans: {
+            monday: { items: [] },
+            tuesday: { items: [] },
+            wednesday: { items: [] },
+            thursday: { items: [] },
+            friday: { items: [] },
+          },
+        }],
         activities,
         resources: [{ id: RESOURCE_ID, title: "Existing Printable", status: "draft", fileUrl: "https://example.com/printable.pdf" }],
         updatedAt: new Date().toISOString(),
@@ -451,6 +580,40 @@ async function main() {
       lessonId: LESSON_ID,
     }, ownerAuth);
     ok(listed.status === 200 && listed.json.cards.length === 2, "list returns planned cards");
+
+    const colorsPlan = require("./lib/visual-production-colors-all-around-us-plan.js");
+    const colorsPayload = colorsPlan.buildColorsAllAroundUsStructuredBriefs({ activities: [] });
+    const colorsPlanned = await requestJson("POST", "/api/admin/curriculum/visual-production", {
+      action: "plan",
+      lessonId: colorsPlan.LESSON_ID,
+      structuredBriefs: colorsPayload.structuredBriefs,
+    }, ownerAuth);
+    ok(colorsPlanned.status === 200, "colors structured plan succeeds");
+    ok(colorsPlanned.json.generationStarted === false && colorsPlanned.json.attached === false, "colors plan does not generate or attach");
+    ok(colorsPlanned.json.lessonAssetsUnchanged === true, "colors plan leaves lesson assets unchanged");
+    ok(Array.isArray(colorsPlanned.json.cards) && colorsPlanned.json.cards.length === 21, "colors plan persists 21 briefs");
+    ok(colorsPlanned.json.cards.every((card) => card.status === "READY_FOR_REVIEW"), "all colors briefs are READY_FOR_REVIEW");
+    const colorsActivityCards = colorsPlanned.json.cards.filter((card) => card.assetType === "ACTIVITY_IMAGE");
+    const colorsPageCards = colorsPlanned.json.cards.filter((card) => card.printablePackId);
+    ok(colorsActivityCards.length === 15, "15 colors activity cards stored");
+    ok(colorsPageCards.length === 6, "6 colors pack pages stored");
+    ok(colorsActivityCards.every((card) => card.activityLinkStatus === "pending" && !card.activityId), "colors activities stay pending without invented ids");
+    ok(colorsPageCards.every((card) => card.printablePackId === colorsPlan.PACK_ID), "pack pages share printablePackId");
+    ok(colorsPageCards.map((card) => card.pageTitle).join("|") === colorsPlan.PAGE_TITLES.join("|"), "pack page order is preserved in API cards");
+
+    const storeColors = JSON.parse(fs.readFileSync(STORE_PATH, "utf8"));
+    const colorsLesson = (storeColors.siteContent.curriculum.lessonPlans || []).find((item) => item.id === colorsPlan.LESSON_ID);
+    const colorsBriefs = (storeColors.visualProduction?.briefs || []).filter((item) => item.lessonId === colorsPlan.LESSON_ID);
+    ok(colorsLesson.plan === "Free" && colorsLesson.status === "published", "colors Free/Pro and publish state unchanged");
+    ok(JSON.stringify(colorsLesson.resourceIds) === JSON.stringify([RESOURCE_ID]), "colors existing printables unchanged");
+    ok(colorsLesson.coverImageUrl === COVER_URL, "colors cover unchanged");
+    ok(!colorsLesson.visualProduction, "colors briefs are not written onto the lesson plan");
+    ok(colorsBriefs.length === 21, "colors briefs live in store.visualProduction.briefs");
+    ok(colorsBriefs.every((item) => item.status === "READY_FOR_REVIEW"), "stored colors briefs stay READY_FOR_REVIEW");
+    ok(colorsBriefs.every((item) => !item.generatedPreviewUrl && item.status !== "GENERATED"), "nothing generated for colors");
+    const storedPages = colorsBriefs.filter((item) => item.printablePackId).sort((a, b) => a.pageNumber - b.pageNumber);
+    ok(storedPages[0].pageTitle === "Cover" && storedPages[5].pageTitle === "My Color Footprint Keepsake", "stored pack page titles survive normalize");
+    ok(storedPages.every((item) => item.packTitle === colorsPlan.PACK_TITLE), "stored pack title survives normalize");
   } finally {
     if (child.exitCode == null) {
       child.kill("SIGTERM");

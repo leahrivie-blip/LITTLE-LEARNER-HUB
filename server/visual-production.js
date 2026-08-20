@@ -183,11 +183,12 @@ function createVisualProductionApi(deps) {
     if (action === "plan") {
       const lessonId = String(body?.lessonId || "").trim();
       const instruction = String(body?.instruction || body?.instructions || "").trim();
+      const structuredBriefs = Array.isArray(body?.structuredBriefs) ? body.structuredBriefs : [];
       if (!lessonId) {
         jsonResponse(response, 400, { error: "lessonId is required." });
         return;
       }
-      if (!instruction) {
+      if (!instruction && !structuredBriefs.length) {
         jsonResponse(response, 400, { error: "Visual instruction text is required." });
         return;
       }
@@ -197,11 +198,24 @@ function createVisualProductionApi(deps) {
         return;
       }
       const beforeAssets = snapshotLessonAssets(plan, activities);
-      const created = model.createVisualBriefsFromInstructions(instruction, {
-        lessonId,
-        activities,
-        now,
-      }).map((brief) => model.normalizeVisualBrief({
+      const created = (structuredBriefs.length
+        ? structuredBriefs.map((row) => {
+          const source = row && typeof row === "object" ? row : {};
+          return model.planStructuredVisualBrief({
+            ...source,
+            lessonId,
+            activities,
+            now,
+            instruction: source.instruction || source.originalInstruction,
+            allowPendingActivity: source.allowPendingActivity !== false,
+          });
+        })
+        : model.createVisualBriefsFromInstructions(instruction, {
+          lessonId,
+          activities,
+          now,
+        })
+      ).map((brief) => model.normalizeVisualBrief({
         ...brief,
         id: `vb-${crypto.randomBytes(8).toString("hex")}`,
       }, { now }));
