@@ -302,6 +302,8 @@
             <span class="tag">${esc(card.visualStyle || "UNKNOWN")}</span>
             <span class="tag vp-status vp-status--${esc(STATUS_CLASS[card.status] || "draft")}">${esc(card.statusLabel || card.status)}</span>
             ${card.printablePackId ? `<span class="tag">Pack ${esc(card.printablePackId)}</span>` : ""}
+            ${card.activityLinkStatus === "pending" ? `<span class="tag">Activity link pending</span>` : ""}
+            ${card.activityLinkStatus === "linked" ? `<span class="tag">Activity linked</span>` : ""}
           </p>
         </header>
         ${card.generatedPreviewUrl ? `
@@ -313,6 +315,11 @@
           <h4>Original visual instruction</h4>
           <pre class="vp-pre">${esc(card.originalInstruction || "")}</pre>
         </section>
+        ${Array.isArray(card.textOverlayRequirements) && card.textOverlayRequirements.length ? `
+        <section>
+          <h4>Post-generation text overlay (not drawn by the model)</h4>
+          <ul>${card.textOverlayRequirements.map((line) => `<li>${esc(line)}</li>`).join("")}</ul>
+        </section>` : ""}
         <section>
           <h4>Structured brief</h4>
           <dl class="vp-dl">
