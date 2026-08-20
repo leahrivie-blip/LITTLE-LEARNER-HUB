@@ -144,8 +144,15 @@
           <p>${esc((lr.auditAfter || lr.audit)?.activities?.strong || 0)} strong · ${esc((lr.auditAfter || lr.audit)?.activities?.incomplete || 0)} incomplete · ${esc((lr.auditAfter || lr.audit)?.activities?.weakGeneric || 0)} weak/generic</p>
         </section>
         <section>
-          <h5>Images / printables</h5>
-          <p class="muted-copy">Planning only in Phase 2 — not generated. Images KEEP ${esc(imgs.KEEP_EXISTING || 0)} · GENERATE ${esc(imgs.GENERATE || 0)}. Printables CREATE ${esc(prints.CREATE || 0)}.</p>
+          <h5>Activity images</h5>
+          ${lr.imageCounts ? `
+            <p>KEEP — ${esc(lr.imageCounts.KEEP || 0)} · GENERATED — ${esc(lr.imageCounts.GENERATE || 0)} · REPLACED — ${esc(lr.imageCounts.REPLACE || 0)} · NOT NEEDED — ${esc(lr.imageCounts.NOT_NEEDED || 0)} · FAILED — ${esc(lr.imageCounts.FAILED || 0)}</p>
+            <ul>${(Array.isArray(lr.imageActions) ? lr.imageActions : []).slice(0, 16).map((img) => `
+              <li><strong>${esc(img.activityTitle || img.activityId)}</strong>
+                — ${esc(img.decision)}
+                <span class="muted-copy"> — ${esc(img.reason || img.error || "")}</span>
+              </li>`).join("")}</ul>
+          ` : `<p class="muted-copy">Planning: KEEP ${esc(imgs.KEEP_EXISTING || imgs.KEEP || 0)} · GENERATE ${esc(imgs.GENERATE || 0)} · REPLACE ${esc(imgs.REPLACE || 0)} · NOT NEEDED ${esc(imgs.NOT_NEEDED || 0)}. Printables remain Phase 4.</p>`}
         </section>
       </div>
       <section>
@@ -187,7 +194,7 @@
           <div>
             <p class="eyebrow">Content · Owner</p>
             <h3>AI Curriculum Operator</h3>
-            <p class="muted-copy">Phase 2.5: interpret commands, audit, compose lesson-specific field upgrades with structured AI into <strong>enrichmentDraft</strong>, re-validate, and leave Ready for Owner Review. <strong>No publishing. No image/printable generation.</strong></p>
+            <p class="muted-copy">Phase 3: interpret commands, audit, optionally upgrade draft text with structured AI, and generate/replace only useful <strong>activity images</strong> into <strong>enrichmentDraft</strong>. <strong>No publishing. No printables. No new lessons.</strong></p>
           </div>
         </div>
         ${state.message ? `<p class="access-notice ${state.isError ? "error" : ""}" role="status">${esc(state.message)}</p>` : ""}
@@ -279,9 +286,9 @@
     state.isError = false;
     render();
     try {
-      const result = await api("parse", { command: state.command, phase: 2 });
+      const result = await api("parse", { command: state.command, phase: 3 });
       state.commandParsed = result;
-      const planned = await api("plan", { command: state.command, phase: 2 });
+      const planned = await api("plan", { command: state.command, phase: 3 });
       state.planSummary = planned.planSummary;
       state.job = planned.job || null;
       state.message = "Command interpreted. Review the plan, then run the job.";
@@ -301,7 +308,7 @@
     state.isError = false;
     render();
     try {
-      const result = await api("run", { command: state.command, confirm: true, phase: 2 });
+      const result = await api("run", { command: state.command, confirm: true, phase: 3 });
       state.commandParsed = { command: result.command };
       state.planSummary = result.planSummary;
       state.job = result.job;

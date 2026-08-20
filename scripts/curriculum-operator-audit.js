@@ -194,11 +194,38 @@ function planImageDecision(act, patch = {}) {
     };
   }
   if (hasImage) {
+    const looksBroken = /example\.com|placeholder|todo|missing|broken/i.test(String(view.setupImageUrl || view.exampleImageUrl || ""))
+      || String(view.setupImageUrl || "") === "about:blank";
+    const looksThemeArt = /cartoon|clipart|stock|decorat|theme[-_]?art/i.test(String(view.setupImageUrl || view.exampleImageUrl || ""));
+    if (looksBroken || looksThemeArt) {
+      return {
+        decision: "REPLACE",
+        reason: looksBroken
+          ? "Existing image URL looks broken or placeholder."
+          : "Existing image looks like generic theme art rather than the activity.",
+        concept: [
+          `Realistic childcare classroom activity for ${schema.text(act.age || "the age group", 40)}.`,
+          title ? `Showing “${title}”.` : "",
+          "Show the actual activity setup/actions, not decorative theme art.",
+        ].filter(Boolean).join(" "),
+        existingUrl: schema.text(view.setupImageUrl || view.exampleImageUrl, 500),
+      };
+    }
     return {
       decision: "KEEP_EXISTING",
-      reason: "An activity image is already linked.",
+      reason: "An activity image is already linked and looks usable.",
       concept: "",
       existingUrl: schema.text(view.setupImageUrl || view.exampleImageUrl, 500),
+    };
+  }
+  if (isSongLike
+    || /\b(book|read.?aloud|story.?time|discussion|conversation|circle\s+talk)\b/i.test(title)
+    || (/\b(movement|gross.?motor|yoga|stretch)\b/i.test(title) && wordCount(blob) < 50)) {
+    return {
+      decision: "NOT_NEEDED",
+      reason: "Song/discussion/movement-style activity; an image provides little teaching value.",
+      concept: "",
+      existingUrl: "",
     };
   }
   if (isSongLike && !slots.needsSetup) {

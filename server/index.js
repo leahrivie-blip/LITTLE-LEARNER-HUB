@@ -31178,6 +31178,44 @@ const server = http.createServer(async (request, response) => {
             }
             return callOpenAiRaw(systemPrompt, userPrompt);
           },
+          enrichmentMedia,
+          persistEnrichmentPhoto: persistEnrichmentPhotoVariants,
+          generateOperatorImage: async ({ prompt, mock }) => {
+            const forceMock = mock === true
+              || process.env.NODE_ENV === "test"
+              || ["1", "true", "yes"].includes(String(process.env.VISUAL_PRODUCTION_MOCK_GENERATE || "").trim().toLowerCase())
+              || ["1", "true", "yes"].includes(String(process.env.LLH_OPERATOR_IMAGE_FIXTURE || "").trim().toLowerCase());
+            if (forceMock) {
+              const prev = process.env.VISUAL_PRODUCTION_MOCK_GENERATE;
+              process.env.VISUAL_PRODUCTION_MOCK_GENERATE = "1";
+              try {
+                return await visualProductionImage.generateVisualProductionImage({
+                  apiKey: "mock-key",
+                  model: OPENAI_IMAGE_MODEL || "gpt-image-2",
+                  brief: {
+                    generationPrompt: String(prompt || "mock activity setup").trim() || "mock activity setup",
+                    visualStyle: "REALISTIC_CLASSROOM",
+                  },
+                });
+              } finally {
+                if (prev == null) delete process.env.VISUAL_PRODUCTION_MOCK_GENERATE;
+                else process.env.VISUAL_PRODUCTION_MOCK_GENERATE = prev;
+              }
+            }
+            if (!isConfiguredValue(OPENAI_API_KEY)) {
+              const error = new Error("OpenAI image provider is not configured.");
+              error.code = "provider_not_configured";
+              throw error;
+            }
+            return visualProductionImage.generateVisualProductionImage({
+              apiKey: OPENAI_API_KEY,
+              model: OPENAI_IMAGE_MODEL || "gpt-image-2",
+              brief: {
+                generationPrompt: String(prompt || "").trim(),
+                visualStyle: "REALISTIC_CLASSROOM",
+              },
+            });
+          },
         });
       }
       return await globalThis.__llhCurriculumOperatorApi.handle(request, response);

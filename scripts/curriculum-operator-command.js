@@ -68,9 +68,15 @@ function parseOperatorCommand(rawCommand, options = {}) {
   let updatedSince = null;
   let ambiguous = false;
   const confirmReasons = [];
-  const phase = schema.clampInt(options.phase, 1, 8, 2);
+  const phase = schema.clampInt(options.phase, 1, 8, 3);
 
-  if (/\b(weakest|lowest\s+readiness|need(?:s|ed)?\s+the\s+most\s+work|most\s+incomplete)\b/i.test(raw)) {
+  if (/\b(?:need|missing|without|weakest)\s+(?:activity\s+)?(?:pictures?|images?)\b/i.test(raw)
+    || /\bactivity\s+(?:pictures?|images?)\b/i.test(raw)
+    || /\bweak(?:est)?\s+activity\s+(?:pictures?|images?)\b/i.test(raw)
+    || /\bweakest\s+(?:activity\s+)?(?:pictures?|images?)\b/i.test(raw)) {
+    selection = "needs_activity_images";
+    actions.checkImages = true;
+  } else if (/\b(weakest|lowest\s+readiness|need(?:s|ed)?\s+the\s+most\s+work|most\s+incomplete)\b/i.test(raw)) {
     selection = "lowest_readiness";
     intent = "audit";
   } else if (/\b(updated|worked\s+on)\s+today\b/i.test(raw) || (/\btoday\b/i.test(raw) && /\b(lesson|plan|worked|updated)\b/i.test(raw))) {
@@ -83,24 +89,58 @@ function parseOperatorCommand(rawCommand, options = {}) {
     || /\bmissing\s+printables?\b/i.test(raw) || /\bneed(?:s)?\s+printables?\b/i.test(raw)) {
     selection = "weak_printables";
     actions.checkPrintables = true;
-  } else if (/\b(?:need|missing|without)\s+(?:activity\s+)?(?:pictures?|images?)\b/i.test(raw)
-    || /\bactivity\s+(?:pictures?|images?)\b/i.test(raw)) {
-    selection = "needs_activity_images";
-    actions.checkImages = true;
   } else if (titles.length) {
     selection = "named_titles";
   } else if (options.currentlySelectedLessonId && /\b(this|current|selected)\s+lesson\b/i.test(raw)) {
     selection = "currently_selected";
   }
 
-  const wantsUpgrade = /\b(upgrade|improve|fix|finish|complete|make\s+ready|fill\s+(?:the\s+)?missing|ready\s+for\s+(?:me\s+to\s+)?review)\b/i.test(raw);
+  const mentionsImages = /\b(picture|pictures|image|images|photo|photos)\b/i.test(raw);
+  const wantsImages = mentionsImages
+    && /\b(fix|make|generate|create|upgrade|replace|keep|need)\b/i.test(raw);
+  const imageFocusedFix = wantsImages
+    && /\bfix\b/i.test(raw)
+    && !/\b(upgrade|improve|including|lesson\s+content|text|fields)\b/i.test(raw);
+  const wantsUpgrade = /\b(upgrade|improve|finish|complete|make\s+ready|fill\s+(?:the\s+)?missing|ready\s+for\s+(?:me\s+to\s+)?review)\b/i.test(raw)
+    || (/\bfix\b/i.test(raw) && !imageFocusedFix && !mentionsImages);
+  const noTouchImages = /\bdo\s+not\s+touch\s+(?:the\s+)?(?:pictures?|images?)\b/i.test(raw)
+    || /\bdon'?t\s+touch\s+(?:the\s+)?(?:pictures?|images?)\b/i.test(raw)
+    || /\bleave\s+(?:the\s+)?(?:pictures?|images?)\s+alone\b/i.test(raw);
+  const replaceBadOnly = /\b(keep\s+(?:all\s+)?good|only\s+replace\s+(?:the\s+)?bad|replace\s+(?:the\s+)?bad)\b/i.test(raw);
+
+  if (noTouchImages) {
+    actions.touchImages = false;
+    actions.generateImages = false;
+    actions.replaceBadImages = false;
+    notes.push("Image actions disabled for this command.");
+  }
+
+  if (wantsImages && !noTouchImages) {
+    intent = selection === "needs_activity_images" || /\bweakest\b/i.test(raw)
+      ? "finish_images"
+      : (titles.length === 1 ? "fix_lesson" : "finish_images");
+    actions.generateImages = phase >= 3;
+    actions.checkImages = true;
+    actions.saveDraft = phase >= 3;
+    if (replaceBadOnly) actions.replaceBadImages = true;
+    if (phase >= 3) {
+      notes.push("Phase 3 will generate/replace only useful activity images into enrichmentDraft (not published).");
+    } else {
+      notes.push("Image generation is Phase 3+; not executed now.");
+    }
+  }
+
   if (wantsUpgrade) {
-    intent = titles.length === 1 ? "fix_lesson" : "upgrade_batch";
+    intent = titles.length === 1 ? "fix_lesson" : (intent === "finish_images" ? intent : "upgrade_batch");
     actions.upgradeLesson = true;
     actions.upgradeActivities = true;
     actions.saveDraft = true;
+    if (/\bincluding\s+(?:the\s+)?pictures?\b/i.test(raw) && !noTouchImages && phase >= 3) {
+      actions.generateImages = true;
+      actions.checkImages = true;
+    }
     if (phase >= 2) {
-      notes.push("Phase 2 will upgrade fields into enrichmentDraft only (not published).");
+      notes.push("Phase 2+ will upgrade fields into enrichmentDraft only (not published).");
     } else {
       notes.push("Upgrade requested, but phase 1 will audit/plan only.");
     }
@@ -115,9 +155,9 @@ function parseOperatorCommand(rawCommand, options = {}) {
     confirmReasons.push("publish_requested");
     notes.push("Publishing is disabled until Phase 8. Draft upgrades only.");
   }
-  if (/\b(generate|create|make)\b.+\b(image|picture|photo)s?\b/i.test(raw)) {
-    actions.generateImages = true;
-    notes.push("Image generation is Phase 3+; not executed now.");
+  if (/\b(generate|create|make)\b.+\b(image|picture|photo)s?\b/i.test(raw) && !noTouchImages) {
+    actions.generateImages = phase >= 3;
+    if (phase < 3) notes.push("Image generation is Phase 3+; not executed now.");
   }
   if (/\b(generate|create|make|finish)\b.+\bprintable/i.test(raw)) {
     actions.generatePrintables = true;
@@ -154,12 +194,19 @@ function parseOperatorCommand(rawCommand, options = {}) {
     notes.push("Will produce Ready-for-Review draft work without publishing.");
   }
 
-  // "Fix Weather Watchers" / "Fix this lesson"
+  // "Fix Weather Watchers" / "Fix this lesson" — text upgrade unless image-focused
   if (/\bfix\b/i.test(raw) && (titles.length || selection === "currently_selected" || selection === "named_titles")) {
-    intent = "fix_lesson";
-    actions.upgradeLesson = true;
-    actions.upgradeActivities = true;
-    actions.saveDraft = true;
+    intent = imageFocusedFix || wantsImages ? (wantsUpgrade ? "fix_lesson" : "finish_images") : "fix_lesson";
+    if (!imageFocusedFix) {
+      actions.upgradeLesson = true;
+      actions.upgradeActivities = true;
+      actions.saveDraft = true;
+    } else if (phase >= 3) {
+      actions.generateImages = true;
+      actions.checkImages = true;
+      actions.saveDraft = true;
+      actions.replaceBadImages = true;
+    }
   }
 
   const command = schema.normalizeOperatorCommand({

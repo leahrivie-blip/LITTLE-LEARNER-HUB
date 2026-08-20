@@ -1,8 +1,10 @@
 /**
- * Owner-only AI Curriculum Operator API (Phase 1 audit + Phase 2 draft upgrades).
+ * Owner-only AI Curriculum Operator API
+ * (Phase 1 audit · Phase 2.5 AI draft upgrades · Phase 3 activity images).
  *
- * Phase 2 saves enrichmentDraft only through trusted curriculum write helpers.
- * Never publishes. Never mutates images, printables, access plan, or lesson IDs.
+ * Saves enrichmentDraft only. Never publishes.
+ * Never mutates printables, access plan, or lesson IDs.
+ * Phase 3 images: Visual Production generate → enrichment media → draft attach.
  */
 "use strict";
 
@@ -11,6 +13,7 @@ const commandApi = require("../scripts/curriculum-operator-command.js");
 const selectApi = require("../scripts/curriculum-operator-select.js");
 const auditApi = require("../scripts/curriculum-operator-audit.js");
 const upgradeApi = require("../scripts/curriculum-operator-upgrade.js");
+const imagesApi = require("../scripts/curriculum-operator-images.js");
 const jobApi = require("../scripts/curriculum-operator-job.js");
 
 const ACTIONS = Object.freeze([
@@ -36,6 +39,9 @@ function createCurriculumOperatorApi(deps) {
     saveOperatorEnrichmentDraft,
     callOperatorAi,
     openAiConfigured,
+    generateOperatorImage,
+    persistEnrichmentPhoto,
+    enrichmentMedia,
   } = deps;
 
   function requireOwner(request, body, response) {
@@ -82,11 +88,38 @@ function createCurriculumOperatorApi(deps) {
     const phase = Number(command?.completion?.phase) || 1;
     return phase >= 2
       && command?.actions?.saveDraft === true
-      && (command?.actions?.upgradeLesson || command?.actions?.upgradeActivities);
+      && (command?.actions?.upgradeLesson || command?.actions?.upgradeActivities)
+      && command?.actions?.touchDraft !== false;
+  }
+
+  function wantsImages(command) {
+    const phase = Number(command?.completion?.phase) || 1;
+    if (phase < 3) return false;
+    if (command?.actions?.touchImages === false) return false;
+    return command?.actions?.generateImages === true;
   }
 
   function buildPlanSummary(command, selection) {
     const upgrade = wantsUpgrade(command);
+    const images = wantsImages(command);
+    const expected = ["lesson.get", "lesson.audit", "asset.plan", "teachingKit.score"];
+    if (upgrade) {
+      expected.push(
+        "lesson.updateFields",
+        "activity.update",
+        "lesson.saveDraft",
+        "lesson.validate",
+      );
+    }
+    if (images) {
+      expected.push(
+        "image.inspect",
+        "image.generate",
+        "image.upload",
+        "image.attachToActivity",
+        "lesson.validate",
+      );
+    }
     const lessons = schema.asArray(selection.selected).map((row) => ({
       id: row.id,
       title: row.title,
@@ -96,19 +129,18 @@ function createCurriculumOperatorApi(deps) {
       plan: row.plan,
       readinessPercent: row.readinessPercent,
       completionPercent: row.completionPercent,
-      expectedActions: upgrade
-        ? [
-          "lesson.get",
-          "lesson.audit",
-          "lesson.updateFields",
-          "activity.update",
-          "lesson.saveDraft",
-          "lesson.validate",
-        ]
-        : ["lesson.get", "lesson.audit", "asset.plan", "teachingKit.score"],
+      expectedActions: expected.slice(),
       weakSections: [],
       publishRequested: false,
     }));
+    let phaseNote = "Audit/plan only. No curriculum mutations.";
+    if (upgrade && images) {
+      phaseNote = "Phase 2.5+3: AI draft text + useful activity images into enrichmentDraft. NOT published. No printables.";
+    } else if (upgrade) {
+      phaseNote = "Phase 2.5: enrichmentDraft text only. NOT published. No image/printable changes.";
+    } else if (images) {
+      phaseNote = "Phase 3: activity images only (KEEP/GENERATE/REPLACE/NOT_NEEDED). NOT published. No printables.";
+    }
     return {
       task: command.rawCommand,
       intent: command.intent,
@@ -119,9 +151,116 @@ function createCurriculumOperatorApi(deps) {
       needsConfirmation: false,
       confirmReasons: [],
       phase: Number(command.completion?.phase) || 1,
-      phaseNote: upgrade
-        ? "Phase 2 will save enrichmentDraft only. NOT published. No image/printable changes."
-        : "Audit/plan only. No curriculum mutations.",
+      phaseNote,
+      generatesImages: images,
+      generatesPrintables: false,
+      publishes: false,
+    };
+  }
+
+  function collectSucceededImageKeys(lr) {
+    const keys = new Set();
+    schema.asArray(lr?.imageActions).forEach((a) => {
+      if (a.status === "success" && a.idempotencyKey) keys.add(a.idempotencyKey);
+    });
+    return keys;
+  }
+
+  async function runImagesForLesson(job, plan, audit, store, sessionEmail, lr) {
+    const curriculum = readSiteCurriculum(store);
+    const linked = schema.asArray(curriculum.activities).filter((a) => a.lessonPlanId === plan.id);
+
+    const mockGenerate = process.env.NODE_ENV === "test"
+      || ["1", "true", "yes"].includes(String(process.env.VISUAL_PRODUCTION_MOCK_GENERATE || "").trim().toLowerCase())
+      || ["1", "true", "yes"].includes(String(process.env.LLH_OPERATOR_IMAGE_FIXTURE || "").trim().toLowerCase());
+
+    const imageRun = await imagesApi.runImagePlanForLesson({
+      plan,
+      activities: linked,
+      audit,
+      limits: job.command.limits,
+      replaceBadImages: job.command.actions.replaceBadImages === true,
+      touchImages: job.command.actions.touchImages !== false,
+      callGenerate: generateOperatorImage,
+      persistEnrichmentPhotoVariants: persistEnrichmentPhoto,
+      enrichmentMedia,
+      store,
+      mockGenerate,
+      alreadySucceededKeys: collectSucceededImageKeys(lr),
+    });
+
+    if (imageRun.code === "SCOPE_REVIEW_REQUIRED") {
+      return {
+        ok: false,
+        scopeReview: true,
+        imageRun,
+        plan,
+        error: imageRun.error,
+      };
+    }
+
+    let afterPlan = plan;
+    let historyId = null;
+    if (imageRun.changed) {
+      if (typeof saveOperatorEnrichmentDraft !== "function") {
+        throw new Error("Draft save helper is not configured for image attach.");
+      }
+      const saveResult = await saveOperatorEnrichmentDraft({
+        store,
+        lessonPlanId: plan.id,
+        enrichmentDraft: imageRun.enrichmentDraft,
+        adminEmail: sessionEmail,
+      });
+      if (!saveResult?.ok) {
+        throw new Error(saveResult?.error || "enrichment_draft image save failed");
+      }
+      historyId = saveResult.versionId || null;
+      afterPlan = saveResult.lessonPlan;
+      Object.assign(store, readStore());
+    }
+
+    const keepOrSkipIds = schema.asArray(imageRun.actions)
+      .filter((a) => {
+        const d = imagesApi.normalizeDecision(a.decision);
+        return a.status === "skipped" || d === "KEEP" || d === "NOT_NEEDED";
+      })
+      .map((a) => a.activityId)
+      .filter(Boolean);
+
+    const verifiedActions = schema.asArray(imageRun.actions).map((action) => {
+      if (action.status !== "success") return action;
+      const verification = imagesApi.verifyAttachedImage({
+        beforePlan: plan,
+        afterPlan,
+        activityId: action.activityId,
+        field: action.field,
+        mediaUrl: action.mediaUrl,
+        mediaAssetId: action.mediaAssetId,
+        untouchedActivityIds: keepOrSkipIds.filter((id) => id !== action.activityId),
+      });
+      if (!verification.ok) {
+        return {
+          ...action,
+          status: "failed",
+          error: "Post-attach verification failed.",
+          retryable: true,
+          verification,
+        };
+      }
+      return { ...action, verification, status: "success" };
+    });
+
+    const counts = imagesApi.summarizeImageActions(verifiedActions);
+    job.costCounters.images = (job.costCounters.images || 0) + Number(imageRun.generations || 0);
+
+    return {
+      ok: verifiedActions.every((a) => a.status !== "failed"),
+      partial: verifiedActions.some((a) => a.status === "failed")
+        && verifiedActions.some((a) => a.status === "success"),
+      imageRun: { ...imageRun, actions: verifiedActions, counts },
+      afterPlan,
+      historyId,
+      counts,
     };
   }
 
@@ -159,6 +298,7 @@ function createCurriculumOperatorApi(deps) {
     }
 
     const upgrade = wantsUpgrade(job.command);
+    const images = wantsImages(job.command);
     try {
       job.progress.currentAction = "lesson.audit";
       const before = auditOneLesson(plan, curriculum);
@@ -180,7 +320,230 @@ function createCurriculumOperatorApi(deps) {
 
       job.costCounters.lessonsAudited = (job.costCounters.lessonsAudited || 0) + 1;
 
-      if (!upgrade) {
+      let workingPlan = plan;
+      let historyId = null;
+      let kept = (before.audit.weeklyContent || []).filter((f) => f.decision === "KEEP").map((f) => f.field);
+      let updated = [];
+      let aiUsage = null;
+      let upgradeVerification = null;
+      let ownerReviewStatus = "AUDIT_ONLY";
+      let afterScores = before.audit.scores;
+      let auditAfter = before.audit;
+
+      // --- Phase 2.5 text upgrade (optional) ---
+      if (upgrade) {
+        job.progress.currentAction = "lesson.updateFields";
+        if (typeof callOperatorAi !== "function") {
+          jobApi.appendLog(job, "AI composer unavailable — refusing deterministic filler.", "error", plan.id);
+          return {
+            ...lr,
+            title: plan.title,
+            status: "failed",
+            audit: before.audit,
+            verification: before.verification,
+            beforeScores: before.audit.scores,
+            afterScores: before.audit.scores,
+            error: "Structured AI composer is not configured.",
+            ownerReviewStatus: "BLOCKED",
+            published: false,
+            actions: markSteps(lr.actions, schema.asArray(lr.actions).map((a) => a.type), "failed", {
+              error: "ai_composer_unavailable",
+              retryable: true,
+            }),
+          };
+        }
+
+        const built = await upgradeApi.buildUpgradeDraft(plan, curriculum, before.audit, {
+          upgradeLesson: job.command.actions.upgradeLesson !== false,
+          upgradeActivities: job.command.actions.upgradeActivities !== false,
+          touchSongs: job.command.actions.checkSongs !== false,
+          touchBooks: job.command.actions.checkBooks !== false,
+          editedBy: sessionEmail || "curriculum-operator-phase25",
+          callAi: callOperatorAi,
+        });
+
+        if (built.usage?.calls) {
+          job.costCounters.openaiCalls = (job.costCounters.openaiCalls || 0) + Number(built.usage.calls || 0);
+        }
+        aiUsage = built.usage || null;
+
+        if (built.aiFailed) {
+          jobApi.appendLog(
+            job,
+            `AI composer failed for “${plan.title}”: ${built.error}. Draft unchanged.`,
+            "error",
+            plan.id,
+          );
+          return {
+            ...lr,
+            title: plan.title,
+            status: "failed",
+            audit: before.audit,
+            verification: before.verification,
+            beforeScores: before.audit.scores,
+            afterScores: before.audit.scores,
+            kept: built.kept,
+            updated: [],
+            error: schema.text(built.error, 500),
+            ownerReviewStatus: "BLOCKED",
+            published: false,
+            aiUsage,
+            actions: markSteps(lr.actions, schema.asArray(lr.actions).map((a) => a.type), "failed", {
+              error: built.code || "ai_composer_failed",
+              retryable: true,
+            }),
+          };
+        }
+
+        kept = built.kept;
+        updated = built.changed;
+
+        if (built.changed.length) {
+          if (typeof saveOperatorEnrichmentDraft !== "function") {
+            throw new Error("Draft save helper is not configured.");
+          }
+          job.progress.currentAction = "lesson.saveDraft";
+          const saveResult = await saveOperatorEnrichmentDraft({
+            store,
+            lessonPlanId: plan.id,
+            enrichmentDraft: built.enrichmentDraft,
+            adminEmail: sessionEmail,
+          });
+          if (!saveResult?.ok) {
+            throw new Error(saveResult?.error || "enrichment_draft save failed");
+          }
+          historyId = saveResult.versionId || null;
+          workingPlan = saveResult.lessonPlan;
+          Object.assign(store, readStore());
+          const afterCurriculum = readSiteCurriculum(store);
+          job.progress.currentAction = "lesson.validate";
+          const after = auditOneLesson(workingPlan, afterCurriculum);
+          auditAfter = after.audit;
+          afterScores = after.audit.scores;
+          upgradeVerification = upgradeApi.verifyUpgradeResult({
+            beforePlan: plan,
+            afterPlan: workingPlan,
+            intended: built.intended,
+            changed: built.changed,
+            keepSnapshots: built.keepSnapshots,
+          });
+          ownerReviewStatus = upgradeApi.classifyOwnerReviewStatus({
+            beforeScores: before.audit.scores,
+            afterScores: after.audit.scores,
+            verification: upgradeVerification,
+            blockers: after.audit.teachingKitBlockers,
+          });
+          if (!upgradeVerification.ok) {
+            jobApi.appendLog(job, `Post-save text verification failed for “${plan.title}”.`, "warn", plan.id);
+            return {
+              ...lr,
+              title: plan.title,
+              status: "failed",
+              preSnapshotHistoryId: historyId,
+              audit: before.audit,
+              auditAfter,
+              verification: after.verification,
+              upgradeVerification,
+              beforeScores: before.audit.scores,
+              afterScores,
+              kept,
+              updated,
+              generated: [],
+              ownerReviewStatus: "BLOCKED",
+              readyForReview: false,
+              published: false,
+              aiUsage,
+              error: "Post-save verification failed.",
+              actions: markSteps(lr.actions, schema.asArray(lr.actions).map((a) => a.type), "failed", {
+                error: "upgrade_verification_failed",
+                retryable: true,
+              }),
+            };
+          }
+          jobApi.appendLog(
+            job,
+            `Upgraded “${plan.title}” draft via structured AI — ${before.audit.scores?.premiumReadinessPercent}% → ${afterScores?.premiumReadinessPercent}% · ${ownerReviewStatus}. NOT published.`,
+            "info",
+            plan.id,
+          );
+        } else {
+          ownerReviewStatus = "READY_FOR_OWNER_REVIEW";
+          jobApi.appendLog(job, `No draft text changes needed for “${plan.title}”.`, "info", plan.id);
+        }
+      }
+
+      // --- Phase 3 activity images (optional) ---
+      let imageActions = schema.asArray(lr.imageActions);
+      let imageCounts = lr.imageCounts || null;
+      let imagesComplete = lr.imagesComplete === true;
+      let imageError = null;
+
+      if (images) {
+        job.progress.currentAction = "image.inspect";
+        // Re-audit working plan so asset plan reflects any text changes
+        const imageAuditSource = auditOneLesson(workingPlan, readSiteCurriculum(store));
+        const imageResult = await runImagesForLesson(
+          job,
+          workingPlan,
+          imageAuditSource.audit,
+          store,
+          sessionEmail,
+          lr,
+        );
+
+        if (imageResult.scopeReview) {
+          jobApi.appendLog(job, `Image scope review required: ${imageResult.error}`, "warn", plan.id);
+          return {
+            ...lr,
+            title: plan.title,
+            status: "failed",
+            audit: before.audit,
+            auditAfter: imageAuditSource.audit,
+            verification: before.verification,
+            beforeScores: before.audit.scores,
+            afterScores: imageAuditSource.audit.scores,
+            kept,
+            updated,
+            imageActions: imageResult.imageRun?.actions || [],
+            imageCounts: imageResult.imageRun?.counts || null,
+            imagesComplete: false,
+            error: schema.text(imageResult.error, 500),
+            ownerReviewStatus: "BLOCKED",
+            published: false,
+            aiUsage,
+            code: "SCOPE_REVIEW_REQUIRED",
+            actions: markSteps(lr.actions, ["image.inspect", "image.generate", "image.upload", "image.attachToActivity"], "failed", {
+              error: "SCOPE_REVIEW_REQUIRED",
+              retryable: false,
+            }),
+          };
+        }
+
+        imageActions = imageResult.imageRun.actions;
+        imageCounts = imageResult.counts;
+        imagesComplete = imageResult.ok || imageResult.partial;
+        if (imageResult.historyId) historyId = imageResult.historyId;
+        workingPlan = imageResult.afterPlan;
+        const finalAudit = auditOneLesson(workingPlan, readSiteCurriculum(store));
+        auditAfter = finalAudit.audit;
+        afterScores = finalAudit.audit.scores;
+        if (!imageResult.ok) {
+          imageError = "One or more image actions failed (existing images preserved).";
+          ownerReviewStatus = upgrade ? "PARTIAL" : "PARTIAL";
+        } else if (!upgrade) {
+          ownerReviewStatus = "READY_FOR_OWNER_REVIEW";
+        } else if (ownerReviewStatus === "AUDIT_ONLY") {
+          ownerReviewStatus = "READY_FOR_OWNER_REVIEW";
+        }
+        jobApi.appendLog(
+          job,
+          `Images for “${plan.title}”: KEEP ${imageCounts.KEEP || 0} · GENERATED/REPLACED ${imageCounts.SUCCESS || 0} · NOT_NEEDED ${imageCounts.NOT_NEEDED || 0} · FAILED ${imageCounts.FAILED || 0}.`,
+          imageResult.ok ? "info" : "warn",
+          plan.id,
+        );
+      }
+
+      if (!upgrade && !images) {
         jobApi.appendLog(
           job,
           `Audited “${plan.title}” — ${before.audit.currentStatus}.`,
@@ -195,7 +558,7 @@ function createCurriculumOperatorApi(deps) {
           verification: before.verification,
           beforeScores: before.audit.scores,
           afterScores: before.audit.scores,
-          kept: (before.audit.weeklyContent || []).filter((f) => f.decision === "KEEP").map((f) => f.field),
+          kept,
           updated: [],
           generated: [],
           ownerReviewStatus: "AUDIT_ONLY",
@@ -210,173 +573,41 @@ function createCurriculumOperatorApi(deps) {
         };
       }
 
-      // Phase 2.5 upgrade path — structured AI composer (no deterministic filler)
-      job.progress.currentAction = "lesson.updateFields";
-      if (typeof callOperatorAi !== "function" && openAiConfigured !== false) {
-        // openAiConfigured false → explicit missing key; still require callAi injection for mocks
-      }
-      if (typeof callOperatorAi !== "function") {
-        jobApi.appendLog(job, "AI composer unavailable — refusing deterministic filler.", "error", plan.id);
-        return {
-          ...lr,
-          title: plan.title,
-          status: "failed",
-          audit: before.audit,
-          verification: before.verification,
-          beforeScores: before.audit.scores,
-          afterScores: before.audit.scores,
-          error: "Structured AI composer is not configured.",
-          ownerReviewStatus: "BLOCKED",
-          published: false,
-          actions: markSteps(lr.actions, schema.asArray(lr.actions).map((a) => a.type), "failed", {
-            error: "ai_composer_unavailable",
-            retryable: true,
-          }),
-        };
-      }
-
-      const built = await upgradeApi.buildUpgradeDraft(plan, curriculum, before.audit, {
-        upgradeLesson: job.command.actions.upgradeLesson !== false,
-        upgradeActivities: job.command.actions.upgradeActivities !== false,
-        touchSongs: job.command.actions.checkSongs !== false,
-        touchBooks: job.command.actions.checkBooks !== false,
-        editedBy: sessionEmail || "curriculum-operator-phase25",
-        callAi: callOperatorAi,
-      });
-
-      if (built.usage?.calls) {
-        job.costCounters.openaiCalls = (job.costCounters.openaiCalls || 0) + Number(built.usage.calls || 0);
-      }
-
-      if (built.aiFailed) {
-        jobApi.appendLog(
-          job,
-          `AI composer failed for “${plan.title}”: ${built.error}. Draft unchanged.`,
-          "error",
-          plan.id,
-        );
-        return {
-          ...lr,
-          title: plan.title,
-          status: "failed",
-          audit: before.audit,
-          verification: before.verification,
-          beforeScores: before.audit.scores,
-          afterScores: before.audit.scores,
-          kept: built.kept,
-          updated: [],
-          error: schema.text(built.error, 500),
-          ownerReviewStatus: "BLOCKED",
-          published: false,
-          aiUsage: built.usage || null,
-          actions: markSteps(lr.actions, schema.asArray(lr.actions).map((a) => a.type), "failed", {
-            error: built.code || "ai_composer_failed",
-            retryable: true,
-          }),
-        };
-      }
-
-      if (!built.changed.length) {
-        jobApi.appendLog(job, `No draft changes needed for “${plan.title}”.`, "info", plan.id);
-        return {
-          ...lr,
-          title: plan.title,
-          status: "success",
-          audit: before.audit,
-          auditAfter: before.audit,
-          verification: before.verification,
-          beforeScores: before.audit.scores,
-          afterScores: before.audit.scores,
-          kept: built.kept,
-          updated: [],
-          ownerReviewStatus: "READY_FOR_OWNER_REVIEW",
-          readyForReview: true,
-          published: false,
-          aiUsage: built.usage || null,
-          actions: markSteps(lr.actions, schema.asArray(lr.actions).map((a) => a.type), "success", {
-            output: { changed: 0 },
-          }),
-        };
-      }
-
-      if (typeof saveOperatorEnrichmentDraft !== "function") {
-        throw new Error("Draft save helper is not configured.");
-      }
-
-      job.progress.currentAction = "lesson.saveDraft";
-      const saveResult = await saveOperatorEnrichmentDraft({
-        store,
-        lessonPlanId: plan.id,
-        enrichmentDraft: built.enrichmentDraft,
-        adminEmail: sessionEmail,
-      });
-      if (!saveResult?.ok) {
-        throw new Error(saveResult?.error || "enrichment_draft save failed");
-      }
-
-      const historyId = saveResult.versionId || null;
-      const afterPlan = saveResult.lessonPlan;
-      const afterCurriculum = readSiteCurriculum(store);
-      job.progress.currentAction = "lesson.validate";
-      const after = auditOneLesson(afterPlan, afterCurriculum);
-      const upgradeVerification = upgradeApi.verifyUpgradeResult({
-        beforePlan: plan,
-        afterPlan,
-        intended: built.intended,
-        changed: built.changed,
-        keepSnapshots: built.keepSnapshots,
-      });
-
-      const ownerReviewStatus = upgradeApi.classifyOwnerReviewStatus({
-        beforeScores: before.audit.scores,
-        afterScores: after.audit.scores,
-        verification: upgradeVerification,
-        blockers: after.audit.teachingKitBlockers,
-      });
-
-      const ok = upgradeVerification.ok;
-      jobApi.appendLog(
-        job,
-        `Upgraded “${plan.title}” draft via structured AI — ${before.audit.scores?.premiumReadinessPercent}% → ${after.audit.scores?.premiumReadinessPercent}% · ${ownerReviewStatus}. NOT published.`,
-        ok ? "info" : "warn",
-        plan.id,
-      );
-
+      const ok = !imageError && (upgradeVerification ? upgradeVerification.ok : true);
+      const stepTypes = schema.asArray(lr.actions).map((a) => a.type);
       return {
         ...lr,
         title: plan.title,
-        status: ok ? "success" : "failed",
+        status: ok ? "success" : (imageError && (updated.length || imageCounts?.SUCCESS) ? "success" : "failed"),
         preSnapshotHistoryId: historyId,
         audit: before.audit,
-        auditAfter: after.audit,
-        verification: after.verification,
+        auditAfter,
+        verification: before.verification,
         upgradeVerification,
         beforeScores: before.audit.scores,
-        afterScores: after.audit.scores,
-        kept: built.kept,
-        updated: built.changed,
+        afterScores,
+        kept,
+        updated,
         generated: [],
-        ownerReviewStatus: ok ? ownerReviewStatus : "BLOCKED",
-        readyForReview: ok && ownerReviewStatus === "READY_FOR_OWNER_REVIEW",
+        imageActions,
+        imageCounts,
+        imagesComplete: images ? imagesComplete : undefined,
+        ownerReviewStatus: imageError ? "PARTIAL" : ownerReviewStatus,
+        readyForReview: ok || Boolean(imageCounts?.SUCCESS) || Boolean(updated.length),
         published: false,
-        aiUsage: built.usage || null,
-        error: ok ? null : "Post-save verification failed.",
-        actions: markSteps(
-          lr.actions,
-          schema.asArray(lr.actions).map((a) => a.type),
-          ok ? "success" : "failed",
-          {
-            output: {
-              changed: built.changed.length,
-              ownerReviewStatus,
-              published: false,
-              historyId,
-              aiCalls: built.usage?.calls || 0,
-            },
-            error: ok ? null : "upgrade_verification_failed",
-            retryable: !ok,
+        aiUsage,
+        error: ok ? null : (imageError || "Lesson processing incomplete."),
+        actions: markSteps(lr.actions, stepTypes, ok ? "success" : "failed", {
+          output: {
+            changed: updated.length,
+            imageCounts,
+            ownerReviewStatus: imageError ? "PARTIAL" : ownerReviewStatus,
+            published: false,
+            historyId,
           },
-        ),
+          error: ok ? null : (imageError ? "image_actions_partial" : "processing_failed"),
+          retryable: !ok,
+        }),
       };
     } catch (error) {
       jobApi.appendLog(job, `Lesson error: ${error.message}`, "error", lr.lessonId);
@@ -398,27 +629,31 @@ function createCurriculumOperatorApi(deps) {
   async function runJob(job, store, sessionEmail) {
     job.status = "running";
     const upgrade = wantsUpgrade(job.command);
-    jobApi.appendLog(
-      job,
-      upgrade
-        ? "Starting Phase 2 draft upgrade run (no publish)."
-        : "Starting audit-only run.",
-    );
+    const images = wantsImages(job.command);
+    let startMsg = "Starting audit-only run.";
+    if (upgrade && images) startMsg = "Starting Phase 2.5 draft upgrade + Phase 3 activity images (no publish).";
+    else if (upgrade) startMsg = "Starting Phase 2.5 draft upgrade run (no publish).";
+    else if (images) startMsg = "Starting Phase 3 activity image run (no publish).";
+    jobApi.appendLog(job, startMsg);
 
     const results = [];
     for (let index = 0; index < job.lessonResults.length; index += 1) {
       const lr = job.lessonResults[index];
-      if (lr.status === "success" && (lr.auditAfter || (!upgrade && lr.audit))) {
+      const resumeOk = lr.status === "success"
+        && (
+          (images && lr.imagesComplete && (lr.auditAfter || lr.audit))
+          || (!images && upgrade && lr.auditAfter)
+          || (!images && !upgrade && lr.audit)
+        );
+      if (resumeOk) {
         results.push(lr);
         continue;
       }
-      // Re-read store each lesson for isolation / fresh data after prior saves
       const latest = readStore();
       Object.assign(store, latest);
       // eslint-disable-next-line no-await-in-loop
       const next = await processOneLesson(job, lr, index, store, sessionEmail);
       results.push(next);
-      // Persist job progress after each lesson so failures don't lose earlier work
       job.lessonResults = results.concat(job.lessonResults.slice(results.length));
       const completed = results.filter((l) => l.status === "success").length;
       const failed = results.filter((l) => l.status === "failed").length;
@@ -472,7 +707,7 @@ function createCurriculumOperatorApi(deps) {
       return;
     }
 
-    const phase = schema.clampInt(body.phase, 1, 8, 2);
+    const phase = schema.clampInt(body.phase, 1, 8, 3);
     const curriculum = typeof readSiteCurriculum === "function"
       ? readSiteCurriculum(store)
       : (store.siteContent?.curriculum || { lessonPlans: [], activities: [], resources: [] });
