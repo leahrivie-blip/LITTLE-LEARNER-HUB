@@ -87,6 +87,13 @@ function normalizeLessonResult(raw = {}) {
     songCounts: input.songCounts && typeof input.songCounts === "object" ? input.songCounts : null,
     bookCounts: input.bookCounts && typeof input.bookCounts === "object" ? input.bookCounts : null,
     songsBooksComplete: input.songsBooksComplete === true,
+    textComplete: input.textComplete === true,
+    finalVerificationComplete: input.finalVerificationComplete === true,
+    workPlan: input.workPlan && typeof input.workPlan === "object" ? input.workPlan : null,
+    kitScope: input.kitScope && typeof input.kitScope === "object" ? input.kitScope : null,
+    finalVerification: input.finalVerification && typeof input.finalVerification === "object"
+      ? input.finalVerification
+      : null,
     aiUsage: input.aiUsage && typeof input.aiUsage === "object" ? input.aiUsage : null,
     ownerReviewStatus: ownerReviewStatus || null,
     readyForReview: input.readyForReview === true || ownerReviewStatus === "READY_FOR_OWNER_REVIEW",
@@ -170,12 +177,17 @@ function createJobFromPlan({ command, planSummary, createdBy, status = "planned"
   const lessons = schema.asArray(planSummary?.lessons);
   const phase = Number(command?.completion?.phase) || 1;
   const doUpgrade = phase >= 2 && command?.actions?.saveDraft === true
-    && (command?.actions?.upgradeLesson || command?.actions?.upgradeActivities);
-  const doImages = phase >= 3 && phase < 4
+    && (command?.actions?.upgradeLesson || command?.actions?.upgradeActivities)
+    && command?.actions?.touchDraft !== false;
+  const doImages = ((phase === 3) || (phase >= 6))
     && command?.actions?.generateImages === true
     && command?.actions?.touchImages !== false;
-  const doPrintables = phase === 4 && command?.actions?.generatePrintables === true;
-  const doSongsBooks = phase === 5 && command?.actions?.generateSongsBooks === true;
+  const doPrintables = ((phase === 4) || (phase >= 6))
+    && command?.actions?.generatePrintables === true
+    && command?.actions?.touchPrintables !== false;
+  const doSongsBooks = ((phase === 5) || (phase >= 6))
+    && command?.actions?.generateSongsBooks === true
+    && (command?.actions?.touchSongs !== false || command?.actions?.touchBooks !== false);
   const job = normalizeOperatorJob({
     createdBy,
     status,
@@ -210,6 +222,17 @@ function createJobFromPlan({ command, planSummary, createdBy, status = "planned"
           { id: newStepId(), type: "lesson.validate", status: "pending", idempotencyKey: `validate:${id}` },
         );
       }
+      // Phase 6 order: text → songs/books → images → printables
+      if (doSongsBooks) {
+        actions.push(
+          { id: newStepId(), type: "song.audit", status: "pending", idempotencyKey: `song-audit:${id}` },
+          { id: newStepId(), type: "song.upsert", status: "pending", idempotencyKey: `song-upsert:${id}` },
+          { id: newStepId(), type: "book.audit", status: "pending", idempotencyKey: `book-audit:${id}` },
+          { id: newStepId(), type: "book.upsert", status: "pending", idempotencyKey: `book-upsert:${id}` },
+          { id: newStepId(), type: "lesson.saveDraft", status: "pending", idempotencyKey: `sb-draft:${id}` },
+          { id: newStepId(), type: "lesson.validate", status: "pending", idempotencyKey: `sb-validate:${id}` },
+        );
+      }
       if (doImages) {
         actions.push(
           { id: newStepId(), type: "image.inspect", status: "pending", idempotencyKey: `img-inspect:${id}` },
@@ -229,14 +252,9 @@ function createJobFromPlan({ command, planSummary, createdBy, status = "planned"
           { id: newStepId(), type: "printable.verify", status: "pending", idempotencyKey: `pr-verify:${id}` },
         );
       }
-      if (doSongsBooks) {
+      if (phase >= 6) {
         actions.push(
-          { id: newStepId(), type: "song.audit", status: "pending", idempotencyKey: `song-audit:${id}` },
-          { id: newStepId(), type: "song.upsert", status: "pending", idempotencyKey: `song-upsert:${id}` },
-          { id: newStepId(), type: "book.audit", status: "pending", idempotencyKey: `book-audit:${id}` },
-          { id: newStepId(), type: "book.upsert", status: "pending", idempotencyKey: `book-upsert:${id}` },
-          { id: newStepId(), type: "lesson.saveDraft", status: "pending", idempotencyKey: `sb-draft:${id}` },
-          { id: newStepId(), type: "lesson.validate", status: "pending", idempotencyKey: `sb-validate:${id}` },
+          { id: newStepId(), type: "lesson.validate", status: "pending", idempotencyKey: `final-validate:${id}` },
         );
       }
       return {
@@ -255,14 +273,20 @@ function createJobFromPlan({ command, planSummary, createdBy, status = "planned"
         songCounts: null,
         bookCounts: null,
         songsBooksComplete: false,
+        textComplete: false,
+        finalVerificationComplete: false,
+        workPlan: lesson.workPlan || null,
+        kitScope: lesson.kitScope || null,
       };
     }),
     log: [],
   });
   let createdMsg = `Job created (${status}). Audit-only — no curriculum mutations.`;
-  if (doSongsBooks) {
+  if (phase >= 6 && (doUpgrade || doImages || doPrintables || doSongsBooks)) {
+    createdMsg = `Job created (${status}). Phase 6 full Teaching Kit finish — no publish / no lesson.create.`;
+  } else if (doSongsBooks && !doImages && !doPrintables && phase === 5) {
     createdMsg = `Job created (${status}). Phase 5 songs+books — no publish / no image or printable regeneration.`;
-  } else if (doPrintables) {
+  } else if (doPrintables && phase === 4) {
     createdMsg = `Job created (${status}). Phase 4 printables — no publish / no image regeneration.`;
   } else if (doUpgrade && doImages) {
     createdMsg = `Job created (${status}). Phase 2.5 text + Phase 3 images — no publish.`;

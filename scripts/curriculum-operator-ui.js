@@ -124,6 +124,24 @@
         </div>
         <span class="co-status-pill">${esc(review)}</span>
       </header>
+      ${lr.workPlan ? `
+      <section>
+        <h5>Full-kit work plan</h5>
+        <pre class="co-log">${esc((typeof LLHCurriculumOperatorUi !== "undefined" ? "" : "") + (lr.workPlan.title || "") + " · cover " + (lr.workPlan.cover || "LOCKED"))}</pre>
+        <p class="muted-copy">Locks:
+          images ${lr.kitScope?.locks?.images ? "ON" : "off"} ·
+          printables ${lr.kitScope?.locks?.printables ? "ON" : "off"} ·
+          songs ${lr.kitScope?.locks?.songs ? "ON" : "off"} ·
+          books ${lr.kitScope?.locks?.books ? "ON" : "off"} ·
+          cover ${lr.kitScope?.locks?.cover !== false ? "ON" : "off"}
+        </p>
+      </section>` : ""}
+      ${lr.finalVerification ? `
+      <section>
+        <h5>Verification</h5>
+        <p class="muted-copy">${lr.finalVerification.ok ? "✓ Final stored-state verification passed" : "✗ Final verification issues"}
+          · Draft saved · Publish: NOT PUBLISHED</p>
+      </section>` : ""}
       ${changed.length ? `
       <section>
         <h5>Changed (${changed.length})</h5>
@@ -229,13 +247,13 @@
           <div>
             <p class="eyebrow">Content · Owner</p>
             <h3>AI Curriculum Operator</h3>
-            <p class="muted-copy">Phase 5: songs + books into enrichment drafts (KEEP / ADD / IMPROVE / REPLACE / NOT_NEEDED). <strong>No publishing. No new lessons. No activity image or printable regeneration.</strong></p>
+            <p class="muted-copy">Phase 6: finish a full Teaching Kit draft (text → songs/books → images → printables). <strong>No publishing. No new lessons. Cover locked unless you ask.</strong></p>
           </div>
         </div>
         ${state.message ? `<p class="access-notice ${state.isError ? "error" : ""}" role="status">${esc(state.message)}</p>` : ""}
         <label class="co-command-label">
           <span>Command</span>
-          <textarea id="coCommandInput" rows="3" placeholder="Example: Finish the songs and books for Weather Watchers.">${esc(state.command)}</textarea>
+          <textarea id="coCommandInput" rows="3" placeholder="Example: Finish Weather Watchers and get it ready for me to review.">${esc(state.command)}</textarea>
         </label>
         <div class="account-actions-row">
           <button type="button" class="ghost-button" id="coParseBtn" ${state.busy ? "disabled" : ""}>Interpret</button>
@@ -321,9 +339,9 @@
     state.isError = false;
     render();
     try {
-      const result = await api("parse", { command: state.command, phase: 5 });
+      const result = await api("parse", { command: state.command, phase: 6 });
       state.commandParsed = result;
-      const planned = await api("plan", { command: state.command, phase: 5 });
+      const planned = await api("plan", { command: state.command, phase: 6 });
       state.planSummary = planned.planSummary;
       state.job = planned.job || null;
       state.message = "Command interpreted. Review the plan, then run the job.";
@@ -343,14 +361,14 @@
     state.isError = false;
     render();
     try {
-      const result = await api("run", { command: state.command, confirm: true, phase: 5 });
+      const result = await api("run", { command: state.command, confirm: true, phase: 6 });
       state.commandParsed = { command: result.command };
       state.planSummary = result.planSummary;
       state.job = result.job;
       if (result.awaitingConfirm) {
         state.message = "Confirmation required before running. Review scope, then confirm.";
       } else if (result.draftOnly) {
-        state.message = "Draft job complete. Enrichment drafts updated only — NOT PUBLISHED. Images/printables unchanged unless this was an earlier phase job.";
+        state.message = "Full Teaching Kit draft job complete — NOT PUBLISHED. Open the lesson to review.";
       } else {
         state.message = "Audit job complete. No curriculum data was changed.";
       }

@@ -165,6 +165,11 @@ const PHASE5_EXECUTABLE_ACTIONS = Object.freeze([
   "book.upsert",
 ]);
 
+/** Phase 6 orchestrates full Teaching Kit finish — still no publish/create. */
+const PHASE6_EXECUTABLE_ACTIONS = Object.freeze([
+  ...PHASE5_EXECUTABLE_ACTIONS,
+]);
+
 const OWNER_REVIEW_STATUSES = Object.freeze([
   "READY_FOR_OWNER_REVIEW",
   "PARTIAL",
@@ -231,6 +236,7 @@ const INTENTS = Object.freeze([
   "finish_printables",
   "finish_images",
   "finish_songs_books",
+  "finish_full_kit",
   "validate",
   "unknown",
 ]);
@@ -296,6 +302,12 @@ function emptyActionsFlags() {
     generateSongsBooks: false,
     replaceBadImages: false,
     touchImages: true,
+    touchPrintables: true,
+    touchSongs: true,
+    touchBooks: true,
+    touchCover: false,
+    touchDraft: true,
+    textOnly: false,
     validate: true,
     saveDraft: false,
     publish: false,
@@ -371,6 +383,12 @@ function normalizeOperatorCommand(raw = {}, options = {}) {
     generateSongsBooks: actionsIn.generateSongsBooks === true,
     replaceBadImages: actionsIn.replaceBadImages === true,
     touchImages: actionsIn.touchImages !== false,
+    touchPrintables: actionsIn.touchPrintables !== false,
+    touchSongs: actionsIn.touchSongs !== false,
+    touchBooks: actionsIn.touchBooks !== false,
+    touchCover: actionsIn.touchCover === true,
+    touchDraft: actionsIn.touchDraft !== false,
+    textOnly: actionsIn.textOnly === true,
     validate: actionsIn.validate !== false,
     saveDraft: actionsIn.saveDraft === true,
     publish: actionsIn.publish === true,
@@ -381,10 +399,28 @@ function normalizeOperatorCommand(raw = {}, options = {}) {
   actions.publish = false;
   if (phase < 4) actions.generatePrintables = false;
   if (phase < 5) actions.generateSongsBooks = false;
+  if (actions.textOnly) {
+    actions.touchImages = false;
+    actions.touchPrintables = false;
+    actions.touchSongs = false;
+    actions.touchBooks = false;
+    actions.generateImages = false;
+    actions.generatePrintables = false;
+    actions.generateSongsBooks = false;
+  }
+  if (actions.touchImages === false) {
+    actions.generateImages = false;
+    actions.replaceBadImages = false;
+  }
+  if (actions.touchPrintables === false) actions.generatePrintables = false;
+  if (actions.touchSongs === false && actions.touchBooks === false) {
+    actions.generateSongsBooks = false;
+  }
 
   const phase3 = phase === 3;
   const phase4 = phase === 4;
-  const phase5 = phase >= 5;
+  const phase5 = phase === 5;
+  const phase6 = phase >= 6;
   if (phase1) {
     actions.upgradeLesson = false;
     actions.upgradeActivities = false;
@@ -433,7 +469,7 @@ function normalizeOperatorCommand(raw = {}, options = {}) {
       actions.upgradeActivities = true;
     }
     if (intent === "finish_printables" || actions.generatePrintables || actionsIn.generatePrintables === true) {
-      actions.generatePrintables = true;
+      actions.generatePrintables = actions.touchPrintables !== false;
       actions.saveDraft = true;
       actions.checkPrintables = true;
     }
@@ -449,14 +485,67 @@ function normalizeOperatorCommand(raw = {}, options = {}) {
       actions.upgradeActivities = true;
     }
     if (intent === "finish_songs_books" || actions.generateSongsBooks || actionsIn.generateSongsBooks === true) {
-      actions.generateSongsBooks = true;
+      actions.generateSongsBooks = actions.touchSongs !== false || actions.touchBooks !== false;
       actions.saveDraft = true;
-      actions.checkSongs = true;
-      actions.checkBooks = true;
+      actions.checkSongs = actions.touchSongs !== false;
+      actions.checkBooks = actions.touchBooks !== false;
     }
     if (intent === "finish_images" || intent === "finish_printables") {
       actions.generateImages = false;
       actions.generatePrintables = false;
+    }
+  } else if (phase6) {
+    // Phase 6: full Teaching Kit orchestration — exclusions are immutable
+    const fullKit = intent === "finish_full_kit" || intent === "fix_lesson" || intent === "upgrade_batch"
+      || actionsIn.finishFullKit === true;
+    if (fullKit || actions.upgradeLesson || actions.upgradeActivities) {
+      if (actions.touchDraft !== false && !actions.textOnly) {
+        actions.upgradeLesson = true;
+        actions.upgradeActivities = true;
+        actions.saveDraft = true;
+      } else if (actions.textOnly) {
+        actions.upgradeLesson = true;
+        actions.upgradeActivities = true;
+        actions.saveDraft = true;
+      }
+    }
+    if (fullKit && !actions.textOnly) {
+      if (actions.touchSongs !== false || actions.touchBooks !== false) {
+        actions.generateSongsBooks = true;
+        actions.checkSongs = actions.touchSongs !== false;
+        actions.checkBooks = actions.touchBooks !== false;
+        actions.saveDraft = true;
+      }
+      if (actions.touchImages !== false) {
+        actions.generateImages = true;
+        actions.replaceBadImages = actionsIn.replaceBadImages !== false;
+        actions.checkImages = true;
+        actions.saveDraft = true;
+      } else {
+        actions.generateImages = false;
+        actions.replaceBadImages = false;
+      }
+      if (actions.touchPrintables !== false) {
+        actions.generatePrintables = true;
+        actions.checkPrintables = true;
+        actions.saveDraft = true;
+      } else {
+        actions.generatePrintables = false;
+      }
+    }
+    // Re-apply locks after full-kit defaults
+    if (actions.touchImages === false) {
+      actions.generateImages = false;
+      actions.replaceBadImages = false;
+    }
+    if (actions.touchPrintables === false) actions.generatePrintables = false;
+    if (actions.touchSongs === false && actions.touchBooks === false) {
+      actions.generateSongsBooks = false;
+    }
+    if (actions.textOnly) {
+      actions.generateImages = false;
+      actions.generatePrintables = false;
+      actions.generateSongsBooks = false;
     }
   } else {
     actions.generateImages = false;
@@ -600,6 +689,10 @@ function isPhase5Executable(actionType) {
   return PHASE5_EXECUTABLE_ACTIONS.includes(text(actionType, 60));
 }
 
+function isPhase6Executable(actionType) {
+  return PHASE6_EXECUTABLE_ACTIONS.includes(text(actionType, 60));
+}
+
 module.exports = {
   FIELD_DECISIONS,
   IMAGE_DECISIONS,
@@ -611,6 +704,7 @@ module.exports = {
   PHASE3_EXECUTABLE_ACTIONS,
   PHASE4_EXECUTABLE_ACTIONS,
   PHASE5_EXECUTABLE_ACTIONS,
+  PHASE6_EXECUTABLE_ACTIONS,
   OWNER_REVIEW_STATUSES,
   MUTATION_ACTIONS,
   JOB_STATUSES,
@@ -633,6 +727,7 @@ module.exports = {
   isPhase3Executable,
   isPhase4Executable,
   isPhase5Executable,
+  isPhase6Executable,
   text,
   asArray,
   clampInt,
