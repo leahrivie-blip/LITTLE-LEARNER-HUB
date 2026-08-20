@@ -163,9 +163,10 @@ function gridForCount(count) {
  * @param {number} w
  * @param {number} h
  * @param {number} count
+ * @param {number[]} [rowCountsOverride]
  * @returns {{ x: number, y: number, width: number, height: number }[]}
  */
-function cardRects(w, h, count) {
+function cardRects(w, h, count, rowCountsOverride) {
   const top = Math.round(h * 0.09);
   const bottom = Math.round(h * 0.935);
   const left = Math.round(w * 0.04);
@@ -174,7 +175,10 @@ function cardRects(w, h, count) {
   const gapY = Math.round(h * 0.016);
   const areaW = right - left;
   const areaH = bottom - top;
-  const { rows, rowCounts } = gridForCount(count);
+  const layout = Array.isArray(rowCountsOverride) && rowCountsOverride.length
+    ? { rows: rowCountsOverride.length, rowCounts: rowCountsOverride }
+    : gridForCount(count);
+  const { rows, rowCounts } = layout;
   const rowH = Math.floor((areaH - gapY * (rows - 1)) / rows);
   /** @type {{ x: number, y: number, width: number, height: number }[]} */
   const rects = [];
@@ -241,7 +245,7 @@ function titledCardPage(w, h, title, labels, options = {}) {
     textNode(title, { x: Math.round(w / 2), y: Math.round(h * 0.055), size: Math.round(w * 0.036 * fontScale) }),
   ];
   const exactLines = [title];
-  const rects = cardRects(w, h, labels.length);
+  const rects = cardRects(w, h, labels.length, options.rowCounts);
   const fontSize = Math.round(w * (labels.length >= 5 ? 0.024 : labels.length >= 4 ? 0.028 : 0.032) * fontScale);
   labels.forEach((label, index) => {
     const rect = rects[index];
@@ -350,7 +354,7 @@ function cafeOrderPage(w, h) {
  * @returns {{ nodes: string[], exactLines: string[] }}
  */
 function mailMixPage(w, h, title, labels) {
-  return titledCardPage(w, h, title, labels, { cut: true });
+  return titledCardPage(w, h, title, labels, { cut: true, rowCounts: [2, 2, 2] });
 }
 
 /**

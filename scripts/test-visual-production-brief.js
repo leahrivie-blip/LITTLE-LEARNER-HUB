@@ -510,8 +510,9 @@ function assertCommunityHelpersPlanContract() {
   ok(order.exactLines.includes("My Order") && order.exactLines.includes("sandwich"), "cafe order overlay uses exact My Order text");
   const badges = overlay.buildPrintableOverlaySvg(1024, 1536, pageRows[11]);
   ok(badges.exactLines.includes("Firefighter") && badges.exactLines.includes("Builder"), "badge overlay uses exact helper names");
-  const conversation = overlay.buildPrintableOverlaySvg(1024, 1536, pageRows[22]);
-  ok(conversation.exactLines.includes("Who could help?") && conversation.exactLines.includes("Where do they work?"), "conversation overlay uses exact teacher prompts");
+  const mail = overlay.buildPrintableOverlaySvg(1024, 1536, pageRows[13]);
+  ok(mail.exactLines.filter((line) => line === "Name: __________").length === 4, "mail name cards overlay four blank Name lines");
+  ok(mail.exactLines.includes("Mailbox") && mail.exactLines.includes("Classroom Mail"), "mail page overlay uses Mailbox and Classroom Mail");
   ok(pageRows.every((row) => Array.isArray(row.textOverlayRequirements) && row.textOverlayRequirements.length), "every pack page has deterministic overlay copy");
   ok(pageRows.every((row) => !/littlelearnershubbyleah\.com/i.test(row.originalInstruction)), "printable prompts do not ask the model to draw the website");
 

@@ -417,7 +417,7 @@ function printablePages() {
       pageTitle: PAGE_TITLES[13],
       assetType: "PRINTABLE_CARDS",
       originalInstruction: [
-        "Six large classroom mail cards: four blank name cards and two mailbox signs.",
+        "Six large classroom mail cards in two columns and three rows: four blank name cards and two mailbox signs.",
         "Name cards have a simple envelope or postcard shape and a blank writing line area.",
         "Do not invent child names.",
         "Mailbox signs show a simple mailbox illustration with a blank label strip.",
@@ -430,7 +430,7 @@ function printablePages() {
       pageTitle: PAGE_TITLES[14],
       assetType: "PRINTABLE_CARDS",
       originalInstruction: [
-        "Six large mail cards: four simple envelope fronts with a blank To line area, plus two sorting cards showing cubbies and a mailbag.",
+        "Six large mail cards in two columns and three rows: four simple envelope fronts with a blank To line area, plus two sorting cards showing cubbies and a mailbag.",
         "No fake child names.",
         "No real addresses.",
         "Leave label strips blank.",
