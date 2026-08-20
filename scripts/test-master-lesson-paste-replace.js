@@ -838,6 +838,14 @@ async function runOwnerReplaceTests() {
       rainbowCoffeeFilterArtFixture().paste,
     );
     assert.equal(firstDup.saved.status, 200, firstDup.saved.text);
+    const historyAfterFirst = (firstDup.saved.json.lessonPlan.enrichmentPublishHistory || [])
+      .filter((item) => item.kind === "paste_replace");
+    const firstVersion = historyAfterFirst[0]?.versionId;
+    assert.ok(firstVersion, "first replace writes a paste_replace snapshot");
+    assert.equal(
+      historyBeforeDouble.some((item) => item.versionId === firstVersion),
+      false,
+    );
     const secondDup = await replaceFromPaste(
       token,
       stampForDouble,
@@ -856,9 +864,9 @@ async function runOwnerReplaceTests() {
     const historyAfterDouble = (afterDoublePlan.enrichmentPublishHistory || [])
       .filter((item) => item.kind === "paste_replace");
     assert.equal(afterDoubleActs.length, activeActivities(firstDup.saved.json, RAINBOW_LESSON_ID).length);
-    assert.equal(
-      historyAfterDouble.length,
-      historyBeforeDouble.length + 1,
+    assert.deepEqual(
+      historyAfterDouble.map((item) => item.versionId),
+      historyAfterFirst.map((item) => item.versionId),
       "duplicate confirm must not write a second paste_replace snapshot",
     );
     assert.equal(
