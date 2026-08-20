@@ -14,6 +14,7 @@ const selectApi = require("../scripts/curriculum-operator-select.js");
 const auditApi = require("../scripts/curriculum-operator-audit.js");
 const upgradeApi = require("../scripts/curriculum-operator-upgrade.js");
 const imagesApi = require("../scripts/curriculum-operator-images.js");
+const printablesApi = require("../scripts/curriculum-operator-printables.js");
 const jobApi = require("../scripts/curriculum-operator-job.js");
 
 const ACTIONS = Object.freeze([
@@ -42,6 +43,9 @@ function createCurriculumOperatorApi(deps) {
     generateOperatorImage,
     persistEnrichmentPhoto,
     enrichmentMedia,
+    createOperatorPrintableResource,
+    readOperatorPrintableFile,
+    unlinkOperatorPrintableResource,
   } = deps;
 
   function requireOwner(request, body, response) {
@@ -94,14 +98,21 @@ function createCurriculumOperatorApi(deps) {
 
   function wantsImages(command) {
     const phase = Number(command?.completion?.phase) || 1;
-    if (phase < 3) return false;
+    if (phase < 3 || phase >= 4) return false; // Phase 4 does not regenerate images
     if (command?.actions?.touchImages === false) return false;
     return command?.actions?.generateImages === true;
+  }
+
+  function wantsPrintables(command) {
+    const phase = Number(command?.completion?.phase) || 1;
+    if (phase < 4) return false;
+    return command?.actions?.generatePrintables === true;
   }
 
   function buildPlanSummary(command, selection) {
     const upgrade = wantsUpgrade(command);
     const images = wantsImages(command);
+    const printables = wantsPrintables(command);
     const expected = ["lesson.get", "lesson.audit", "asset.plan", "teachingKit.score"];
     if (upgrade) {
       expected.push(
@@ -120,6 +131,16 @@ function createCurriculumOperatorApi(deps) {
         "lesson.validate",
       );
     }
+    if (printables) {
+      expected.push(
+        "printable.plan",
+        "printable.generatePages",
+        "printable.buildPdf",
+        "printable.upload",
+        "printable.attach",
+        "printable.verify",
+      );
+    }
     const lessons = schema.asArray(selection.selected).map((row) => ({
       id: row.id,
       title: row.title,
@@ -134,7 +155,9 @@ function createCurriculumOperatorApi(deps) {
       publishRequested: false,
     }));
     let phaseNote = "Audit/plan only. No curriculum mutations.";
-    if (upgrade && images) {
+    if (printables) {
+      phaseNote = "Phase 4: activity-driven printables only (KEEP/CREATE/REPLACE/REMOVE/NOT_NEEDED). NOT published. No image regeneration. No new lessons.";
+    } else if (upgrade && images) {
       phaseNote = "Phase 2.5+3: AI draft text + useful activity images into enrichmentDraft. NOT published. No printables.";
     } else if (upgrade) {
       phaseNote = "Phase 2.5: enrichmentDraft text only. NOT published. No image/printable changes.";
@@ -153,7 +176,7 @@ function createCurriculumOperatorApi(deps) {
       phase: Number(command.completion?.phase) || 1,
       phaseNote,
       generatesImages: images,
-      generatesPrintables: false,
+      generatesPrintables: printables,
       publishes: false,
     };
   }
@@ -164,6 +187,117 @@ function createCurriculumOperatorApi(deps) {
       if (a.status === "success" && a.idempotencyKey) keys.add(a.idempotencyKey);
     });
     return keys;
+  }
+
+  function collectSucceededPrintableKeys(lr) {
+    const keys = new Set();
+    schema.asArray(lr?.printableActions).forEach((a) => {
+      if (a.status === "success" && a.idempotencyKey) keys.add(a.idempotencyKey);
+    });
+    return keys;
+  }
+
+  async function runPrintablesForLesson(job, plan, audit, store, sessionEmail, lr) {
+    const curriculum = readSiteCurriculum(store);
+    const linked = schema.asArray(curriculum.activities).filter((a) => a.lessonPlanId === plan.id);
+    const hardMax = Number(job.command?.limits?.maxPrintableGenerations)
+      || schema.DEFAULT_LIMITS.maxPrintableGenerations;
+    const alreadyUsed = Number(job.costCounters?.printables) || 0;
+    const remaining = Math.max(0, hardMax - alreadyUsed);
+    const lessonCount = Math.max(1, Number(job.lessonResults?.length) || Number(job.progress?.lessonCount) || 1);
+
+    const printableRun = await printablesApi.runPrintablePlanForLesson({
+      plan,
+      activities: linked,
+      audit,
+      curriculum,
+      limits: {
+        ...(job.command.limits || {}),
+        maxPrintableGenerations: remaining,
+      },
+      lessonCount,
+      touchPrintables: true,
+      replaceWeakPrintables: true,
+      alreadySucceededKeys: collectSucceededPrintableKeys(lr),
+      createPrintableResource: createOperatorPrintableResource
+        ? async (payload) => createOperatorPrintableResource({ ...payload, store, adminEmail: sessionEmail })
+        : null,
+      readResourceFile: readOperatorPrintableFile
+        ? async (payload) => readOperatorPrintableFile({ ...payload, store })
+        : null,
+      unlinkPrintableResource: unlinkOperatorPrintableResource
+        ? async (payload) => unlinkOperatorPrintableResource({ ...payload, store, adminEmail: sessionEmail })
+        : null,
+      saveDraft: async ({ enrichmentDraft }) => {
+        if (typeof saveOperatorEnrichmentDraft !== "function") {
+          return { ok: false, error: "Draft save helper not configured." };
+        }
+        const saveResult = await saveOperatorEnrichmentDraft({
+          store,
+          lessonPlanId: plan.id,
+          enrichmentDraft,
+          adminEmail: sessionEmail,
+        });
+        if (!saveResult?.ok) return { ok: false, error: saveResult?.error || "save failed" };
+        Object.assign(store, readStore());
+        const reloaded = schema.asArray(readSiteCurriculum(store).lessonPlans).find((p) => p.id === plan.id);
+        return {
+          ok: true,
+          enrichmentDraft: reloaded?.enrichmentDraft || enrichmentDraft,
+          lessonPlan: reloaded,
+          versionId: saveResult.versionId,
+        };
+      },
+    });
+
+    if (printableRun.code === "SCOPE_REVIEW_REQUIRED") {
+      return {
+        ok: false,
+        scopeReview: true,
+        printableRun,
+        plan,
+        error: printableRun.error,
+      };
+    }
+
+    Object.assign(store, readStore());
+    const afterPlan = schema.asArray(readSiteCurriculum(store).lessonPlans).find((p) => p.id === plan.id) || plan;
+    const resourcesAfter = schema.asArray(readSiteCurriculum(store).resources);
+    const jobVerification = printablesApi.verifyPrintableJobDraft({
+      beforePlan: plan,
+      afterPlan,
+      actions: printableRun.actions,
+      resourcesAfter,
+    });
+
+    const verifiedActions = schema.asArray(printableRun.actions).map((action) => {
+      if (action.status !== "success") return action;
+      if (!jobVerification.ok) {
+        return {
+          ...action,
+          status: "failed",
+          error: "Post-save printable verification failed.",
+          retryable: true,
+          verification: jobVerification,
+          preservedExisting: Boolean(action.preservedExisting),
+        };
+      }
+      return { ...action, verification: jobVerification, status: "success" };
+    });
+
+    const counts = printablesApi.summarizePrintableActions(verifiedActions);
+    job.costCounters.printables = (job.costCounters.printables || 0) + Number(printableRun.generations || 0);
+
+    return {
+      ok: verifiedActions.every((a) => a.status !== "failed") && jobVerification.ok,
+      partial: verifiedActions.some((a) => a.status === "failed")
+        && verifiedActions.some((a) => a.status === "success"),
+      printableRun: { ...printableRun, actions: verifiedActions, counts, jobVerification },
+      afterPlan,
+      historyId: null,
+      counts,
+      error: jobVerification.ok ? null : "Post-save printable verification failed.",
+    };
   }
 
   async function runImagesForLesson(job, plan, audit, store, sessionEmail, lr) {
@@ -337,6 +471,7 @@ function createCurriculumOperatorApi(deps) {
 
     const upgrade = wantsUpgrade(job.command);
     const images = wantsImages(job.command);
+    const printables = wantsPrintables(job.command);
     try {
       job.progress.currentAction = "lesson.audit";
       const before = auditOneLesson(plan, curriculum);
@@ -581,7 +716,78 @@ function createCurriculumOperatorApi(deps) {
         );
       }
 
-      if (!upgrade && !images) {
+      // --- Phase 4 printables (optional; never regenerates images) ---
+      let printableActions = schema.asArray(lr.printableActions);
+      let printableCounts = lr.printableCounts || null;
+      let printablesComplete = lr.printablesComplete === true;
+      let printableError = null;
+
+      if (printables) {
+        job.progress.currentAction = "printable.plan";
+        const printableAuditSource = auditOneLesson(workingPlan, readSiteCurriculum(store));
+        const printableResult = await runPrintablesForLesson(
+          job,
+          workingPlan,
+          printableAuditSource.audit,
+          store,
+          sessionEmail,
+          lr,
+        );
+
+        if (printableResult.scopeReview) {
+          jobApi.appendLog(job, `Printable scope review required: ${printableResult.error}`, "warn", plan.id);
+          return {
+            ...lr,
+            title: plan.title,
+            status: "failed",
+            audit: before.audit,
+            auditAfter: printableAuditSource.audit,
+            beforeScores: before.audit.scores,
+            afterScores: printableAuditSource.audit.scores,
+            kept,
+            updated,
+            imageActions,
+            imageCounts,
+            imagesComplete: images ? imagesComplete : undefined,
+            printableActions: printableResult.printableRun?.actions || [],
+            printableCounts: printableResult.printableRun?.counts || null,
+            printablesComplete: false,
+            error: schema.text(printableResult.error, 500),
+            ownerReviewStatus: "BLOCKED",
+            published: false,
+            aiUsage,
+            code: "SCOPE_REVIEW_REQUIRED",
+            actions: markSteps(lr.actions, ["printable.plan", "printable.generatePages", "printable.upload", "printable.attach"], "failed", {
+              error: "SCOPE_REVIEW_REQUIRED",
+              retryable: false,
+            }),
+          };
+        }
+
+        printableActions = printableResult.printableRun.actions;
+        printableCounts = printableResult.counts;
+        printablesComplete = printableResult.ok || printableResult.partial;
+        workingPlan = printableResult.afterPlan;
+        const finalAudit = auditOneLesson(workingPlan, readSiteCurriculum(store));
+        auditAfter = finalAudit.audit;
+        afterScores = finalAudit.audit.scores;
+        if (!printableResult.ok) {
+          printableError = printableResult.error || "One or more printable actions failed (existing resources preserved).";
+          ownerReviewStatus = "PARTIAL";
+        } else if (!upgrade && !images) {
+          ownerReviewStatus = "READY_FOR_OWNER_REVIEW";
+        } else if (ownerReviewStatus === "AUDIT_ONLY") {
+          ownerReviewStatus = "READY_FOR_OWNER_REVIEW";
+        }
+        jobApi.appendLog(
+          job,
+          `Printables for “${plan.title}”: KEEP ${printableCounts.KEEP || 0} · CREATE ${printableCounts.CREATE || 0} · REPLACE ${printableCounts.REPLACE || 0} · NOT NEEDED ${printableCounts.NOT_NEEDED || 0} · FAILED ${printableCounts.FAILED || 0}.`,
+          printableResult.ok ? "info" : "warn",
+          plan.id,
+        );
+      }
+
+      if (!upgrade && !images && !printables) {
         jobApi.appendLog(
           job,
           `Audited “${plan.title}” — ${before.audit.currentStatus}.`,
@@ -611,12 +817,17 @@ function createCurriculumOperatorApi(deps) {
         };
       }
 
-      const ok = !imageError && (upgradeVerification ? upgradeVerification.ok : true);
+      const combinedError = imageError || printableError;
+      const ok = !combinedError && (upgradeVerification ? upgradeVerification.ok : true);
       const stepTypes = schema.asArray(lr.actions).map((a) => a.type);
       return {
         ...lr,
         title: plan.title,
-        status: ok ? "success" : (imageError && (updated.length || imageCounts?.SUCCESS) ? "success" : "failed"),
+        status: ok ? "success" : (
+          combinedError && (updated.length || imageCounts?.SUCCESS || printableCounts?.SUCCESS)
+            ? "success"
+            : "failed"
+        ),
         preSnapshotHistoryId: historyId,
         audit: before.audit,
         auditAfter,
@@ -630,20 +841,24 @@ function createCurriculumOperatorApi(deps) {
         imageActions,
         imageCounts,
         imagesComplete: images ? imagesComplete : undefined,
-        ownerReviewStatus: imageError ? "PARTIAL" : ownerReviewStatus,
-        readyForReview: ok || Boolean(imageCounts?.SUCCESS) || Boolean(updated.length),
+        printableActions,
+        printableCounts,
+        printablesComplete: printables ? printablesComplete : undefined,
+        ownerReviewStatus: combinedError ? "PARTIAL" : ownerReviewStatus,
+        readyForReview: ok || Boolean(imageCounts?.SUCCESS) || Boolean(printableCounts?.SUCCESS) || Boolean(updated.length),
         published: false,
         aiUsage,
-        error: ok ? null : (imageError || "Lesson processing incomplete."),
+        error: ok ? null : (combinedError || "Lesson processing incomplete."),
         actions: markSteps(lr.actions, stepTypes, ok ? "success" : "failed", {
           output: {
             changed: updated.length,
             imageCounts,
-            ownerReviewStatus: imageError ? "PARTIAL" : ownerReviewStatus,
+            printableCounts,
+            ownerReviewStatus: combinedError ? "PARTIAL" : ownerReviewStatus,
             published: false,
             historyId,
           },
-          error: ok ? null : (imageError ? "image_actions_partial" : "processing_failed"),
+          error: ok ? null : (combinedError ? "actions_partial" : "processing_failed"),
           retryable: !ok,
         }),
       };
@@ -668,8 +883,10 @@ function createCurriculumOperatorApi(deps) {
     job.status = "running";
     const upgrade = wantsUpgrade(job.command);
     const images = wantsImages(job.command);
+    const printables = wantsPrintables(job.command);
     let startMsg = "Starting audit-only run.";
-    if (upgrade && images) startMsg = "Starting Phase 2.5 draft upgrade + Phase 3 activity images (no publish).";
+    if (printables) startMsg = "Starting Phase 4 printable run (no publish, no image regeneration).";
+    else if (upgrade && images) startMsg = "Starting Phase 2.5 draft upgrade + Phase 3 activity images (no publish).";
     else if (upgrade) startMsg = "Starting Phase 2.5 draft upgrade run (no publish).";
     else if (images) startMsg = "Starting Phase 3 activity image run (no publish).";
     jobApi.appendLog(job, startMsg);
@@ -679,9 +896,10 @@ function createCurriculumOperatorApi(deps) {
       const lr = job.lessonResults[index];
       const resumeOk = lr.status === "success"
         && (
-          (images && lr.imagesComplete && (lr.auditAfter || lr.audit))
-          || (!images && upgrade && lr.auditAfter)
-          || (!images && !upgrade && lr.audit)
+          (printables && lr.printablesComplete && (lr.auditAfter || lr.audit))
+          || (images && lr.imagesComplete && (lr.auditAfter || lr.audit))
+          || (!images && !printables && upgrade && lr.auditAfter)
+          || (!images && !printables && !upgrade && lr.audit)
         );
       if (resumeOk) {
         results.push(lr);
@@ -745,7 +963,7 @@ function createCurriculumOperatorApi(deps) {
       return;
     }
 
-    const phase = schema.clampInt(body.phase, 1, 8, 3);
+    const phase = schema.clampInt(body.phase, 1, 8, 4);
     const curriculum = typeof readSiteCurriculum === "function"
       ? readSiteCurriculum(store)
       : (store.siteContent?.curriculum || { lessonPlans: [], activities: [], resources: [] });

@@ -98,9 +98,16 @@ function parseOperatorCommand(rawCommand, options = {}) {
   const mentionsImages = /\b(picture|pictures|image|images|photo|photos)\b/i.test(raw);
   const wantsImages = mentionsImages
     && /\b(fix|make|generate|create|upgrade|replace|keep|need)\b/i.test(raw);
+  const wantsPrintables = /\b(printable|printables|pdf|resource pack)\b/i.test(raw)
+    && /\b(fix|make|generate|create|upgrade|replace|keep|finish|need)\b/i.test(raw);
+  const noTouchPrintables = /\bdo\s+not\s+touch\s+(?:the\s+)?printables?\b/i.test(raw)
+    || /\bleave\s+(?:the\s+)?printables?\s+alone\b/i.test(raw);
   const imageFocusedFix = wantsImages
     && /\bfix\b/i.test(raw)
     && !/\b(upgrade|improve|including|lesson\s+content|text|fields)\b/i.test(raw);
+  const printableFocusedFix = wantsPrintables
+    && /\bfix\b/i.test(raw)
+    && !/\b(upgrade|improve|including|lesson\s+content|text|fields|pictures?|images?)\b/i.test(raw);
   const wantsUpgrade = /\b(upgrade|improve|finish|complete|make\s+ready|fill\s+(?:the\s+)?missing|ready\s+for\s+(?:me\s+to\s+)?review)\b/i.test(raw)
     || (/\bfix\b/i.test(raw) && !imageFocusedFix && !mentionsImages);
   const noTouchImages = /\bdo\s+not\s+touch\s+(?:the\s+)?(?:pictures?|images?)\b/i.test(raw)
@@ -159,9 +166,21 @@ function parseOperatorCommand(rawCommand, options = {}) {
     actions.generateImages = phase >= 3;
     if (phase < 3) notes.push("Image generation is Phase 3+; not executed now.");
   }
-  if (/\b(generate|create|make|finish)\b.+\bprintable/i.test(raw)) {
-    actions.generatePrintables = true;
-    notes.push("Printable generation is Phase 4+; not executed now.");
+  if (/\b(generate|create|make|finish)\b.+\bprintable/i.test(raw) || (wantsPrintables && !noTouchPrintables)) {
+    actions.generatePrintables = phase >= 4;
+    actions.checkPrintables = true;
+    actions.saveDraft = phase >= 4 || actions.saveDraft;
+    if (phase >= 4) {
+      intent = selection === "weak_printables" ? "finish_printables" : (titles.length === 1 ? "fix_lesson" : "finish_printables");
+      actions.generateImages = false; // Phase 4 must not regenerate images
+      notes.push("Phase 4 will create/replace only useful activity-driven printables into draft resources (not published).");
+    } else {
+      notes.push("Printable generation is Phase 4+; not executed now.");
+    }
+  }
+  if (noTouchPrintables) {
+    actions.generatePrintables = false;
+    notes.push("Printable actions disabled for this command.");
   }
 
   if (!selection || selection === "filter") {
@@ -194,18 +213,31 @@ function parseOperatorCommand(rawCommand, options = {}) {
     notes.push("Will produce Ready-for-Review draft work without publishing.");
   }
 
-  // "Fix Weather Watchers" / "Fix this lesson" — text upgrade unless image-focused
-  if (/\bfix\b/i.test(raw) && (titles.length || selection === "currently_selected" || selection === "named_titles")) {
-    intent = imageFocusedFix || wantsImages ? (wantsUpgrade ? "fix_lesson" : "finish_images") : "fix_lesson";
-    if (!imageFocusedFix) {
+  // "Fix Weather Watchers" / "Fix this lesson" — text upgrade unless image/printable-focused
+  if (/\bfix\b/i.test(raw) && (titles.length || selection === "currently_selected" || selection === "named_titles" || selection === "weak_printables")) {
+    if (printableFocusedFix && phase >= 4) {
+      intent = "finish_printables";
+      actions.generatePrintables = true;
+      actions.checkPrintables = true;
+      actions.saveDraft = true;
+      actions.generateImages = false;
+    } else if (imageFocusedFix || (wantsImages && !wantsUpgrade)) {
+      intent = imageFocusedFix || wantsImages ? (wantsUpgrade ? "fix_lesson" : "finish_images") : "fix_lesson";
+      if (!imageFocusedFix) {
+        actions.upgradeLesson = true;
+        actions.upgradeActivities = true;
+        actions.saveDraft = true;
+      } else if (phase >= 3) {
+        actions.generateImages = true;
+        actions.checkImages = true;
+        actions.saveDraft = true;
+        actions.replaceBadImages = true;
+      }
+    } else {
+      intent = "fix_lesson";
       actions.upgradeLesson = true;
       actions.upgradeActivities = true;
       actions.saveDraft = true;
-    } else if (phase >= 3) {
-      actions.generateImages = true;
-      actions.checkImages = true;
-      actions.saveDraft = true;
-      actions.replaceBadImages = true;
     }
   }
 

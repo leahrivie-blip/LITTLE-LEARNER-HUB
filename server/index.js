@@ -7050,6 +7050,186 @@ async function saveOperatorEnrichmentDraft({
   };
 }
 
+/**
+ * Trusted draft printable create/link for AI Curriculum Operator Phase 4.
+ * Reuses curriculum resource + lesson linking. Never publishes.
+ */
+async function createOperatorPrintableResource({
+  store,
+  lessonPlanId,
+  activityId = "",
+  title,
+  fileName,
+  fileData,
+  pageCount = 0,
+  resourceType = "Printable",
+  description = "",
+  ageGroup = "",
+  theme = "",
+  printingInstructions = "",
+  disposableQaFixture = true,
+  replaceResourceId = null,
+  adminEmail = "",
+} = {}) {
+  const id = normalizedShortText(lessonPlanId, 160);
+  if (!id) return { ok: false, error: "lessonPlanId required" };
+  const siteContent = store.siteContent && typeof store.siteContent === "object"
+    ? store.siteContent
+    : defaultSiteContentStore();
+  let curriculum = siteContent.curriculum || defaultCurriculumStore();
+  const lessonPlan = (curriculum.lessonPlans || []).find((item) => item.id === id);
+  if (!lessonPlan) return { ok: false, error: "Lesson plan not found." };
+
+  const parsed = parseCurriculumPdfUploadDataUrl(fileData);
+  if (!parsed) return { ok: false, error: "A valid PDF upload is required.", code: "invalid_pdf" };
+
+  const now = new Date().toISOString();
+  const resourceId = generateCurriculumResourceId();
+  const safeName = sanitizeCurriculumUploadFileName(fileName || "printable-pack.pdf");
+  let pdfFields;
+  if (usePostgresStore()) {
+    const stored = await persistCurriculumUploadToMediaAsset({
+      resourceId,
+      parsed,
+      fileName: safeName,
+    });
+    pdfFields = {
+      fileData: "",
+      mediaAssetId: stored.mediaAssetId,
+      mediaUrl: stored.mediaUrl,
+      mimeType: "application/pdf",
+      fileName: stored.fileName,
+    };
+  } else {
+    pdfFields = {
+      fileData: parsed.fileData,
+      mediaAssetId: "",
+      mediaUrl: "",
+      mimeType: "application/pdf",
+      fileName: safeName,
+    };
+  }
+
+  const resource = normalizedCurriculumResource({
+    id: resourceId,
+    title: normalizedShortText(title, 180) || "Printable",
+    resourceCategory: "Printables",
+    resourceType: normalizedShortText(resourceType, 120) || "Printable",
+    description: [
+      normalizedMultilineText(description, 4000),
+      activityId ? `Operator activityId=${normalizedShortText(activityId, 160)}` : "",
+      replaceResourceId ? `Replaces ${normalizedShortText(replaceResourceId, 160)}` : "",
+      `Created by curriculum-operator (${normalizedShortText(adminEmail, 180) || "owner"})`,
+    ].filter(Boolean).join("\n"),
+    ageGroup: ageGroup || lessonPlan.age || "",
+    theme: theme || lessonPlan.theme || "",
+    pageCount,
+    printingInstructions,
+    accessLevel: "pro",
+    ...pdfFields,
+    lessonPlanIds: [],
+    status: "draft",
+    createdAt: now,
+    updatedAt: now,
+    publishedAt: "",
+    disposableQaFixture: disposableQaFixture === true,
+  });
+
+  curriculum = {
+    ...curriculum,
+    resources: [...(curriculum.resources || []), resource],
+    updatedAt: now,
+  };
+  curriculum = linkCurriculumResourceToLessonPlan(curriculum, resourceId, id);
+  if (!curriculum) return { ok: false, error: "Could not link printable to lesson." };
+
+  try {
+    await assertCurriculumPrintableMediaResolvable(
+      (curriculum.resources || []).find((item) => item.id === resourceId),
+      { requirePreview: false },
+    );
+  } catch (error) {
+    return { ok: false, error: error.message || "media_not_resolvable", code: error.code || "media_not_resolvable" };
+  }
+
+  const writeResult = writeSiteCurriculumTouched(store, curriculum, {
+    updatedAt: now,
+    touchedLessonPlanIds: [id],
+    touchedResourceIds: [resourceId],
+  });
+  if (writeResult?.wipeBlocked) {
+    return { ok: false, error: "curriculum_wipe_blocked", code: "curriculum_wipe_blocked" };
+  }
+  await writeStoreAsync(store);
+  return {
+    ok: true,
+    resourceId,
+    resource: (store.siteContent.curriculum.resources || []).find((r) => r.id === resourceId),
+    status: "draft",
+    published: false,
+  };
+}
+
+async function readOperatorPrintableFile({ store, resourceId, lessonPlanId } = {}) {
+  const curriculum = store?.siteContent?.curriculum || {};
+  const resource = (curriculum.resources || []).find((r) => r.id === resourceId);
+  if (!resource) return { ok: false, error: "resource_not_found" };
+  if (lessonPlanId) {
+    const linked = (resource.lessonPlanIds || []).includes(lessonPlanId)
+      || ((curriculum.lessonPlans || []).find((p) => p.id === lessonPlanId)?.resourceIds || []).includes(resourceId);
+    if (!linked) return { ok: false, error: "resource_not_linked_to_lesson" };
+  }
+  try {
+    await assertCurriculumPrintableMediaResolvable(resource, { requirePreview: false });
+    const payload = await buildCurriculumResourceFilePayload(
+      normalizedCurriculumResource(resource),
+      { includeInlineBytes: true },
+    );
+    const fileData = String(payload?.fileData || "");
+    let pageCount = Number(resource.pageCount) || 0;
+    if (fileData.startsWith("data:application/pdf")) {
+      const b64 = fileData.split(",")[1] || "";
+      const bytes = Buffer.from(b64, "base64");
+      try {
+        const merge = require("../scripts/teaching-kit-printable-pdf-merge.js");
+        if (merge?.inspectPdfPages) {
+          const inspected = await merge.inspectPdfPages(bytes);
+          pageCount = inspected.pageCount || pageCount;
+        }
+      } catch (_e) { /* ignore */ }
+    }
+    return {
+      ok: true,
+      previewVerified: true,
+      downloadVerified: Boolean(fileData),
+      pageCount,
+      fileName: resource.fileName,
+      title: resource.title,
+    };
+  } catch (error) {
+    return { ok: false, error: error.message || "preview_download_failed" };
+  }
+}
+
+async function unlinkOperatorPrintableResource({ store, lessonPlanId, resourceId } = {}) {
+  const id = normalizedShortText(lessonPlanId, 160);
+  const rid = normalizedShortText(resourceId, 160);
+  if (!id || !rid) return { ok: false, error: "ids_required" };
+  const siteContent = store.siteContent;
+  let curriculum = siteContent?.curriculum;
+  if (!curriculum) return { ok: false, error: "missing_curriculum" };
+  curriculum = unlinkCurriculumResourceFromLessonPlan(curriculum, rid, id) || curriculum;
+  const now = new Date().toISOString();
+  const writeResult = writeSiteCurriculumTouched(store, curriculum, {
+    updatedAt: now,
+    touchedLessonPlanIds: [id],
+    touchedResourceIds: [rid],
+  });
+  if (writeResult?.wipeBlocked) return { ok: false, error: "curriculum_wipe_blocked" };
+  await writeStoreAsync(store);
+  return { ok: true, preservedResourceRecord: true };
+}
+
 function appendCurriculumRestoreAudit(store, { adminToken, before, after, note = "" } = {}) {
   store.curriculumRestoreAudit = Array.isArray(store.curriculumRestoreAudit) ? store.curriculumRestoreAudit : [];
   const session = adminSessionStore.validate(adminToken);
@@ -31180,6 +31360,9 @@ const server = http.createServer(async (request, response) => {
           },
           enrichmentMedia,
           persistEnrichmentPhoto: persistEnrichmentPhotoVariants,
+          createOperatorPrintableResource,
+          readOperatorPrintableFile,
+          unlinkOperatorPrintableResource,
           generateOperatorImage: async ({ prompt, mock }) => {
             const forceMock = mock === true
               || process.env.NODE_ENV === "test"

@@ -146,6 +146,18 @@ const PHASE3_EXECUTABLE_ACTIONS = Object.freeze([
   "image.attachCover",
 ]);
 
+/** Phase 4 adds printable plan/generate/upload/attach — still no publish/create lessons. */
+const PHASE4_EXECUTABLE_ACTIONS = Object.freeze([
+  ...PHASE3_EXECUTABLE_ACTIONS,
+  "printable.plan",
+  "printable.generatePages",
+  "printable.buildPdf",
+  "printable.upload",
+  "printable.createResource",
+  "printable.attach",
+  "printable.verify",
+]);
+
 const OWNER_REVIEW_STATUSES = Object.freeze([
   "READY_FOR_OWNER_REVIEW",
   "PARTIAL",
@@ -340,30 +352,35 @@ function normalizeOperatorCommand(raw = {}, options = {}) {
     publish: actionsIn.publish === true,
   };
 
-  // Always block create / printables / publish through Phase 3.
+  // Always block create / publish. Printables unlock only at Phase 4+.
   actions.createLesson = false;
-  actions.generatePrintables = false;
   actions.publish = false;
+  if (phase < 4) {
+    actions.generatePrintables = false;
+  }
 
-  const phase3 = phase >= 3;
+  const phase3 = phase === 3;
+  const phase4 = phase >= 4;
   if (phase1) {
     actions.upgradeLesson = false;
     actions.upgradeActivities = false;
     actions.saveDraft = false;
     actions.generateImages = false;
     actions.replaceBadImages = false;
+    actions.generatePrintables = false;
     actions.audit = true;
     actions.validate = true;
   } else if (phase2) {
     actions.generateImages = false;
     actions.replaceBadImages = false;
-    // Upgrade intents persist as draft saves only.
+    actions.generatePrintables = false;
     if (actions.upgradeLesson || actions.upgradeActivities || intent === "upgrade_batch" || intent === "fix_lesson") {
       actions.saveDraft = true;
       actions.upgradeLesson = true;
       actions.upgradeActivities = true;
     }
   } else if (phase3) {
+    actions.generatePrintables = false;
     if (actions.upgradeLesson || actions.upgradeActivities || intent === "upgrade_batch" || intent === "fix_lesson") {
       actions.saveDraft = true;
       actions.upgradeLesson = true;
@@ -372,15 +389,33 @@ function normalizeOperatorCommand(raw = {}, options = {}) {
     if (intent === "finish_images" || actions.generateImages) {
       actions.generateImages = actions.touchImages !== false;
       actions.saveDraft = true;
-      // Default: replace clearly bad images; KEEP still wins for good ones.
       if (actionsIn.replaceBadImages !== false) actions.replaceBadImages = true;
     }
     if (actions.touchImages === false) {
       actions.generateImages = false;
       actions.replaceBadImages = false;
     }
+  } else if (phase4) {
+    // Phase 4: printables only — do not regenerate activity images.
+    actions.generateImages = false;
+    actions.replaceBadImages = false;
+    if (actions.upgradeLesson || actions.upgradeActivities || intent === "upgrade_batch" || intent === "fix_lesson") {
+      actions.saveDraft = true;
+      actions.upgradeLesson = true;
+      actions.upgradeActivities = true;
+    }
+    if (intent === "finish_printables" || actions.generatePrintables || actionsIn.generatePrintables === true) {
+      actions.generatePrintables = true;
+      actions.saveDraft = true;
+      actions.checkPrintables = true;
+    }
+    if (intent === "finish_images") {
+      // Image finish commands in phase 4 still must not auto-run images.
+      actions.generateImages = false;
+    }
   } else {
     actions.generateImages = false;
+    actions.generatePrintables = false;
   }
 
   const limits = normalizeLimits(input.limits);
@@ -406,7 +441,11 @@ function normalizeOperatorCommand(raw = {}, options = {}) {
       saveAsDraft: phase >= 2 ? true : (phase1 ? true : completionIn.saveAsDraft !== false),
       readyForOwnerReview: phase >= 2,
       publish: false,
-      mutationsEnabled: phase >= 2 && (actions.saveDraft === true || actions.generateImages === true),
+      mutationsEnabled: phase >= 2 && (
+        actions.saveDraft === true
+        || actions.generateImages === true
+        || actions.generatePrintables === true
+      ),
       phase,
     },
     limits,
@@ -500,6 +539,10 @@ function isPhase3Executable(actionType) {
   return PHASE3_EXECUTABLE_ACTIONS.includes(text(actionType, 60));
 }
 
+function isPhase4Executable(actionType) {
+  return PHASE4_EXECUTABLE_ACTIONS.includes(text(actionType, 60));
+}
+
 module.exports = {
   FIELD_DECISIONS,
   IMAGE_DECISIONS,
@@ -509,6 +552,7 @@ module.exports = {
   PHASE1_EXECUTABLE_ACTIONS,
   PHASE2_EXECUTABLE_ACTIONS,
   PHASE3_EXECUTABLE_ACTIONS,
+  PHASE4_EXECUTABLE_ACTIONS,
   OWNER_REVIEW_STATUSES,
   MUTATION_ACTIONS,
   JOB_STATUSES,
@@ -529,6 +573,7 @@ module.exports = {
   isPhase1Executable,
   isPhase2Executable,
   isPhase3Executable,
+  isPhase4Executable,
   text,
   asArray,
   clampInt,

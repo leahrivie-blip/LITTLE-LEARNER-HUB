@@ -79,6 +79,9 @@ function normalizeLessonResult(raw = {}) {
     imageActions: schema.asArray(input.imageActions).slice(0, 200),
     imageCounts: input.imageCounts && typeof input.imageCounts === "object" ? input.imageCounts : null,
     imagesComplete: input.imagesComplete === true,
+    printableActions: schema.asArray(input.printableActions).slice(0, 200),
+    printableCounts: input.printableCounts && typeof input.printableCounts === "object" ? input.printableCounts : null,
+    printablesComplete: input.printablesComplete === true,
     aiUsage: input.aiUsage && typeof input.aiUsage === "object" ? input.aiUsage : null,
     ownerReviewStatus: ownerReviewStatus || null,
     readyForReview: input.readyForReview === true || ownerReviewStatus === "READY_FOR_OWNER_REVIEW",
@@ -108,7 +111,9 @@ function normalizeOperatorJob(raw = {}) {
     status,
     phase,
     mutationsEnabled: phase >= 2 && (
-      command.actions?.saveDraft === true || command.actions?.generateImages === true
+      command.actions?.saveDraft === true
+      || command.actions?.generateImages === true
+      || command.actions?.generatePrintables === true
     ),
     publishEnabled: false,
     command,
@@ -154,16 +159,17 @@ function createJobFromPlan({ command, planSummary, createdBy, status = "planned"
   const phase = Number(command?.completion?.phase) || 1;
   const doUpgrade = phase >= 2 && command?.actions?.saveDraft === true
     && (command?.actions?.upgradeLesson || command?.actions?.upgradeActivities);
-  const doImages = phase >= 3
+  const doImages = phase >= 3 && phase < 4
     && command?.actions?.generateImages === true
     && command?.actions?.touchImages !== false;
+  const doPrintables = phase >= 4 && command?.actions?.generatePrintables === true;
   const job = normalizeOperatorJob({
     createdBy,
     status,
     command,
     planSummary,
     phase,
-    mutationsEnabled: Boolean(doUpgrade || doImages),
+    mutationsEnabled: Boolean(doUpgrade || doImages || doPrintables),
     publishEnabled: false,
     progress: {
       lessonIndex: 0,
@@ -200,6 +206,16 @@ function createJobFromPlan({ command, planSummary, createdBy, status = "planned"
           { id: newStepId(), type: "lesson.validate", status: "pending", idempotencyKey: `img-validate:${id}` },
         );
       }
+      if (doPrintables) {
+        actions.push(
+          { id: newStepId(), type: "printable.plan", status: "pending", idempotencyKey: `pr-plan:${id}` },
+          { id: newStepId(), type: "printable.generatePages", status: "pending", idempotencyKey: `pr-gen:${id}` },
+          { id: newStepId(), type: "printable.buildPdf", status: "pending", idempotencyKey: `pr-pdf:${id}` },
+          { id: newStepId(), type: "printable.upload", status: "pending", idempotencyKey: `pr-upload:${id}` },
+          { id: newStepId(), type: "printable.attach", status: "pending", idempotencyKey: `pr-attach:${id}` },
+          { id: newStepId(), type: "printable.verify", status: "pending", idempotencyKey: `pr-verify:${id}` },
+        );
+      }
       return {
         lessonId: id,
         title: lesson.title,
@@ -208,12 +224,17 @@ function createJobFromPlan({ command, planSummary, createdBy, status = "planned"
         imageActions: [],
         imageCounts: null,
         imagesComplete: false,
+        printableActions: [],
+        printableCounts: null,
+        printablesComplete: false,
       };
     }),
     log: [],
   });
   let createdMsg = `Job created (${status}). Audit-only — no curriculum mutations.`;
-  if (doUpgrade && doImages) {
+  if (doPrintables) {
+    createdMsg = `Job created (${status}). Phase 4 printables — no publish / no image regeneration.`;
+  } else if (doUpgrade && doImages) {
     createdMsg = `Job created (${status}). Phase 2.5 text + Phase 3 images — no publish.`;
   } else if (doUpgrade) {
     createdMsg = `Job created (${status}). Phase 2 draft upgrade — no publish.`;
@@ -254,6 +275,15 @@ function buildOwnerSummary(job) {
       );
       schema.asArray(lr.imageActions).slice(0, 12).forEach((a) => {
         lines.push(`      ${a.activityTitle || a.activityId}: ${a.decision}${a.reason ? ` — ${String(a.reason).slice(0, 100)}` : ""}`);
+      });
+    }
+    if (lr.printableCounts) {
+      const c = lr.printableCounts;
+      lines.push(
+        `    printables: KEEP ${c.KEEP || 0} · CREATE ${c.CREATE || 0} · REPLACE ${c.REPLACE || 0} · NOT NEEDED ${c.NOT_NEEDED || 0} · FAILED ${c.FAILED || 0}`,
+      );
+      schema.asArray(lr.printableActions).slice(0, 12).forEach((a) => {
+        lines.push(`      ${a.activityTitle || a.activityId}: ${a.decision}${a.spec?.title ? ` — ${a.spec.title}` : ""}${a.reason ? ` — ${String(a.reason).slice(0, 80)}` : ""}`);
       });
     }
   });

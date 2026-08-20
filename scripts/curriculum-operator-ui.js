@@ -147,12 +147,22 @@
           <h5>Activity images</h5>
           ${lr.imageCounts ? `
             <p>KEEP — ${esc(lr.imageCounts.KEEP || 0)} · GENERATED — ${esc(lr.imageCounts.GENERATE || 0)} · REPLACED — ${esc(lr.imageCounts.REPLACE || 0)} · NOT NEEDED — ${esc(lr.imageCounts.NOT_NEEDED || 0)} · FAILED — ${esc(lr.imageCounts.FAILED || 0)}</p>
-            <ul>${(Array.isArray(lr.imageActions) ? lr.imageActions : []).slice(0, 16).map((img) => `
-              <li><strong>${esc(img.activityTitle || img.activityId)}</strong>
-                — ${esc(img.decision)}
-                <span class="muted-copy"> — ${esc(img.reason || img.error || "")}</span>
+          ` : `<p class="muted-copy">Images unchanged in Phase 4 printable jobs.</p>`}
+        </section>
+        <section>
+          <h5>Printables</h5>
+          ${lr.printableCounts ? `
+            <p>KEEP — ${esc(lr.printableCounts.KEEP || 0)} · CREATE — ${esc(lr.printableCounts.CREATE || 0)} · REPLACE — ${esc(lr.printableCounts.REPLACE || 0)} · NOT NEEDED — ${esc(lr.printableCounts.NOT_NEEDED || 0)} · FAILED — ${esc(lr.printableCounts.FAILED || 0)}</p>
+            <ul>${(Array.isArray(lr.printableActions) ? lr.printableActions : []).slice(0, 16).map((pr) => `
+              <li><strong>${esc(pr.activityTitle || pr.activityId)}</strong>
+                — ${esc(pr.decision)}
+                ${pr.spec?.title || pr.title ? ` · ${esc(pr.spec?.title || pr.title)}` : ""}
+                ${pr.pageCount ? ` · ${esc(pr.pageCount)} pages` : ""}
+                <span class="muted-copy"> — ${esc(pr.reason || pr.error || "")}</span>
+                ${pr.previewVerified ? " · preview ✓" : ""}
+                ${pr.downloadVerified ? " · download ✓" : ""}
               </li>`).join("")}</ul>
-          ` : `<p class="muted-copy">Planning: KEEP ${esc(imgs.KEEP_EXISTING || imgs.KEEP || 0)} · GENERATE ${esc(imgs.GENERATE || 0)} · REPLACE ${esc(imgs.REPLACE || 0)} · NOT NEEDED ${esc(imgs.NOT_NEEDED || 0)}. Printables remain Phase 4.</p>`}
+          ` : `<p class="muted-copy">Planning: KEEP ${esc(prints.KEEP_EXISTING || prints.KEEP || 0)} · CREATE ${esc(prints.CREATE || 0)} · REPLACE ${esc(prints.REPLACE || 0)}.</p>`}
         </section>
       </div>
       <section>
@@ -194,7 +204,7 @@
           <div>
             <p class="eyebrow">Content · Owner</p>
             <h3>AI Curriculum Operator</h3>
-            <p class="muted-copy">Phase 3: interpret commands, audit, optionally upgrade draft text with structured AI, and generate/replace only useful <strong>activity images</strong> into <strong>enrichmentDraft</strong>. <strong>No publishing. No printables. No new lessons.</strong></p>
+            <p class="muted-copy">Phase 4: interpret commands, audit, and create/replace only useful <strong>activity-driven printables</strong> as draft resources. <strong>No publishing. No new lessons. No activity image regeneration.</strong></p>
           </div>
         </div>
         ${state.message ? `<p class="access-notice ${state.isError ? "error" : ""}" role="status">${esc(state.message)}</p>` : ""}
