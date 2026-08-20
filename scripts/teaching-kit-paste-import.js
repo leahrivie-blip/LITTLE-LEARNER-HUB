@@ -35,7 +35,7 @@
       .toLowerCase()
       .replace(/[_/&]+/g, " ")
       .replace(/[:：]+$/g, "")
-      .replace(/[–—−]/g, "-")
+      .replace(/[–—−⸻]/g, "-")
       .replace(/\s+/g, " ")
       .trim();
   }
@@ -489,8 +489,8 @@
   function normalizeMilestoneLabel(raw) {
     const cleaned = text(raw).replace(/\s+/g, " ");
     if (!cleaned) return "";
-    const lower = cleaned.toLowerCase();
-    const hit = WEEK_MILESTONE_BANK.find((m) => m.toLowerCase() === lower);
+    const lower = cleaned.toLowerCase().replace(/-/g, " ").replace(/\s+/g, " ").trim();
+    const hit = WEEK_MILESTONE_BANK.find((m) => m.toLowerCase().replace(/-/g, " ") === lower);
     return hit || "";
   }
 

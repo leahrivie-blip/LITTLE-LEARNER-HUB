@@ -62,7 +62,7 @@
       .toLowerCase()
       .replace(/[_/&]+/g, " ")
       .replace(/[:：]+$/g, "")
-      .replace(/[–—−]/g, "-")
+      .replace(/[–—−⸻]/g, "-")
       .replace(/\s+/g, " ")
       .trim();
   }
@@ -87,6 +87,40 @@
       fri: "friday",
     };
     return map[cleaned] || "";
+  }
+
+  /**
+   * Bare weekday labels, or "Monday — Looking at Bright Colors" section titles.
+   * Does not treat an activity weekday value line "Monday" as a section by itself
+   * when called from headingFieldId; callers distinguish bare vs themed.
+   */
+  function parseWeekdaySectionHeading(label) {
+    const cleaned = stripHeadingDecorators(String(label || "")).replace(/[:：]+$/g, "").trim();
+    if (!cleaned) return "";
+    const normalized = normalizePasteHeading(cleaned);
+    if (WEEKDAYS.includes(normalized)) return normalized;
+    const themed = cleaned.match(/^(Monday|Tuesday|Wednesday|Thursday|Friday)\s*[–—−⸻:‐-]\s+(.+)$/i);
+    if (!themed) return "";
+    const rest = String(themed[2] || "").trim();
+    if (!rest || /[.!?]$/.test(rest)) return "";
+    if (!/^[A-Za-z]/.test(rest)) return "";
+    return themed[1].toLowerCase();
+  }
+
+  function isBareWeekdayHeading(label) {
+    const normalized = normalizePasteHeading(label);
+    return WEEKDAYS.includes(normalized);
+  }
+
+  function isDecorativePasteSeparator(trimmed) {
+    const value = String(trimmed || "").trim();
+    if (!value) return false;
+    return /^(?:⸻+|[–—−─━⎯]+)$/.test(value);
+  }
+
+  /** Standalone "Activity 1" labels between weekday headings; not an activity name. */
+  function isActivityNumberLabel(raw) {
+    return /^activity\s+\d+$/i.test(String(raw || "").trim());
   }
 
   function normalizeMilestoneLabel(raw) {
@@ -252,7 +286,7 @@
     if (Object.prototype.hasOwnProperty.call(LESSON_HEADING_BY_NORMALIZED, normalized)) {
       return LESSON_HEADING_BY_NORMALIZED[normalized];
     }
-    const weekday = parseWeekdayExact(normalized);
+    const weekday = parseWeekdaySectionHeading(label);
     if (weekday) return `weekday:${weekday}`;
     return "";
   }
@@ -294,7 +328,7 @@
     if (!trimmed || trimmed.length > 80) return false;
     if (/[.!?]$/.test(trimmed)) return false;
     if (trimmed.split(/\s+/).length > 8) return false;
-    return /^[A-Za-z][A-Za-z0-9 /&'’:,-]*$/.test(trimmed);
+    return /^[A-Za-z][A-Za-z0-9 /&'’:,–—−⸻-]*$/.test(trimmed);
   }
 
   function parseStructureHeadingLine(trimmed) {
@@ -353,6 +387,7 @@
 
     lines.forEach((line) => {
       const trimmed = line.trim();
+      if (isDecorativePasteSeparator(trimmed) || isActivityNumberLabel(trimmed)) return;
       const heading = parseStructureHeadingLine(trimmed);
       if (heading) {
         const { labelPart, rest, fieldId, nestedKeep, isActivityStart } = heading;
@@ -365,7 +400,9 @@
           }
           // Activity fields stay on the current activity, even when the same
           // heading is also a top-level lesson field (Age, Materials, Observation focus).
-          if (isActivityFieldHeading(labelPart) || fieldId.startsWith("weekday:")) {
+          // Bare "Monday" after a Weekday field is the activity's day value.
+          // "Monday — Looking at Bright Colors" is a new weekday section.
+          if (isActivityFieldHeading(labelPart) || isBareWeekdayHeading(labelPart)) {
             bodyLines.push(line);
             return;
           }
@@ -386,6 +423,16 @@
           if (nestedKeep && isInsideWeekdaySection(current)) {
             bodyLines.push(line);
             return;
+          }
+          // Bare "Monday" after a Weekday / Activity weekday label is the day value.
+          // Bare "Tuesday" as the next day heading in a name-list must still start a section.
+          if (isBareWeekdayHeading(labelPart) && isInsideWeekdaySection(current)) {
+            const prev = String(bodyLines[bodyLines.length - 1] || "").trim();
+            const prevNorm = normalizePasteHeading(stripHeadingDecorators(prev).replace(/[:：]+$/g, ""));
+            if (prevNorm === "weekday" || prevNorm === "activity weekday") {
+              bodyLines.push(line);
+              return;
+            }
           }
           startSection(labelPart, fieldId, rest);
           return;
@@ -427,7 +474,7 @@
     return String(raw == null ? "" : raw)
       .trim()
       .toLowerCase()
-      .replace(/[–—−]/g, "-")
+      .replace(/[–—−⸻]/g, "-")
       .replace(/[_/:：,()]+/g, " ")
       .replace(/\s+/g, " ")
       .trim();
@@ -529,6 +576,58 @@
   function mapAgeBand(raw) {
     const mapped = resolveAgeBandAlias(raw);
     return { display: mapped.display, bucket: mapped.bucket, raw: mapped.raw };
+  }
+
+  /**
+   * "Colors All Around Us — Infant 0–6 Months" → title + unique canonical age.
+   * Requires a spaced dash/separator and a uniquely mapped age suffix. Fail-closed otherwise.
+   */
+  function parseCombinedTitleAgeLine(raw) {
+    const line = String(raw == null ? "" : raw).replace(/\s+/g, " ").trim();
+    if (!line) return null;
+    const parts = line.split(/\s*[–—−⸻-]\s+/).map((part) => part.trim()).filter(Boolean);
+    if (parts.length < 2) return null;
+    const ageRaw = parts[parts.length - 1];
+    const mapped = mapAgeBand(ageRaw);
+    if (!mapped.display) return null;
+    const title = parts.slice(0, -1).join(" — ");
+    if (!title) return null;
+    return { title, display: mapped.display, bucket: mapped.bucket, raw: mapped.raw || ageRaw };
+  }
+
+  function applyCombinedTitleAge(lesson, source) {
+    const parsed = parseCombinedTitleAgeLine(source);
+    if (!parsed) return false;
+    const titleIsCombined = Boolean(parseCombinedTitleAgeLine(lesson.title));
+    if (!lesson.title || titleIsCombined) lesson.title = parsed.title;
+    if (!lesson.age) {
+      lesson.ageRaw = parsed.raw;
+      lesson.ageDisplay = parsed.display;
+      lesson.age = parsed.display;
+    }
+    return true;
+  }
+
+  /**
+   * Untitled first line "Colors All Around Us" when Age Band is a separate heading.
+   * Does not steal weekday headings, age-only lines, or Activity N labels.
+   */
+  function applyBareLessonTitle(lesson, source) {
+    if (lesson.title) return false;
+    const raw = String(source == null ? "" : source);
+    if (/\n/.test(raw.trim())) return false;
+    const line = raw.replace(/\s+/g, " ").trim();
+    if (!line || line.length > 80) return false;
+    if (/[.!?]$/.test(line)) return false;
+    if (line.split(/\s+/).length > 12) return false;
+    if (!/^[A-Za-z]/.test(line)) return false;
+    if (isActivityNumberLabel(line) || isDecorativePasteSeparator(line)) return false;
+    if (parseCombinedTitleAgeLine(line)) return false;
+    if (parseWeekdaySectionHeading(line)) return false;
+    if (headingFieldId(line)) return false;
+    if (mapAgeBand(line).display) return false;
+    lesson.title = line;
+    return true;
   }
 
   function unrecognizedAgeBandError(raw) {
@@ -643,6 +742,15 @@
       const fieldId = section.fieldId;
       const body = section.body || "";
       if (!fieldId) {
+        if (!section.headingRaw && applyCombinedTitleAge(lesson, body)) {
+          return;
+        }
+        if (isActivityNumberLabel(body) || isActivityNumberLabel(section.headingRaw)) {
+          return;
+        }
+        if (!section.headingRaw && applyBareLessonTitle(lesson, body)) {
+          return;
+        }
         if (text(body) || text(section.headingRaw)) {
           unrecognized.push({
             heading: section.headingRaw || "(untitled)",
@@ -653,7 +761,15 @@
       }
       if (fieldId === "title") {
         const nextTitle = text(body);
-        if (nextTitle) lesson.title = nextTitle;
+        if (nextTitle) {
+          const combined = parseCombinedTitleAgeLine(nextTitle);
+          lesson.title = combined ? combined.title : nextTitle;
+          if (combined && !lesson.age) {
+            lesson.ageRaw = combined.raw;
+            lesson.ageDisplay = combined.display;
+            lesson.age = combined.display;
+          }
+        }
       } else if (fieldId === "theme") {
         const nextTheme = text(body);
         if (nextTheme) lesson.theme = nextTheme;
@@ -831,6 +947,9 @@
     });
 
     const errors = [];
+    if (!lesson.title || !lesson.age) {
+      applyCombinedTitleAge(lesson, lesson.title);
+    }
     if (!lesson.title && text(lesson.theme)) lesson.title = text(lesson.theme);
     if (!lesson.title) errors.push("Lesson title is required.");
     if (!lesson.age) errors.push(unrecognizedAgeBandError(lesson.ageRaw || ""));
