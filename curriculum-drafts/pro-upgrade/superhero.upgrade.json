@@ -1,0 +1,1372 @@
+{
+  "batch": "priority-1",
+  "lessonId": "cur-lp-toddler-superhero-training-camp",
+  "title": "Superhero Training Camp",
+  "age": "Toddler",
+  "masterPasteValidated": true,
+  "draftChannel": "enrichment_draft",
+  "liveReplaceForbiddenWhilePublished": true,
+  "week": {
+    "weeklyOverview": "This week toddlers train as kindness superheroes—helpers who carry, comfort, and care. They try soft capes and badges, complete short training courses, rescue stuffed animals, pack helper kits, and build a blanket headquarters. Fighting and weapon play are redirected to helping jobs. Friday is a warm celebration of kindness (not a high-pressure graduation). Teachers should expect parallel play, brief attention, and repetition with help, gentle, brave, mission, and friend words.",
+    "objectives": "Social-emotional: Practice kindness, helping, turn-taking, and gentle touch with peers and props.\nLanguage: Hear and try helper words such as kind, help, gentle, brave, rescue, mission, and thank you.\nCognitive: Follow simple mission sequences and match helper photos to props.\nFine motor: Stick badges, press play dough, and scoop sensory materials.\nGross motor: Crawl, balance on floor paths, carry deliveries, and parade.\nSensory: Explore dough, heart bins, and calm mission-prep textures.\nCreative: Process masks/bands, helping-hands mural, and celebration medals.",
+    "weeklyMaterials": "Everyday: blocks, boxes, blankets/chairs for HQ, baskets, painter’s tape, smocks, towels, scarves\nHero props: soft breakaway capes, fabric cuffs, large badges, cardboard medals\nArt: washable paint, paper masks/bands, stickers, stampers, glue sticks, mural paper\nSensory: play dough, foam hearts/stars, scoops, dry filler for kit packing\nDramatic play: stuffed animals, toy vehicles, mailbag, toy stethoscope (small parts removed)\nLiteracy: Kindness Is My Superpower; Even Superheroes Have Bad Days; How Kind!; Superheroes Are Everywhere; optional Be Kind (shortened)\nOptional printables: picture kindness mission cards; helper zone signs",
+    "teacherPreparation": "Before Monday: remove weapon toys; check capes for breakaway fasteners.\nPrep picture kindness mission cards (no worksheets).\nStage blanket HQ and floor-level training course.\nChoose 2–3 kindness/helper books (avoid fight-heavy plots).\nAllergy-check dough/sensory fillers.\nPlan Friday as a celebration circle with medals/stickers for everyone.",
+    "prepChecklist": [
+      "Remove toy weapons and fighting props",
+      "Check cape breakaway fasteners",
+      "Print picture kindness mission cards",
+      "Stage HQ blanket fort and training course",
+      "Sanitize animals and dress-up hats",
+      "Select 2–3 kindness/helper books",
+      "Prep celebration medals/stickers for Friday"
+    ],
+    "observationFocus": "Gentle vs rough touch with support\nKindness vocabulary attempts\nTurn-taking on courses and bins\nRedirectability from fight themes to helping\nSensory preferences\nComfort in celebration circle",
+    "familyConnection": "Invite families to notice a community helper on the way home or practice one kind act together (hold a door, share a toy) and name it with a helper word. Optional: send a photo of a homemade paper badge—no homework required.",
+    "adaptations": "Offer watching-first entry to fort/course, no-paint art options, shorter missions, and picture supports. Never force costumes, hugs, or sharing.",
+    "vocabularyWords": "hero\nhelper\nkind\ngentle\nbrave\nrescue\nmission\ncape\nbadge\nfriend\nhelp\nthank you\ncommunity\ncelebrate\nsafe",
+    "books": [
+      {
+        "title": "Kindness Is My Superpower",
+        "author": "Alicia Ortego",
+        "prompts": [
+          "What is kind?",
+          "Who did the child help?",
+          "Can you show gentle hands?"
+        ]
+      },
+      {
+        "title": "Even Superheroes Have Bad Days",
+        "author": "Shelly Becker",
+        "prompts": [
+          "How does the hero feel?",
+          "What helps them feel better?",
+          "What can we do when we feel mad?"
+        ]
+      },
+      {
+        "title": "How Kind!",
+        "author": "Mary Murphy",
+        "prompts": [
+          "Who was kind?",
+          "What happened next?",
+          "Can you find the hen?"
+        ]
+      },
+      {
+        "title": "Superheroes Are Everywhere",
+        "author": "Kamala Harris",
+        "prompts": [
+          "Who is a helper?",
+          "Where do you see heroes?",
+          "Who helps you?"
+        ]
+      }
+    ],
+    "songs": [
+      {
+        "title": "If You’re Happy and You Know It",
+        "notes": "Traditional; add clap/stomp; kindness verses like “help a friend.”"
+      },
+      {
+        "title": "The Helper Song (to London Bridge)",
+        "notes": "Simple original-style: “Helpers help in gentle ways…”—do not require copyrighted lyrics."
+      },
+      {
+        "title": "Head, Shoulders, Knees and Toes",
+        "notes": "Traditional body song as warm-up before training course."
+      },
+      {
+        "title": "LLH Kind Hero Chant",
+        "notes": "Original chant: “Kind hands, kind hearts, we help our friends today.”"
+      }
+    ],
+    "teacherToolkit": {
+      "prepChecklist": [
+        "Remove weapon props",
+        "Stage HQ + course",
+        "Prep kindness picture cards",
+        "Pull books/songs card"
+      ],
+      "observationFocus": [
+        "Gentle hands",
+        "Kindness words",
+        "Mission follow-through",
+        "Sensory tolerance"
+      ],
+      "reusableCenters": [
+        "Helper headquarters fort",
+        "Kindness sensory bin",
+        "Community helper investigation table"
+      ]
+    },
+    "printableIdeas": [
+      {
+        "title": "Kindness Mission Picture Cards",
+        "reason": "Visual-only choice cards for circle missions (no worksheets)"
+      },
+      {
+        "title": "Helper Zone Signs",
+        "reason": "Labels for HQ / Safe Heart / Training path"
+      }
+    ],
+    "researchSources": [
+      "NAEYC DAP — social-emotional learning through play",
+      "ZERO TO THREE guidance on naming kindness and feelings with toddlers",
+      "Redirecting aggressive play themes toward caregiving roles in early childhood settings"
+    ],
+    "coverStatus": "COVER IMAGE PENDING",
+    "proposedCoverActivity": "Helping Hands Art Project"
+  },
+  "activities": [
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "teacherTips": [
+        "Frame heroes as helpers, not fighters.",
+        "Watching without dressing is OK."
+      ],
+      "substitutions": [
+        {
+          "need": "Capes",
+          "use": "Towel clipped at shoulders with a mitten clip (adult-managed)"
+        }
+      ],
+      "observationPrompts": [
+        "Did the child choose a prop?",
+        "Any helper words echoed?"
+      ],
+      "vocabulary": [
+        "hero",
+        "helper",
+        "cape",
+        "kind",
+        "brave",
+        "gentle",
+        "me"
+      ],
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "indoorAlternatives": "Quiet corner if the room is busy.",
+      "outdoorAlternatives": "Cape try-on on a shaded blanket.",
+      "adaptations": "Offer cuff-only option. Hand-under-hand for fasteners.",
+      "extensions": "Take a helper pose photo for the family board (with permission).",
+      "mixedAgeAdaptations": "Older toddlers help younger with badges.",
+      "imageBriefSetup": "Basket of soft toddler capes, fabric cuffs, helper badges, and a child-safe mirror. No weapons. Footer: littlelearnershubbyleah.com",
+      "title": "Design Your Superhero Identity",
+      "dayOfWeek": "monday",
+      "activityCategory": "Open-Ended Exploration",
+      "durationMinutes": 10,
+      "objective": "Explore soft hero props—capes, cuffs, and badges—so toddlers can choose what makes them feel like a helper hero for the week.",
+      "description": "Toddlers browse a basket of soft capes, fabric cuffs, and large helper badges. They may try one prop with help, look in a mirror, and hear kindness-hero words: help, gentle, brave, friend.",
+      "materials": "3–4 soft toddler capes (velcro/breakaway, no ties around neck)\nFabric wrist cuffs\nLarge helper badges\nChild-safe mirror\nBasket",
+      "preparation": "Check capes for breakaway fasteners\nRemove masks with small elastic if unsafe—save decorating for later with paper masks\nSanitize props",
+      "setup": "Rug station with mirror and open basket. Space for 2–3 toddlers.",
+      "steps": "1. Greet the helper basket.\n2. Model putting on a cape with help.\n3. Invite each child to choose one prop.\n4. Look in the mirror together—wave hello, helper!\n5. Practice a gentle “hero hands” open-palm gesture.\n6. Rest props in the basket.",
+      "teacherLanguage": "Which helper cape do you like?\nHero hands are gentle.\nDo you see you in the mirror?\nBrave and kind!\nCape off—rest time.",
+      "observationOpportunities": "Costume comfort, choice-making, mirror interest, and response to kindness language.",
+      "safetyNotes": "Capes breakaway only; never tie around necks. No real weapons or fighting props. Supervise mirrors. Soft props only.",
+      "cleanupTips": "Hang capes; badges in bin; wipe mirror.",
+      "imageRequirement": "setup_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "teacherTips": [
+        "Keep under 4 elements.",
+        "Offer skip-an-obstacle choice."
+      ],
+      "substitutions": [
+        {
+          "need": "Tunnel",
+          "use": "Table crawl-under"
+        }
+      ],
+      "observationPrompts": [
+        "Which parts did the child attempt?",
+        "Could they freeze on cue?"
+      ],
+      "vocabulary": [
+        "train",
+        "crawl",
+        "step",
+        "path",
+        "freeze",
+        "ready",
+        "go"
+      ],
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "indoorAlternatives": "Two-obstacle mini course.",
+      "outdoorAlternatives": "Chalk path + soft outdoor obstacles.",
+      "adaptations": "Hand-held support. Walking beside instead of crawling.",
+      "extensions": "Deliver a soft “aid kit” bag to the finish.",
+      "mixedAgeAdaptations": "Older add a hoop; younger crawl only.",
+      "imageBriefSetup": "",
+      "title": "Superhero Training Obstacle Course",
+      "dayOfWeek": "monday",
+      "activityCategory": "Gross Motor",
+      "durationMinutes": 10,
+      "objective": "Move through a short helper-training course—crawl, step, and balance—to build coordination while practicing start/stop listening.",
+      "description": "Toddlers complete 3–4 low obstacles themed as hero training: crawl through a tunnel, step over soft noodles, walk a floor tape path, and freeze for “helper ready.”",
+      "materials": "Play tunnel or chair tunnel\nPool noodles / soft blocks\nPainter’s tape path\nFinish cushion\nOptional cape for the runner (optional)",
+      "preparation": "Build low course\nSpot-check spacing\nNo elevated climbs",
+      "setup": "One-way course with a teacher spotter. Waiting Xs on the floor.",
+      "steps": "1. Model the course slowly.\n2. Invite one toddler at a time.\n3. Cheer effort, not speed.\n4. Freeze pose at the finish—“Helper ready!”\n5. Return along a side path.\n6. Repeat short turns.",
+      "teacherLanguage": "Crawl, hero!\nStep carefully.\nWalk the path.\nFreeze—helper ready!\nYou trained hard!",
+      "observationOpportunities": "Motor planning, listening to cues, waiting, and confidence after tries.",
+      "safetyNotes": "Floor-level elements. Spot continuously. No racing or tackling. Capes optional and breakaway.",
+      "cleanupTips": "Disassemble tunnel; store noodles.",
+      "imageRequirement": "not_needed"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "teacherTips": [
+        "Display on a wall if children resist face wear.",
+        "Celebrate any mark-making."
+      ],
+      "substitutions": [
+        {
+          "need": "Mask cutouts",
+          "use": "Paper plates as shield badges instead"
+        }
+      ],
+      "observationPrompts": [
+        "Did the child decorate independently?",
+        "Wear, display, or both?"
+      ],
+      "vocabulary": [
+        "mask",
+        "sticker",
+        "color",
+        "hero",
+        "decorate",
+        "eyes",
+        "band"
+      ],
+      "imageBriefExample": "Process-art paper hero mask or forehead band with large stickers on an art tray. Footer: littlelearnershubbyleah.com",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "indoorAlternatives": "Default art table.",
+      "outdoorAlternatives": "Sticker decorate outdoors.",
+      "adaptations": "Stickers-only tray. Pre-place one sticker to start.",
+      "extensions": "Add a large foam lightning or heart sticker as a kindness symbol.",
+      "mixedAgeAdaptations": "Older cut scrap shapes; toddlers stick.",
+      "imageBriefSetup": "",
+      "title": "Hero Mask Decorating",
+      "dayOfWeek": "monday",
+      "activityCategory": "Art",
+      "durationMinutes": 12,
+      "objective": "Decorate paper hero masks with large stickers and stamps as process art—masks for pretend play display, not tight face-wear requirements.",
+      "description": "Toddlers decorate pre-cut paper half-masks or forehead hero bands with stickers, daubers, and crayons. Emphasize creating; wearing is optional and loosely fitted only.",
+      "materials": "Pre-cut paper masks OR forehead bands (prefer bands for under-2)\nLarge stickers, daubers, crayons\nGlue sticks\nSmocks\nOptional short yarn ties ONLY if adult-supervised and easily removable—prefer stick-on foam bands",
+      "preparation": "Pre-cut shapes with large eye holes if using masks\nPrefer headbands without covering eyes for 12–18 months\nPortion stickers",
+      "setup": "Art table for 2–3. One mask/band each.",
+      "steps": "1. Show a blank mask/band.\n2. Invite stickers and color marks.\n3. Process decorate freely.\n4. Teacher adds name on the back.\n5. Optional gentle try-on or display on a hook.\n6. Dry if painted.",
+      "teacherLanguage": "Which sticker for your hero mask?\nDab the color!\nMore or all done?\nShall we try it gently?\nYour helper look shines!",
+      "observationOpportunities": "Fine-motor sticking, choice, and comfort with face-near props.",
+      "safetyNotes": "Prefer forehead bands over eye-covering masks for young toddlers. No small gems. Never force wearing. Elastic must be loose/breakaway if used.",
+      "cleanupTips": "Dry flat; recycle scraps.",
+      "imageRequirement": "example_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "teacherTips": [
+        "One tool type at a time reduces overwhelm.",
+        "Repeat eye-safety every turn."
+      ],
+      "substitutions": [
+        {
+          "need": "Flashlights",
+          "use": "Covered LED tea lights in jars"
+        }
+      ],
+      "observationPrompts": [
+        "Did the child point light safely?",
+        "Any magnet play success?"
+      ],
+      "vocabulary": [
+        "light",
+        "soft",
+        "bumpy",
+        "stick",
+        "helper",
+        "look",
+        "discover"
+      ],
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "indoorAlternatives": "Default discovery table.",
+      "outdoorAlternatives": "Shadow play with flashlights in a shaded nook (still eye-safe).",
+      "adaptations": "Offer textures only first. Hand-under-hand light switch.",
+      "extensions": "Make a shadow puppet with a hand shape on the wall.",
+      "mixedAgeAdaptations": "Older name helpers; younger feel textures.",
+      "imageBriefSetup": "Discovery tray with flashlight, fabric squares, large magnets, and community helper cards. Footer: littlelearnershubbyleah.com",
+      "title": "Superhero Discovery Station",
+      "dayOfWeek": "monday",
+      "activityCategory": "STEM/Discovery",
+      "durationMinutes": 12,
+      "objective": "Investigate helper tools and materials—flashlights, fabric textures, and large magnets—to notice cause/effect in a toddler-safe discovery tray.",
+      "description": "Toddlers explore a discovery station with battery flashlights (eye-safe habits), fabric “cape” textures, large Magnatiles or magnetic wands with chunky metal lids, and helper picture cards.",
+      "materials": "Battery flashlights (toddler-safe)\nFabric squares (shiny, soft, bumpy)\nLarge magnetic tiles or chunky magnetic wand + large metal lids\nHelper photo cards (firefighter, nurse, teacher—kindness focus)\nTray",
+      "preparation": "Test flashlights; remove cracked lenses\nCull small magnet pieces\nStage cards",
+      "setup": "Low table tray for 2 toddlers. Model flashlight pointed at floor/wall only.",
+      "steps": "1. Show flashlight on floor—never in eyes.\n2. Feel fabric textures; which feels like a cape?\n3. Stick magnetic lids / tiles together.\n4. Match a helper card to a prop if interested.\n5. Free explore with narration.\n6. Lights off; props rest.",
+      "teacherLanguage": "Point the light at the floor.\nSoft or bumpy?\nStick, stick—together!\nWho is this helper?\nDiscovery all done.",
+      "observationOpportunities": "Curiosity, flashlight safety with support, texture preferences, and magnetic cause/effect.",
+      "safetyNotes": "Never shine lights in eyes. Magnets large only—no swallowed magnet risk pieces. Battery compartments secured. Supervise closely.",
+      "cleanupTips": "Flashlights off; sort textures; secure magnets.",
+      "imageRequirement": "setup_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "teacherTips": [
+        "Stop early if attention drops.",
+        "Prefer kindness books over fight scenes."
+      ],
+      "substitutions": [
+        {
+          "need": "Target book",
+          "use": "Any short community-helper board book"
+        }
+      ],
+      "observationPrompts": [
+        "Did the child point to a helper?",
+        "Any feeling word attempt?"
+      ],
+      "vocabulary": [
+        "story",
+        "kind",
+        "help",
+        "friend",
+        "feel",
+        "brave",
+        "book"
+      ],
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "indoorAlternatives": "Default cozy corner.",
+      "outdoorAlternatives": "Blanket story in shade.",
+      "adaptations": "Standing listeners OK. Single picture card story.",
+      "extensions": "Act out one kind act with puppets after.",
+      "mixedAgeAdaptations": "Older turn pages; younger point.",
+      "imageBriefSetup": "",
+      "title": "Hero Story Circle",
+      "dayOfWeek": "monday",
+      "activityCategory": "Literacy",
+      "durationMinutes": 8,
+      "objective": "Share a short kindness/helper story and invite toddlers to point, name feelings, and connect helpers to classroom hero play.",
+      "description": "Small-group read-aloud of a kindness or gentle superhero book with pointing and short feeling questions. Toddlers may hold a soft cape scrap while listening.",
+      "materials": "Kindness/helper book (e.g., Kindness Is My Superpower; Even Superheroes Have Bad Days; How Kind!; Superheroes Are Everywhere)\nSoft cape scrap or badge\nCushions",
+      "preparation": "Preview length; pick 2–3 talk pages\nStage prop",
+      "setup": "Cozy circle for 3–4 toddlers.",
+      "steps": "1. Show the cover—who is the helper?\n2. Read briefly with pointing.\n3. Ask a feeling question.\n4. Invite a gentle hero-hands gesture.\n5. Picture-walk a favorite page again.",
+      "teacherLanguage": "Who is helping?\nHow does the friend feel?\nWhat is kind?\nCan you show gentle hands?\nWhat happened next?",
+      "observationOpportunities": "Attention, pointing, feeling words, and connection to kindness theme.",
+      "safetyNotes": "Board/picture books preferred. Small group. No forced laps.",
+      "cleanupTips": "Book to shelf; prop to basket.",
+      "imageRequirement": "not_needed"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "teacherTips": [
+        "Keep tone warm; avoid scary “danger” talk.",
+        "One animal at a time."
+      ],
+      "substitutions": [
+        {
+          "need": "Stuffed animals",
+          "use": "Soft dolls or sock pets"
+        }
+      ],
+      "observationPrompts": [
+        "Was touch gentle?",
+        "Did they finish a rescue?"
+      ],
+      "vocabulary": [
+        "rescue",
+        "animal",
+        "help",
+        "gentle",
+        "safe",
+        "wrap",
+        "thank you"
+      ],
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "indoorAlternatives": "Fewer animals if space is tight.",
+      "outdoorAlternatives": "Playground rescue with a wagon.",
+      "adaptations": "Wagon transport. Picture two-step card: pick up → mat.",
+      "extensions": "Offer pretend water after rescue.",
+      "mixedAgeAdaptations": "Older spot animals; younger carry.",
+      "imageBriefSetup": "Stuffed animals on a rug with blankets and a rescue mat; caregiving hero play. Footer: littlelearnershubbyleah.com",
+      "title": "Rescue the Animals Mission",
+      "dayOfWeek": "tuesday",
+      "activityCategory": "Dramatic Play",
+      "durationMinutes": 12,
+      "objective": "Rescue stuffed animals with gentle carrying and soft wraps, practicing caregiving hero roles without fighting or fear themes.",
+      "description": "Toddlers find soft animals needing help and carry them to a rescue mat, offering a blanket and pretend check. Mission language stays calm: help, gentle, safe, thank you.",
+      "materials": "4–5 stuffed animals\nRescue mat or basket\nSoft blankets\nOptional toy stethoscope (no small parts)\nHelper badges",
+      "preparation": "Sanitize animals\nStage “need help” spots\nRemove any weapon props nearby",
+      "setup": "Scattered animals + central rescue mat. Clear paths.",
+      "steps": "1. Notice an animal—“Needs a helper!”\n2. Model gentle pick-up and wrap.\n3. Carry to the rescue mat.\n4. Listen/pretend check briefly.\n5. Rest animal safely.\n6. Cheer “All friends safe!”",
+      "teacherLanguage": "Who can help?\nGentle hands.\nWrap the friend.\nSafe on the mat.\nThank you, hero!",
+      "observationOpportunities": "Gentle touch, empathy, carrying, and mission completion.",
+      "safetyNotes": "Large soft animals. No tossing. Paths clear. Caregiving—not combat—framing only.",
+      "cleanupTips": "Animals to basket; fold blankets.",
+      "imageRequirement": "setup_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "teacherTips": [
+        "Celebrate delivery, not speed.",
+        "Offer two-hand cues."
+      ],
+      "substitutions": [
+        {
+          "need": "Bags",
+          "use": "A soft stuffed toy to carry"
+        }
+      ],
+      "observationPrompts": [
+        "Did the child complete a delivery?",
+        "Need balance support?"
+      ],
+      "vocabulary": [
+        "carry",
+        "deliver",
+        "walk",
+        "bag",
+        "help",
+        "thank you",
+        "path"
+      ],
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "indoorAlternatives": "Across-the-rug deliveries only.",
+      "outdoorAlternatives": "Sidewalk delivery loop.",
+      "adaptations": "Push a cart instead of carrying. Shorter path.",
+      "extensions": "Two-item delivery for children ready for more.",
+      "mixedAgeAdaptations": "Older pack bags; younger deliver.",
+      "imageBriefSetup": "",
+      "title": "Carry and Deliver Challenge",
+      "dayOfWeek": "tuesday",
+      "activityCategory": "Gross Motor",
+      "durationMinutes": 10,
+      "objective": "Carry soft “supply” bags along a short path and deliver them to a helper station, building balance, persistence, and helping vocabulary.",
+      "description": "Toddlers carry lightweight bags or baskets with soft scarves/beans bags from a start line to a delivery table, practicing careful walking and handoff.",
+      "materials": "Soft tote bags or baskets\nScarf “supplies” or large beanbags\nDelivery table/box labeled with a heart picture\nTape path",
+      "preparation": "Pack light bags\nClear path\nMark start and delivery",
+      "setup": "Short path for one carrier at a time. Teacher at delivery for handoff.",
+      "steps": "1. Show the heart delivery box.\n2. Model careful carry.\n3. Invite a toddler to walk the path.\n4. Deliver and say “For you!”\n5. Return empty-handed along the side.\n6. Repeat turns.",
+      "teacherLanguage": "Carry carefully!\nWalking feet.\nDeliver to the heart.\nFor you—thank you!\nReady for another delivery?",
+      "observationOpportunities": "Bilateral carry, path staying, handoff social moment, and waiting.",
+      "safetyNotes": "Bags light. No running. Floor clear. Beanbags large. Spot balance.",
+      "cleanupTips": "Unpack bags; store path markers.",
+      "imageRequirement": "not_needed"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "teacherTips": [
+        "Process over perfect vehicles.",
+        "Keep road one-way to reduce crashes."
+      ],
+      "substitutions": [
+        {
+          "need": "Blocks",
+          "use": "Shoe boxes as chassis"
+        }
+      ],
+      "observationPrompts": [
+        "Did the child push a vehicle to the mat?",
+        "Any stacking attempt?"
+      ],
+      "vocabulary": [
+        "build",
+        "vehicle",
+        "wheel",
+        "push",
+        "rescue",
+        "road",
+        "go"
+      ],
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "indoorAlternatives": "Default block area.",
+      "outdoorAlternatives": "Wagon decorating as a rescue vehicle outdoors.",
+      "adaptations": "Pre-built base to decorate. Hand-under-hand push.",
+      "extensions": "Try which vehicle slides farther with a gentle push.",
+      "mixedAgeAdaptations": "Older tape wheels; toddlers push.",
+      "imageBriefSetup": "Block and box rescue vehicles on a tape road toward a rescue mat. Footer: littlelearnershubbyleah.com",
+      "title": "Build a Rescue Vehicle",
+      "dayOfWeek": "tuesday",
+      "activityCategory": "STEM/Discovery",
+      "durationMinutes": 12,
+      "objective": "Build simple rescue vehicles from blocks and boxes to explore wheels, pushing, and pretend helping transport.",
+      "description": "Toddlers stack boxes/blocks into ambulances, boats, or helper cars and push them along a tape road to a rescue mat, loading soft animals if desired.",
+      "materials": "Blocks, small boxes, plate “wheels”\nTape road\nSoft animals optional\nRescue mat destination\nTape/glue dots for teacher-secure wheels",
+      "preparation": "Sort large parts\nLay road tape\nPre-make 1 sample vehicle",
+      "setup": "Build table beside road. Limit 3 builders.",
+      "steps": "1. Show a simple block vehicle.\n2. Invite stacking a cabin on a base.\n3. Add wheels with help if needed.\n4. Push along the road to the mat.\n5. Load a friend animal (optional).\n6. Rebuild after tip-overs cheerfully.",
+      "teacherLanguage": "What is your rescue ride?\nStack the cabin.\nNeed wheels?\nPush to the rescue mat!\nHelping vehicle go!",
+      "observationOpportunities": "Stacking, pushing control, pretend rescue language, and persistence.",
+      "safetyNotes": "Large parts only. Teacher secures loose wheels. No small axles. Supervise mouthing.",
+      "cleanupTips": "Sort blocks; roll tape if needed.",
+      "imageRequirement": "setup_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "teacherTips": [
+        "Name actions more than products.",
+        "Offer cool dough for seekers of strong input."
+      ],
+      "substitutions": [
+        {
+          "need": "Play dough",
+          "use": "Cloud dough or kinetic sand with large molds"
+        }
+      ],
+      "observationPrompts": [
+        "How did the child respond to dough texture?",
+        "Did they use a cutter?"
+      ],
+      "vocabulary": [
+        "dough",
+        "squish",
+        "roll",
+        "press",
+        "heart",
+        "star",
+        "soft"
+      ],
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "indoorAlternatives": "Default art/sensory table.",
+      "outdoorAlternatives": "Play dough outdoors for easier crumb control.",
+      "adaptations": "Pre-flattened slabs for easier cutting. Hand-under-hand press.",
+      "extensions": "Press dough onto a cardboard badge and take-home (if dry policy allows).",
+      "mixedAgeAdaptations": "Older combine colors; toddlers pinch only.",
+      "imageBriefSetup": "Play dough table with heart/star cutters and rollers; toddler sensory setup. Footer: littlelearnershubbyleah.com",
+      "title": "Superhero Play Dough Creations",
+      "dayOfWeek": "tuesday",
+      "activityCategory": "Sensory Play",
+      "durationMinutes": 12,
+      "objective": "Press, pinch, and stamp play dough to make open-ended hero shapes, badges, and snakes—focusing on hand strength and sensory comfort.",
+      "description": "Toddlers explore play dough with large cookie cutters (stars, hearts, circles), rollers, and craft sticks to create badges and free forms. No required finished character.",
+      "materials": "Play dough (allergy-aware; homemade or commercial)\nLarge heart/star cutters\nRollers, craft sticks\nPlacemats, wipes\nOptional glitter-free “cape” fabric scrap to press textures",
+      "preparation": "Allergy check (wheat dough alternatives ready)\nPortion dough balls\nSet wipe station",
+      "setup": "Table for 2–3. One dough ball each. Tools in a caddy.",
+      "steps": "1. Warm dough in hands together.\n2. Squish, pinch, roll snakes.\n3. Press a heart/star badge.\n4. Add texture with fabric if desired.\n5. Squish to reset—process OK.\n6. Store dough; wipe hands/table.",
+      "teacherLanguage": "Squish, squish!\nCan you roll a snake?\nHeart badge press!\nAll done squishing?\nStrong helper hands!",
+      "observationOpportunities": "Hand strength, sensory tolerance, tool use, and creativity without product pressure.",
+      "safetyNotes": "Supervise mouthing. Allergy alternatives. Tools large. No tiny beads mixed in.",
+      "cleanupTips": "Seal dough; wash tools; wipe table.",
+      "imageRequirement": "setup_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "teacherTips": [
+        "Explicitly avoid punch/kick language.",
+        "Offer seated options."
+      ],
+      "substitutions": [
+        {
+          "need": "Cue cards",
+          "use": "Teacher body models only"
+        }
+      ],
+      "observationPrompts": [
+        "Did the child freeze?",
+        "Any heart-hands attempt?"
+      ],
+      "vocabulary": [
+        "dance",
+        "fly",
+        "march",
+        "heart",
+        "freeze",
+        "music",
+        "kind"
+      ],
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "indoorAlternatives": "Seated scarf dance.",
+      "outdoorAlternatives": "Playground movement circle.",
+      "adaptations": "Lap bouncing for infants/young toddlers with caregiver.",
+      "extensions": "Let a child pick the next cue card.",
+      "mixedAgeAdaptations": "Older lead cues; younger approximate.",
+      "imageBriefSetup": "",
+      "title": "Hero Movement Dance",
+      "dayOfWeek": "tuesday",
+      "activityCategory": "Music & Movement",
+      "durationMinutes": 8,
+      "objective": "Dance with hero poses—reach high, march, and freeze—to build listening, balance, and joyful movement tied to helping themes.",
+      "description": "Toddlers move to short music tracks with cues: fly arms (gentle), march feet, heart-hands, and freeze helper poses. No tackling or combat moves.",
+      "materials": "Open floor\nMusic player (soft)\nOptional scarves\nPicture cue cards (fly, march, heart, freeze)",
+      "preparation": "Clear space\nChoose 2 short songs\nPrep cue cards",
+      "setup": "Circle or scattered spots with space between children.",
+      "steps": "1. Show fly arms—soft, not bumping.\n2. Start music; march.\n3. Heart-hands on chest.\n4. Freeze helper pose.\n5. Scarf wave round.\n6. Rest seated.",
+      "teacherLanguage": "Fly gently!\nMarch, march!\nHeart hands—kind!\nFreeze, helper!\nRest your powers.",
+      "observationOpportunities": "Imitation, freeze listening, spatial awareness, and enjoyment.",
+      "safetyNotes": "Space out. No flying into peers. No kick/punch cues. Soft volume.",
+      "cleanupTips": "Collect scarves; stop music.",
+      "imageRequirement": "not_needed"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "teacherTips": [
+        "Picture choice ≠ literacy worksheet.",
+        "Respect “no” to hugs—offer wave instead."
+      ],
+      "substitutions": [
+        {
+          "need": "Printed cards",
+          "use": "Real objects as choice cues"
+        }
+      ],
+      "observationPrompts": [
+        "Did the child choose a card?",
+        "Did they attempt the kind act?"
+      ],
+      "vocabulary": [
+        "kindness",
+        "mission",
+        "share",
+        "help",
+        "gentle",
+        "choose",
+        "card"
+      ],
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "indoorAlternatives": "Default circle area.",
+      "outdoorAlternatives": "Outdoor kindness tidy mission (collect soft toys).",
+      "adaptations": "Teacher chooses; child acts. One-card session.",
+      "extensions": "Send a duplicate picture card home for family kindness play.",
+      "mixedAgeAdaptations": "Older describe the card; toddlers point and act.",
+      "imageBriefSetup": "Large picture kindness mission cards and simple props (toy, tidy bin) at circle. No worksheets. Footer: littlelearnershubbyleah.com",
+      "title": "Kindness Mission Cards",
+      "dayOfWeek": "wednesday",
+      "activityCategory": "Circle Time",
+      "durationMinutes": 10,
+      "objective": "Choose picture kindness mission cards and act out simple helps—hand a toy, give a hug cue, or put litter in a bin—without reading worksheets.",
+      "description": "Toddlers sit briefly, look at large picture cards (share toy, gentle pat, help tidy), choose one, and try the kind act with props. Cards are visual only—no tracing or word worksheets.",
+      "materials": "Large picture mission cards (photos/icons)\nProps: toys to share, soft doll, tidy bin\nCushions\nOptional pocket chart to display cards",
+      "preparation": "Print/laminate 4–5 picture cards\nStage props\nPlan 2–3 missions max for attention",
+      "setup": "Half-group circle. Cards face out. Props nearby.",
+      "steps": "1. Show two cards and name the helps.\n2. Invite a child to point/choose.\n3. Act out the mission with a prop or peer (with consent).\n4. Cheer the kind act.\n5. Choose another card.\n6. Close with “Kindness heroes!”",
+      "teacherLanguage": "Which kindness mission?\nShare the toy?\nGentle pat?\nHelp tidy—drop in the bin!\nYou were kind!",
+      "observationOpportunities": "Picture choice, willingness to help, peer consent awareness, and circle attention.",
+      "safetyNotes": "Keep circle short. Model asking before hugs. No forced sharing. Cards large, no small parts.",
+      "cleanupTips": "Cards to binder; props away.",
+      "imageRequirement": "setup_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "teacherTips": [
+        "Offer no-paint alternative always.",
+        "Don’t require both hands."
+      ],
+      "substitutions": [
+        {
+          "need": "Paint",
+          "use": "Stamp pads with large hand stampers"
+        }
+      ],
+      "observationPrompts": [
+        "Paint or collage preference?",
+        "Did they place a hand on the mural?"
+      ],
+      "vocabulary": [
+        "hands",
+        "help",
+        "press",
+        "paint",
+        "heart",
+        "mural",
+        "kind"
+      ],
+      "imageBriefExample": "Helping-hands mural with toddler handprints or paper hands on large hearts. Footer: littlelearnershubbyleah.com",
+      "decision": "rewrite",
+      "decisionNote": "Primary cover candidate activity",
+      "indoorAlternatives": "Stickers + paper hands only (no paint).",
+      "outdoorAlternatives": "Handprints on outdoor easel paper.",
+      "adaptations": "Teacher paints own hand for child to watch; child sticks only.",
+      "extensions": "Family hand added later with permission.",
+      "mixedAgeAdaptations": "Older cut hands; toddlers press/stick.",
+      "imageBriefSetup": "",
+      "title": "Helping Hands Art Project",
+      "dayOfWeek": "wednesday",
+      "activityCategory": "Art",
+      "durationMinutes": 12,
+      "objective": "Create process handprint or hand-shape collages that celebrate helping hands—open-ended art, not identical crafts.",
+      "description": "Toddlers press painted hands or collage pre-cut hand shapes onto paper hearts/posters, adding stickers that show helping. Display becomes a classroom kindness mural.",
+      "materials": "Washable paint OR pre-cut paper hands\nLarge paper hearts or mural paper\nGlue sticks, large stickers\nSmocks, wipes, basin",
+      "preparation": "Prep mural paper with title space\nPortion paint thinly OR stage pre-cuts for no-paint day\nWipe station ready",
+      "setup": "Art table + mural wall nearby. 2–3 painters at a time.",
+      "steps": "1. Talk about helping hands.\n2. Paint hand or choose a paper hand.\n3. Press/glue onto the mural heart.\n4. Add a kindness sticker.\n5. Wash hands.\n6. Admire the growing mural.",
+      "teacherLanguage": "Helping hands help friends!\nPress gently.\nWhere does your hand go?\nSticker of kindness!\nLook at our mural!",
+      "observationOpportunities": "Sensory response to paint, placement choices, and pride in group mural.",
+      "safetyNotes": "Washable paint. Supervise mouthing. Allergy to paint additives. Floor covered.",
+      "cleanupTips": "Wash hands/tools; dry mural.",
+      "imageRequirement": "example_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "teacherTips": [
+        "Teacher-as-partner is perfect for young toddlers.",
+        "Avoid winner language."
+      ],
+      "substitutions": [
+        {
+          "need": "Dolls",
+          "use": "Beanbags with faces drawn on fabric"
+        }
+      ],
+      "observationPrompts": [
+        "Did the child attempt a handoff?",
+        "Gentle with the toy?"
+      ],
+      "vocabulary": [
+        "friend",
+        "rescue",
+        "together",
+        "handoff",
+        "help",
+        "safe",
+        "careful"
+      ],
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "indoorAlternatives": "Rug-only handoff game.",
+      "outdoorAlternatives": "Outdoor friendship path.",
+      "adaptations": "Solo carry with teacher cheer. Shorter path.",
+      "extensions": "Add a blanket wrap before delivery.",
+      "mixedAgeAdaptations": "Older toddler partners with younger; teacher shadows.",
+      "imageBriefSetup": "",
+      "title": "Friendship Rescue Game",
+      "dayOfWeek": "wednesday",
+      "activityCategory": "Gross Motor",
+      "durationMinutes": 10,
+      "objective": "Move with a peer or teacher partner to “rescue” a soft friend toy across a short course, practicing cooperation and careful movement.",
+      "description": "Pairs (or toddler + teacher) carry a soft doll together or take turns moving it along a path with gentle handoffs—framed as friendship helping, not competition.",
+      "materials": "Soft dolls/animals\nShort path with 2–3 soft obstacles\nRescue basket finish\nOptional matching buddy bracelets (fabric)",
+      "preparation": "Clear path\nAssign flexible partners\nSpot obstacles",
+      "setup": "Start with dolls; finish basket. Teacher facilitates pairs.",
+      "steps": "1. Meet your friend toy.\n2. Walk the path carefully.\n3. Hand off to partner or teacher if needed.\n4. Place toy in the friendship basket.\n5. Cheer both helpers.\n6. Switch toys and repeat.",
+      "teacherLanguage": "Help your friend!\nWalking feet together.\nGentle handoff.\nInto the basket—safe!\nFriends help friends!",
+      "observationOpportunities": "Cooperation, handoff timing, gentle movement, and peer awareness.",
+      "safetyNotes": "No dragging peers. Soft obstacles only. Spot balance. Consent for hand-holding.",
+      "cleanupTips": "Dolls to bin; clear path.",
+      "imageRequirement": "not_needed"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "teacherTips": [
+        "Model “my turn/your turn” with timers if needed.",
+        "Keep filler sparse."
+      ],
+      "substitutions": [
+        {
+          "need": "Foam hearts",
+          "use": "Paper hearts laminated large"
+        }
+      ],
+      "observationPrompts": [
+        "Turn-taking with support?",
+        "Texture preference?"
+      ],
+      "vocabulary": [
+        "heart",
+        "soft",
+        "scoop",
+        "share",
+        "kind",
+        "find",
+        "turn"
+      ],
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "indoorAlternatives": "Dry fabric scrap bin only.",
+      "outdoorAlternatives": "Heart scoop station outdoors.",
+      "adaptations": "Single-child bin turns. Larger scoops.",
+      "extensions": "Sort by color into two kindness bowls.",
+      "mixedAgeAdaptations": "Older hide hearts; younger find.",
+      "imageBriefSetup": "Sensory bin with large foam hearts, scoops, and smile bowls. Footer: littlelearnershubbyleah.com",
+      "title": "Kindness Sensory Bin",
+      "dayOfWeek": "wednesday",
+      "activityCategory": "Sensory Play",
+      "durationMinutes": 12,
+      "objective": "Explore a kindness-themed sensory bin with heart fillers, scoops, and soft props to practice sharing space and noticing textures.",
+      "description": "Toddlers scoop heart confetti (large foam), red/pink fabric scraps, and soft pom-poms (large) into bowls labeled with smile pictures—open sensory play with kindness words.",
+      "materials": "Shallow bin\nLarge foam hearts / fabric scraps\nJumbo pom-poms (choke-safe)\nScoops, cups\nSmile/heart picture bowls\nSmocks",
+      "preparation": "Cull any small confetti\nAllergy check\nStage bowls",
+      "setup": "Bin for 2 toddlers. Limit tools to reduce grabbing.",
+      "steps": "1. Feel a soft heart.\n2. Scoop into a smile bowl.\n3. Share the scoop (with help).\n4. Hide a heart for a friend to find.\n5. Narrate kind words.\n6. Help tidy hearts back.",
+      "teacherLanguage": "Soft heart!\nScoop for a friend.\nYour turn, my turn.\nFind a hidden heart?\nKind hands in the bin.",
+      "observationOpportunities": "Sensory comfort, scooping, turn-taking language, and cleanup help.",
+      "safetyNotes": "Large foam/pom-poms only. Supervise mouthing. No glitter that sheds into eyes.",
+      "cleanupTips": "Collect hearts; wipe bin.",
+      "imageRequirement": "setup_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "teacherTips": [
+        "Keep to 3 helpers max.",
+        "Connect to real people children know."
+      ],
+      "substitutions": [
+        {
+          "need": "Dress-up hats",
+          "use": "Picture necklaces (large breakaway)"
+        }
+      ],
+      "observationPrompts": [
+        "Did the child match a prop to a photo?",
+        "Any helper word?"
+      ],
+      "vocabulary": [
+        "helper",
+        "nurse",
+        "mail",
+        "listen",
+        "hat",
+        "community",
+        "who"
+      ],
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "indoorAlternatives": "Default discovery table.",
+      "outdoorAlternatives": "Chalk helper stations outdoors.",
+      "adaptations": "One prop + one photo only. Watching OK.",
+      "extensions": "Walk to the window and look for a helper vehicle (if safe/visible).",
+      "mixedAgeAdaptations": "Older name helpers; younger try hats.",
+      "imageBriefSetup": "Community helper investigation table with soft hats, mailbag, stethoscope, and photo cards. Footer: littlelearnershubbyleah.com",
+      "title": "Community Helper Investigation",
+      "dayOfWeek": "wednesday",
+      "activityCategory": "STEM/Discovery",
+      "durationMinutes": 10,
+      "objective": "Investigate real community helper tools and photos—hats, bags, and gentle instruments—to notice who helps in our neighborhood.",
+      "description": "Toddlers explore a helper investigation table with oversized hats (firefighter/nurse dress-up soft versions), a toy medical kit with small parts removed, mailbag, and photo cards of real helpers.",
+      "materials": "Soft helper hats\nMailbag with large envelopes\nToy stethoscope\nPhoto cards of community helpers\nClipboard with big photos (no writing required)",
+      "preparation": "Remove tiny kit pieces\nSanitize hats\nSelect 3–4 helper photos",
+      "setup": "Investigation table for 2–3. Clear labels with pictures.",
+      "steps": "1. Show a helper photo—who is this?\n2. Match a prop to the photo.\n3. Try the mailbag delivery to a chair “mailbox.”\n4. Listen with stethoscope on a stuffed friend.\n5. Free explore with narration.\n6. Hats rest on hooks.",
+      "teacherLanguage": "Who helps us?\nFirefighter hat?\nMail for the mailbox!\nListen—heartbeat?\nHelpers are kind!",
+      "observationOpportunities": "Matching photos to props, pretend helping, curiosity, and vocabulary.",
+      "safetyNotes": "No real tools/weapons. Soft hats. Kit pieces large only. Stethoscope cords short/supervised.",
+      "cleanupTips": "Sort props by helper type; hang hats.",
+      "imageRequirement": "setup_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "teacherTips": [
+        "Script kindness, not conflict.",
+        "Offer alternative: “Helpers carry, they don’t hit.”"
+      ],
+      "substitutions": [
+        {
+          "need": "Rescue vehicles",
+          "use": "Any cars + red cross heart sticker"
+        }
+      ],
+      "observationPrompts": [
+        "Did play stay caregiving-focused?",
+        "Any rescue delivery?"
+      ],
+      "vocabulary": [
+        "city",
+        "rescue",
+        "safe",
+        "drive",
+        "help",
+        "neighbor",
+        "calm"
+      ],
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "indoorAlternatives": "Fits dramatic-play corner.",
+      "outdoorAlternatives": "Chalk city roads outdoors.",
+      "adaptations": "One-step job cards. Parallel play OK.",
+      "extensions": "Add a hospital block building for resting friends.",
+      "mixedAgeAdaptations": "Older build towers; toddlers drive and deliver.",
+      "imageBriefSetup": "Block city with toy vehicles, soft figures, and a heart safe-zone mat. Kindness focus. Footer: littlelearnershubbyleah.com",
+      "title": "City Rescue Adventure",
+      "dayOfWeek": "thursday",
+      "activityCategory": "Dramatic Play",
+      "durationMinutes": 15,
+      "objective": "Act out a calm city helping adventure with block buildings, rescue vehicles, and caregiving roles—helping neighbors, not battling villains.",
+      "description": "Toddlers use blocks as city buildings, push rescue vehicles, and help soft people/animals to a safe zone. Teacher narrates kindness missions; no punching or weapon play.",
+      "materials": "Blocks for buildings\nToy vehicles (ambulance/fire—or generic cars)\nSoft people/animals\nSafe-zone mat with heart sign\nCapes optional",
+      "preparation": "Build a simple block city starter\nStage safe zone\nRemove fighting toys",
+      "setup": "City rug: buildings, road, safe zone. Limit 3–4 players.",
+      "steps": "1. Tour the city and safe heart zone.\n2. Model helping a soft friend to safety.\n3. Push a vehicle along the road.\n4. Deliver helper supplies (scarves).\n5. Rotate roles: driver, helper, friend.\n6. Close city—everyone safe.",
+      "teacherLanguage": "Who needs help in our city?\nDrive carefully.\nTo the safe heart!\nThank you, helper.\nCity is calm and kind.",
+      "observationOpportunities": "Pretend sequences, gentle themes, vehicle control, and peer roles.",
+      "safetyNotes": "Redirect any hit/kick play to helping jobs. Soft props. Clear roads. No weapon toys.",
+      "cleanupTips": "Blocks sorted; vehicles parked; friends in basket.",
+      "imageRequirement": "setup_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "teacherTips": [
+        "Keep HQ calm—not a wrestle zone.",
+        "Entry optional."
+      ],
+      "substitutions": [
+        {
+          "need": "Blankets",
+          "use": "Play tunnel as HQ"
+        }
+      ],
+      "observationPrompts": [
+        "Did the child enter HQ?",
+        "Choose a mission picture?"
+      ],
+      "vocabulary": [
+        "headquarters",
+        "build",
+        "fort",
+        "mission",
+        "rest",
+        "inside",
+        "ready"
+      ],
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "indoorAlternatives": "Table fort if chairs are limited.",
+      "outdoorAlternatives": "Pop-up tent HQ outdoors.",
+      "adaptations": "Sit beside HQ first. Shorter blanket cave.",
+      "extensions": "Add a mailbox for kindness notes (scribbles OK).",
+      "mixedAgeAdaptations": "Older clip blankets; toddlers cushion and play.",
+      "imageBriefSetup": "Blanket-chair helper headquarters with cushions, badges, and a picture mission board. Footer: littlelearnershubbyleah.com",
+      "title": "Build a Superhero Headquarters",
+      "dayOfWeek": "thursday",
+      "activityCategory": "STEM/Discovery",
+      "durationMinutes": 12,
+      "objective": "Build a helper headquarters from blankets, chairs, and blocks where toddlers can gather props and plan kind missions.",
+      "description": "Toddlers drape blankets over chairs to make a HQ fort, place badges and flashlights inside, and use it as a calm base between pretend missions.",
+      "materials": "Chairs/clips + blanket\nCushions inside\nBadge basket\nFlashlight\nPicture mission board (heart icons)",
+      "preparation": "Stable fort frame\nTest clips\nRemove tip hazards",
+      "setup": "HQ in a corner with open entry. Max 2–3 inside.",
+      "steps": "1. Help drape the blanket with teacher.\n2. Add cushions.\n3. Place badges inside.\n4. Sit in HQ and choose a picture mission.\n5. Go do the mission; return to HQ.\n6. Rest powers in the fort.",
+      "teacherLanguage": "Build our helper HQ!\nCushions in.\nBadges ready.\nWhat mission picture?\nBack to headquarters—rest.",
+      "observationOpportunities": "Cooperative building, comfort in cozy spaces, and mission choice.",
+      "safetyNotes": "Fort stable; adult checks. No heavy objects overhead. Flashlight eye-safe. Ventilation/open side.",
+      "cleanupTips": "Fold blanket; return chairs; badges to bin.",
+      "imageRequirement": "setup_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "teacherTips": [
+        "Drop-in counts as success for young toddlers.",
+        "Keep waiting line short."
+      ],
+      "substitutions": [
+        {
+          "need": "Beanbags",
+          "use": "Soft socks rolled into balls"
+        }
+      ],
+      "observationPrompts": [
+        "Which stations succeeded?",
+        "Toss or drop preference?"
+      ],
+      "vocabulary": [
+        "course",
+        "crawl",
+        "balance",
+        "toss",
+        "drop",
+        "pose",
+        "finish"
+      ],
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "indoorAlternatives": "Skip toss; do drop-in only.",
+      "outdoorAlternatives": "Outdoor training with chalk stations.",
+      "adaptations": "Omit crawl. Hand-held plank walk.",
+      "extensions": "Carry a badge through the whole course.",
+      "mixedAgeAdaptations": "Older toss; younger drop.",
+      "imageBriefSetup": "",
+      "title": "Hero Training Course",
+      "dayOfWeek": "thursday",
+      "activityCategory": "Gross Motor",
+      "durationMinutes": 10,
+      "objective": "Complete a varied hero training course with climbing-under, balancing, and delivery to reinforce whole-body control and helping end goals.",
+      "description": "Toddlers crawl under a bench, walk a floor beam/tape, toss a soft beanbag into a heart bin (underhand), and finish with a helper pose.",
+      "materials": "Bench/table crawl\nFloor plank or tape\nSoft beanbags\nHeart bin target\nFinish mat",
+      "preparation": "Set low crawl space\nPlank on floor only\nSpot toss zone",
+      "setup": "Linear course; one child moving; teacher spots plank and toss.",
+      "steps": "1. Model each station.\n2. Crawl under.\n3. Walk the plank path.\n4. Underhand toss to heart bin (or drop in).\n5. Helper pose finish.\n6. Side-path return.",
+      "teacherLanguage": "Crawl under!\nBalance steps.\nDrop or toss gently.\nHelper pose!\nTraining done!",
+      "observationOpportunities": "Motor variety, aim attempt, listening, and celebration of effort.",
+      "safetyNotes": "Plank floor-level. Underhand only—no hard throws at people. Spot continuously.",
+      "cleanupTips": "Store plank/beanbags; move bench back.",
+      "imageRequirement": "not_needed"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "teacherTips": [
+        "Child-chosen “power” can be a gesture if words are few.",
+        "Tape lightly for sensitive skin."
+      ],
+      "substitutions": [
+        {
+          "need": "Cardboard",
+          "use": "Paper plates cut small"
+        }
+      ],
+      "observationPrompts": [
+        "Did the child wear the badge?",
+        "Any kindness word/gesture?"
+      ],
+      "vocabulary": [
+        "badge",
+        "power",
+        "kind",
+        "sticker",
+        "wear",
+        "proud",
+        "helper"
+      ],
+      "imageBriefExample": "Toddler-decorated helper badge with large stickers on a cardboard circle. Footer: littlelearnershubbyleah.com",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "indoorAlternatives": "Default art table.",
+      "outdoorAlternatives": "Sidewalk chalk badges (photo keepsake).",
+      "adaptations": "One sticker badge. Teacher holds while child sticks.",
+      "extensions": "Photo of badge for portfolio.",
+      "mixedAgeAdaptations": "Older write a letter; toddlers scribble/stick.",
+      "imageBriefSetup": "",
+      "title": "Super Badge Creation",
+      "dayOfWeek": "thursday",
+      "activityCategory": "Art",
+      "durationMinutes": 10,
+      "objective": "Create wearable helper badges with stickers and drawing on large circles—process identity art celebrating kindness powers.",
+      "description": "Toddlers decorate cardboard circle badges with stickers, stamps, and scribbles, then wear them with painter’s tape or a large safety-safe clip managed by adults.",
+      "materials": "Cardboard circles / pre-cut badge shapes\nStickers, stampers, crayons\nPainter’s tape or badge clips (adult-applied)\nSmocks optional",
+      "preparation": "Pre-cut circles\nPortion stickers\nPrep tape pieces",
+      "setup": "Art table for 2–3. One badge each.",
+      "steps": "1. Show a blank badge.\n2. Decorate with stickers/scribbles.\n3. Name a kindness power together (helps, hugs, shares)—teacher may write a word.\n4. Adult tapes badge to shirt.\n5. Mirror look optional.\n6. Wear for HQ play.",
+      "teacherLanguage": "Decorate your badge!\nWhat is your kind power?\nSticker here?\nBadge on—helper ready!\nYou look proud!",
+      "observationOpportunities": "Fine motor, identity language, and pride wearing badge.",
+      "safetyNotes": "Adult applies tape/clips. No pins. Large stickers. Supervise mouthing of cardboard.",
+      "cleanupTips": "Extra badges flat to dry; wipe table.",
+      "imageRequirement": "example_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "teacherTips": [
+        "Keep language calm and empowering.",
+        "Avoid siren-loud chaos."
+      ],
+      "substitutions": [
+        {
+          "need": "Fabric bandages",
+          "use": "Wide ribbon strips"
+        }
+      ],
+      "observationPrompts": [
+        "Did the child pack an item?",
+        "Mood calm or escalated?"
+      ],
+      "vocabulary": [
+        "mission",
+        "pack",
+        "kit",
+        "bandage",
+        "scoop",
+        "ready",
+        "calm"
+      ],
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "indoorAlternatives": "Paper filler only.",
+      "outdoorAlternatives": "Outdoor scoop packing station.",
+      "adaptations": "Pre-packed kit to unpack only. Larger scoops.",
+      "extensions": "Deliver kit to a stuffed friend at HQ.",
+      "mixedAgeAdaptations": "Older pack full kits; younger scoop only.",
+      "imageBriefSetup": "Sensory tub with scoops, fabric bandages, and a helper kit box. Calm prep theme. Footer: littlelearnershubbyleah.com",
+      "title": "Emergency Mission Sensory Play",
+      "dayOfWeek": "thursday",
+      "activityCategory": "Sensory Play",
+      "durationMinutes": 12,
+      "objective": "Explore a calm “mission prep” sensory bin with scoops of beans/rice, cups, and first-aid soft props to practice filling helper kits.",
+      "description": "Toddlers scoop dry filler into cups and bags to pack a pretend helper kit with large bandages (fabric) and soft gauze, keeping the mood steady and helpful—not scary.",
+      "materials": "Sensory tub + dry filler (oats/rice/paper)\nCups, scoops, small bags\nLarge fabric bandages\nSoft gauze strips\nKit box\nSmocks",
+      "preparation": "Allergy check\nPortion filler\nCull small parts",
+      "setup": "Tub for 2. Kit box at the side for packed items.",
+      "steps": "1. Scoop filler into a cup—“supplies!”\n2. Pack a fabric bandage in the kit.\n3. Add a soft gauze strip.\n4. Close kit and carry to HQ mat.\n5. Unpack and repeat if interested.\n6. Sweep help.",
+      "teacherLanguage": "Pack the helper kit.\nScoop supplies.\nBandage in.\nKit ready!\nCalm helpers prepare.",
+      "observationOpportunities": "Scooping, sequencing pack steps, sensory comfort, and calm engagement.",
+      "safetyNotes": "Frame as practice helping—not real emergencies/fear. Large props. Supervise mouthing. No real meds.",
+      "cleanupTips": "Empty kits; store filler; wash hands.",
+      "imageRequirement": "setup_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "teacherTips": [
+        "Costume optional.",
+        "Keep under 2 loops."
+      ],
+      "substitutions": [
+        {
+          "need": "Scarves",
+          "use": "Ribbon wands short"
+        }
+      ],
+      "observationPrompts": [
+        "March or wave?",
+        "Joined the cheer?"
+      ],
+      "vocabulary": [
+        "parade",
+        "march",
+        "wave",
+        "cheer",
+        "team",
+        "hero",
+        "hooray"
+      ],
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "indoorAlternatives": "Standing scarf cheer.",
+      "outdoorAlternatives": "Sidewalk parade.",
+      "adaptations": "Wagon riders shake bells.",
+      "extensions": "Show mural hands mid-parade.",
+      "mixedAgeAdaptations": "Older lead; infants bounce.",
+      "imageBriefSetup": "",
+      "title": "Hero Parade",
+      "dayOfWeek": "friday",
+      "activityCategory": "Music & Movement",
+      "durationMinutes": 10,
+      "objective": "Parade with badges and scarves to music, celebrating helper identities and group joy at week’s end.",
+      "description": "Toddlers wear badges/capes if desired and march a loop waving scarves, pausing for a group “helpers hooray!” cheer.",
+      "materials": "Badges/capes optional\nScarves\nMusic\nParade loop markers",
+      "preparation": "Clear loop\nStage props\nChoose upbeat short track",
+      "setup": "Start on rug; teacher leads; space marchers.",
+      "steps": "1. Optional costume on.\n2. March to music.\n3. Wave scarves.\n4. Pause—helpers hooray!\n5. One more loop.\n6. Bow and rest.",
+      "teacherLanguage": "Heroes ready?\nMarch and wave!\nHelpers hooray!\nWhat a team!\nRest your feet.",
+      "observationOpportunities": "Group movement, prop comfort, and celebration participation.",
+      "safetyNotes": "Space out. No running. Scarves not on necks. Soft volume.",
+      "cleanupTips": "Props to bins.",
+      "imageRequirement": "not_needed"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "teacherTips": [
+        "Emphasize caring = saving.",
+        "Jobs can be tiny for young toddlers."
+      ],
+      "substitutions": [
+        {
+          "need": "Blocks",
+          "use": "Cushion city to straighten"
+        }
+      ],
+      "observationPrompts": [
+        "Did the child help tidy or deliver?",
+        "Any kindness language?"
+      ],
+      "vocabulary": [
+        "save",
+        "city",
+        "tidy",
+        "deliver",
+        "kindness",
+        "together",
+        "done"
+      ],
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "indoorAlternatives": "Default city rug.",
+      "outdoorAlternatives": "Outdoor block tidy challenge.",
+      "adaptations": "One job only. Picture job cards.",
+      "extensions": "Invite a visitor to see the saved city.",
+      "mixedAgeAdaptations": "Older rebuild; younger deliver scarves.",
+      "imageBriefSetup": "Toddlers’ block city tidy/rescue scene with heart safe mat and soft friends. Footer: littlelearnershubbyleah.com",
+      "title": "Save the City Challenge",
+      "dayOfWeek": "friday",
+      "activityCategory": "Dramatic Play",
+      "durationMinutes": 12,
+      "objective": "Complete a final cooperative challenge: tidy the block city, deliver supplies, and settle friends in the safe zone—celebration through helping work.",
+      "description": "Toddlers work together to reset the block city, deliver scarf supplies, and place soft friends on the heart mat. Framed as saving the day by caring, not fighting.",
+      "materials": "Block city pieces\nSoft friends\nSupply scarves\nHeart safe mat\nTimer optional (visual sand timer)",
+      "preparation": "Messy-ish city setup ready to reset\nStage supplies\nReview kindness language",
+      "setup": "City rug with clear jobs: tidy, deliver, settle.",
+      "steps": "1. Look at the messy city—helpers needed!\n2. Tidy blocks into a bin or rebuild simply.\n3. Deliver scarves to the safe mat.\n4. Settle soft friends.\n5. Group cheer: city saved by kindness!\n6. Photo/memory optional.",
+      "teacherLanguage": "Helpers save the day by caring!\nTidy a block?\nDeliver supplies.\nFriends on the heart.\nCity saved—kindness wins!",
+      "observationOpportunities": "Cooperation, tidy persistence, and understanding of helping as “saving.”",
+      "safetyNotes": "Redirect combat themes. Soft landings for blocks. Clear walking space.",
+      "cleanupTips": "This activity IS cleanup—finish with labeled bins.",
+      "imageRequirement": "setup_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "teacherTips": [
+        "Every child gets a medal—no ranking.",
+        "Recall real moments (“you shared a scarf”)."
+      ],
+      "substitutions": [
+        {
+          "need": "Yarn",
+          "use": "Painter’s tape badge style"
+        }
+      ],
+      "observationPrompts": [
+        "Accepted medal?",
+        "React to kindness memory?"
+      ],
+      "vocabulary": [
+        "medal",
+        "celebrate",
+        "proud",
+        "kind",
+        "wear",
+        "you helped",
+        "friend"
+      ],
+      "imageBriefExample": "Toddler hero medal craft with stickers and ribbon, celebration focus. Footer: littlelearnershubbyleah.com",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "indoorAlternatives": "Default art table.",
+      "outdoorAlternatives": "Nature sticker medals outdoors.",
+      "adaptations": "Stickers only; adult finishes.",
+      "extensions": "Family note on the back with a kindness memory.",
+      "mixedAgeAdaptations": "Older color longer; toddlers sticker.",
+      "imageBriefSetup": "",
+      "title": "Create a Hero Medal",
+      "dayOfWeek": "friday",
+      "activityCategory": "Art",
+      "durationMinutes": 10,
+      "objective": "Make process-art hero medals to celebrate kindness efforts—wearable keepsakes without ranking or competition.",
+      "description": "Toddlers decorate large cardboard medals with stickers, yarn (adult-tied loosely or taped), and stamps. Every child receives celebration recognition for helping tries.",
+      "materials": "Cardboard medal circles\nStickers, stamps, crayons\nYarn or ribbon (adult-managed, breakaway/tape preferred)\nHole punch (adult)",
+      "preparation": "Pre-cut medals; pre-punch holes\nPrep yarn lengths\nPortion stickers",
+      "setup": "Art table for 2–3. Adult station for yarn.",
+      "steps": "1. Decorate medal freely.\n2. Adult adds yarn/tape loop.\n3. Name one kind thing the child did this week (teacher may recall).\n4. Place medal on child or in cubby.\n5. Mirror moment optional.\n6. Group smile.",
+      "teacherLanguage": "Decorate your medal!\nYou helped this week.\nMedal for kindness!\nWear or keep in cubby?\nProud helper!",
+      "observationOpportunities": "Art engagement and response to specific kindness recognition.",
+      "safetyNotes": "Adult manages yarn—no long neck loops unattended. Prefer tape-on shirts for under-2. Large stickers.",
+      "cleanupTips": "Yarn scraps; dry medals.",
+      "imageRequirement": "example_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "teacherTips": [
+        "End before frenzy.",
+        "Dim lights slightly if helpful."
+      ],
+      "substitutions": [
+        {
+          "need": "Foam stars",
+          "use": "Paper stars laminated"
+        }
+      ],
+      "observationPrompts": [
+        "Shared tray space?",
+        "Sensory comfort?"
+      ],
+      "vocabulary": [
+        "celebrate",
+        "star",
+        "dig",
+        "share",
+        "soft",
+        "find",
+        "week"
+      ],
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "indoorAlternatives": "Fabric-only bin.",
+      "outdoorAlternatives": "Outdoor celebration scoop.",
+      "adaptations": "Surface finds for easy success.",
+      "extensions": "Count stars with pointing cheers.",
+      "mixedAgeAdaptations": "Older hide; younger find.",
+      "imageBriefSetup": "Celebration sensory bin with large stars/hearts and scoops. Footer: littlelearnershubbyleah.com",
+      "title": "Superhero Sensory Celebration",
+      "dayOfWeek": "friday",
+      "activityCategory": "Sensory Play",
+      "durationMinutes": 10,
+      "objective": "Celebrate with a festive sensory bin of large star/heart fillers and scoops, enjoying textures and shared discovery.",
+      "description": "Toddlers dig in a celebration bin with star foam, fabric scraps, and hidden badges, cheering finds in a calm festive tone.",
+      "materials": "Sensory tub\nLarge star/heart foam\nFabric scraps\nHidden badge pieces (large)\nScoops\nSmocks",
+      "preparation": "Bury a few large surprises\nAllergy check\nSet celebration music soft optional",
+      "setup": "Bin for 2–3. Festive but calm.",
+      "steps": "1. Announce sensory celebration.\n2. Scoop and dig.\n3. Share finds on a tray.\n4. Notice textures.\n5. Re-hide for a friend.\n6. Wave bye to the bin.",
+      "teacherLanguage": "Celebration dig!\nStar for you!\nShare the tray.\nSoft or bumpy?\nWhat a hero week!",
+      "observationOpportunities": "Sensory joy, sharing, and week-end wind-down engagement.",
+      "safetyNotes": "Large fillers. Supervise mouthing. Avoid overstimulation—limit time.",
+      "cleanupTips": "Collect pieces; bag filler.",
+      "imageRequirement": "setup_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "teacherTips": [
+        "Say celebration more than graduation if families worry about pressure.",
+        "Skip diplomas that require long sitting."
+      ],
+      "substitutions": [
+        {
+          "need": "Stickers",
+          "use": "Hand stamp + high five"
+        }
+      ],
+      "observationPrompts": [
+        "Accepted sticker?",
+        "Any pride gesture?"
+      ],
+      "vocabulary": [
+        "celebrate",
+        "hero",
+        "kind",
+        "week",
+        "sticker",
+        "proud",
+        "friend"
+      ],
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 rewrite; reframed as celebration not formal graduation",
+      "indoorAlternatives": "Default circle.",
+      "outdoorAlternatives": "Blanket celebration outdoors.",
+      "adaptations": "Lap sitting or edge standing OK. Watching counts.",
+      "extensions": "Family join for the cheer if pickup aligns.",
+      "mixedAgeAdaptations": "Older help pass stickers; toddlers receive.",
+      "imageBriefSetup": "",
+      "title": "Junior Hero Graduation Ceremony",
+      "dayOfWeek": "friday",
+      "activityCategory": "Circle Time",
+      "durationMinutes": 10,
+      "objective": "Celebrate the week’s helper heroes with a song, optional medal show, and kindness cheer—framed as a warm celebration gathering, not a formal test or performance pressure.",
+      "description": "Toddlers gather for a short celebration: sing a helper chant, optionally show a badge/medal, receive a sticker, and hear specific kindness memories. Keep it brief, joyful, and optional for showing.",
+      "materials": "Cushions\nMedals/badges\nCelebration stickers\nSong card\nOptional photo prop",
+      "preparation": "Prep stickers\nRecall 1 kindness moment per child if possible\nChoose 1 short song",
+      "setup": "Circle whole or half group. Under 10 minutes.",
+      "steps": "1. Welcome helper heroes with a wave.\n2. Sing one kindness chant.\n3. Optional show-and-share of medal/badge.\n4. Teacher names class helps from the week.\n5. Sticker for each child.\n6. Cheer “Kind heroes forever!” and dismiss to play.",
+      "teacherLanguage": "Welcome, helpers!\nYou were kind this week.\nShow your medal if you like.\nSticker celebration!\nKind heroes forever!",
+      "observationOpportunities": "Circle comfort, pride responses, and engagement with celebration language.",
+      "safetyNotes": "No forcing performance. Stickers large. Keep short. Calling it celebration reduces graduation pressure.",
+      "cleanupTips": "Sticker backs trashed; props away.",
+      "imageRequirement": "not_needed"
+    }
+  ]
+}

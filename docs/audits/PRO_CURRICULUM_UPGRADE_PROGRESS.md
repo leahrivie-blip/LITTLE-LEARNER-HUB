@@ -25,8 +25,8 @@ Master Paste content is authored into upgrade JSON packages, matched 1:1 to live
 | Pet Vet Clinic | `cur-lp-toddler-pet-vet-clinic` | Toddler | 25 | 25 | 25/25 matched | OK | **NOT PUBLISHED** | COVER IMAGE PENDING | PASS |
 | Zoo Adventures | `cur-lp-toddler-zoo-adventures` | Toddler | 25 | 25 | 25/25 matched | OK | **NOT PUBLISHED** | COVER IMAGE PENDING | PASS |
 | Camping Under the Stars | `cur-lp-toddler-camping-under-the-stars` | Toddler | 25 | 25 | 25/25 matched | OK | **NOT PUBLISHED** | COVER IMAGE PENDING | PASS |
-| Pirate Adventure | `cur-lp-toddler-pirate-adventure` | Toddler | 25 | — | — | pending | — | — | — |
-| Superhero Training Camp | `cur-lp-toddler-superhero-training-camp` | Toddler | 25 | — | — | pending | — | — | — |
+| Pirate Adventure | `cur-lp-toddler-pirate-adventure` | Toddler | 25 | 25 | 25/25 matched | OK (re-author JSON after thin overwrite — re-apply recommended) | **NOT PUBLISHED** | COVER IMAGE PENDING | JSON QA PASS |
+| Superhero Training Camp | `cur-lp-toddler-superhero-training-camp` | Toddler | 25 | 25 | 25/25 matched | OK | **NOT PUBLISHED** | COVER IMAGE PENDING | JSON QA PASS |
 | Apples in the Kitchen | `cur-lp-toddler-apples-in-the-kitchen` | Toddler | 20 | — | — | pending | — | — | — |
 | Johnny Appleseed & Apple Fun | `cur-lp-toddler-johnny-appleseed-apple-fun` | Toddler | 20 | — | — | pending | — | — | — |
 
@@ -46,6 +46,18 @@ Master Paste content is authored into upgrade JSON packages, matched 1:1 to live
 #### Camping Under the Stars
 - 25/25 matched and drafted; battery lights only; flashlight eye-safety notes.
 - Cover pending.
+
+#### Pirate Adventure
+- Upgrade JSON authored (`curriculum-drafts/pro-upgrade/pirate.upgrade.json`); 25/25 live titles preserved.
+- Safety: no eye patches/weapons; cardboard telescopes; floor-level planks; large coins only; graduation reframed as celebration.
+- Cover pending; proposed activity: Ocean Adventure Pretend Play.
+- Not applied to production yet.
+
+#### Superhero Training Camp
+- Upgrade JSON authored (`curriculum-drafts/pro-upgrade/superhero.upgrade.json`); 25/25 live titles preserved.
+- Kindness-focused heroes (helping, not fighting); picture mission cards (no worksheets); graduation reframed as celebration.
+- Cover pending; proposed activity: Helping Hands Art Project.
+- Not applied to production yet.
 
 ---
 
@@ -73,4 +85,4 @@ Master Paste content is authored into upgrade JSON packages, matched 1:1 to live
 
 ## Next
 
-Continue Priority 1: Pirate Adventure → Superhero Training Camp → Apples in the Kitchen → Johnny Appleseed & Apple Fun.
+Continue Priority 1: apply Pirate + Superhero enrichment drafts when credentials available → Apples in the Kitchen → Johnny Appleseed & Apple Fun.

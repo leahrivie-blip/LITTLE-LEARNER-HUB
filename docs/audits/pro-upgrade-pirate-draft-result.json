@@ -1,0 +1,192 @@
+{
+  "before": {
+    "id": "cur-lp-toddler-pirate-adventure",
+    "title": "Pirate Adventure",
+    "plan": "Pro",
+    "status": "published",
+    "activityCount": 25,
+    "hasEnrichmentDraft": false,
+    "enrichmentPublished": false,
+    "resourceIds": [],
+    "coverImageUrl": "/api/media/lesson-covers/lesson-cover-6d5e15c6b6a84ff469647015be3b77fe"
+  },
+  "result": {
+    "phase": "complete",
+    "lessonId": "cur-lp-toddler-pirate-adventure",
+    "title": "Pirate Adventure",
+    "preserved": {
+      "idUnchanged": true,
+      "planStillPro": true,
+      "statusStillPublished": true,
+      "resourceIdsPreserved": true,
+      "coverPreserved": true,
+      "activityCountUnchanged": true
+    },
+    "draft": {
+      "saved": true,
+      "activityPatchCount": 25,
+      "publishedUnchanged": true,
+      "enrichmentPublished": false,
+      "coverStatus": "COVER IMAGE PENDING"
+    },
+    "mapping": {
+      "matched": 25,
+      "unmatched": 0
+    },
+    "publishStatus": "NOT PUBLISHED / REVIEW NEEDED",
+    "saveStatus": 200
+  },
+  "matched": [
+    {
+      "id": "cur-act-94f7bcf6a8b93880",
+      "itemId": "item-toddler-pirate-adventure-monday-1",
+      "title": "Meet the Pirate Crew",
+      "day": "monday"
+    },
+    {
+      "id": "cur-act-012c9fb944f12cb3",
+      "itemId": "item-toddler-pirate-adventure-monday-2",
+      "title": "Pirate Ship Exploration",
+      "day": "monday"
+    },
+    {
+      "id": "cur-act-39c1a5ead557bd47",
+      "itemId": "item-toddler-pirate-adventure-monday-3",
+      "title": "Pirate Dance Party",
+      "day": "monday"
+    },
+    {
+      "id": "cur-act-a68adf52ef9f6050",
+      "itemId": "item-toddler-pirate-adventure-monday-4",
+      "title": "Decorate a Pirate Hat",
+      "day": "monday"
+    },
+    {
+      "id": "cur-act-0ae39f202b9ce8ca",
+      "itemId": "item-toddler-pirate-adventure-monday-5",
+      "title": "Pirate Story Corner",
+      "day": "monday"
+    },
+    {
+      "id": "cur-act-0d875f987052eeae",
+      "itemId": "item-toddler-pirate-adventure-tuesday-1",
+      "title": "Hidden Treasure Search",
+      "day": "tuesday"
+    },
+    {
+      "id": "cur-act-46bac44936b325e4",
+      "itemId": "item-toddler-pirate-adventure-tuesday-2",
+      "title": "Treasure Chest Sensory Bin",
+      "day": "tuesday"
+    },
+    {
+      "id": "cur-act-382e33116a61feb6",
+      "itemId": "item-toddler-pirate-adventure-tuesday-3",
+      "title": "Walk the Pirate Plank",
+      "day": "tuesday"
+    },
+    {
+      "id": "cur-act-e8d28e7aa229f03c",
+      "itemId": "item-toddler-pirate-adventure-tuesday-4",
+      "title": "Gold Coin Sorting",
+      "day": "tuesday"
+    },
+    {
+      "id": "cur-act-3d736cd60dc818ca",
+      "itemId": "item-toddler-pirate-adventure-tuesday-5",
+      "title": "Captain's Treasure Mission",
+      "day": "tuesday"
+    },
+    {
+      "id": "cur-act-aea847c40ebe61cb",
+      "itemId": "item-toddler-pirate-adventure-wednesday-1",
+      "title": "Pirate Telescope Investigation",
+      "day": "wednesday"
+    },
+    {
+      "id": "cur-act-4200c6ba8a06cfa0",
+      "itemId": "item-toddler-pirate-adventure-wednesday-2",
+      "title": "Ocean Sensory Discovery",
+      "day": "wednesday"
+    },
+    {
+      "id": "cur-act-c1fd5f0f7b05db0b",
+      "itemId": "item-toddler-pirate-adventure-wednesday-3",
+      "title": "Sailor Movement Challenge",
+      "day": "wednesday"
+    },
+    {
+      "id": "cur-act-43e5955a33a5e370",
+      "itemId": "item-toddler-pirate-adventure-wednesday-4",
+      "title": "Build a Pirate Boat",
+      "day": "wednesday"
+    },
+    {
+      "id": "cur-act-e6ac90429267334a",
+      "itemId": "item-toddler-pirate-adventure-wednesday-5",
+      "title": "Ocean Adventure Pretend Play",
+      "day": "wednesday"
+    },
+    {
+      "id": "cur-act-d897267d336ea9fd",
+      "itemId": "item-toddler-pirate-adventure-thursday-1",
+      "title": "Follow the Treasure Map",
+      "day": "thursday"
+    },
+    {
+      "id": "cur-act-2310a96786dade2f",
+      "itemId": "item-toddler-pirate-adventure-thursday-2",
+      "title": "Island Exploration Sensory Tray",
+      "day": "thursday"
+    },
+    {
+      "id": "cur-act-e3c1d5f13e415e7d",
+      "itemId": "item-toddler-pirate-adventure-thursday-3",
+      "title": "Pirate Obstacle Course",
+      "day": "thursday"
+    },
+    {
+      "id": "cur-act-ff2679fd77588b99",
+      "itemId": "item-toddler-pirate-adventure-thursday-4",
+      "title": "Create a Treasure Map",
+      "day": "thursday"
+    },
+    {
+      "id": "cur-act-5588affe4d3ff7e1",
+      "itemId": "item-toddler-pirate-adventure-thursday-5",
+      "title": "Island Rescue Mission",
+      "day": "thursday"
+    },
+    {
+      "id": "cur-act-a0bd8fe8f39b80a0",
+      "itemId": "item-toddler-pirate-adventure-friday-1",
+      "title": "Build a Giant Pirate Ship",
+      "day": "friday"
+    },
+    {
+      "id": "cur-act-1d53b0d2243b1a1d",
+      "itemId": "item-toddler-pirate-adventure-friday-2",
+      "title": "Pirate Parade",
+      "day": "friday"
+    },
+    {
+      "id": "cur-act-e23039a37a15866e",
+      "itemId": "item-toddler-pirate-adventure-friday-3",
+      "title": "Treasure Chest Craft",
+      "day": "friday"
+    },
+    {
+      "id": "cur-act-67c136d3b07638e6",
+      "itemId": "item-toddler-pirate-adventure-friday-4",
+      "title": "Buried Treasure Sensory Dig",
+      "day": "friday"
+    },
+    {
+      "id": "cur-act-8d7cd9d0139f9c3b",
+      "itemId": "item-toddler-pirate-adventure-friday-5",
+      "title": "Pirate Graduation Adventure",
+      "day": "friday"
+    }
+  ],
+  "unmatched": []
+}
