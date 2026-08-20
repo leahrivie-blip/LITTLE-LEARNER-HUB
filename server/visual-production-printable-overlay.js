@@ -11,6 +11,8 @@ try {
   sharpLib = null;
 }
 
+const communityHelpersOverlay = require("./visual-production-community-helpers-overlay.js");
+
 const COVER_TITLE = "Colors All Around Us";
 const COVER_SUBTITLE = "Infant Visual & Keepsake Pack";
 const TUMMY_TIME_LABELS = Object.freeze(["RED", "YELLOW", "BLUE", "GREEN"]);
@@ -56,6 +58,7 @@ function overlayKindForBrief(brief) {
   if (title === "Color Tummy-Time Cards") return "tummyTimeLabels";
   if (title === "Rainbow Scarf Song + Teacher Prompt Card") return "rainbowScarfSong";
   if (title === "My Color Footprint Keepsake") return "footprint";
+  if (communityHelpersOverlay.hasCommunityHelpersOverlay(source)) return "communityHelpers";
   return "none";
 }
 
@@ -86,6 +89,9 @@ function buildPrintableOverlaySvg(width, height, brief) {
   const w = Number(width || 1024);
   const h = Number(height || 1536);
   const kind = overlayKindForBrief(brief);
+  if (kind === "communityHelpers") {
+    return communityHelpersOverlay.buildCommunityHelpersOverlaySvg(w, h, brief);
+  }
   /** @type {string[]} */
   const nodes = [];
   /** @type {string[]} */

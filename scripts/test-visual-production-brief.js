@@ -462,11 +462,88 @@ function assertPackAndColorsPlanContract() {
   ok(footSvg.exactLines.includes("My Color Footprint") && footSvg.exactLines.includes("Name: __________"), "footprint overlay uses exact Name/Date lines");
 }
 
+function assertCommunityHelpersPlanContract() {
+  const chPlan = require("./lib/visual-production-community-helpers-busy-little-town-plan.js");
+  const overlay = require("../server/visual-production-printable-overlay.js");
+  const chOverlay = require("../server/visual-production-community-helpers-overlay.js");
+  const planned = chPlan.buildCommunityHelpersBusyLittleTownStructuredBriefs({ activities: [] });
+  ok(planned.lessonId === chPlan.LESSON_ID, "community helpers plan uses exact lesson id");
+  ok(planned.packTitle === "Community Helpers: Our Busy Little Town Printable Pack", "community helpers pack title is exact");
+  ok(chPlan.EXPECTED_ACTIVITY_NAMES.length === 17, "community helpers lesson has 17 expected activities");
+  ok(new Set(chPlan.EXPECTED_ACTIVITY_NAMES).size === 17, "community helpers activity names are unique");
+  ok(chPlan.PAGE_TITLES.length === 24, "community helpers pack has 24 pages");
+  ok(new Set(chPlan.PAGE_TITLES).size === 24, "community helpers page titles are unique");
+  const activityRows = planned.structuredBriefs.filter((row) => row.assetType === "ACTIVITY_IMAGE");
+  const pageRows = planned.structuredBriefs.filter((row) => row.printablePackId);
+  ok(activityRows.length === 8, "8 useful community helpers activity images, not every activity");
+  ok(pageRows.length === 24, "24 printable pack pages");
+  ok(planned.structuredBriefs.length === 32, "8 activity + 24 printable briefs");
+  ok(activityRows.map((row) => row.activityName).join("|") === [
+    "Build Our Little Town",
+    "Post Office Delivery Route",
+    "Firefighter Rescue the Numbers",
+    "Doctor Teddy Check-Up Clinic",
+    "Construction Blueprint Challenge",
+    "Recycling Truck Sorting Station",
+    "Little Community Café",
+    "When I Grow Up Collaborative Mural",
+  ].join("|"), "generated activity images follow exact names, not weekday order");
+  ok(chPlan.ACTIVITY_IMAGE_PLAN["Who Should We Call"].classification === "NO_IMAGE_NEEDED", "Who Should We Call uses the printable, not a filler photo");
+  ok(chPlan.ACTIVITY_IMAGE_PLAN["When I Grow Up Collaborative Mural"].field === "exampleImageUrl", "mural attaches as finished example");
+  ok(chPlan.ACTIVITY_IMAGE_PLAN["Little Community Café"].field === "setupImageUrl", "cafe attaches as setup image");
+  ok(!chOverlay.HELPER_NAMES.includes("Police Officer"), "tool matching omits police because the lesson has no police activity");
+  ok(pageRows[0].pageNumber === 1 && pageRows[23].pageNumber === 24, "page numbers are 1 through 24");
+  ok(pageRows.map((row) => row.pageTitle).join("|") === chPlan.PAGE_TITLES.join("|"), "printable page titles stay in planned order");
+  ok(overlay.overlayKindForBrief({ pageTitle: "Cover" }) === "cover", "colors cover overlay kind is unchanged");
+  ok(overlay.overlayKindForBrief({ pageTitle: "Who Should We Call? Situation Cards (1 of 4)" }) === "communityHelpers", "situation cards use community helpers overlay");
+  ok(overlay.overlayKindForBrief({
+    activityName: "When I Grow Up Collaborative Mural",
+    assetType: "ACTIVITY_IMAGE",
+  }) === "communityHelpers", "mural photo gets a deterministic heading overlay");
+  const sitSvg = overlay.buildPrintableOverlaySvg(1024, 1536, pageRows[0]);
+  ok(sitSvg.kind === "communityHelpers", "situation overlay kind is communityHelpers");
+  ok(sitSvg.exactLines.includes("Someone feels sick") && sitSvg.exactLines.includes("A pet needs a checkup"), "situation overlay uses exact calm labels");
+  ok(!sitSvg.svg.toString("utf8").includes("littlelearnershubbyleah.com"), "community helpers overlay does not duplicate the brand footer");
+  const portrait = overlay.buildPrintableOverlaySvg(1024, 1536, pageRows[19]);
+  ok(portrait.exactLines.includes("When I Grow Up...") && portrait.exactLines.includes("I want to be a __________.") && portrait.exactLines.includes("Because __________."), "portrait overlay uses exact keepsake lines");
+  const order = overlay.buildPrintableOverlaySvg(1024, 1536, pageRows[16]);
+  ok(order.exactLines.includes("My Order") && order.exactLines.includes("sandwich"), "cafe order overlay uses exact My Order text");
+  const badges = overlay.buildPrintableOverlaySvg(1024, 1536, pageRows[11]);
+  ok(badges.exactLines.includes("Firefighter") && badges.exactLines.includes("Builder"), "badge overlay uses exact helper names");
+  const mail = overlay.buildPrintableOverlaySvg(1024, 1536, pageRows[13]);
+  ok(mail.exactLines.filter((line) => line === "Name: __________").length === 4, "mail name cards overlay four blank Name lines");
+  ok(mail.exactLines.includes("Mailbox") && mail.exactLines.includes("Classroom Mail"), "mail page overlay uses Mailbox and Classroom Mail");
+  ok(pageRows.every((row) => Array.isArray(row.textOverlayRequirements) && row.textOverlayRequirements.length), "every pack page has deterministic overlay copy");
+  ok(pageRows.every((row) => !/littlelearnershubbyleah\.com/i.test(row.originalInstruction)), "printable prompts do not ask the model to draw the website");
+
+  const linked = chPlan.buildCommunityHelpersBusyLittleTownStructuredBriefs({
+    activities: [
+      { id: "cur-act-cafe", itemId: "item-cafe", title: "Little Community Café" },
+      { id: "cur-act-town", title: "Build Our Little Town" },
+    ],
+  });
+  const linkedCafe = linked.structuredBriefs.find((row) => row.activityName === "Little Community Café");
+  const linkedTown = linked.structuredBriefs.find((row) => row.activityName === "Build Our Little Town");
+  ok(linkedCafe.activityId === "cur-act-cafe", "relink uses exact Little Community Café name, not Friday slot");
+  ok(linkedTown.activityId === "cur-act-town", "relink uses exact Build Our Little Town name even when it is not first");
+  ok(!linked.ambiguousMatches.length, "unique exact names are not ambiguous");
+
+  const ambiguous = chPlan.buildCommunityHelpersBusyLittleTownStructuredBriefs({
+    activities: [
+      { id: "cur-act-a", title: "Little Community Café" },
+      { id: "cur-act-b", title: "Little Community Café" },
+    ],
+  });
+  ok(ambiguous.ambiguousMatches.some((item) => item.activityName === "Little Community Café"), "duplicate exact names stop relink");
+  ok(!ambiguous.structuredBriefs.find((row) => row.activityName === "Little Community Café").activityId, "ambiguous name does not pick an id by position");
+}
+
 async function main() {
   console.log("Visual production brief tests");
   assertParserContract();
   assertStaticContract();
   assertPackAndColorsPlanContract();
+  assertCommunityHelpersPlanContract();
   process.env.VISUAL_PRODUCTION_MOCK_GENERATE = "1";
   await assertImageProviderContract();
 
@@ -482,6 +559,22 @@ async function main() {
           title: "Colors All Around Us",
           age: "Infant 0–6 Months",
           theme: "Colors",
+          plan: "Free",
+          status: "published",
+          coverImageUrl: COVER_URL,
+          resourceIds: [RESOURCE_ID],
+          dailyPlans: {
+            monday: { items: [] },
+            tuesday: { items: [] },
+            wednesday: { items: [] },
+            thursday: { items: [] },
+            friday: { items: [] },
+          },
+        }, {
+          id: require("./lib/visual-production-community-helpers-busy-little-town-plan.js").LESSON_ID,
+          title: "Community Helpers: Our Busy Little Town",
+          age: "Preschool 3–4 Years",
+          theme: "",
           plan: "Free",
           status: "published",
           coverImageUrl: COVER_URL,
@@ -669,6 +762,23 @@ async function main() {
     const storedPages = colorsBriefs.filter((item) => item.printablePackId).sort((a, b) => a.pageNumber - b.pageNumber);
     ok(storedPages[0].pageTitle === "Cover" && storedPages[5].pageTitle === "My Color Footprint Keepsake", "stored pack page titles survive normalize");
     ok(storedPages.every((item) => item.packTitle === colorsPlan.PACK_TITLE), "stored pack title survives normalize");
+
+    const chPlan = require("./lib/visual-production-community-helpers-busy-little-town-plan.js");
+    const chPayload = chPlan.buildCommunityHelpersBusyLittleTownStructuredBriefs({ activities: [] });
+    const chPlanned = await requestJson("POST", "/api/admin/curriculum/visual-production", {
+      action: "plan",
+      lessonId: chPlan.LESSON_ID,
+      structuredBriefs: chPayload.structuredBriefs,
+    }, ownerAuth);
+    ok(chPlanned.status === 200, "community helpers structured plan succeeds");
+    ok(chPlanned.json.generationStarted === false && chPlanned.json.attached === false, "community helpers plan does not generate or attach");
+    ok(chPlanned.json.lessonAssetsUnchanged === true, "community helpers plan leaves lesson assets unchanged");
+    ok(Array.isArray(chPlanned.json.cards) && chPlanned.json.cards.length === 32, "community helpers plan persists 32 briefs");
+    ok(chPlanned.json.cards.every((card) => card.status === "READY_FOR_REVIEW"), "all community helpers briefs are READY_FOR_REVIEW");
+    const storeCh = JSON.parse(fs.readFileSync(STORE_PATH, "utf8"));
+    const chLesson = (storeCh.siteContent.curriculum.lessonPlans || []).find((item) => item.id === chPlan.LESSON_ID);
+    ok(chLesson.plan === "Free" && chLesson.status === "published", "community helpers Free/Pro and publish state unchanged");
+    ok(JSON.stringify(chLesson.resourceIds) === JSON.stringify([RESOURCE_ID]), "community helpers existing printables unchanged");
   } finally {
     if (child.exitCode == null) {
       child.kill("SIGTERM");

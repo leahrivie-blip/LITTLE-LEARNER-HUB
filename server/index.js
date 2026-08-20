@@ -17,6 +17,7 @@ const aiAgeSafety = require("../scripts/ai-age-safety.js");
 const draftReviewModel = require("../scripts/curriculum-draft-review.js");
 const { createDraftReviewApi } = require("./curriculum-draft-review.js");
 const { createVisualProductionApi, mergeStorePreserveVisualProduction } = require("./visual-production.js");
+const restoreIndependentLesson = require("./curriculum-restore-independent-lesson.js");
 const visualProductionImage = require("./visual-production-image.js");
 const visualProductionMedia = require("./visual-production-media.js");
 const curriculumSentinel = require("../scripts/curriculum-sentinel.js");
@@ -23002,6 +23003,103 @@ async function handlePublishEnrichment(request, response, ctx) {
   });
 }
 
+async function handleAdminRestoreIndependentLessonFromHistory(request, response) {
+  const body = await readJson(request);
+  if (!requireTeachingKitOwnerAdminSession(request, body, response)) return;
+  if (body.confirmRestoreIndependent !== true) {
+    jsonResponse(response, 400, {
+      error: "Independent restore requires explicit confirmation (confirmRestoreIndependent).",
+      code: "confirm_restore_required",
+    });
+    return;
+  }
+  const store = readStore();
+  const siteContent = store.siteContent && typeof store.siteContent === "object"
+    ? store.siteContent
+    : defaultSiteContentStore();
+  if (curriculumConcurrencyConflict(siteContent, body.expectedUpdatedAt)) {
+    curriculumConflictResponse(response, siteContent);
+    return;
+  }
+  const existingCurriculum = siteContent.curriculum || defaultCurriculumStore();
+  const sourceLessonId = normalizedShortText(body.sourceLessonId, 160);
+  const sourceBefore = (existingCurriculum.lessonPlans || []).find((item) => item.id === sourceLessonId) || null;
+  const sourceFingerprint = sourceBefore
+    ? JSON.stringify({
+      id: sourceBefore.id,
+      title: sourceBefore.title,
+      age: sourceBefore.age,
+      status: sourceBefore.status,
+      plan: sourceBefore.plan,
+      updatedAt: sourceBefore.updatedAt,
+      resourceIds: sourceBefore.resourceIds,
+      publishedAt: sourceBefore.publishedAt,
+    })
+    : "";
+  const result = restoreIndependentLesson.restoreIndependentLessonFromPasteReplaceSnapshot({
+    curriculum: existingCurriculum,
+    sourceLessonId,
+    historyVersionId: body.historyVersionId,
+    expectedSnapshotTitle: body.expectedSnapshotTitle,
+    expectedSnapshotAge: body.expectedSnapshotAge,
+    newLessonId: normalizedShortText(body.newLessonId, 160) || generateCurriculumLessonPlanId(),
+    linkResourceIds: Array.isArray(body.linkResourceIds) ? body.linkResourceIds : [],
+    verifiedPhotoMaps: Array.isArray(body.verifiedPhotoMaps) ? body.verifiedPhotoMaps : [],
+    coverImageUrl: body.coverImageUrl,
+    coverImageAlt: body.coverImageAlt,
+    coverImageSource: body.coverImageSource,
+    coverImagePosition: body.coverImagePosition,
+    now: new Date().toISOString(),
+  });
+  if (!result.ok) {
+    jsonResponse(response, result.code === "source_lesson_not_found" ? 404 : 409, {
+      error: result.error,
+      code: result.code,
+    });
+    return;
+  }
+  const writeResult = writeSiteCurriculumTouched(store, result.curriculum, {
+    updatedAt: result.now,
+    touchedLessonPlanIds: result.touchedLessonPlanIds,
+    touchedActivityIds: result.touchedActivityIds,
+    touchedResourceIds: result.touchedResourceIds,
+  });
+  if (writeResult.wipeBlocked) {
+    jsonResponse(response, 409, {
+      error: "Restore refused to protect curriculum integrity.",
+      code: "curriculum_wipe_blocked",
+    });
+    return;
+  }
+  await writeStoreAsync(store);
+  const saved = (store.siteContent.curriculum.lessonPlans || []).find((item) => item.id === result.newLessonId);
+  const sourceAfter = (store.siteContent.curriculum.lessonPlans || []).find((item) => item.id === sourceLessonId);
+  const sourceUnchanged = JSON.stringify({
+    id: sourceAfter?.id,
+    title: sourceAfter?.title,
+    age: sourceAfter?.age,
+    status: sourceAfter?.status,
+    plan: sourceAfter?.plan,
+    updatedAt: sourceAfter?.updatedAt,
+    resourceIds: sourceAfter?.resourceIds,
+    publishedAt: sourceAfter?.publishedAt,
+  }) === sourceFingerprint;
+  jsonResponse(response, 200, {
+    ok: true,
+    restoredIndependent: true,
+    autoPublished: false,
+    newLessonId: result.newLessonId,
+    sourceLessonId: result.sourceLessonId,
+    recoveredActivityCount: result.recoveredActivityCount,
+    photosRestored: result.photosRestored,
+    photosUnlinked: result.photosUnlinked,
+    sourceLessonUnchanged: sourceUnchanged,
+    lessonPlan: saved,
+    curriculum: store.siteContent.curriculum,
+    siteContentUpdatedAt: store.siteContent.updatedAt,
+  });
+}
+
 async function handleAdminCurriculumLessonPlanSave(request, response, options = {}) {
   const startedAt = Date.now();
   let step = "received";
@@ -23021,7 +23119,8 @@ async function handleAdminCurriculumLessonPlanSave(request, response, options = 
     }
 
     const saveMode = normalizedShortText(options.forceSaveMode || body.saveMode, 40) || "full";
-    const incomingId = normalizedShortText(incomingPlan.id, 160);
+    const createNewLesson = body.createNewLesson === true;
+    const incomingId = createNewLesson ? "" : normalizedShortText(incomingPlan.id, 160);
     const id = incomingId || generateCurriculumLessonPlanId();
     const now = new Date().toISOString();
     step = "readStore";
@@ -23250,6 +23349,24 @@ async function handleAdminCurriculumLessonPlanSave(request, response, options = 
         return;
       }
       const pasteApi = require("../scripts/curriculum-lesson-structure-paste.js");
+      const identityConflict = pasteApi.masterPasteReplaceIdentityConflict(
+        existingPlan,
+        incomingPlan,
+        existingCurriculum.lessonPlans || [],
+      );
+      if (identityConflict) {
+        jsonResponse(response, 409, {
+          error: identityConflict.error,
+          code: identityConflict.code,
+          existingId: identityConflict.existingId,
+          existingTitle: identityConflict.existingTitle,
+          existingAge: identityConflict.existingAge,
+          incomingTitle: identityConflict.incomingTitle,
+          incomingAge: identityConflict.incomingAge,
+          conflictingLessonId: identityConflict.conflictingLessonId || "",
+        });
+        return;
+      }
       const existingActs = (existingCurriculum.activities || []).filter(
         (item) => item && item.lessonPlanId === id && item.status !== "archived",
       );
@@ -30862,6 +30979,9 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/lesson-plans") return await handleAdminCurriculumLessonPlanSave(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/lesson-plans/replace-from-master-paste") {
       return await handleAdminCurriculumLessonPlanSave(request, response, { forceSaveMode: "replace_from_master_paste" });
+    }
+    if (request.method === "POST" && url.pathname === "/api/admin/curriculum/lesson-plans/restore-independent-from-history") {
+      return await handleAdminRestoreIndependentLessonFromHistory(request, response);
     }
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/lesson-plans/delete") {
       return await handleAdminCurriculumLessonPlanDelete(request, response);
