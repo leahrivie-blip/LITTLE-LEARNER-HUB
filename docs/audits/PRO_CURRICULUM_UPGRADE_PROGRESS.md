@@ -116,3 +116,13 @@ For every Priority 1 lesson:
 ## Next
 
 Begin **Priority 2** by need (generic AI-template wording, missing questions, weak setup, age issues, missing TK sections, weak images/printables)—still draft-only, small batches, never publish.
+
+
+## Owner-review visuals pass (Priority 1)
+
+For all 7 Priority 1 lessons:
+- Draft printables uploaded + linked on `enrichmentDraft.week.printableIds` (status remains draft)
+- Curated realistic activity images attached on enrichment drafts (5/lesson)
+- Lesson covers replaced with strongest activity photos (catalog cover field)
+- `enrichmentPublished` remains false — owner must Publish manually
+- Report: `docs/audits/PRO_PRIORITY1_OWNER_REVIEW_READY.md`

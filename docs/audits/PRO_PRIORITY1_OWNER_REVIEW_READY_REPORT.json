@@ -1,0 +1,274 @@
+{
+  "at": "2026-08-20T17:30:52.052Z",
+  "report": [
+    {
+      "lessonId": "cur-lp-toddler-pet-vet-clinic",
+      "title": "Pet Vet Clinic",
+      "activityCount": 25,
+      "imagesAddedThisPass": [],
+      "imageCountUnique": 5,
+      "printableIds": [
+        "cur-res-b11d123a40d51a11",
+        "cur-res-f5fc9f02b43f9c53"
+      ],
+      "printables": [
+        {
+          "id": "cur-res-b11d123a40d51a11",
+          "title": "Clinic Zone Signs (Draft)",
+          "status": "draft"
+        },
+        {
+          "id": "cur-res-f5fc9f02b43f9c53",
+          "title": "Pet Care Choice Cards (Draft)",
+          "status": "draft"
+        }
+      ],
+      "cover": {
+        "ok": true,
+        "coverImageUrl": "/api/media/lesson-covers/lesson-cover-b74b5d3bade588e353bead1845450e70",
+        "coverActivity": "Veterinarian Dramatic Play Center",
+        "bytes": 161045
+      },
+      "coverImageUrl": "/api/media/lesson-covers/lesson-cover-b74b5d3bade588e353bead1845450e70",
+      "enrichmentPublished": false,
+      "planStatus": "published",
+      "plan": "Pro",
+      "ownerReviewReady": true,
+      "publishStatus": "NOT PUBLISHED"
+    },
+    {
+      "lessonId": "cur-lp-toddler-zoo-adventures",
+      "title": "Zoo Adventures",
+      "activityCount": 25,
+      "imagesAddedThisPass": [],
+      "imageCountUnique": 5,
+      "printableIds": [
+        "cur-res-b5ac54d682293f5f",
+        "cur-res-91d913cc179a73ed"
+      ],
+      "printables": [
+        {
+          "id": "cur-res-b5ac54d682293f5f",
+          "title": "Habitat Zone Signs (Draft)",
+          "status": "draft"
+        },
+        {
+          "id": "cur-res-91d913cc179a73ed",
+          "title": "Animal Choice Cards (Draft)",
+          "status": "draft"
+        }
+      ],
+      "cover": {
+        "ok": true,
+        "coverImageUrl": "/api/media/lesson-covers/lesson-cover-c64d06467e1f838c48daa18a3c7f780e",
+        "coverActivity": "Zoo Keeper Dramatic Play",
+        "bytes": 143019
+      },
+      "coverImageUrl": "/api/media/lesson-covers/lesson-cover-c64d06467e1f838c48daa18a3c7f780e",
+      "enrichmentPublished": false,
+      "planStatus": "published",
+      "plan": "Pro",
+      "ownerReviewReady": true,
+      "publishStatus": "NOT PUBLISHED"
+    },
+    {
+      "lessonId": "cur-lp-toddler-camping-under-the-stars",
+      "title": "Camping Under the Stars",
+      "activityCount": 25,
+      "imagesAddedThisPass": [],
+      "imageCountUnique": 5,
+      "printableIds": [
+        "cur-res-f05a4b1d1ea1f03b",
+        "cur-res-8fe9dfb61174228c"
+      ],
+      "printables": [
+        {
+          "id": "cur-res-f05a4b1d1ea1f03b",
+          "title": "Trail Signs (Draft)",
+          "status": "draft"
+        },
+        {
+          "id": "cur-res-8fe9dfb61174228c",
+          "title": "Day and Night Cards (Draft)",
+          "status": "draft"
+        }
+      ],
+      "cover": {
+        "ok": true,
+        "coverImageUrl": "/api/media/lesson-covers/lesson-cover-76dc895b72b2dd04a5458509b0b4afeb",
+        "coverActivity": "Set Up the Campsite",
+        "bytes": 161540
+      },
+      "coverImageUrl": "/api/media/lesson-covers/lesson-cover-76dc895b72b2dd04a5458509b0b4afeb",
+      "enrichmentPublished": false,
+      "planStatus": "published",
+      "plan": "Pro",
+      "ownerReviewReady": true,
+      "publishStatus": "NOT PUBLISHED"
+    },
+    {
+      "lessonId": "cur-lp-toddler-pirate-adventure",
+      "title": "Pirate Adventure",
+      "activityCount": 25,
+      "imagesAddedThisPass": [],
+      "imageCountUnique": 5,
+      "printableIds": [
+        "cur-res-ec06af2ecc16e6a8",
+        "cur-res-bbea62bb89e29307"
+      ],
+      "printables": [
+        {
+          "id": "cur-res-ec06af2ecc16e6a8",
+          "title": "Ship / Island Zone Signs (Draft)",
+          "status": "draft"
+        },
+        {
+          "id": "cur-res-bbea62bb89e29307",
+          "title": "Photo Treasure Map Template (Draft)",
+          "status": "draft"
+        }
+      ],
+      "cover": {
+        "ok": true,
+        "coverImageUrl": "/api/media/lesson-covers/lesson-cover-17eacc8786279815ac234b2dd6d60800",
+        "coverActivity": "Ocean Adventure Pretend Play",
+        "bytes": 180596
+      },
+      "coverImageUrl": "/api/media/lesson-covers/lesson-cover-17eacc8786279815ac234b2dd6d60800",
+      "enrichmentPublished": false,
+      "planStatus": "published",
+      "plan": "Pro",
+      "ownerReviewReady": true,
+      "publishStatus": "NOT PUBLISHED"
+    },
+    {
+      "lessonId": "cur-lp-toddler-superhero-training-camp",
+      "title": "Superhero Training Camp",
+      "activityCount": 25,
+      "imagesAddedThisPass": [],
+      "imageCountUnique": 5,
+      "printableIds": [
+        "cur-res-a885084c433b23e5",
+        "cur-res-1402d0c76cd86bdf"
+      ],
+      "printables": [
+        {
+          "id": "cur-res-a885084c433b23e5",
+          "title": "Helper Zone Signs (Draft)",
+          "status": "draft"
+        },
+        {
+          "id": "cur-res-1402d0c76cd86bdf",
+          "title": "Kindness Mission Picture Cards (Draft)",
+          "status": "draft"
+        }
+      ],
+      "cover": {
+        "ok": true,
+        "coverImageUrl": "/api/media/lesson-covers/lesson-cover-0181df2e130512bf6f1e03424a5332bf",
+        "coverActivity": "City Rescue Adventure",
+        "bytes": 180712
+      },
+      "coverImageUrl": "/api/media/lesson-covers/lesson-cover-0181df2e130512bf6f1e03424a5332bf",
+      "enrichmentPublished": false,
+      "planStatus": "published",
+      "plan": "Pro",
+      "ownerReviewReady": true,
+      "publishStatus": "NOT PUBLISHED"
+    },
+    {
+      "lessonId": "cur-lp-toddler-apples-in-the-kitchen",
+      "title": "Apples in the Kitchen",
+      "activityCount": 20,
+      "imagesAddedThisPass": [
+        "Little Apple Kitchen",
+        "Apple Juice Café",
+        "Apple Pie Dough",
+        "Chef Hat Decorating",
+        "Applesauce Jar Craft"
+      ],
+      "imageCountUnique": 5,
+      "printableIds": [
+        "cur-res-9dba67cffe7ed329",
+        "cur-res-39fa83250cfc3b9d",
+        "cur-res-e4f2e479ac4fff3a"
+      ],
+      "printables": [
+        {
+          "id": "cur-res-9dba67cffe7ed329",
+          "title": "Kitchen Zone Signs (Draft)",
+          "status": "draft"
+        },
+        {
+          "id": "cur-res-39fa83250cfc3b9d",
+          "title": "Picture Recipe Cards (Draft)",
+          "status": "draft"
+        },
+        {
+          "id": "cur-res-e4f2e479ac4fff3a",
+          "title": "Café Menu Picture Cards (Draft)",
+          "status": "draft"
+        }
+      ],
+      "cover": {
+        "ok": true,
+        "coverImageUrl": "/api/media/lesson-covers/lesson-cover-2397c2fd0b68c28b394a3a771b6fad23",
+        "coverActivity": "Little Apple Kitchen",
+        "bytes": 177689
+      },
+      "coverImageUrl": "/api/media/lesson-covers/lesson-cover-2397c2fd0b68c28b394a3a771b6fad23",
+      "enrichmentPublished": false,
+      "planStatus": "published",
+      "plan": "Pro",
+      "ownerReviewReady": true,
+      "publishStatus": "NOT PUBLISHED"
+    },
+    {
+      "lessonId": "cur-lp-toddler-johnny-appleseed-apple-fun",
+      "title": "Johnny Appleseed & Apple Fun",
+      "activityCount": 20,
+      "imagesAddedThisPass": [
+        "Harvest the Apples",
+        "Garden Sensory Bin",
+        "Johnny's Apple Tree",
+        "Seed to Tree Craft",
+        "Build an Apple Tree"
+      ],
+      "imageCountUnique": 5,
+      "printableIds": [
+        "cur-res-be91b95b163a2f3f",
+        "cur-res-5d1005a0e642d16f",
+        "cur-res-1318b7804cd008fc"
+      ],
+      "printables": [
+        {
+          "id": "cur-res-be91b95b163a2f3f",
+          "title": "Orchard Zone Signs (Draft)",
+          "status": "draft"
+        },
+        {
+          "id": "cur-res-5d1005a0e642d16f",
+          "title": "Oversized Apple Life-Cycle Cards (Draft)",
+          "status": "draft"
+        },
+        {
+          "id": "cur-res-1318b7804cd008fc",
+          "title": "Seed–Plant–Water Choice Cards (Draft)",
+          "status": "draft"
+        }
+      ],
+      "cover": {
+        "ok": true,
+        "coverImageUrl": "/api/media/lesson-covers/lesson-cover-0fbd5b13930efaafa81b4497f162bf7e",
+        "coverActivity": "Garden Sensory Bin",
+        "bytes": 141667
+      },
+      "coverImageUrl": "/api/media/lesson-covers/lesson-cover-0fbd5b13930efaafa81b4497f162bf7e",
+      "enrichmentPublished": false,
+      "planStatus": "published",
+      "plan": "Pro",
+      "ownerReviewReady": true,
+      "publishStatus": "NOT PUBLISHED"
+    }
+  ]
+}
