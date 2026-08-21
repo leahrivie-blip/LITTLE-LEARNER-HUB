@@ -103,6 +103,8 @@ const WEEKLY_CHANGES_KEYS = Object.freeze([
   "changes",
   "fields",
   "updates",
+  // Models sometimes echo the prompt request bag key instead of weeklyChanges.
+  "requestedWeek",
 ]);
 
 const PAYLOAD_WRAPPER_KEYS = Object.freeze([
@@ -126,6 +128,9 @@ function looksLikeComposerPayload(obj) {
   if (!obj || typeof obj !== "object" || Array.isArray(obj)) return false;
   if (WEEKLY_CHANGES_KEYS.some((k) => obj[k] != null)) return true;
   if (Array.isArray(obj.activities) || Array.isArray(obj.songs) || Array.isArray(obj.books)) return true;
+  if (Array.isArray(obj.requestedActivities) || (obj.requestedActivities && typeof obj.requestedActivities === "object")) {
+    return true;
+  }
   if (obj.week && typeof obj.week === "object" && !Array.isArray(obj.week)) return true;
   return WEEK_FIELDS.some((field) => Object.prototype.hasOwnProperty.call(obj, field))
     || Object.prototype.hasOwnProperty.call(obj, "vocabularyWords");
@@ -352,10 +357,93 @@ function extractWeeklyChangesInput(parsed) {
 }
 
 function activityChangesShape(parsed) {
-  if (!Object.prototype.hasOwnProperty.call(parsed || {}, "activities")) return "absent";
-  if (Array.isArray(parsed.activities)) return "array";
-  if (parsed.activities && typeof parsed.activities === "object") return "object";
-  return "other";
+  if (Object.prototype.hasOwnProperty.call(parsed || {}, "activities")) {
+    if (Array.isArray(parsed.activities)) return "array";
+    if (parsed.activities && typeof parsed.activities === "object") return "object";
+    return "other";
+  }
+  if (Object.prototype.hasOwnProperty.call(parsed || {}, "requestedActivities")) {
+    if (Array.isArray(parsed.requestedActivities)) return "array";
+    if (parsed.requestedActivities && typeof parsed.requestedActivities === "object") return "object";
+    return "other";
+  }
+  return "absent";
+}
+
+/**
+ * Prefer contract key `activities`; fall back to echoed prompt key `requestedActivities`.
+ * Supports rows with `changes`, `fields:[{field,action,value}]`, or top-level activity fields.
+ */
+function normalizeActivitiesInput(parsed) {
+  if (Array.isArray(parsed?.activities)) {
+    return {
+      activities: parsed.activities,
+      sourceKey: "activities",
+      activityChangesShape: "array",
+    };
+  }
+  if (parsed?.activities && typeof parsed.activities === "object") {
+    return {
+      activities: [],
+      sourceKey: "activities",
+      activityChangesShape: "object",
+    };
+  }
+
+  const requested = parsed?.requestedActivities;
+  if (Array.isArray(requested)) {
+    const activities = requested.map((row) => {
+      if (!row || typeof row !== "object" || Array.isArray(row)) return row;
+      const activityId = row.activityId || row.id;
+      if (row.changes && typeof row.changes === "object" && !Array.isArray(row.changes)) {
+        return { activityId, changes: row.changes };
+      }
+      if (Array.isArray(row.fields)) {
+        const changes = {};
+        row.fields.forEach((entry) => {
+          if (!entry || typeof entry !== "object" || Array.isArray(entry)) return;
+          const field = text(entry.field || entry.name || entry.key, 80);
+          if (!field) return;
+          const hasValue = entry.value != null || entry.text != null || entry.content != null;
+          const action = text(entry.action || entry.decision, 20);
+          if (!hasValue && !action) return;
+          changes[field] = entry;
+        });
+        if (Object.keys(changes).length) {
+          return { activityId, changes };
+        }
+      }
+      return { activityId, ...row };
+    });
+    return {
+      activities,
+      sourceKey: "requestedActivities",
+      activityChangesShape: "array",
+    };
+  }
+
+  if (requested && typeof requested === "object") {
+    const activities = Object.entries(requested).map(([id, val]) => {
+      if (val && typeof val === "object" && !Array.isArray(val) && val.changes) {
+        return { activityId: text(val.activityId || id, 160), changes: val.changes };
+      }
+      if (val && typeof val === "object" && !Array.isArray(val)) {
+        return { activityId: text(val.activityId || id, 160), changes: val };
+      }
+      return { activityId: text(id, 160), changes: {} };
+    });
+    return {
+      activities,
+      sourceKey: "requestedActivities",
+      activityChangesShape: "object",
+    };
+  }
+
+  return {
+    activities: [],
+    sourceKey: "",
+    activityChangesShape: "absent",
+  };
 }
 
 /**
@@ -370,6 +458,8 @@ function buildComposerShapeDiagnostics({
   rejected,
   parsed,
   mutationCount,
+  activitySourceKey,
+  activityShape,
 } = {}) {
   const weeklyAccepted = schema.asArray(accepted).filter((row) => row.scope === "week");
   const activityAccepted = schema.asArray(accepted).filter((row) => row.scope === "activity");
@@ -383,7 +473,8 @@ function buildComposerShapeDiagnostics({
     acceptedWeeklyCount: weeklyAccepted.length,
     rejectedWeeklyCount: schema.asArray(rejected).filter((row) => !String(row.field || "").includes(".")).length,
     rejectionReasonCodes: rejectionCodes.slice(0, 24),
-    activityChangesShape: activityChangesShape(parsed),
+    activityChangesShape: text(activityShape || activityChangesShape(parsed), 20) || "absent",
+    activitySourceKey: text(activitySourceKey, 80) || null,
     acceptedActivityCount: activityAccepted.length,
     finalMutationCount: Number(mutationCount) || 0,
     // Detailed rows retained for deterministic tests / safe debugging (no raw AI text).
@@ -653,7 +744,8 @@ function buildComposerSystemPrompt(ageRaw) {
     "Return ONLY valid JSON. No markdown fences. No commentary.",
     "Write substantial, teacher-usable curriculum content — never generic filler.",
     "Priority: (1) teacher usefulness (2) developmental appropriateness (3) activity specificity (4) weekly coherence (5) completeness (6) readiness score.",
-    "KEEP means do not rewrite. Only return fields listed under requestedWeek / requestedActivities / requestedSongs / requestedBooks.",
+    "KEEP means do not rewrite. Only compose values for fields listed under requestedWeek / requestedActivities / requestedSongs / requestedBooks in the user JSON.",
+    "Output top-level keys must be lessonId, weeklyChanges, activities, songs, and books — do not echo requestedWeek or requestedActivities as response keys.",
     "Do not change lessonId, title, age, or access plan.",
     "Do not invent image or printable fields.",
     "Do not invent famous copyrighted song lyrics or book titles you do not know exist; for books prefer classroom-library search guidance.",
@@ -674,6 +766,7 @@ function buildComposerUserPrompt(context) {
     "Make IMPROVE fields substantially better while retaining useful specifics.",
     "Make FILL fields complete enough that a teacher can run the activity from the plan.",
     "Reject generic phrasing like \"Children will explore X\", \"Set out materials\", or \"What do you see?\".",
+    "Return weeklyChanges + activities (not requestedWeek / requestedActivities).",
     "",
     JSON.stringify(context, null, 2),
   ].join("\n");
@@ -790,6 +883,7 @@ function validateComposerOutput(rawText, work, plan) {
   const accepted = [];
   const rejected = [];
   const extracted = extractWeeklyChangesInput(parsed);
+  const activitiesInput = normalizeActivitiesInput(parsed);
 
   function shapeDiagnostics(extraRejected = [], mutationCount = 0) {
     return buildComposerShapeDiagnostics({
@@ -800,6 +894,8 @@ function validateComposerOutput(rawText, work, plan) {
       rejected: [...rejected, ...extraRejected],
       parsed,
       mutationCount,
+      activitySourceKey: activitiesInput.sourceKey,
+      activityShape: activitiesInput.activityChangesShape,
     });
   }
 
@@ -861,7 +957,7 @@ function validateComposerOutput(rawText, work, plan) {
 
   const allowedActs = new Map(work.activityRequests.map((r) => [r.activityId, r]));
   const activitiesOut = [];
-  for (const row of schema.asArray(parsed.activities)) {
+  for (const row of schema.asArray(activitiesInput.activities)) {
     const activityId = text(row?.activityId || row?.id, 160);
     if (!activityId) {
       return { ok: false, code: "malformed_output", error: "Activity change missing activityId." };
@@ -1324,4 +1420,5 @@ module.exports = {
   coerceChangeEntry,
   buildComposerShapeDiagnostics,
   weeklyChangesFromArray,
+  normalizeActivitiesInput,
 };

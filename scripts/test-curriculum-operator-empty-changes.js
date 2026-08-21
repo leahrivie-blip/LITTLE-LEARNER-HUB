@@ -396,6 +396,110 @@ async function main() {
       "diagnostics do not embed full field values");
   }
 
+  // Live-proven gap: model echoes prompt request keys instead of weeklyChanges/activities
+  {
+    const requestedWeek = work.weekRequests.map((req) => ({
+      field: req.field,
+      action: req.action,
+      value: changeFor(req.field, req.action).value,
+    }));
+    const raw = JSON.stringify({
+      requestedWeek,
+      requestedActivities: [],
+    });
+    const validated = composer.validateComposerOutput(raw, work, plan);
+    ok(validated.ok === true, "requestedWeek echo with values accepts weekly mutations");
+    ok(validated.diagnostics.weeklySourceKey === "requestedWeek[]"
+      || validated.diagnostics.weeklySourceKey === "requestedWeek",
+    "requestedWeek source key recorded");
+    ok(validated.diagnostics.acceptedWeeklyCount >= 3, "requestedWeek yields accepted weekly mutations");
+    ok(validated.diagnostics.finalMutationCount > 0, "requestedWeek echo is not empty_changes");
+  }
+
+  {
+    const workWithAct = {
+      ...work,
+      activityRequests: [{
+        activityId: "cur-act-real",
+        title: "Real",
+        decision: "IMPROVE",
+        fields: [{ field: "objective", action: "FILL" }],
+      }],
+      hasWork: true,
+    };
+    const raw = JSON.stringify({
+      requestedWeek: work.weekRequests.map((req) => ({
+        field: req.field,
+        action: req.action,
+        value: changeFor(req.field, req.action).value,
+      })),
+      requestedActivities: [{
+        activityId: "cur-act-real",
+        fields: [{
+          field: "objective",
+          action: "FILL",
+          value: longValue("objective"),
+        }],
+      }],
+    });
+    const validated = composer.validateComposerOutput(raw, workWithAct, plan);
+    ok(validated.ok === true, "requestedActivities fields[] echo accepts activity mutations");
+    ok(validated.diagnostics.activitySourceKey === "requestedActivities",
+      "activitySourceKey=requestedActivities");
+    ok(validated.diagnostics.acceptedActivityCount >= 1, "requestedActivities yields accepted activity mutations");
+  }
+
+  {
+    const workWithAct = {
+      ...work,
+      activityRequests: [{
+        activityId: "cur-act-real",
+        title: "Real",
+        decision: "IMPROVE",
+        fields: [{ field: "objective", action: "FILL" }],
+      }],
+      hasWork: true,
+    };
+    const raw = JSON.stringify({
+      requestedWeek: {
+        weeklyOverview: changeFor("weeklyOverview", "REPLACE"),
+        objectives: changeFor("objectives", "REPLACE"),
+      },
+      requestedActivities: [{
+        activityId: "cur-act-real",
+        changes: { objective: { action: "FILL", value: longValue("objective") } },
+      }],
+    });
+    const validated = composer.validateComposerOutput(raw, workWithAct, plan);
+    ok(validated.ok === true, "requestedWeek object + requestedActivities changes[] accepted");
+    ok(validated.diagnostics.weeklySourceKey === "requestedWeek", "object requestedWeek source key");
+  }
+
+  // Empty request-key echo (no values) still empty_changes
+  {
+    const raw = JSON.stringify({
+      requestedWeek: work.weekRequests.map((req) => ({
+        field: req.field,
+        action: req.action,
+        reason: "placeholder",
+      })),
+      requestedActivities: [],
+    });
+    const validated = composer.validateComposerOutput(raw, work, plan);
+    ok(validated.ok === false && validated.code === "empty_changes",
+      "requestedWeek echo without values remains empty_changes");
+  }
+
+  // Prompt contract language no longer tells the model to return requestedWeek keys
+  {
+    const sys = composer.buildComposerSystemPrompt("Preschool");
+    ok(/weeklyChanges/.test(sys) && /do not echo requestedWeek/i.test(sys),
+      "system prompt forbids echoing requestedWeek as output keys");
+    const user = composer.buildComposerUserPrompt({ lessonId: LESSON_ID, requestedWeek: [] });
+    ok(/Return weeklyChanges \+ activities/.test(user),
+      "user prompt asks for weeklyChanges + activities");
+  }
+
   // Unsupported alias rejected
   {
     const raw = JSON.stringify({
