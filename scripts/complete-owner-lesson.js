@@ -30,12 +30,13 @@ const CONFIGS = {
   "black-white-discovery": "./lib/owner-lesson-complete/configs/black-white-discovery.js",
   "toddler-all-about-me": "./lib/owner-lesson-complete/configs/toddler-all-about-me.js",
   "little-makers-workshop": "./lib/owner-lesson-complete/configs/little-makers-workshop.js",
+  "farm-animals": "./lib/owner-lesson-complete/configs/farm-animals.js",
 };
 
 async function main() {
   const key = String(process.argv[2] || "").trim();
   if (!CONFIGS[key]) {
-    console.error("Usage: complete-owner-lesson.js <bugs-butterflies|big-feelings|black-white-discovery|toddler-all-about-me|little-makers-workshop>");
+    console.error("Usage: complete-owner-lesson.js <bugs-butterflies|big-feelings|black-white-discovery|toddler-all-about-me|little-makers-workshop|farm-animals>");
     process.exit(2);
   }
   if (process.env.LLH_APPLY_PRODUCTION_DRAFTS !== "1") {
@@ -225,9 +226,10 @@ async function main() {
       console.warn("SKIP missing live activity", title);
       continue;
     }
+    const priorAct = priorDraft.activities?.[live.id] || {};
     const patch = mergeActivityPatch(live, { ...overlay, title });
     activities[live.id] = {
-      ...(priorDraft.activities?.[live.id] || {}),
+      ...priorAct,
       ...patch,
       activityId: live.id,
       itemId: live.itemId,
@@ -237,8 +239,46 @@ async function main() {
 
     const planImg = String(overlay.imagePlan || "IMAGE_NOT_NEEDED");
     if (planImg === "IMAGE_NOT_NEEDED") {
-      report.images.skipped.push({ title, reason: planImg });
+      // Explicitly clear prior draft photos for song/movement/etc.
+      activities[live.id].setupImageUrl = "";
+      activities[live.id].exampleImageUrl = "";
+      activities[live.id].setupMediaAssetId = "";
+      activities[live.id].exampleMediaAssetId = "";
+      activities[live.id].setupImageThumbUrl = "";
+      activities[live.id].exampleImageThumbUrl = "";
+      if (live.itemId) activities[live.itemId] = { ...activities[live.id] };
+      report.images.skipped.push({ title, reason: planImg, clearedPrior: !!(priorAct.setupImageUrl || priorAct.exampleImageUrl) });
+    } else if (overlay.reuseExistingSetupImage && (priorAct.setupImageUrl || priorAct.exampleImageUrl)) {
+      activities[live.id].setupImageUrl = priorAct.setupImageUrl || priorAct.exampleImageUrl || "";
+      activities[live.id].exampleImageUrl = overlay.keepExampleImage === false ? "" : (priorAct.exampleImageUrl || "");
+      activities[live.id].setupMediaAssetId = priorAct.setupMediaAssetId || priorAct.exampleMediaAssetId || "";
+      activities[live.id].exampleMediaAssetId = overlay.keepExampleImage === false ? "" : (priorAct.exampleMediaAssetId || "");
+      if (live.itemId) activities[live.itemId] = { ...activities[live.id] };
+      report.images.created.push({
+        title,
+        activityKey: live.id,
+        requirement: planImg,
+        source: "reuse_existing_draft",
+        url: String(activities[live.id].setupImageUrl).slice(0, 160),
+        mediaAssetId: activities[live.id].setupMediaAssetId || "",
+      });
+      // Download for cover preference if needed
+      imageJobs.push({
+        activityKey: live.id,
+        title,
+        brief: overlay.imageBriefSetup || overlay.description || title,
+        requirement: planImg,
+        reuseUrl: activities[live.id].setupImageUrl,
+      });
     } else {
+      // Replace path: drop prior mismatched images before generating a new photo.
+      activities[live.id].setupImageUrl = "";
+      activities[live.id].exampleImageUrl = "";
+      activities[live.id].setupMediaAssetId = "";
+      activities[live.id].exampleMediaAssetId = "";
+      activities[live.id].setupImageThumbUrl = "";
+      activities[live.id].exampleImageThumbUrl = "";
+      if (live.itemId) activities[live.itemId] = { ...activities[live.id] };
       imageJobs.push({
         activityKey: live.id,
         title,
@@ -292,6 +332,19 @@ async function main() {
     const slug = job.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 48);
     const outPath = path.join(genDir, `${slug}.png`);
     try {
+      if (job.reuseUrl) {
+        // Pull existing draft photo locally for cover selection only (already attached).
+        await client.ensureToken(tokenRef);
+        const abs = job.reuseUrl.startsWith("http") ? job.reuseUrl : `${client.siteUrl}${job.reuseUrl}`;
+        const res = await fetch(abs, { headers: { Authorization: `Bearer ${tokenRef.token}` } });
+        const buf = Buffer.from(await res.arrayBuffer());
+        if (!res.ok || buf.length < 10000) throw new Error(`reuse download failed (${res.status})`);
+        fs.writeFileSync(outPath, buf);
+        localByTitle.set(job.title, outPath);
+        console.log("IMAGE REUSE", job.title);
+        imgIndex += 1;
+        continue;
+      }
       if (!process.env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY missing");
       console.log("GEN START", job.title);
       if (!fs.existsSync(outPath) || fs.statSync(outPath).size < 20000) {
