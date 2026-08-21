@@ -246,12 +246,21 @@ function rejectGenericField(field, value) {
   return null;
 }
 
-function detectOutputTruncation(rawText, parsedActivityCount, requiredCount) {
+function detectOutputTruncation(rawText, parsedActivityCount, requiredCount, options = {}) {
   const raw = String(rawText || "");
-  const trimmed = raw.trim();
+  // Evaluate structure on fence-stripped JSON so markdown wrappers do not false-flag tails.
+  const stripped = composer.stripJsonFences(raw).trim();
   const reasons = [];
-  if (!trimmed) reasons.push("empty_output");
-  if (trimmed && !trimmed.endsWith("}") && !trimmed.endsWith("]")) {
+  let parseSucceeded = false;
+  if (!stripped) reasons.push("empty_output");
+  try {
+    JSON.parse(stripped);
+    parseSucceeded = true;
+  } catch (_e) {
+    if (raw.includes("{") && raw.length > 500) reasons.push("json_parse_failed_after_substantial_output");
+  }
+  // True incomplete tail: stripped payload does not close AND does not parse.
+  if (stripped && !stripped.endsWith("}") && !stripped.endsWith("]") && !parseSucceeded) {
     reasons.push("unterminated_json_tail");
   }
   // Common truncation smell: far fewer activities than required with a large but incomplete-looking payload
@@ -265,21 +274,33 @@ function detectOutputTruncation(rawText, parsedActivityCount, requiredCount) {
   ) {
     reasons.push("activity_count_far_below_target_with_large_payload");
   }
-  try {
-    JSON.parse(composer.stripJsonFences(raw));
-  } catch (_e) {
-    if (raw.includes("{") && raw.length > 500) reasons.push("json_parse_failed_after_substantial_output");
-  }
+  const finishReason = text(options.finishReason || options.status, 80).toLowerCase();
+  const transportTruncated = finishReason === "incomplete"
+    || finishReason === "length"
+    || finishReason === "max_output_tokens"
+    || finishReason === "truncated";
+  if (transportTruncated) reasons.push("transport_truncation_finish_reason");
+
+  const structuralTruncation = reasons.includes("unterminated_json_tail")
+    || reasons.includes("json_parse_failed_after_substantial_output")
+    || reasons.includes("activity_count_far_below_target_with_large_payload")
+    || reasons.includes("transport_truncation_finish_reason");
+
+  // Completed + fully parseable + expected object count present is not truncation by itself.
+  const completedOk = (finishReason === "completed" || finishReason === "complete" || !finishReason)
+    && parseSucceeded
+    && Number.isFinite(parsedActivityCount)
+    && Number.isFinite(requiredCount)
+    && requiredCount > 0
+    && parsedActivityCount === requiredCount;
+
   return {
-    truncatedLikely: reasons.length > 0 && (
-      reasons.includes("unterminated_json_tail")
-      || reasons.includes("json_parse_failed_after_substantial_output")
-      || reasons.includes("activity_count_far_below_target_with_large_payload")
-    ),
+    truncatedLikely: structuralTruncation && !(completedOk && !reasons.includes("transport_truncation_finish_reason")),
     reasons,
     rawLength: raw.length,
     parsedActivityCount,
     requiredCount,
+    parseSucceeded,
   };
 }
 
