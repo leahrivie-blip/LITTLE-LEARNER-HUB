@@ -172,6 +172,7 @@ const activities = {
     teacherLanguage: "Can you stomp like a horse?\nWaddle like a duck!",
     observationOpportunities: "Body control; following directions; animal vocabulary.",
     safetyNotes: "No collisions; one direction; soft landings.",
+    cleanupTips: "Invite children to help place cones and animal cards back in the labeled bin; clear the walking lane.",
     vocabulary: ["stomp", "trot", "waddle", "gallop", "freeze"],
   }),
 
@@ -331,6 +332,7 @@ const activities = {
     ],
     teacherLanguage: "What did the animals do?\nWhat food might come from this animal?",
     observationOpportunities: "Listening; retell; product vocabulary.",
+    cleanupTips: "Return the book to the shelf and place animal props back in the story basket.",
     vocabulary: ["barn", "story", "milk", "egg", "farm"],
   }),
 

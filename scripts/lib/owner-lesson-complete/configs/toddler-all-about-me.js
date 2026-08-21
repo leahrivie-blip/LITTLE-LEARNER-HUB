@@ -198,6 +198,7 @@ const activities = {
     teacherLanguage: "Hello, Jordan — we see you!",
     observationOpportunities: "Attends to name; joins clap; smiles.",
     safetyNotes: "Sitting bodies; soft mirror pass.",
+    cleanupTips: "Return the mirror or photo cards to the labeled basket; invite children to help restack gently.",
     vocabulary: ["hello", "name", "friend"],
   }),
   "Me Portrait Dough Faces": base({
@@ -248,6 +249,7 @@ const activities = {
     teacherLanguage: "Touch your head!\nCan your feet stomp gently?",
     observationOpportunities: "Follows cue; body awareness; stops safely.",
     safetyNotes: "Clear path; walking feet.",
+    cleanupTips: "Invite children to help place movement markers and body-part cards back in the bin.",
     vocabulary: ["head", "hands", "feet", "touch"],
     printableDecision: "REQUIRED",
   }),
@@ -270,6 +272,7 @@ const activities = {
     teacherLanguage: "Who lives at your house?\nWhat are you cooking?",
     observationOpportunities: "Role play; language; peer play.",
     safetyNotes: "No small accessories; supervise dolls.",
+    cleanupTips: "Return dishes, dolls, and blankets to labeled shelves; sanitize shared pretend-play materials as needed.",
     vocabulary: ["home", "cook", "care", "rest"],
   }),
   "Family Photo Story Time": base({
@@ -290,6 +293,7 @@ const activities = {
     ],
     teacherLanguage: "What is happening in this picture?\nWho looks happy?",
     observationOpportunities: "Attends; points; offers a word.",
+    cleanupTips: "Return family photos to the labeled pouch; put any story props back in the basket.",
     vocabulary: ["story", "photo", "happy", "together"],
   }),
   "Handprint Family Tree": base({
@@ -340,6 +344,7 @@ const activities = {
     ],
     teacherLanguage: "How are you feeling?\nYou pointed to sad — I’m here with you.",
     observationOpportunities: "Points to card; accepts comfort; uses a feeling word.",
+    cleanupTips: "Band feeling cards and return them to the calm basket; wipe the optional mirror with a soft cloth.",
     vocabulary: ["happy", "sad", "mad", "calm"],
     imageBriefSetup: "Toddler pointing to feeling picture cards during a calm check-in with a teacher.",
   }),
@@ -355,6 +360,7 @@ const activities = {
     steps: ["Happy feet dance", "Freeze", "Soft feet", "Calm breath", "Sit"],
     teacherLanguage: "Happy feet… now soft quiet feet.",
     observationOpportunities: "Moves; stops; calms.",
+    cleanupTips: "Collect scarves into the music bin; pause audio and clear the open dance space.",
     vocabulary: ["happy", "soft", "stop"],
   }),
   "Favorites Discovery Baskets": base({
@@ -395,6 +401,7 @@ const activities = {
     steps: ["Call a name", "Cheer", "One kind word", "Next child", "Group thank-you"],
     teacherLanguage: "We are glad you are here!",
     observationOpportunities: "Attends; smiles; hears name positively.",
+    cleanupTips: "Return optional photo cards to the private pouch; reset the circle rug for the next gathering.",
     vocabulary: ["special", "friend", "thank you"],
   }),
   "Me Shadow Chase": base({
@@ -412,6 +419,7 @@ const activities = {
     safetyNotes: "No staring at sun; secure lamp cords indoors.",
     outdoorAlternatives: "Preferred on sunny days.",
     indoorAlternatives: "Lamp + wall shadows.",
+    cleanupTips: "Turn off or put away the indoor lamp; clear the shadow path so walking space is open again.",
     vocabulary: ["shadow", "hands", "move"],
   }),
   "All About Me Collage Wall": base({
@@ -435,6 +443,7 @@ const activities = {
     teacherLanguage: "You added your piece to our wall!",
     observationOpportunities: "Sticks; persists; notices group work.",
     safetyNotes: "Supervise glue; no small bits for mouthing risk.",
+    cleanupTips: "Cap glue sticks; collect paper scraps and return reusable collage materials to the tray.",
     vocabulary: ["stick", "together", "wall", "mine"],
     imageBriefSetup: "Toddlers sticking collage pieces onto a large classroom mural with teachers nearby.",
   }),
