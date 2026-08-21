@@ -3381,11 +3381,50 @@
     `;
   }
 
+  /**
+   * Week-tab display values: prefer a genuine draft.week value, else persisted teachingKit.
+   * Read/hydration only — does not migrate or duplicate storage.
+   */
+  function weekTabToolkitView(plan) {
+    const week = state.draft.week || {};
+    const draftToolkit = week.teacherToolkit && typeof week.teacherToolkit === "object"
+      ? week.teacherToolkit
+      : {};
+    const liveToolkit = plan?.teachingKit?.teacherToolkit && typeof plan.teachingKit.teacherToolkit === "object"
+      ? plan.teachingKit.teacherToolkit
+      : {};
+    const draftText = (draftVal, liveVal) => {
+      const d = String(draftVal == null ? "" : draftVal).trim();
+      if (d) return String(draftVal);
+      return String(liveVal == null ? "" : liveVal);
+    };
+    const draftList = (draftVal, liveVal) => {
+      if (Array.isArray(draftVal) && draftVal.length) return draftVal;
+      if (Array.isArray(liveVal) && liveVal.length) return liveVal;
+      return Array.isArray(draftVal) ? draftVal : [];
+    };
+    const teacherPreparation = draftText(
+      week.teacherPreparation || draftToolkit.teacherPreparation,
+      liveToolkit.teacherPreparation,
+    );
+    const prepChecklist = draftList(draftToolkit.prepChecklist, liveToolkit.prepChecklist);
+    const observationFocus = draftList(draftToolkit.observationFocus, liveToolkit.observationFocus);
+    const milestones = draftList(week.milestones, plan?.teachingKit?.milestones);
+    return { teacherPreparation, prepChecklist, observationFocus, milestones };
+  }
+
+  function milestoneChipMatches(selected, label) {
+    const norm = (v) => String(v || "").toLowerCase().replace(/[\s_-]+/g, "");
+    const target = norm(label);
+    return (selected || []).some((m) => norm(m) === target);
+  }
+
   function renderWeekMode(plan) {
     const week = state.draft.week || {};
-    const milestones = Array.isArray(week.milestones) ? week.milestones : [];
-    const toolkit = week.teacherToolkit && typeof week.teacherToolkit === "object" ? week.teacherToolkit : {};
+    const toolkitView = weekTabToolkitView(plan);
+    const milestones = toolkitView.milestones;
     const bank = ["Sorting", "Fine motor", "Language", "Social-emotional", "Gross motor", "Creativity", "Self-help"];
+    const extraMilestones = milestones.filter((m) => !bank.some((b) => milestoneChipMatches([m], b)));
     return `
       <div class="tk-enrich-week-layout">
         <div class="tk-enrich-week-ai-bar">
@@ -3411,11 +3450,11 @@
         </section>
         <section class="tk-enrich-card-block${importHighlightClass("teacherPreparation") || importHighlightClass("prepChecklist") || importHighlightClass("observationFocus")}" data-import-field="teacherToolkit">
           <h4>Teacher preparation / Toolkit</h4>
-          <textarea data-week-teacher-prep rows="2" placeholder="Teacher preparation…">${esc(week.teacherPreparation || toolkit.teacherPreparation || "")}</textarea>
+          <textarea data-week-teacher-prep rows="2" placeholder="Teacher preparation…">${esc(toolkitView.teacherPreparation || "")}</textarea>
           <label class="muted-copy">Prep checklist (one per line)</label>
-          <textarea data-week-toolkit-prep rows="3" placeholder="Print cards…">${esc((toolkit.prepChecklist || []).join("\n"))}</textarea>
+          <textarea data-week-toolkit-prep rows="3" placeholder="Print cards…">${esc((toolkitView.prepChecklist || []).join("\n"))}</textarea>
           <label class="muted-copy">Observation focus (one per line)</label>
-          <textarea data-week-toolkit-focus rows="3" placeholder="Listen for vocabulary…">${esc((toolkit.observationFocus || []).join("\n"))}</textarea>
+          <textarea data-week-toolkit-focus rows="3" placeholder="Listen for vocabulary…">${esc((toolkitView.observationFocus || []).join("\n"))}</textarea>
         </section>
         <section class="tk-enrich-card-block${importHighlightClass("familyConnection")}" data-import-field="familyConnection">
           <h4>Family connection</h4>
@@ -3437,7 +3476,10 @@
           <h4>Milestones</h4>
           <div class="tk-enrich-chips">
             ${bank.map((m) => `
-              <button type="button" class="tk-enrich-chip ${milestones.includes(m) ? "is-on" : ""}" data-milestone="${esc(m)}">${esc(m)}</button>
+              <button type="button" class="tk-enrich-chip ${milestoneChipMatches(milestones, m) ? "is-on" : ""}" data-milestone="${esc(m)}">${esc(m)}</button>
+            `).join("")}
+            ${extraMilestones.map((m) => `
+              <button type="button" class="tk-enrich-chip is-on" data-milestone="${esc(m)}">${esc(m)}</button>
             `).join("")}
           </div>
         </section>

@@ -163,6 +163,25 @@ function createClient(env = process.env) {
   }
 
   /**
+   * Whether Cleanup is expected for READY (matches Owner Admin core field when materials/setup apply).
+   * Explicit N/A markers or cleanupNotApplicable skip the requirement — never invent filler.
+   */
+  function activityExpectsCleanup(activity) {
+    if (!activity || typeof activity !== "object") return false;
+    if (activity.cleanupNotApplicable === true || activity.cleanupRequired === false) return false;
+    const tip = text(activity.cleanupTips || activity.cleanup || activity.resetNotes);
+    if (/^(n\/?a|none|not applicable|no cleanup( needed)?)\.?$/i.test(tip)) return false;
+    const materials = text(activity.materials);
+    const noMaterials = !materials || /^(none|n\/?a)\.?$/i.test(materials);
+    const cat = text(activity.activityCategory).toLowerCase();
+    // Soft circle/song/story/movement with nothing to put away — cleanup genuinely N/A.
+    if (noMaterials && /(circle|song|music|movement|story|transition|fingerplay)/.test(cat)) {
+      return false;
+    }
+    return true;
+  }
+
+  /**
    * Readiness against live curriculum activities (same source as Owner Admin lesson editor).
    * READY is forbidden while completed content exists only in an unapplied enrichmentDraft.
    */
@@ -196,6 +215,10 @@ function createClient(env = process.env) {
         const v = a[f];
         const ok = Array.isArray(v) ? v.length > 0 : String(v || "").trim().length > 0;
         if (!ok) blank.push(`${a.title}.${f}`);
+      }
+      if (activityExpectsCleanup(a)) {
+        const cleanupOk = text(a.cleanupTips || a.cleanup || a.resetNotes);
+        if (!cleanupOk) blank.push(`${a.title}.cleanupTips`);
       }
     }
     if (blank.length) {
@@ -321,6 +344,7 @@ function createClient(env = process.env) {
     applyEnrichmentToLiveLesson,
     syncLiveActivitiesFromDailyPlans,
     assertLiveLessonComplete,
+    activityExpectsCleanup,
     uploadSetupPhoto,
     uploadCoverJpeg,
     replacePrintablePdf,
