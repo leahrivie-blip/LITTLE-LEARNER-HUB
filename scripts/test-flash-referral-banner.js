@@ -30,10 +30,14 @@ function main() {
 
   ok(bannerHtml.includes("FLASH REFERRAL DEAL"), "banner title present");
   ok(bannerHtml.includes("Refer a friend to Little Learner Hub"), "refer-a-friend copy present");
-  ok(/Every paid referral\s*=\s*1 free month of Pro/i.test(bannerHtml), "main promise is immediately visible");
+  ok(/Every verified paid referral\s*=\s*1 free month of Pro/i.test(bannerHtml), "main promise is immediately visible");
+  ok(bannerHtml.includes("Send us their name or email so we can verify it."), "visible copy asks members to send name/email for verification");
   ok(bannerHtml.includes("How it works"), "How it works disclosure present");
   ok(bannerHtml.includes("<details"), "How it works uses native details interaction");
   ok(bannerHtml.includes("send us their name or email"), "verification instructions present");
+  ok(bannerHtml.includes("after owner verification"), "How it works states owner verification");
+  ok(bannerHtml.includes("applied manually by the owner"), "small print states manual owner credit");
+  ok(bannerHtml.includes("does not add an automatic Stripe discount"), "copy does not promise automatic Stripe discount");
   ok(bannerHtml.includes("Bring in 2 people = 2 months free"), "2-month example present");
   ok(bannerHtml.includes("Bring in 3 people = 3 months free"), "3-month example present");
   ok(bannerHtml.includes("first successful paid Pro payment"), "small print requires confirmed paid payment");
@@ -41,9 +45,10 @@ function main() {
   ok(/data-view="contact"/.test(bannerHtml) && /data-flash-referral-cta="1"/.test(bannerHtml), "CTA uses existing contact path");
   ok(bannerHtml.includes("Refer &amp; Save") || bannerHtml.includes("Refer & Save"), "Refer & Save CTA present");
   ok(!/data-checkout-plan/.test(bannerHtml), "CTA does not start checkout");
-  ok(!/stripe/i.test(bannerHtml), "banner markup does not reference Stripe");
 
+  ok(indexHtml.includes('id="flashReferralContactHint"'), "Contact page has a hidden referral instruction");
   ok(appJs.includes("function isFlashReferralBannerEnabled"), "enable helper present");
+  ok(appJs.includes("function prefillFlashReferralContactForm"), "Refer & Save prefills existing Contact fields");
   ok(appJs.includes("flashReferralBannerEnabled !== false"), "banner defaults ON unless owner sets false");
   ok(appJs.includes('name="flashReferralBannerEnabled"'), "Owner Admin checkbox is on the existing Announcements screen");
   ok(appJs.includes("Show Flash Referral Deal banner"), "Owner Admin label present");
@@ -53,8 +58,8 @@ function main() {
     appJs.indexOf("function isFlashReferralBannerEnabled"),
     appJs.indexOf("function renderManagedAnnouncementBanner"),
   );
-  ok(!/stripe/i.test(helper), "enable helper does not touch Stripe");
-  ok(!/subscription/i.test(helper), "enable helper does not touch subscriptions");
+  ok(helper.includes("function prefillFlashReferralContactForm"), "prefill helper sits next to banner enable helper");
+  ok(!/create-checkout-session|subscriptions\.update/i.test(helper), "enable/prefill helpers do not call Stripe");
 
   const renderFn = appJs.slice(
     appJs.indexOf("function renderManagedAnnouncementBanner"),

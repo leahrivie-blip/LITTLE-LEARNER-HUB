@@ -407,6 +407,12 @@ body.llh-public-menu-open {
   font-size: 1rem;
 }
 
+.llh-flash-referral-hint {
+  font-size: 0.86rem !important;
+  font-weight: 600 !important;
+  color: rgba(255, 255, 255, 0.95);
+}
+
 .llh-flash-referral-how {
   margin: 4px 0 0;
 }

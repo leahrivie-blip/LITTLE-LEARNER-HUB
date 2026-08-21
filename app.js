@@ -33534,6 +33534,27 @@ function isFlashReferralBannerEnabled() {
   return site.flashReferralBannerEnabled !== false;
 }
 
+/**
+ * Prefill the existing Contact support form after Refer & Save.
+ * Uses current fields only — no new form, tickets, or billing credits.
+ * @returns {void}
+ */
+function prefillFlashReferralContactForm() {
+  const form = document.querySelector("#contactSupportForm");
+  if (!(form instanceof HTMLFormElement)) return;
+  const hint = document.querySelector("#flashReferralContactHint");
+  if (hint instanceof HTMLElement) hint.hidden = false;
+  const topic = form.querySelector("select[name='topic']");
+  const message = form.querySelector("textarea[name='message']");
+  if (topic instanceof HTMLSelectElement) {
+    const general = Array.from(topic.options).find((opt) => String(opt.value || "") === "General Questions");
+    if (general) topic.value = "General Questions";
+  }
+  if (message instanceof HTMLTextAreaElement && !String(message.value || "").trim()) {
+    message.value = "Flash Referral Deal — please verify this referral.\n\nReferred person's name or email: ";
+  }
+}
+
 function renderManagedAnnouncementBanner() {
   const flashBanner = document.querySelector("#llhFlashReferralBanner");
   if (flashBanner) {
@@ -33823,6 +33844,15 @@ function bindHomePublicChrome() {
   prefillHomeShapeFeedbackEmail();
   bindIdeaRequestForm();
   setHomePublicMenuOpen(false);
+  document.querySelectorAll("[data-flash-referral-cta]").forEach((btn) => {
+    if (!(btn instanceof HTMLElement) || btn.dataset.boundFlashReferralCta === "1") return;
+    btn.dataset.boundFlashReferralCta = "1";
+    btn.addEventListener("click", () => {
+      window.setTimeout(() => {
+        prefillFlashReferralContactForm();
+      }, 0);
+    });
+  });
 }
 
 function homeStickyNavOffsetPx() {
@@ -68990,6 +69020,11 @@ document.addEventListener("click", async (event) => {
     if (viewButton.dataset.settingsAnchor === "notifications" && viewButton.dataset.view === "account") {
       requestAnimationFrame(() => {
         document.querySelector("#accountNotifications")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }
+    if (viewButton.dataset.flashReferralCta) {
+      requestAnimationFrame(() => {
+        prefillFlashReferralContactForm();
       });
     }
     return;
