@@ -3205,6 +3205,270 @@ async function main() {
     void architect;
   }
 
+  // Stage 2 thin_vocabulary generation/repair/normalization (#live opjob_bfcb12b41e42eb89)
+  {
+    console.log("\nStage 2 thin_vocabulary contract");
+    ok(staged.MIN_VOCABULARY_TERMS === 3, "canonical vocabulary minimum remains 3 distinct terms");
+
+    const blueprint = staged.validateBlueprint(
+      JSON.parse(staged.buildStagedFixtureResponse(staged.buildStage1UserPrompt(brief15))),
+      brief15,
+    ).blueprint;
+    const ids = blueprint.activityOutlines.slice(0, 5).map((o) => o.outlineId);
+    const goodBatch = JSON.parse(staged.buildStagedFixtureResponse(
+      staged.buildExpansionUserPrompt(brief15, blueprint, ids, { batchNumber: 1 }),
+    ));
+
+    // 1. one vague vocabulary term fails
+    const vagueOnly = {
+      activities: goodBatch.activities.map((a, i) => (
+        i === 0 ? { ...a, vocabulary: "bakery" } : a
+      )),
+    };
+    const vagueV = staged.validateExpansionBatch(vagueOnly, ids, blueprint, brief15);
+    ok(vagueV.ok === false && vagueV.issues.some((x) => /\.thin_vocabulary$/.test(x)),
+      "one vague vocabulary term fails");
+
+    // 2. insufficient term count fails
+    const twoTerms = {
+      activities: goodBatch.activities.map((a, i) => (
+        i === 0 ? { ...a, vocabulary: "flour, dough" } : a
+      )),
+    };
+    ok(staged.validateExpansionBatch(twoTerms, ids, blueprint, brief15).issues.some((x) => /\.thin_vocabulary$/.test(x)),
+      "insufficient term count fails");
+
+    // 3. valid distinct terms pass
+    const validVocab = {
+      activities: goodBatch.activities.map((a, i) => (
+        i === 0 ? { ...a, vocabulary: "knead, roll, dough, share, measure" } : a
+      )),
+    };
+    ok(staged.validateExpansionBatch(validVocab, ids, blueprint, brief15).ok === true,
+      "valid distinct terms pass");
+
+    // 4. thin_vocabulary maps to vocabulary
+    const thinIssue = `${goodBatch.activities[0].title}.thin_vocabulary`;
+    const mapped = staged.parseExpansionIssueTarget(thinIssue, goodBatch.activities);
+    ok(mapped.hit?.field === "vocabulary" && mapped.hit?.outlineId === goodBatch.activities[0].outlineId,
+      "thin_vocabulary maps to vocabulary");
+
+    // 8. duplicate/filler terms still fail (after dedupe)
+    ok(staged.countVocabularyTerms("share, share, share") === 1, "duplicate terms collapse to one");
+    const dupes = {
+      activities: goodBatch.activities.map((a, i) => (
+        i === 0 ? { ...a, vocabulary: "share, share, share" } : a
+      )),
+    };
+    ok(staged.validateExpansionBatch(dupes, ids, blueprint, brief15).issues.some((x) => /\.thin_vocabulary$/.test(x)),
+      "duplicate/filler terms still fail");
+
+    // 9. normalization preserves term count (array → comma-string)
+    const arrayRaw = ["knead", "roll", "dough", "share"];
+    const normalized = staged.normalizeVocabularyField(arrayRaw);
+    ok(typeof normalized === "string" && !Array.isArray(normalized), "normalization yields string");
+    ok(staged.countVocabularyTerms(normalized) === 4, "normalization preserves term count");
+    ok(staged.vocabularyShape(arrayRaw) === "array", "array shape detected before normalize");
+    // Live defect class: String(array) without spaces would fail wordCount — normalize must prevent that
+    ok(String(arrayRaw) === "knead,roll,dough,share", "String(array) collapses without spaces (live defect class)");
+    ok(staged.vocabularyMeetsTermGate(arrayRaw) === true,
+      "array vocabulary meets gate after normalizeVocabularyField");
+    const arrayBatch = {
+      activities: goodBatch.activities.map((a, i) => (
+        i === 0 ? { ...a, vocabulary: arrayRaw } : a
+      )),
+    };
+    const arrayV = staged.validateExpansionBatch(arrayBatch, ids, blueprint, brief15);
+    ok(arrayV.ok === true, "array vocabulary normalizes and passes validation");
+    ok(arrayV.activities[0].vocabulary === "knead, roll, dough, share",
+      "canonical vocabulary format is comma-separated string");
+
+    // Expansion + repair contracts
+    const expandPrompt = staged.buildExpansionUserPrompt(brief15, blueprint, ids, { batchNumber: 1 });
+    ok(/comma-separated STRING/i.test(expandPrompt) && /MIN_VOCABULARY|at least 3 distinct/i.test(
+      JSON.stringify(staged.expansionFieldQualityExpectations().vocabulary),
+    ), "expansion contract states vocabulary format + minimum");
+    ok(/comma-separated STRING/i.test(staged.expansionFieldQualityExpectations().vocabulary)
+      && /JSON array/i.test(staged.expansionFieldQualityExpectations().vocabulary),
+      "expansion contract forbids JSON array vocabulary");
+
+    const thinActs = goodBatch.activities.map((a, i) => (
+      i < 2 ? { ...a, vocabulary: "hi" } : a
+    ));
+    const thinIssues = thinActs.slice(0, 2).map((a) => `${a.title}.thin_vocabulary`);
+    const repairPlan = staged.planExpansionRepair(thinIssues, thinActs);
+    ok(repairPlan.canRepair === true, "thin_vocabulary is repairable");
+    ok(repairPlan.mappedRepairTargets.every((t) => (
+      t.fields.some((f) => f.field === "vocabulary" && (f.issueCode === "thin_vocabulary" || f.reason === "too_short"))
+    )), "repair targets vocabulary for thin_vocabulary");
+
+    const enriched = staged.enrichExpansionRepairTargets(
+      repairPlan.mappedRepairTargets,
+      thinActs,
+      blueprint,
+    );
+    ok(enriched[0].outlineId === thinActs[0].outlineId, "repair receives exact outlineId");
+    ok(enriched[0].activityContext?.materials && enriched[0].activityContext?.setup
+      && enriched[0].activityContext?.steps && enriched[0].activityContext?.concept != null,
+      "repair receives activity context");
+    ok(Object.prototype.hasOwnProperty.call(enriched[0].activityContext || {}, "currentVocabulary"),
+      "repair context includes currentVocabulary");
+    const vocabInstruction = staged.fieldRepairQualityInstruction("vocabulary", "too_short");
+    ok(/comma-separated STRING/i.test(vocabInstruction)
+      && /at least 3 distinct/i.test(vocabInstruction)
+      && /Do not return a JSON array/i.test(vocabInstruction),
+      "repair contract requires format + minimum + no array");
+
+    const repairPrompt = staged.buildExpansionRepairUserPrompt(
+      brief15,
+      blueprint,
+      ids,
+      thinIssues,
+      thinActs,
+      { batchNumber: 1, repairPlan },
+    );
+    ok(/vocabularyRepairOutlineIds/i.test(repairPrompt), "repair prompt lists vocabularyRepairOutlineIds");
+    ok(/minVocabularyTerms/i.test(repairPrompt), "repair prompt includes minVocabularyTerms");
+    ok(repairPrompt.includes(thinActs[0].outlineId), "repair prompt includes failing outlineId");
+
+    // 7 + 10 + 11 + 12 + 13: repair path via compose
+    let repairCalls = 0;
+    let expandCalls = 0;
+    const repaired = await staged.composeStagedLessonContent(brief15, {
+      forceLive: true,
+      callAi: async (_s, user) => {
+        if (/CREATE_WEEK_BLUEPRINT/.test(user)) return staged.buildStagedFixtureResponse(user);
+        if (/REPAIR_ACTIVITY_BATCH/.test(user)) {
+          repairCalls += 1;
+          const parsed = JSON.parse(user.slice(user.indexOf("{")));
+          const prior = schema.asArray(parsed.previousBatchActivities);
+          return JSON.stringify({
+            activities: prior.map((a) => {
+              const needsVocab = schema.asArray(parsed.repairTargets).some((t) => (
+                t.outlineId === a.outlineId
+                && schema.asArray(t.fields).some((f) => f.field === "vocabulary")
+              ));
+              if (!needsVocab) return a;
+              return {
+                ...a,
+                // Return array shape (live defect class) — normalize must accept it
+                vocabulary: ["knead", "roll", "dough", "share", "measure"],
+                objective: a.objective, // preserve non-target
+              };
+            }),
+          });
+        }
+        if (/EXPAND_ACTIVITY_BATCH/.test(user)) {
+          expandCalls += 1;
+          const base = JSON.parse(staged.buildStagedFixtureResponse(user));
+          if (expandCalls === 1) {
+            return JSON.stringify({
+              activities: base.activities.map((a, i) => (
+                i < 2 ? { ...a, vocabulary: ["bakery"] } : a
+              )),
+            });
+          }
+          return JSON.stringify(base);
+        }
+        if (/REPAIR_TARGETED/.test(user)) return staged.buildStagedFixtureResponse(user);
+        return staged.buildStagedFixtureResponse(user);
+      },
+    });
+    ok(repairCalls === 1, "one repair max");
+    ok(repaired.ok === true && repaired.content, "repaired vocabulary passes / batch continues");
+    const batch1 = (repaired.stagedDiagnostics?.batches || []).find((b) => b.batchNumber === 1);
+    ok(schema.asArray(batch1?.vocabularyRepairOutlineIds).length >= 2,
+      "diagnostics vocabularyRepairOutlineIds present");
+    ok(batch1?.vocabularyTermsAfter
+      && Object.values(batch1.vocabularyTermsAfter).every((n) => Number(n) >= 3),
+      "diagnostics vocabularyTermsAfter ≥3 after repair");
+    ok(schema.asArray(batch1?.postRepairVocabularyFailures).length === 0,
+      "postRepairVocabularyFailures empty on pass");
+
+    // Preserve non-target fields across coalesce
+    const priorPreserve = goodBatch.activities.map((a, i) => (
+      i === 0 ? { ...a, vocabulary: "hi", objective: a.objective } : a
+    ));
+    const priorObjective = priorPreserve[0].objective;
+    const repairParsed = {
+      activities: priorPreserve.map((a, i) => (
+        i === 0
+          ? { ...a, vocabulary: "scoop, pour, mix, share, count" }
+          : a
+      )),
+    };
+    // Prefer repair only for targeted vocabulary; objective stays the prior value on the repair payload
+    const issuesPreserve = [`${priorPreserve[0].title}.thin_vocabulary`];
+    const coalesced = staged.coalesceExpansionBatch(
+      priorPreserve,
+      repairParsed,
+      ids,
+      blueprint,
+      brief15,
+      issuesPreserve,
+    );
+    ok(coalesced.activities[0].vocabulary.includes("scoop"), "repaired vocabulary applied");
+    ok(coalesced.activities[0].objective === priorObjective,
+      "valid non-target fields remain unchanged");
+
+    // 12. failed vocabulary repair still blocks create
+    let failRepairCalls = 0;
+    const stillBlocked = await staged.composeStagedLessonContent(brief15, {
+      forceLive: true,
+      callAi: async (_s, user) => {
+        if (/CREATE_WEEK_BLUEPRINT/.test(user)) return staged.buildStagedFixtureResponse(user);
+        if (/REPAIR_ACTIVITY_BATCH/.test(user)) {
+          failRepairCalls += 1;
+          const parsed = JSON.parse(user.slice(user.indexOf("{")));
+          return JSON.stringify({
+            activities: schema.asArray(parsed.previousBatchActivities).map((a) => ({
+              ...a,
+              vocabulary: "theme",
+            })),
+          });
+        }
+        if (/EXPAND_ACTIVITY_BATCH/.test(user)) {
+          const base = JSON.parse(staged.buildStagedFixtureResponse(user));
+          return JSON.stringify({
+            activities: base.activities.map((a) => ({ ...a, vocabulary: "x" })),
+          });
+        }
+        return staged.buildStagedFixtureResponse(user);
+      },
+    });
+    ok(failRepairCalls === 1, "failed vocabulary repair uses exactly one repair call");
+    ok(stillBlocked.ok === false && !stillBlocked.content, "failed vocabulary repair still blocks create");
+    ok(/thin_vocabulary/i.test(String(stillBlocked.error || "")),
+      "blocked error still reports thin_vocabulary");
+
+    // Regressions
+    ok(staged.MAX_QUALITY_REPAIR_CALLS_PER_BATCH === 1, "one repair max unchanged");
+    ok(staged.MAX_EXPANSION_PARSE_RETRIES === 1, "#742 retry tests green");
+    ok(typeof staged.sweepExpansionActivitiesQuality === "function", "#747 sweep tests green");
+    ok(/REPLACE the existing generic safety text/i.test(
+      staged.fieldRepairQualityInstruction("safetyNotes", "generic_filler"),
+    ), "#745/#749 safetyNotes green");
+    ok(/newline-separated STRING/i.test(
+      staged.fieldRepairQualityInstruction("teacherLanguage", "insufficient_questions"),
+    ), "#746 teacherLanguage green");
+    ok(/REPLACE it with concrete activity-specific text/i.test(
+      staged.fieldRepairQualityInstruction("description", "generic_filler"),
+    ), "#748/#749 generic-filler green");
+    ok(/EXPAND this field into a practical indoor adaptation/i.test(
+      staged.fieldRepairQualityInstruction("indoorAlternatives", "too_short"),
+    ), "#750 final-sweep green");
+    ok(staged.validateBlueprint(
+      JSON.parse(staged.buildStagedFixtureResponse(staged.buildStage1UserPrompt(brief15))),
+      brief15,
+    ).ok === true, "Stage 1 regressions green");
+    // #753 image-budget untouched
+    const imagesApi = require("./curriculum-operator-images.js");
+    ok(imagesApi.SOFT_IMAGE_GENERATIONS_PER_LESSON === 8
+      && typeof imagesApi.applyImageGenerationSoftBudget === "function",
+      "#753 image-budget tests green");
+    ok(!schema.isPhase2Executable("lesson.publish"), "publish remains disabled");
+  }
+
   console.log(`\n${passed} assertions passed`);
 }
 

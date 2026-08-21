@@ -911,6 +911,9 @@ function asActivityStringList(value, maxItems = 8, maxLen = 300) {
 const MIN_TEACHER_LANGUAGE_PROMPT_LINES = 2;
 const TEACHER_LANGUAGE_WORD_FALLBACK = 24;
 
+/** Existing thin_vocabulary gate: ≥3 distinct usable terms (not one vague theme word). */
+const MIN_VOCABULARY_TERMS = 3;
+
 function teacherLanguageShape(value) {
   if (value == null) return "empty";
   if (Array.isArray(value)) return "array";
@@ -943,6 +946,61 @@ function teacherLanguageMeetsCountGate(value) {
   const normalized = normalizeTeacherLanguageField(value);
   return countTeacherLanguagePrompts(normalized) >= MIN_TEACHER_LANGUAGE_PROMPT_LINES
     || wordCount(normalized) >= TEACHER_LANGUAGE_WORD_FALLBACK;
+}
+
+function vocabularyShape(value) {
+  if (value == null) return "empty";
+  if (Array.isArray(value)) return "array";
+  if (typeof value === "string") return text(value) ? "string" : "empty";
+  return typeof value;
+}
+
+/**
+ * Extract vocabulary term candidates without fuzzy-splitting arbitrary prose.
+ * Arrays: each entry is a term (entries may themselves be comma-lists).
+ * Strings with commas/semicolons/newlines: split on those separators.
+ * Otherwise: whitespace-separated words (space-separated term lists).
+ */
+function vocabularyTermCandidates(value) {
+  if (Array.isArray(value)) {
+    return value.flatMap((entry) => vocabularyTermCandidates(entry));
+  }
+  const raw = text(value, 500);
+  if (!raw) return [];
+  if (/[,;\n]/.test(raw)) {
+    return raw.split(/[,;\n]+/).map((part) => part.trim()).filter(Boolean);
+  }
+  return raw.split(/\s+/).filter(Boolean);
+}
+
+/**
+ * Canonical vocabulary storage is a comma-separated STRING of distinct terms.
+ * Models often return string[]; schema.text(array) joins without spaces
+ * ("a,b,c") so wordCount sees 1 token and falsely fails thin_vocabulary.
+ * Deduplicate case-insensitively; do not invent terms.
+ */
+function normalizeVocabularyField(value) {
+  const seen = new Set();
+  const terms = [];
+  vocabularyTermCandidates(value).forEach((candidate) => {
+    const cleaned = text(candidate, 80).replace(/^[-•*\d.)\s]+/, "").trim();
+    if (!cleaned) return;
+    const key = cleaned.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    terms.push(cleaned);
+  });
+  return terms.join(", ");
+}
+
+function countVocabularyTerms(value) {
+  const normalized = normalizeVocabularyField(value);
+  if (!normalized) return 0;
+  return normalized.split(",").map((t) => t.trim()).filter(Boolean).length;
+}
+
+function vocabularyMeetsTermGate(value) {
+  return countVocabularyTerms(value) >= MIN_VOCABULARY_TERMS;
 }
 
 function buildTeacherLanguageRepairDiagnostics(priorActivities, afterActivities, repairPlan, postIssues, rawBeforeById, rawAfterById) {
@@ -978,6 +1036,49 @@ function buildTeacherLanguageRepairDiagnostics(priorActivities, afterActivities,
   return rows;
 }
 
+function buildVocabularyRepairDiagnostics(priorActivities, afterActivities, repairPlan, postIssues, rawBeforeById, rawAfterById) {
+  const priorById = new Map(schema.asArray(priorActivities).map((a) => [a.outlineId, a]));
+  const afterById = new Map(schema.asArray(afterActivities).map((a) => [a.outlineId, a]));
+  const rows = [];
+  const vocabularyRepairOutlineIds = [];
+  schema.asArray(repairPlan?.mappedRepairTargets).forEach((target) => {
+    const vocabField = schema.asArray(target.fields).find((f) => f.field === "vocabulary");
+    if (!vocabField) return;
+    const id = text(target.outlineId, 80);
+    vocabularyRepairOutlineIds.push(id);
+    const before = priorById.get(id);
+    const after = afterById.get(id);
+    const title = text(before?.title || after?.title || target.title, 120);
+    const rawBefore = rawBeforeById && Object.prototype.hasOwnProperty.call(rawBeforeById, id)
+      ? rawBeforeById[id]
+      : before?.vocabulary;
+    const rawAfter = rawAfterById && Object.prototype.hasOwnProperty.call(rawAfterById, id)
+      ? rawAfterById[id]
+      : after?.vocabulary;
+    rows.push({
+      outlineId: id,
+      vocabularyShapeBefore: vocabularyShape(rawBefore),
+      vocabularyTermsBefore: countVocabularyTerms(before?.vocabulary ?? rawBefore),
+      repairTargetReason: text(vocabField.reason || vocabField.issueCode, 80) || "thin_vocabulary",
+      vocabularyShapeAfter: vocabularyShape(rawAfter),
+      vocabularyTermsAfter: countVocabularyTerms(after?.vocabulary ?? rawAfter),
+      postRepairVocabularyFailures: schema.asArray(postIssues)
+        .map((issue) => text(issue, 200))
+        .filter((issue) => issue.includes(title) && /\.thin_vocabulary$|vocabulary/i.test(issue))
+        .slice(0, 8),
+    });
+  });
+  return {
+    vocabularyDiagnostics: rows,
+    vocabularyRepairOutlineIds,
+    vocabularyShapeBefore: Object.fromEntries(rows.map((r) => [r.outlineId, r.vocabularyShapeBefore])),
+    vocabularyTermsBefore: Object.fromEntries(rows.map((r) => [r.outlineId, r.vocabularyTermsBefore])),
+    vocabularyShapeAfter: Object.fromEntries(rows.map((r) => [r.outlineId, r.vocabularyShapeAfter])),
+    vocabularyTermsAfter: Object.fromEntries(rows.map((r) => [r.outlineId, r.vocabularyTermsAfter])),
+    postRepairVocabularyFailures: rows.flatMap((r) => r.postRepairVocabularyFailures).slice(0, 20),
+  };
+}
+
 function rawTeacherLanguageByOutlineId(parsed) {
   const out = {};
   schema.asArray(parsed?.activities).forEach((row) => {
@@ -989,6 +1090,20 @@ function rawTeacherLanguageByOutlineId(parsed) {
       out[id] = row.teacherQuestions;
     } else if (Object.prototype.hasOwnProperty.call(row, "questions")) {
       out[id] = row.questions;
+    }
+  });
+  return out;
+}
+
+function rawVocabularyByOutlineId(parsed) {
+  const out = {};
+  schema.asArray(parsed?.activities).forEach((row) => {
+    const id = text(row?.outlineId || row?.id, 80);
+    if (!id) return;
+    if (Object.prototype.hasOwnProperty.call(row, "vocabulary")) {
+      out[id] = row.vocabulary;
+    } else if (Object.prototype.hasOwnProperty.call(row, "vocabularyWords")) {
+      out[id] = row.vocabularyWords;
     }
   });
   return out;
@@ -1054,7 +1169,12 @@ function expansionFieldQualityExpectations() {
     extensions: "Real added challenge. Bad: \"Make it harder.\" Good: compare two groups before counting to check.",
     steps: "Multiple actionable steps unless the activity is genuinely tiny.",
     cleanupTips: "May be concise if specific.",
-    vocabulary: "May be concise theme words; must include ≥3 usable words.",
+    vocabulary: [
+      `Canonical format: a single comma-separated STRING (not a JSON array).`,
+      `Include at least ${MIN_VOCABULARY_TERMS} distinct activity-relevant terms useful for teacher-child language.`,
+      "Bad: one vague theme word; a JSON array; duplicate padding to inflate count; empty string.",
+      "Good: concrete activity-tied words (materials/actions/concepts children can hear and use).",
+    ].join(" "),
     safetyNotes: "Activity-specific safety guidance (≥8 words). Name a relevant hazard/supervision need (choking, mouthing, allergy, spills, tools, temperature, etc. when applicable) and the teacher action that reduces it. Bad: \"Supervise children.\" / \"Use safe materials.\" Good: large non-chokable pieces + remove cracked tools + supervise mouthing.",
   };
 }
@@ -1152,6 +1272,16 @@ function fieldRepairQualityInstruction(field, reason) {
       "and preserve the original learning goal. Do not write generic \"do this outside\" filler.",
     ].join(" ");
   }
+  if (canonical === "vocabulary") {
+    return [
+      `Return vocabulary as a single comma-separated STRING with at least ${MIN_VOCABULARY_TERMS} distinct activity-specific terms.`,
+      "Do not return a JSON array.",
+      "Do not return one vague theme word.",
+      "Do not pad with duplicate synonyms used only to inflate count.",
+      "Each term should be useful teacher-child language tied to this activity's materials/actions.",
+      "Use activityContext.currentVocabulary and replace thin vocabulary with a complete term list.",
+    ].join(" ");
+  }
   if (canonical === "materials") {
     return "List concrete activity materials with enough detail to set up the experience (not a one-word list).";
   }
@@ -1208,6 +1338,7 @@ function enrichExpansionRepairTargets(repairTargets, previousActivities, bluepri
         currentDescription: text(prior.description, 500),
         currentObjective: text(prior.objective, 500),
         currentSafetyNotes: text(prior.safetyNotes, 500),
+        currentVocabulary: normalizeVocabularyField(prior.vocabulary),
         currentIndoorAlternatives: text(prior.indoorAlternatives, 500),
         currentOutdoorAlternatives: text(prior.outdoorAlternatives, 500),
       },
@@ -1314,6 +1445,7 @@ function buildExpansionUserPrompt(brief, blueprint, outlineIds, options = {}) {
       "description: concrete child actions + materials/context; not \"Children will explore/learn about X\".",
       "objective: developmental skill + child action tied to this activity; not a thin generic skill sentence.",
       `teacherLanguage: return a newline-separated STRING with at least ${MIN_TEACHER_LANGUAGE_PROMPT_LINES} distinct activity-specific prompts (one per line; prefer 3+). Do not return a JSON array. Do not return one generic question. Do not combine all prompts into a single unparseable paragraph.`,
+      `vocabulary: return a comma-separated STRING with at least ${MIN_VOCABULARY_TERMS} distinct activity-relevant terms. Do not return a JSON array. Do not return one vague theme word. Do not pad with duplicates.`,
       "teacherTips: non-empty array of activity-specific tips.",
       "observationPrompts: non-empty array of concrete observation prompts.",
       "adaptations: practical activity-specific support (canonical field adaptations).",
@@ -1598,11 +1730,14 @@ function buildExpansionRepairUserPrompt(brief, blueprint, outlineIds, previousAc
   const teacherLanguageOutlineIds = repairTargets
     .filter((t) => schema.asArray(t.fields).some((f) => f.field === "teacherLanguage"))
     .map((t) => t.outlineId);
+  const vocabularyTargeted = repairTargets.some((t) => (
+    schema.asArray(t.fields).some((f) => f.field === "vocabulary")
+  ));
   return [
     "Repair ONLY the failed activity fields in this expansion batch.",
     "Preserve valid activities and valid fields. Keep outlineId / title / dayOfWeek / activityCategory aligned to the blueprint.",
     "Do not regenerate all activities from scratch — repair every listed canonical field only.",
-    "Use each repairTargets[].activityContext (name, concept, developmentalPurpose, materials, setup, steps, currentSafetyNotes) and each field's qualityInstruction.",
+    "Use each repairTargets[].activityContext (name, concept, developmentalPurpose, materials, setup, steps, currentSafetyNotes, currentVocabulary) and each field's qualityInstruction.",
     JSON.stringify({
       mode: "REPAIR_ACTIVITY_BATCH",
       brief: {
@@ -1618,7 +1753,11 @@ function buildExpansionRepairUserPrompt(brief, blueprint, outlineIds, previousAc
       repairedFieldsByOutlineId,
       safetyRepairOutlineIds: safetyOutlineIds,
       teacherLanguageRepairOutlineIds: teacherLanguageOutlineIds,
+      vocabularyRepairOutlineIds: repairTargets
+        .filter((t) => schema.asArray(t.fields).some((f) => f.field === "vocabulary"))
+        .map((t) => t.outlineId),
       minTeacherLanguagePromptLines: MIN_TEACHER_LANGUAGE_PROMPT_LINES,
+      minVocabularyTerms: MIN_VOCABULARY_TERMS,
       fixOnlyTheseIssues: schema.asArray(issues).slice(0, 40),
       requiredActivityFields: [...REQUIRED_EXPANSION_ACTIVITY_FIELDS],
       fieldQualityExpectations: expansionFieldQualityExpectations(),
@@ -1651,6 +1790,9 @@ function buildExpansionRepairUserPrompt(brief, blueprint, outlineIds, previousAc
           : "",
         insufficientQuestionsTargeted
           ? `Replace teacherLanguage with at least ${MIN_TEACHER_LANGUAGE_PROMPT_LINES} distinct activity-specific teacher prompts in the canonical newline-separated string format. Each prompt must be separately countable by the existing validator.`
+          : "",
+        vocabularyTargeted
+          ? `If vocabulary is targeted: return a comma-separated STRING with at least ${MIN_VOCABULARY_TERMS} distinct activity-specific terms. Do not return a JSON array. Do not return one vague theme word. Do not pad with duplicate synonyms. Use activityContext (materials/setup/steps/currentVocabulary) so terms are activity-tied.`
           : "",
         descriptionGenericTargeted
           ? "If description is targeted for generic_filler: The existing description is long enough but too generic. REPLACE it with concrete activity-specific text. Do not preserve or lightly paraphrase the generic wording. Include what children will do, the core materials/action/context, and what makes this activity distinct."
@@ -1747,7 +1889,7 @@ function normalizeExpansionActivity(raw, outline, brief, issues) {
     substitutions: asActivityStringList(cleaned.substitutions),
     adaptations: text(cleaned.adaptations || cleaned.supportAdaptations, 2000),
     extensions: text(cleaned.extensions || cleaned.addedChallenge, 2000),
-    vocabulary: text(cleaned.vocabulary, 500),
+    vocabulary: normalizeVocabularyField(cleaned.vocabulary || cleaned.vocabularyWords),
     observationPrompts: asActivityStringList(
       cleaned.observationPrompts || cleaned.observationQuestions || cleaned.prompts,
     ),
@@ -1776,8 +1918,8 @@ function validateExpansionActivityItem(item, issues) {
     const err = rejectGeneric(`${actTitle}.${field}`, item[field]);
     if (err) issues.push(err);
   });
-  // Concise cleanup/vocabulary allowed when specific; vocabulary still needs ≥3 words.
-  if (wordCount(item.vocabulary) < 3) issues.push(`${actTitle}.thin_vocabulary`);
+  // Concise cleanup/vocabulary allowed when specific; vocabulary still needs ≥MIN_VOCABULARY_TERMS distinct terms.
+  if (!vocabularyMeetsTermGate(item.vocabulary)) issues.push(`${actTitle}.thin_vocabulary`);
   if (!item.teacherTips.length) issues.push(`${actTitle}.missing_tips`);
   else if (!listFieldSubstanceOk(item.teacherTips, 8)) issues.push(`${actTitle}.thin_tips`);
   if (!item.observationPrompts.length) issues.push(`${actTitle}.missing_observation_prompts`);
@@ -2003,7 +2145,7 @@ function fieldPassedOnActivity(activity, field, briefTitleIssues) {
   }
   if (EXPANSION_TEXT_FIELDS.includes(field)) {
     return !rejectGeneric(`${title}.${field}`, activity[field])
-      && !(field === "vocabulary" && wordCount(activity.vocabulary) < 3);
+      && !(field === "vocabulary" && !vocabularyMeetsTermGate(activity.vocabulary));
   }
   if (field === "substitutions") return schema.asArray(activity.substitutions).length > 0;
   return text(activity[field]) || schema.asArray(activity[field]).length > 0;
@@ -2120,6 +2262,21 @@ function recordBatchDiagnostic(diagnostics, row) {
     repairTargets: mappedRepairTargets,
     postRepairFailures,
     teacherLanguageDiagnostics: schema.asArray(row.teacherLanguageDiagnostics).slice(0, 16),
+    vocabularyDiagnostics: schema.asArray(row.vocabularyDiagnostics).slice(0, 16),
+    vocabularyRepairOutlineIds: schema.asArray(row.vocabularyRepairOutlineIds).map((id) => text(id, 80)).slice(0, 24),
+    vocabularyShapeBefore: row.vocabularyShapeBefore && typeof row.vocabularyShapeBefore === "object"
+      ? row.vocabularyShapeBefore
+      : {},
+    vocabularyTermsBefore: row.vocabularyTermsBefore && typeof row.vocabularyTermsBefore === "object"
+      ? row.vocabularyTermsBefore
+      : {},
+    vocabularyShapeAfter: row.vocabularyShapeAfter && typeof row.vocabularyShapeAfter === "object"
+      ? row.vocabularyShapeAfter
+      : {},
+    vocabularyTermsAfter: row.vocabularyTermsAfter && typeof row.vocabularyTermsAfter === "object"
+      ? row.vocabularyTermsAfter
+      : {},
+    postRepairVocabularyFailures: schema.asArray(row.postRepairVocabularyFailures).map((i) => text(i, 200)).slice(0, 20),
     preRepairQualityIssues: schema.asArray(row.preRepairQualityIssues).slice(0, 40),
     issueCountByField: row.issueCountByField && typeof row.issueCountByField === "object"
       ? row.issueCountByField
@@ -2231,6 +2388,7 @@ function buildFinalRepairUserPrompt(brief, assembled, issues, options = {}) {
       "Preserve valid non-targeted fields.",
       "Use each repairTargets[].activityContext and each field's qualityInstruction.",
       `teacherLanguage (when targeted): newline-separated STRING with ≥${MIN_TEACHER_LANGUAGE_PROMPT_LINES} distinct prompts.`,
+      `vocabulary (when targeted): comma-separated STRING with ≥${MIN_VOCABULARY_TERMS} distinct activity-specific terms; not a JSON array; not one vague theme word; no duplicate padding.`,
       "objective (when targeted): activity-specific skill + child action + activity connection; meet existing depth gate.",
       "safetyNotes (when targeted): activity-specific hazard/supervision + teacher action; no generic supervise-only filler.",
       indoorTargeted
@@ -2362,7 +2520,7 @@ function buildStagedFixtureResponse(userPrompt) {
         ],
         adaptations: "Offer fewer steps, hand-over-hand placement, or a seated version for children who need support.",
         extensions: `Invite children to compare two groups at “${name}” and decide which has more before counting to check.`,
-        vocabulary: `${theme}, ${name}, count, place, share, notice, next`,
+        vocabulary: normalizeVocabularyField(`${theme}, ${name}, count, place, share, notice, next`),
         observationPrompts: [
           "Notice whether the child uses one-to-one correspondence while placing pieces or adjusts after counting twice.",
           "How did they solve a turn-taking or counting moment with a peer?",
@@ -2462,7 +2620,16 @@ function buildStagedFixtureResponse(userPrompt) {
           observationPrompts: schema.asArray(a.observationPrompts).length
             ? a.observationPrompts
             : ["What language did the child use?", "How did they solve a turn-taking moment?"],
-          vocabulary: text(a.vocabulary, 500).length > 5 ? a.vocabulary : `${theme}, try, share, notice`,
+          vocabulary: (() => {
+            if (targeted.has("vocabulary") || !vocabularyMeetsTermGate(a.vocabulary)) {
+              return normalizeVocabularyField(
+                text(a.vocabulary, 500).length > 5 && vocabularyMeetsTermGate(a.vocabulary)
+                  ? a.vocabulary
+                  : `${theme}, try, share, notice, place`,
+              );
+            }
+            return normalizeVocabularyField(a.vocabulary || `${theme}, try, share, notice, place`);
+          })(),
         };
       }),
     });
@@ -2829,6 +2996,17 @@ async function composeStagedLessonContent(brief, options = {}) {
     let rawTeacherLanguageBeforeById = {};
     let rawTeacherLanguageAfterById = {};
     let teacherLanguageDiagnostics = [];
+    let rawVocabularyBeforeById = {};
+    let rawVocabularyAfterById = {};
+    let vocabularyDiagBundle = {
+      vocabularyDiagnostics: [],
+      vocabularyRepairOutlineIds: [],
+      vocabularyShapeBefore: {},
+      vocabularyTermsBefore: {},
+      vocabularyShapeAfter: {},
+      vocabularyTermsAfter: {},
+      postRepairVocabularyFailures: [],
+    };
 
     // ---- Phase A: expansion + optional parse/transport recovery (max 1) ----
     while (expansionAttempts < 1 + MAX_EXPANSION_PARSE_RETRIES) {
@@ -2885,6 +3063,7 @@ async function composeStagedLessonContent(brief, options = {}) {
 
       validated = validateExpansionBatch(stage.parsed, ids, blueprint, brief);
       rawTeacherLanguageBeforeById = rawTeacherLanguageByOutlineId(stage.parsed);
+      rawVocabularyBeforeById = rawVocabularyByOutlineId(stage.parsed);
       if (isExpansionParseTransportFailure(stage, validated, ids.length)) {
         lastIssues = validated.issues.length
           ? validated.issues
@@ -2952,6 +3131,7 @@ async function composeStagedLessonContent(brief, options = {}) {
         repairTargets: lastRepairTargets,
         postRepairFailures: lastIssues,
         teacherLanguageDiagnostics,
+        ...vocabularyDiagBundle,
         finalBatchPass: false,
         ...extra,
       });
@@ -3191,6 +3371,15 @@ async function composeStagedLessonContent(brief, options = {}) {
         rawTeacherLanguageBeforeById,
         rawTeacherLanguageAfterById,
       );
+      rawVocabularyAfterById = rawVocabularyByOutlineId(repairStage.parsed);
+      vocabularyDiagBundle = buildVocabularyRepairDiagnostics(
+        priorBatchActivities,
+        validated.activities,
+        lastRepairPlan,
+        validated.issues,
+        rawVocabularyBeforeById,
+        rawVocabularyAfterById,
+      );
       priorBatchActivities = validated.activities;
       lastIssues = validated.issues;
       pushStageDiag(diagnostics, {
@@ -3242,6 +3431,7 @@ async function composeStagedLessonContent(brief, options = {}) {
           repairTargets: lastRepairTargets,
           postRepairFailures: [],
           teacherLanguageDiagnostics,
+          ...vocabularyDiagBundle,
           preRepairQualityIssues,
           issueCountByField: preIssueCountByField,
           postRepairQualityIssues: [],
@@ -3584,12 +3774,20 @@ module.exports = {
   truncationFlags,
   MIN_TEACHER_LANGUAGE_PROMPT_LINES,
   TEACHER_LANGUAGE_WORD_FALLBACK,
+  MIN_VOCABULARY_TERMS,
   normalizeTeacherLanguageField,
   countTeacherLanguagePrompts,
   teacherLanguageMeetsCountGate,
   teacherLanguageShape,
   buildTeacherLanguageRepairDiagnostics,
   rawTeacherLanguageByOutlineId,
+  normalizeVocabularyField,
+  countVocabularyTerms,
+  vocabularyMeetsTermGate,
+  vocabularyShape,
+  vocabularyTermCandidates,
+  buildVocabularyRepairDiagnostics,
+  rawVocabularyByOutlineId,
   sweepExpansionActivitiesQuality,
   sweepAssembledLessonQuality,
   toStructuredQualityIssue,
