@@ -1122,6 +1122,36 @@ function fieldRepairQualityInstruction(field, reason) {
       "Do not return generic supervise-only filler.",
     ].join(" ");
   }
+  if (canonical === "indoorAlternatives") {
+    if (why === "generic_filler") {
+      return [
+        "The existing indoorAlternatives text is too generic.",
+        "REPLACE it with a practical indoor adaptation of THIS activity.",
+        "Explain where/how the activity can happen indoors, what materials or setup change if needed, and preserve the original learning goal.",
+        "Do not lightly paraphrase \"do this indoors\" filler.",
+      ].join(" ");
+    }
+    return [
+      "EXPAND this field into a practical indoor adaptation of the same activity.",
+      "Explain where/how the activity can happen indoors, what materials or setup change if needed,",
+      "and preserve the original learning goal.",
+      "Do not merely lengthen the existing sentence. Do not write generic filler such as \"Do this activity indoors.\"",
+    ].join(" ");
+  }
+  if (canonical === "outdoorAlternatives") {
+    if (why === "generic_filler") {
+      return [
+        "The existing outdoorAlternatives text is too generic.",
+        "REPLACE it with a practical outdoor adaptation of THIS activity.",
+        "Explain where/how the activity can happen outdoors, what materials or setup change if needed, and preserve the original learning goal.",
+      ].join(" ");
+    }
+    return [
+      "EXPAND this field into a practical outdoor adaptation of the same activity.",
+      "Explain where/how the activity can happen outdoors, what materials or setup change if needed,",
+      "and preserve the original learning goal. Do not write generic \"do this outside\" filler.",
+    ].join(" ");
+  }
   if (canonical === "materials") {
     return "List concrete activity materials with enough detail to set up the experience (not a one-word list).";
   }
@@ -1178,6 +1208,8 @@ function enrichExpansionRepairTargets(repairTargets, previousActivities, bluepri
         currentDescription: text(prior.description, 500),
         currentObjective: text(prior.objective, 500),
         currentSafetyNotes: text(prior.safetyNotes, 500),
+        currentIndoorAlternatives: text(prior.indoorAlternatives, 500),
+        currentOutdoorAlternatives: text(prior.outdoorAlternatives, 500),
       },
     };
   });
@@ -2136,30 +2168,78 @@ function buildFinalRepairSystemPrompt() {
 function buildFinalRepairUserPrompt(brief, assembled, issues, options = {}) {
   const issueList = schema.asArray(issues).map((i) => String(i));
   const repairPlan = options.repairPlan || planExpansionRepair(issueList, assembled.activities);
+  const repairTargets = enrichExpansionRepairTargets(
+    repairPlan.mappedRepairTargets,
+    assembled.activities,
+    {
+      activityOutlines: schema.asArray(assembled.activities).map((a) => ({
+        outlineId: a.outlineId,
+        name: a.title,
+        weekday: a.dayOfWeek,
+        domain: a.activityCategory,
+        concept: "",
+        developmentalPurpose: text(a.objective, 500),
+      })),
+    },
+  );
   const failedActs = schema.asArray(assembled.activities).filter((a) => {
     const title = text(a.title, 120);
     const id = text(a.outlineId, 80);
     return issueList.some((iss) => iss.includes(title))
-      || repairPlan.mappedRepairTargets.some((t) => t.outlineId === id);
+      || repairTargets.some((t) => t.outlineId === id);
   });
+  const indoorTargeted = repairTargets.some((t) => (
+    schema.asArray(t.fields).some((f) => f.field === "indoorAlternatives")
+  ));
+  const outdoorTargeted = repairTargets.some((t) => (
+    schema.asArray(t.fields).some((f) => f.field === "outdoorAlternatives")
+  ));
+  const indoorAlternativeRepairIds = repairTargets
+    .filter((t) => schema.asArray(t.fields).some((f) => f.field === "indoorAlternatives"))
+    .map((t) => t.outlineId);
+  const outdoorAlternativeRepairIds = repairTargets
+    .filter((t) => schema.asArray(t.fields).some((f) => f.field === "outdoorAlternatives"))
+    .map((t) => t.outlineId);
   return JSON.stringify({
     mode: "REPAIR_TARGETED_LESSON_PATCH",
     brief: { title: brief.title, ageBand: brief.ageBand, activityTarget: brief.activityTarget },
     fixOnlyTheseIssues: issueList.slice(0, 40),
-    repairTargets: repairPlan.mappedRepairTargets,
+    repairTargets,
     repairedFieldsByOutlineId: Object.fromEntries(
-      repairPlan.mappedRepairTargets.map((t) => [t.outlineId, t.fields.map((f) => f.field)]),
+      repairTargets.map((t) => [t.outlineId, t.fields.map((f) => f.field)]),
     ),
+    indoorAlternativeRepairIds,
+    outdoorAlternativeRepairIds,
     minTeacherLanguagePromptLines: MIN_TEACHER_LANGUAGE_PROMPT_LINES,
-    fieldQualityExpectations: expansionFieldQualityExpectations(),
+    fieldQualityExpectations: {
+      ...expansionFieldQualityExpectations(),
+      indoorAlternatives: [
+        "Practical indoor adaptation of the SAME activity/learning goal.",
+        "Explain where/how it happens indoors, materials/setup changes if needed, and keep the original learning goal.",
+        "Bad: \"Do this activity indoors.\" / \"Move the activity inside.\"",
+        "Good: concrete classroom station/table setup with the same child actions.",
+      ].join(" "),
+      outdoorAlternatives: [
+        "Practical outdoor adaptation of the SAME activity/learning goal.",
+        "Explain where/how it happens outdoors, materials/setup changes if needed, and keep the original learning goal.",
+        "Bad: \"Do this outside.\" Good: shaded mat/table with the same props and objective.",
+      ].join(" "),
+    },
     rules: [
       "Fix EVERY listed repairTargets field in one response. Do not skip any outlineId or field.",
       "Preserve outlineId, title, dayOfWeek, and activityCategory.",
       "Preserve valid non-targeted fields.",
+      "Use each repairTargets[].activityContext and each field's qualityInstruction.",
       `teacherLanguage (when targeted): newline-separated STRING with ≥${MIN_TEACHER_LANGUAGE_PROMPT_LINES} distinct prompts.`,
       "objective (when targeted): activity-specific skill + child action + activity connection; meet existing depth gate.",
       "safetyNotes (when targeted): activity-specific hazard/supervision + teacher action; no generic supervise-only filler.",
-    ],
+      indoorTargeted
+        ? "If indoorAlternatives is targeted: EXPAND into a practical indoor adaptation of the same activity. Explain where/how the activity can happen indoors, what materials or setup change if needed, and preserve the original learning goal. Do not merely lengthen the existing sentence. Do not write generic filler such as \"Do this activity indoors.\""
+        : "",
+      outdoorTargeted
+        ? "If outdoorAlternatives is targeted: EXPAND into a practical outdoor adaptation of the same activity. Explain where/how it happens outdoors, materials/setup changes if needed, and preserve the learning goal. Do not write generic \"do this outside\" filler."
+        : "",
+    ].filter(Boolean),
     weeklyContext: {
       dailyFocus: assembled.lesson?.dailyFocus,
       activityTitles: schema.asArray(assembled.activities).map((a) => a.title),
@@ -2319,50 +2399,72 @@ function buildStagedFixtureResponse(userPrompt) {
 
   if (mode === "REPAIR_TARGETED_LESSON_PATCH") {
     const failed = schema.asArray(parsed.failedActivities);
+    const repairedFieldsByOutlineId = parsed.repairedFieldsByOutlineId && typeof parsed.repairedFieldsByOutlineId === "object"
+      ? parsed.repairedFieldsByOutlineId
+      : {};
+    const substantiveIndoor = (title) => (
+      `Set up “${title}” at a classroom table or dramatic-play station with the same materials and learning goal. `
+      + "Children complete the same steps indoors in a small group while the teacher coaches turn-taking and language."
+    );
+    const substantiveOutdoor = (title) => (
+      `Take the same “${title}” materials outdoors to a shaded mat or picnic table and keep the original objective `
+      + "while children complete the familiar steps with outdoor space to move and share."
+    );
     return JSON.stringify({
       lessonPatches: {},
-      activities: failed.map((a) => ({
-        ...a,
-        title: text(a.title || a.name, 120),
-        objective: text(a.objective, 2000).length > 40
-          ? a.objective
-          : `Children practice a concrete skill during ${theme} play with clear materials and teacher coaching for “${a.title}”.`,
-        description: text(a.description, 2000).length > 40
-          ? a.description
-          : `Children use prepared ${theme.toLowerCase()} materials for “${a.title}” with counted pieces and turn-taking.`,
-        materials: text(a.materials, 2000).length > 20
-          ? a.materials
-          : `Trays, ${theme.toLowerCase()} props, wipeable mat, reset basket`,
-        setup: text(a.setup, 2000).length > 20
-          ? a.setup
-          : `Set one tray per pair for “${a.title}” with a reset basket beside the mat.`,
-        teacherLanguage: text(a.teacherLanguage, 2000).length > 40
-          ? a.teacherLanguage
-          : "I notice how you placed that piece.\nWhich piece comes next?\nCan you show a friend your method?",
-        observationOpportunities: text(a.observationOpportunities, 2000).length > 30
-          ? a.observationOpportunities
-          : `Watch language, counting/turn-taking, and material use during “${a.title}”.`,
-        adaptations: text(a.adaptations, 2000).length > 20
-          ? a.adaptations
-          : "Offer fewer steps or hand-over-hand support.",
-        indoorAlternatives: text(a.indoorAlternatives, 2000).length > 20
-          ? a.indoorAlternatives
-          : `Move “${a.title}” to a table with the same props and objective.`,
-        outdoorAlternatives: text(a.outdoorAlternatives, 2000).length > 20
-          ? a.outdoorAlternatives
-          : `Take the same “${a.title}” materials outdoors on a shaded mat.`,
-        cleanupTips: text(a.cleanupTips, 2000).length > 20
-          ? a.cleanupTips
-          : `Sort “${a.title}” props into labeled bins and wipe trays.`,
-        extensions: text(a.extensions, 2000).length > 20
-          ? a.extensions
-          : `Add a choice card that deepens the weekday focus for “${a.title}”.`,
-        teacherTips: schema.asArray(a.teacherTips).length ? a.teacherTips : ["Keep the group small.", "Stage a backup tray."],
-        observationPrompts: schema.asArray(a.observationPrompts).length
-          ? a.observationPrompts
-          : ["What language did the child use?", "How did they solve a turn-taking moment?"],
-        vocabulary: text(a.vocabulary, 500).length > 5 ? a.vocabulary : `${theme}, try, share, notice`,
-      })),
+      activities: failed.map((a) => {
+        const id = text(a.outlineId, 80);
+        const title = text(a.title || a.name, 120);
+        const targeted = new Set(schema.asArray(repairedFieldsByOutlineId[id]).map((f) => text(f, 60)));
+        const indoorNeedsExpand = targeted.has("indoorAlternatives")
+          || wordCount(a.indoorAlternatives) < 8
+          || /do this activity indoors|move the activity inside|use an indoor space/i.test(String(a.indoorAlternatives || ""));
+        const outdoorNeedsExpand = targeted.has("outdoorAlternatives")
+          || wordCount(a.outdoorAlternatives) < 8
+          || /do this outside|move the activity outdoors/i.test(String(a.outdoorAlternatives || ""));
+        return {
+          ...a,
+          title,
+          objective: text(a.objective, 2000).length > 40
+            ? a.objective
+            : `Children practice a concrete skill during ${theme} play with clear materials and teacher coaching for “${title}”.`,
+          description: text(a.description, 2000).length > 40
+            ? a.description
+            : `Children use prepared ${theme.toLowerCase()} materials for “${title}” with counted pieces and turn-taking.`,
+          materials: text(a.materials, 2000).length > 20
+            ? a.materials
+            : `Trays, ${theme.toLowerCase()} props, wipeable mat, reset basket`,
+          setup: text(a.setup, 2000).length > 20
+            ? a.setup
+            : `Set one tray per pair for “${title}” with a reset basket beside the mat.`,
+          teacherLanguage: text(a.teacherLanguage, 2000).length > 40
+            ? a.teacherLanguage
+            : "I notice how you placed that piece.\nWhich piece comes next?\nCan you show a friend your method?",
+          observationOpportunities: text(a.observationOpportunities, 2000).length > 30
+            ? a.observationOpportunities
+            : `Watch language, counting/turn-taking, and material use during “${title}”.`,
+          adaptations: text(a.adaptations, 2000).length > 20
+            ? a.adaptations
+            : "Offer fewer steps or hand-over-hand support.",
+          indoorAlternatives: indoorNeedsExpand
+            ? substantiveIndoor(title)
+            : text(a.indoorAlternatives, 2000),
+          outdoorAlternatives: outdoorNeedsExpand
+            ? substantiveOutdoor(title)
+            : text(a.outdoorAlternatives, 2000),
+          cleanupTips: text(a.cleanupTips, 2000).length > 20
+            ? a.cleanupTips
+            : `Sort “${title}” props into labeled bins and wipe trays.`,
+          extensions: text(a.extensions, 2000).length > 20
+            ? a.extensions
+            : `Add a choice card that deepens the weekday focus for “${title}”.`,
+          teacherTips: schema.asArray(a.teacherTips).length ? a.teacherTips : ["Keep the group small.", "Stage a backup tray."],
+          observationPrompts: schema.asArray(a.observationPrompts).length
+            ? a.observationPrompts
+            : ["What language did the child use?", "How did they solve a turn-taking moment?"],
+          vocabulary: text(a.vocabulary, 500).length > 5 ? a.vocabulary : `${theme}, try, share, notice`,
+        };
+      }),
     });
   }
 
@@ -3234,12 +3336,29 @@ async function composeStagedLessonContent(brief, options = {}) {
   };
 
   const finalRepairPlan = planExpansionRepair(mergedFinalIssues, expandedActivities);
+  const indoorAlternativeRepairIds = finalRepairPlan.mappedRepairTargets
+    .filter((t) => schema.asArray(t.fields).some((f) => f.field === "indoorAlternatives"))
+    .map((t) => text(t.outlineId, 80));
+  const outdoorAlternativeRepairIds = finalRepairPlan.mappedRepairTargets
+    .filter((t) => schema.asArray(t.fields).some((f) => f.field === "outdoorAlternatives"))
+    .map((t) => text(t.outlineId, 80));
+  const indoorAlternativeBefore = Object.fromEntries(
+    indoorAlternativeRepairIds.map((id) => {
+      const act = expandedActivities.find((a) => text(a.outlineId, 80) === id);
+      return [id, text(act?.indoorAlternatives, 500)];
+    }),
+  );
   diagnostics.finalPreCreate = {
     finalPreCreateIssues: finalSweep.structuredIssues,
     finalIssueCountByField: finalSweep.issueCountByField,
     architectIssues: schema.asArray(architectValidated.issues).map((i) => text(i, 200)).slice(0, 40),
     finalRepairTargets: finalRepairPlan.mappedRepairTargets,
     unmappedQualityIssues: finalRepairPlan.unmappedQualityIssues,
+    indoorAlternativeRepairIds,
+    outdoorAlternativeRepairIds,
+    indoorAlternativeBefore,
+    indoorAlternativeAfter: null,
+    postRepairIndoorAlternativeFailures: null,
     finalPostRepairIssues: null,
     finalQualityPass: validated.ok === true,
     activityCount: finalSweep.activityCount,
@@ -3306,6 +3425,12 @@ async function composeStagedLessonContent(brief, options = {}) {
           substitutions: asActivityStringList(a.substitutions),
         };
       });
+      const indoorAlternativeAfter = Object.fromEntries(
+        indoorAlternativeRepairIds.map((id) => {
+          const act = patchedActivities.find((a) => text(a.outlineId, 80) === id);
+          return [id, text(act?.indoorAlternatives, 500)];
+        }),
+      );
       const postFinalSweep = sweepAssembledLessonQuality(patchedActivities, brief);
       architectValidated = architect.validateArchitectOutput(JSON.stringify(assembled), brief);
       const postMerged = [...new Set([
@@ -3322,8 +3447,20 @@ async function composeStagedLessonContent(brief, options = {}) {
         content: architectValidated.content,
       };
       repaired = validated.ok === true;
-      diagnostics.finalPreCreate.finalPostRepairIssues = postFinalSweep.structuredIssues;
-      diagnostics.finalPreCreate.finalIssueCountByField = postFinalSweep.issueCountByField;
+      const postRepairIndoorAlternativeFailures = schema.asArray(postMerged)
+        .filter((i) => /indoorAlternatives/i.test(String(i)))
+        .map((i) => text(i, 200));
+      diagnostics.finalPreCreate.indoorAlternativeAfter = indoorAlternativeAfter;
+      diagnostics.finalPreCreate.postRepairIndoorAlternativeFailures = postRepairIndoorAlternativeFailures;
+      diagnostics.finalPreCreate.finalPostRepairIssues = [
+        ...postFinalSweep.structuredIssues,
+        ...schema.asArray(architectValidated.issues)
+          .filter((iss) => !postFinalSweep.issueStrings.includes(iss))
+          .map((iss) => toStructuredQualityIssue(iss, patchedActivities)),
+      ];
+      diagnostics.finalPreCreate.finalIssueCountByField = issueCountByField(
+        diagnostics.finalPreCreate.finalPostRepairIssues,
+      );
       diagnostics.finalPreCreate.finalQualityPass = validated.ok === true;
       if (validated.ok) {
         // Rebuild architect content from patched activities when sweep+architect clear
