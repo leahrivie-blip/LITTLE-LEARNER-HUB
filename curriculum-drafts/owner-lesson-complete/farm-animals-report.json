@@ -1,0 +1,229 @@
+{
+  "startedAt": "2026-08-21T00:10:20.816Z",
+  "configKey": "farm-animals",
+  "planId": "cur-lp-preschool-farm-animals",
+  "title": "Farm Animals",
+  "audit": {
+    "keep": [
+      "Farm Animal Discovery Basket",
+      "Farm Sound & Motion Circle",
+      "Barnyard Movement Trail",
+      "From Farm to Table Story Investigation",
+      "Grooming and Caring for Animals",
+      "Mystery Farm Sound Game",
+      "Barnyard Story and Movement Celebration"
+    ],
+    "improve": [
+      "Where Does It Belong? Farm Sorting",
+      "Muddy Animals Wash Laboratory",
+      "Build an Animal Shelter STEM Challenge",
+      "Preschool Farmers Market",
+      "Pretend Milking Fine-Motor Station",
+      "Egg Collection Counting Challenge",
+      "Collaborative Animal-Track Mural",
+      "Design Our Class Farm"
+    ],
+    "replace": []
+  },
+  "images": {
+    "created": [
+      {
+        "title": "Farm Animal Discovery Basket",
+        "activityKey": "cur-act-e14264deb203e7dc",
+        "requirement": "IMAGE_REQUIRED",
+        "source": "reuse_existing_draft",
+        "url": "/api/admin/media/enrichment-photos/tk-enrich-4042d7c7bf73bd1a69d2e8ad88d923e9?variant=full",
+        "mediaAssetId": "tk-enrich-4042d7c7bf73bd1a69d2e8ad88d923e9"
+      },
+      {
+        "title": "Muddy Animals Wash Laboratory",
+        "activityKey": "cur-act-01c1e912994395f7",
+        "requirement": "IMAGE_REQUIRED",
+        "source": "reuse_existing_draft",
+        "url": "/api/admin/media/enrichment-photos/tk-enrich-c15171cc9289ae7d755f6080a127a4e7?variant=full",
+        "mediaAssetId": "tk-enrich-c15171cc9289ae7d755f6080a127a4e7"
+      },
+      {
+        "title": "Build an Animal Shelter STEM Challenge",
+        "activityKey": "cur-act-07701b43fd761a1e",
+        "requirement": "IMAGE_REQUIRED",
+        "source": "reuse_existing_draft",
+        "url": "/api/admin/media/enrichment-photos/tk-enrich-f2afd68a43f96afe5890180ffb25f539?variant=full",
+        "mediaAssetId": "tk-enrich-f2afd68a43f96afe5890180ffb25f539"
+      },
+      {
+        "title": "Collaborative Animal-Track Mural",
+        "activityKey": "cur-act-76b015234ffc9cac",
+        "requirement": "IMAGE_HELPFUL",
+        "source": "reuse_existing_draft",
+        "url": "/api/admin/media/enrichment-photos/tk-enrich-73aeae5a33213751c3e74d39fcf0a673?variant=full",
+        "mediaAssetId": "tk-enrich-73aeae5a33213751c3e74d39fcf0a673"
+      },
+      {
+        "title": "Design Our Class Farm",
+        "activityKey": "cur-act-27424046373b8597",
+        "requirement": "IMAGE_HELPFUL",
+        "source": "reuse_existing_draft",
+        "url": "/api/admin/media/enrichment-photos/tk-enrich-9640cb42f82f3e25d941bd9311fd9789?variant=full",
+        "mediaAssetId": "tk-enrich-9640cb42f82f3e25d941bd9311fd9789"
+      },
+      {
+        "title": "Where Does It Belong? Farm Sorting",
+        "activityKey": "cur-act-e4fe79e92d9dcb52",
+        "requirement": "IMAGE_HELPFUL",
+        "source": "openai_realistic",
+        "url": "/api/admin/media/enrichment-photos/tk-enrich-7fff36c8a87ca03792cac58f888b7f79?variant=full",
+        "mediaAssetId": "tk-enrich-7fff36c8a87ca03792cac58f888b7f79",
+        "localPath": "/workspace/curriculum-drafts/owner-lesson-complete/farm-animals/generated/where-does-it-belong-farm-sorting.png"
+      },
+      {
+        "title": "Preschool Farmers Market",
+        "activityKey": "cur-act-2211a60c5477985a",
+        "requirement": "IMAGE_HELPFUL",
+        "source": "openai_realistic",
+        "url": "/api/admin/media/enrichment-photos/tk-enrich-446c3ccd67f3ad52b1bf3d10c5c4681b?variant=full",
+        "mediaAssetId": "tk-enrich-446c3ccd67f3ad52b1bf3d10c5c4681b",
+        "localPath": "/workspace/curriculum-drafts/owner-lesson-complete/farm-animals/generated/preschool-farmers-market.png"
+      },
+      {
+        "title": "Pretend Milking Fine-Motor Station",
+        "activityKey": "cur-act-f764929f01edb2a8",
+        "requirement": "IMAGE_REQUIRED",
+        "source": "openai_realistic",
+        "url": "/api/admin/media/enrichment-photos/tk-enrich-3c13b49f332d0d0fea0cf977a8c2adc5?variant=full",
+        "mediaAssetId": "tk-enrich-3c13b49f332d0d0fea0cf977a8c2adc5",
+        "localPath": "/workspace/curriculum-drafts/owner-lesson-complete/farm-animals/generated/pretend-milking-fine-motor-station.png"
+      },
+      {
+        "title": "Egg Collection Counting Challenge",
+        "activityKey": "cur-act-c365a6b09e9d869d",
+        "requirement": "IMAGE_HELPFUL",
+        "source": "openai_realistic",
+        "url": "/api/admin/media/enrichment-photos/tk-enrich-d0a34780b7c0cd01a36b1621365b8e37?variant=full",
+        "mediaAssetId": "tk-enrich-d0a34780b7c0cd01a36b1621365b8e37",
+        "localPath": "/workspace/curriculum-drafts/owner-lesson-complete/farm-animals/generated/egg-collection-counting-challenge.png"
+      }
+    ],
+    "skipped": [
+      {
+        "title": "Farm Sound & Motion Circle",
+        "reason": "IMAGE_NOT_NEEDED",
+        "clearedPrior": true
+      },
+      {
+        "title": "Barnyard Movement Trail",
+        "reason": "IMAGE_NOT_NEEDED",
+        "clearedPrior": true
+      },
+      {
+        "title": "From Farm to Table Story Investigation",
+        "reason": "IMAGE_NOT_NEEDED",
+        "clearedPrior": false
+      },
+      {
+        "title": "Grooming and Caring for Animals",
+        "reason": "IMAGE_NOT_NEEDED",
+        "clearedPrior": false
+      },
+      {
+        "title": "Mystery Farm Sound Game",
+        "reason": "IMAGE_NOT_NEEDED",
+        "clearedPrior": false
+      },
+      {
+        "title": "Barnyard Story and Movement Celebration",
+        "reason": "IMAGE_NOT_NEEDED",
+        "clearedPrior": false
+      }
+    ],
+    "failed": []
+  },
+  "printables": [
+    {
+      "title": "Farm Animals Preschool Picture Card Pack",
+      "id": "cur-res-c5cd1e5e6d5ea78a",
+      "decision": "KEEP",
+      "pages": 5,
+      "why": "Clean preschool animal cards teachers actually print for sorting, dramatic play, and vocabulary — complements centers without filler worksheets."
+    }
+  ],
+  "cover": {
+    "selectedActivity": "Farm Animal Discovery Basket",
+    "uploadStatus": 200,
+    "assignStatus": 200,
+    "ok": true,
+    "url": "/api/media/lesson-covers/lesson-cover-0cb7f1753716d2a9a24fae5a0f128142",
+    "coverId": "lesson-cover-0cb7f1753716d2a9a24fae5a0f128142",
+    "error": null
+  },
+  "verify": {
+    "id": "cur-lp-preschool-farm-animals",
+    "title": "Farm Animals",
+    "age": "Preschool",
+    "status": "published",
+    "plan": "Free",
+    "activityCount": 15,
+    "draftActivityCount": 15,
+    "draftActivitiesWithImages": 9,
+    "coverImageUrl": "/api/media/lesson-covers/lesson-cover-0cb7f1753716d2a9a24fae5a0f128142",
+    "linkedResources": [
+      {
+        "id": "cur-res-c5cd1e5e6d5ea78a",
+        "title": "Farm Animals Preschool Picture Card Pack",
+        "status": "published",
+        "lessonPlanIds": [
+          "cur-lp-preschool-farm-animals"
+        ]
+      }
+    ],
+    "freeProUnchanged": true,
+    "statusUnchanged": true,
+    "idUnchanged": true,
+    "enrichmentPublished": false,
+    "exactTitleCount": 1
+  },
+  "guardSnapshots": {
+    "cur-lp-toddler-farm-friends": {
+      "title": "Farm Friends",
+      "status": "published",
+      "plan": "Pro",
+      "updatedAt": "2026-08-08T02:16:30.774Z",
+      "coverImageUrl": "/api/media/lesson-covers/lesson-cover-c09185f1b98143e924207441b95b9ef5",
+      "enrichmentDraftUpdatedAt": ""
+    }
+  },
+  "before": {
+    "id": "cur-lp-preschool-farm-animals",
+    "title": "Farm Animals",
+    "age": "Preschool",
+    "status": "published",
+    "plan": "Free",
+    "activityCount": 15,
+    "hasDraft": true,
+    "coverImageUrl": "/images/lesson-covers/farm-animals.jpg",
+    "resourceIds": [
+      "cur-res-c5cd1e5e6d5ea78a"
+    ]
+  },
+  "untouchedGuards": {
+    "cur-lp-toddler-farm-friends": {
+      "ok": true,
+      "before": {
+        "title": "Farm Friends",
+        "status": "published",
+        "plan": "Pro",
+        "updatedAt": "2026-08-08T02:16:30.774Z",
+        "coverImageUrl": "/api/media/lesson-covers/lesson-cover-c09185f1b98143e924207441b95b9ef5",
+        "enrichmentDraftUpdatedAt": ""
+      },
+      "after": {
+        "title": "Farm Friends",
+        "status": "published",
+        "plan": "Pro",
+        "coverImageUrl": "/api/media/lesson-covers/lesson-cover-c09185f1b98143e924207441b95b9ef5",
+        "enrichmentDraftUpdatedAt": ""
+      }
+    }
+  },
+  "finishedAt": "2026-08-21T00:13:48.893Z"
+}

@@ -1,0 +1,717 @@
+{
+  "aam": {
+    "id": "cur-lp-toddler-all-about-me",
+    "title": "All About Me",
+    "age": "Toddler",
+    "status": "published",
+    "plan": "Pro",
+    "activityCount": 15,
+    "activityTitles": [
+      "Mirror Me",
+      "My Name Discovery",
+      "Family Photo Sharing",
+      "Name Song Mirror Circle",
+      "Me Portrait Dough Faces",
+      "Body Parts Action Path",
+      "Home Sweet Home Pretend",
+      "Family Photo Story Time",
+      "Handprint Family Tree",
+      "Feelings Faces Check-In",
+      "Happy Feet Feelings Dance",
+      "Favorites Discovery Baskets",
+      "I Am Special Celebration",
+      "Me Shadow Chase",
+      "All About Me Collage Wall"
+    ],
+    "draftActCount": 15,
+    "draftWithImages": [
+      {
+        "id": "cur-act-531941230b30c762",
+        "title": "Mirror Me",
+        "url": "/api/admin/media/enrichment-photos/tk-enrich-9e63542c80aaea9aa6ac48bb3f517c12?variant=full"
+      },
+      {
+        "id": "cur-act-d53503dd27e6da17",
+        "title": "My Name Discovery",
+        "url": "/api/admin/media/enrichment-photos/tk-enrich-f0721fefb46ddeaaf673d969547c538c?variant=full"
+      },
+      {
+        "id": "cur-act-eeb9b39dca614835",
+        "title": "Family Photo Sharing",
+        "url": "/api/admin/media/enrichment-photos/tk-enrich-e074c9f35f433b511592d634c48b5840?variant=full"
+      },
+      {
+        "id": "cur-act-3019ae7d8bab8a26",
+        "title": "Me Portrait Dough Faces",
+        "url": "/api/admin/media/enrichment-photos/tk-enrich-3207529637ed90e6f078496ef6614c3d?variant=full"
+      },
+      {
+        "id": "cur-act-32a94d90e94c59d3",
+        "title": "Handprint Family Tree",
+        "url": "/api/admin/media/enrichment-photos/tk-enrich-21fdd3ceb24833752bf851c80251f2df?variant=full"
+      },
+      {
+        "id": "cur-act-f459fc0b07fdd90b",
+        "title": "Feelings Faces Check-In",
+        "url": "/api/admin/media/enrichment-photos/tk-enrich-c23590a4d17519b6f72ca57cb1a0d8e9?variant=full"
+      },
+      {
+        "id": "cur-act-e4ad7f7b80dd6eea",
+        "title": "Favorites Discovery Baskets",
+        "url": "/api/admin/media/enrichment-photos/tk-enrich-f2325e93b75114fe951541615cc80053?variant=full"
+      },
+      {
+        "id": "cur-act-98b9a6cf460fa2a5",
+        "title": "All About Me Collage Wall",
+        "url": "/api/admin/media/enrichment-photos/tk-enrich-73feb74f3891837c871bd41396936075?variant=full"
+      }
+    ],
+    "coverImageUrl": "/api/media/lesson-covers/lesson-cover-a0063b6fff7caeebe429f8f5d8cdde52",
+    "enrichmentPublished": false,
+    "weekBooks": [
+      "I Like Myself!",
+      "From Head to Toe",
+      "All by Myself"
+    ],
+    "weekPrintableIds": [
+      "cur-res-661287ba04c0f8ab",
+      "cur-res-21073e8fd703f677"
+    ],
+    "linkedResources": [
+      {
+        "id": "cur-res-661287ba04c0f8ab",
+        "title": "Body Parts Picture Cards (draft)",
+        "status": "draft",
+        "fileUrl": "",
+        "lessonPlanIds": [
+          "cur-lp-toddler-all-about-me"
+        ]
+      },
+      {
+        "id": "cur-res-21073e8fd703f677",
+        "title": "Favorites Choice Cards (draft)",
+        "status": "draft",
+        "fileUrl": "",
+        "lessonPlanIds": [
+          "cur-lp-toddler-all-about-me"
+        ]
+      }
+    ],
+    "sameTitleLessons": [
+      {
+        "id": "cur-lp-toddler-all-about-me",
+        "age": "Toddler",
+        "status": "published",
+        "plan": "Pro",
+        "actCount": 15
+      },
+      {
+        "id": "cur-lp-preschool-all-about-me",
+        "age": "Preschool",
+        "status": "published",
+        "plan": "Free",
+        "actCount": 15
+      }
+    ],
+    "draftOnly": true,
+    "neverAutoPublish": true
+  },
+  "preschool": {
+    "id": "cur-lp-preschool-all-about-me",
+    "title": "All About Me",
+    "age": "Preschool",
+    "status": "published",
+    "plan": "Free",
+    "activityCount": 15,
+    "activityTitles": [
+      "Mirror Me",
+      "My Name Discovery",
+      "Family Photo Sharing",
+      "Family Graph",
+      "Body Part Movement Game",
+      "Self-Portrait Studio",
+      "Family Dramatic Play",
+      "Friend Interview",
+      "Name Letter Hunt",
+      "Height and Measure Me",
+      "Feelings Faces Art",
+      "All About Me Book Making",
+      "Body Outline Tracing",
+      "Celebration Circle",
+      "All About Me Movement Parade"
+    ],
+    "draftActCount": 0,
+    "draftWithImages": [],
+    "coverImageUrl": "/images/lesson-covers/all-about-me.jpg",
+    "enrichmentPublished": false,
+    "weekBooks": [
+      "I Like Myself!",
+      "From Head to Toe",
+      "Chrysanthemum"
+    ],
+    "weekPrintableIds": [
+      "cur-res-draft-all-about-me-picture-cards"
+    ],
+    "linkedResources": [
+      {
+        "id": "cur-res-draft-all-about-me-picture-cards",
+        "title": "All About Me Picture Card Pack",
+        "status": "published",
+        "fileUrl": "",
+        "lessonPlanIds": [
+          "cur-lp-preschool-all-about-me"
+        ]
+      }
+    ],
+    "sameTitleLessons": [
+      {
+        "id": "cur-lp-toddler-all-about-me",
+        "age": "Toddler",
+        "status": "published",
+        "plan": "Pro",
+        "actCount": 15
+      },
+      {
+        "id": "cur-lp-preschool-all-about-me",
+        "age": "Preschool",
+        "status": "published",
+        "plan": "Free",
+        "actCount": 15
+      }
+    ]
+  },
+  "makers": {
+    "id": "cur-lp-549b80f61dfa8d79",
+    "title": "Little Makers Workshop",
+    "age": "Toddler 12–24 Months",
+    "status": "draft",
+    "plan": "Free",
+    "activityCount": 15,
+    "activityTitles": [
+      "Giant Floor Drawing",
+      "Dot Marker Color Pops",
+      "Marker Car Roads",
+      "Sponge Squish Painting",
+      "Toy Car Paint Tracks",
+      "Big Brush Wall Painting",
+      "Sticky Wall Collage",
+      "Sticker Shape Studio",
+      "Tear and Stick Paper Art",
+      "Cardboard Box Builders",
+      "Tape It Together",
+      "Build a Home for a Toy",
+      "Play Dough Maker Table",
+      "Recycled Creation Station",
+      "Our Little Makers Gallery"
+    ],
+    "draftActCount": 15,
+    "draftWithImages": [
+      {
+        "id": "cur-act-0a02697c73ccac85",
+        "title": "Giant Floor Drawing",
+        "url": "/api/admin/media/enrichment-photos/tk-enrich-ed7dc2d8ab3ddc52e4513ce7d18ad673?variant=full"
+      },
+      {
+        "id": "cur-act-c36723f91d3a9637",
+        "title": "Sponge Squish Painting",
+        "url": "/api/admin/media/enrichment-photos/tk-enrich-bb6f580c8020e55dc3cc9f64dac60d1d?variant=full"
+      },
+      {
+        "id": "cur-act-e73d2563a00a625e",
+        "title": "Big Brush Wall Painting",
+        "url": "/api/admin/media/enrichment-photos/tk-enrich-64e290d6798ed12981b8e13a387d4b6b?variant=full"
+      },
+      {
+        "id": "cur-act-8742aa9c0bf55e92",
+        "title": "Sticky Wall Collage",
+        "url": "/api/admin/media/enrichment-photos/tk-enrich-fe52f268c2af3c95fa71f9a21a3920d6?variant=full"
+      },
+      {
+        "id": "cur-act-11219e65afbc3c4b",
+        "title": "Cardboard Box Builders",
+        "url": "/api/admin/media/enrichment-photos/tk-enrich-15665fd5ea86d3d39e4ff86c8301b0ce?variant=full"
+      },
+      {
+        "id": "cur-act-a64e2ec14fb26963",
+        "title": "Play Dough Maker Table",
+        "url": "/api/admin/media/enrichment-photos/tk-enrich-bde8fc066c38d06f76892d3a4be09d03?variant=full"
+      },
+      {
+        "id": "cur-act-374ff7ad30144089",
+        "title": "Recycled Creation Station",
+        "url": "/api/admin/media/enrichment-photos/tk-enrich-c0c7dd4ad80e666022efc6b4b13bf0aa?variant=full"
+      }
+    ],
+    "coverImageUrl": "/api/media/lesson-covers/lesson-cover-7acc5818417dd09468046b5e6bc9b96c",
+    "enrichmentPublished": false,
+    "weekBooks": [
+      "Beautiful Oops!",
+      "The Dot",
+      "Mouse Paint"
+    ],
+    "weekPrintableIds": [
+      "cur-res-eaf645605f866a60",
+      "cur-res-e7d3ec92ec5f13e6"
+    ],
+    "linkedResources": [
+      {
+        "id": "cur-res-eaf645605f866a60",
+        "title": "Maker Station Signs (draft)",
+        "status": "draft",
+        "fileUrl": "",
+        "lessonPlanIds": [
+          "cur-lp-549b80f61dfa8d79"
+        ]
+      },
+      {
+        "id": "cur-res-e7d3ec92ec5f13e6",
+        "title": "Process Maker Prompt Cards (draft)",
+        "status": "draft",
+        "fileUrl": "",
+        "lessonPlanIds": [
+          "cur-lp-549b80f61dfa8d79"
+        ]
+      }
+    ],
+    "sameTitleLessons": [
+      {
+        "id": "cur-lp-88831286195f7477",
+        "age": "Toddler 24–36 Months",
+        "status": "archived",
+        "plan": "Free",
+        "actCount": 0
+      },
+      {
+        "id": "cur-lp-549b80f61dfa8d79",
+        "age": "Toddler 12–24 Months",
+        "status": "draft",
+        "plan": "Free",
+        "actCount": 15
+      }
+    ],
+    "draftOnly": true,
+    "neverAutoPublish": true
+  },
+  "archived": {
+    "id": "cur-lp-88831286195f7477",
+    "title": "Little Makers Workshop",
+    "age": "Toddler 24–36 Months",
+    "status": "archived",
+    "plan": "Free",
+    "activityCount": 0,
+    "activityTitles": [],
+    "draftActCount": 0,
+    "draftWithImages": [],
+    "coverImageUrl": "/images/lesson-covers/generic-toddler.svg",
+    "enrichmentPublished": false,
+    "weekBooks": [
+      "Beautiful Oops! by Barney Saltzberg",
+      "Mix It Up! by Hervé Tullet",
+      "The Dot by Peter H. Reynolds",
+      "Not a Box by Antoinette Portis",
+      "Ish by Peter H. Reynolds",
+      "Book discussion ideas",
+      "Ask children to point to colors and marks they notice.",
+      "Talk about how people can make things in many different ways.",
+      "Ask what a box could pretend to be.",
+      "Connect book pictures with activities children completed during the week.",
+      "Keep questions short and allow children to answer with pointing, gestures, or one-word responses.",
+      "Beautiful Oops! by Barney Saltzberg",
+      "Mix It Up! by Hervé Tullet",
+      "The Dot by Peter H. Reynolds",
+      "Not a Box by Antoinette Portis",
+      "Ish by Peter H. Reynolds",
+      "Book discussion ideas",
+      "Ask children to point to colors and marks they notice.",
+      "Talk about how people can make things in many different ways.",
+      "Ask what a box could pretend to be.",
+      "Connect book pictures with activities children completed during the week.",
+      "Keep questions short and allow children to answer with pointing, gestures, or one-word responses."
+    ],
+    "weekPrintableIds": [],
+    "linkedResources": [],
+    "sameTitleLessons": [
+      {
+        "id": "cur-lp-88831286195f7477",
+        "age": "Toddler 24–36 Months",
+        "status": "archived",
+        "plan": "Free",
+        "actCount": 0
+      },
+      {
+        "id": "cur-lp-549b80f61dfa8d79",
+        "age": "Toddler 12–24 Months",
+        "status": "draft",
+        "plan": "Free",
+        "actCount": 15
+      }
+    ]
+  },
+  "preschoolGuard": {
+    "ok": true,
+    "before": {
+      "title": "All About Me",
+      "status": "published",
+      "plan": "Free",
+      "updatedAt": "2026-08-12T00:58:08.598Z",
+      "coverImageUrl": "/images/lesson-covers/all-about-me.jpg",
+      "enrichmentDraftUpdatedAt": "2026-08-12T02:18:04.007Z"
+    },
+    "after": {
+      "title": "All About Me",
+      "status": "published",
+      "plan": "Free",
+      "coverImageUrl": "/images/lesson-covers/all-about-me.jpg",
+      "enrichmentDraftUpdatedAt": "2026-08-12T02:18:04.007Z"
+    }
+  },
+  "archivedGuard": {
+    "ok": true,
+    "before": {
+      "title": "Little Makers Workshop",
+      "status": "archived",
+      "plan": "Free",
+      "updatedAt": "2026-08-18T00:18:39.924Z",
+      "coverImageUrl": "/images/lesson-covers/generic-toddler.svg",
+      "enrichmentDraftUpdatedAt": "2026-08-17T22:07:07.994Z"
+    },
+    "after": {
+      "title": "Little Makers Workshop",
+      "status": "archived",
+      "plan": "Free",
+      "coverImageUrl": "/images/lesson-covers/generic-toddler.svg",
+      "enrichmentDraftUpdatedAt": "2026-08-17T22:07:07.994Z"
+    }
+  },
+  "printableChecks": [
+    {
+      "id": "cur-res-661287ba04c0f8ab",
+      "title": "Body Parts Picture Cards (draft)",
+      "result": {
+        "ok": false,
+        "status": 404,
+        "bytes": 19,
+        "isPdf": false,
+        "isJpeg": false,
+        "isPng": false,
+        "url": "https://littlelearnershubbyleah.com/api/media/curriculum-resources/curriculum-resource-cur-res-661287ba04c0f8ab"
+      },
+      "resourceKeys": [
+        "fileData",
+        "mediaAssetId",
+        "mediaUrl",
+        "fileName",
+        "previewImageUrl",
+        "previewMediaAssetId",
+        "previewUrl",
+        "inlineFileDataRetained"
+      ]
+    },
+    {
+      "id": "cur-res-21073e8fd703f677",
+      "title": "Favorites Choice Cards (draft)",
+      "result": {
+        "ok": false,
+        "status": 404,
+        "bytes": 19,
+        "isPdf": false,
+        "isJpeg": false,
+        "isPng": false,
+        "url": "https://littlelearnershubbyleah.com/api/media/curriculum-resources/curriculum-resource-cur-res-21073e8fd703f677"
+      },
+      "resourceKeys": [
+        "fileData",
+        "mediaAssetId",
+        "mediaUrl",
+        "fileName",
+        "previewImageUrl",
+        "previewMediaAssetId",
+        "previewUrl",
+        "inlineFileDataRetained"
+      ]
+    },
+    {
+      "id": "cur-res-eaf645605f866a60",
+      "title": "Maker Station Signs (draft)",
+      "result": {
+        "ok": false,
+        "status": 404,
+        "bytes": 19,
+        "isPdf": false,
+        "isJpeg": false,
+        "isPng": false,
+        "url": "https://littlelearnershubbyleah.com/api/media/curriculum-resources/curriculum-resource-cur-res-eaf645605f866a60"
+      },
+      "resourceKeys": [
+        "fileData",
+        "mediaAssetId",
+        "mediaUrl",
+        "fileName",
+        "previewImageUrl",
+        "previewMediaAssetId",
+        "previewUrl",
+        "inlineFileDataRetained"
+      ]
+    },
+    {
+      "id": "cur-res-e7d3ec92ec5f13e6",
+      "title": "Process Maker Prompt Cards (draft)",
+      "result": {
+        "ok": false,
+        "status": 404,
+        "bytes": 19,
+        "isPdf": false,
+        "isJpeg": false,
+        "isPng": false,
+        "url": "https://littlelearnershubbyleah.com/api/media/curriculum-resources/curriculum-resource-cur-res-e7d3ec92ec5f13e6"
+      },
+      "resourceKeys": [
+        "fileData",
+        "mediaAssetId",
+        "mediaUrl",
+        "fileName",
+        "previewImageUrl",
+        "previewMediaAssetId",
+        "previewUrl",
+        "inlineFileDataRetained"
+      ]
+    }
+  ],
+  "coverChecks": {
+    "aam": {
+      "ok": true,
+      "status": 200,
+      "bytes": 195429,
+      "isPdf": false,
+      "isJpeg": true,
+      "isPng": false,
+      "url": "https://littlelearnershubbyleah.com/api/media/lesson-covers/lesson-cover-a0063b6fff7caeebe429f8f5d8cdde52"
+    },
+    "makers": {
+      "ok": true,
+      "status": 200,
+      "bytes": 187181,
+      "isPdf": false,
+      "isJpeg": true,
+      "isPng": false,
+      "url": "https://littlelearnershubbyleah.com/api/media/lesson-covers/lesson-cover-7acc5818417dd09468046b5e6bc9b96c"
+    }
+  },
+  "imageOkCount": 0,
+  "imageFail": [
+    {
+      "title": "Mirror Me",
+      "ok": false,
+      "status": 404,
+      "bytes": 16,
+      "isPdf": false,
+      "isJpeg": false,
+      "isPng": false,
+      "url": "https://littlelearnershubbyleah.com/api/admin/media/enrichment-photos/tk-enrich-9e63542c80aaea9aa6ac48bb3f517c12?variant"
+    },
+    {
+      "title": "My Name Discovery",
+      "ok": false,
+      "status": 404,
+      "bytes": 16,
+      "isPdf": false,
+      "isJpeg": false,
+      "isPng": false,
+      "url": "https://littlelearnershubbyleah.com/api/admin/media/enrichment-photos/tk-enrich-f0721fefb46ddeaaf673d969547c538c?variant"
+    },
+    {
+      "title": "Family Photo Sharing",
+      "ok": false,
+      "status": 404,
+      "bytes": 16,
+      "isPdf": false,
+      "isJpeg": false,
+      "isPng": false,
+      "url": "https://littlelearnershubbyleah.com/api/admin/media/enrichment-photos/tk-enrich-e074c9f35f433b511592d634c48b5840?variant"
+    },
+    {
+      "title": "Me Portrait Dough Faces",
+      "ok": false,
+      "status": 404,
+      "bytes": 16,
+      "isPdf": false,
+      "isJpeg": false,
+      "isPng": false,
+      "url": "https://littlelearnershubbyleah.com/api/admin/media/enrichment-photos/tk-enrich-3207529637ed90e6f078496ef6614c3d?variant"
+    },
+    {
+      "title": "Handprint Family Tree",
+      "ok": false,
+      "status": 404,
+      "bytes": 16,
+      "isPdf": false,
+      "isJpeg": false,
+      "isPng": false,
+      "url": "https://littlelearnershubbyleah.com/api/admin/media/enrichment-photos/tk-enrich-21fdd3ceb24833752bf851c80251f2df?variant"
+    },
+    {
+      "title": "Feelings Faces Check-In",
+      "ok": false,
+      "status": 404,
+      "bytes": 16,
+      "isPdf": false,
+      "isJpeg": false,
+      "isPng": false,
+      "url": "https://littlelearnershubbyleah.com/api/admin/media/enrichment-photos/tk-enrich-c23590a4d17519b6f72ca57cb1a0d8e9?variant"
+    },
+    {
+      "title": "Favorites Discovery Baskets",
+      "ok": false,
+      "status": 404,
+      "bytes": 16,
+      "isPdf": false,
+      "isJpeg": false,
+      "isPng": false,
+      "url": "https://littlelearnershubbyleah.com/api/admin/media/enrichment-photos/tk-enrich-f2325e93b75114fe951541615cc80053?variant"
+    },
+    {
+      "title": "All About Me Collage Wall",
+      "ok": false,
+      "status": 404,
+      "bytes": 16,
+      "isPdf": false,
+      "isJpeg": false,
+      "isPng": false,
+      "url": "https://littlelearnershubbyleah.com/api/admin/media/enrichment-photos/tk-enrich-73feb74f3891837c871bd41396936075?variant"
+    },
+    {
+      "title": "Giant Floor Drawing",
+      "ok": false,
+      "status": 404,
+      "bytes": 16,
+      "isPdf": false,
+      "isJpeg": false,
+      "isPng": false,
+      "url": "https://littlelearnershubbyleah.com/api/admin/media/enrichment-photos/tk-enrich-ed7dc2d8ab3ddc52e4513ce7d18ad673?variant"
+    },
+    {
+      "title": "Sponge Squish Painting",
+      "ok": false,
+      "status": 404,
+      "bytes": 16,
+      "isPdf": false,
+      "isJpeg": false,
+      "isPng": false,
+      "url": "https://littlelearnershubbyleah.com/api/admin/media/enrichment-photos/tk-enrich-bb6f580c8020e55dc3cc9f64dac60d1d?variant"
+    },
+    {
+      "title": "Big Brush Wall Painting",
+      "ok": false,
+      "status": 404,
+      "bytes": 16,
+      "isPdf": false,
+      "isJpeg": false,
+      "isPng": false,
+      "url": "https://littlelearnershubbyleah.com/api/admin/media/enrichment-photos/tk-enrich-64e290d6798ed12981b8e13a387d4b6b?variant"
+    },
+    {
+      "title": "Sticky Wall Collage",
+      "ok": false,
+      "status": 404,
+      "bytes": 16,
+      "isPdf": false,
+      "isJpeg": false,
+      "isPng": false,
+      "url": "https://littlelearnershubbyleah.com/api/admin/media/enrichment-photos/tk-enrich-fe52f268c2af3c95fa71f9a21a3920d6?variant"
+    },
+    {
+      "title": "Cardboard Box Builders",
+      "ok": false,
+      "status": 404,
+      "bytes": 16,
+      "isPdf": false,
+      "isJpeg": false,
+      "isPng": false,
+      "url": "https://littlelearnershubbyleah.com/api/admin/media/enrichment-photos/tk-enrich-15665fd5ea86d3d39e4ff86c8301b0ce?variant"
+    },
+    {
+      "title": "Play Dough Maker Table",
+      "ok": false,
+      "status": 404,
+      "bytes": 16,
+      "isPdf": false,
+      "isJpeg": false,
+      "isPng": false,
+      "url": "https://littlelearnershubbyleah.com/api/admin/media/enrichment-photos/tk-enrich-bde8fc066c38d06f76892d3a4be09d03?variant"
+    },
+    {
+      "title": "Recycled Creation Station",
+      "ok": false,
+      "status": 404,
+      "bytes": 16,
+      "isPdf": false,
+      "isJpeg": false,
+      "isPng": false,
+      "url": "https://littlelearnershubbyleah.com/api/admin/media/enrichment-photos/tk-enrich-c0c7dd4ad80e666022efc6b4b13bf0aa?variant"
+    }
+  ],
+  "aamAudit": {
+    "keep": [
+      "Family Photo Sharing",
+      "Name Song Mirror Circle",
+      "Home Sweet Home Pretend",
+      "Happy Feet Feelings Dance",
+      "I Am Special Celebration"
+    ],
+    "improve": [
+      "Mirror Me",
+      "My Name Discovery",
+      "Me Portrait Dough Faces",
+      "Body Parts Action Path",
+      "Family Photo Story Time",
+      "Feelings Faces Check-In",
+      "Favorites Discovery Baskets",
+      "Me Shadow Chase",
+      "All About Me Collage Wall"
+    ],
+    "replace": [
+      "Handprint Family Tree"
+    ]
+  },
+  "mkAudit": {
+    "keep": [
+      "Giant Floor Drawing",
+      "Sponge Squish Painting",
+      "Sticky Wall Collage",
+      "Cardboard Box Builders",
+      "Play Dough Maker Table",
+      "Our Little Makers Gallery"
+    ],
+    "improve": [
+      "Dot Marker Color Pops",
+      "Marker Car Roads",
+      "Toy Car Paint Tracks",
+      "Big Brush Wall Painting",
+      "Sticker Shape Studio",
+      "Tear and Stick Paper Art",
+      "Tape It Together",
+      "Build a Home for a Toy",
+      "Recycled Creation Station"
+    ],
+    "replace": []
+  },
+  "aamImagesSkipped": [
+    "Name Song Mirror Circle",
+    "Body Parts Action Path",
+    "Home Sweet Home Pretend",
+    "Family Photo Story Time",
+    "Happy Feet Feelings Dance",
+    "I Am Special Celebration",
+    "Me Shadow Chase"
+  ],
+  "mkImagesSkipped": [
+    "Dot Marker Color Pops",
+    "Marker Car Roads",
+    "Toy Car Paint Tracks",
+    "Sticker Shape Studio",
+    "Tear and Stick Paper Art",
+    "Tape It Together",
+    "Build a Home for a Toy",
+    "Our Little Makers Gallery"
+  ]
+}
