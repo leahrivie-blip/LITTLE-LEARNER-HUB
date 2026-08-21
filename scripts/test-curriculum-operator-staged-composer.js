@@ -299,6 +299,183 @@ async function main() {
     ok(!schema.isPhase2Executable("lesson.publish"), "publish remains blocked");
   }
 
+  // ---- Stage 1 weekly-field contract (Live Test 2 defect) ----
+  {
+    const base = JSON.parse(staged.buildStagedFixtureResponse(staged.buildStage1UserPrompt(brief15)));
+    ok(staged.validateBlueprint(base, brief15).ok === true, "all required weekly fields + 15 outlines → pass");
+
+    for (const field of ["weeklyOverview", "objectives", "weeklyMaterials", "teacherPreparation", "familyConnection"]) {
+      const clone = JSON.parse(JSON.stringify(base));
+      clone.lesson[field] = "";
+      const v = staged.validateBlueprint(clone, brief15);
+      ok(v.ok === false && v.issues.some((i) => new RegExp(field, "i").test(i)),
+        `15 outlines + empty ${field} → fail`);
+    }
+
+    const noPrep = JSON.parse(JSON.stringify(base));
+    noPrep.lesson.prepChecklist = [];
+    ok(staged.validateBlueprint(noPrep, brief15).ok === false
+      && staged.validateBlueprint(noPrep, brief15).issues.includes("missing_prep_checklist"),
+      "missing prepChecklist → fail");
+
+    const noObs = JSON.parse(JSON.stringify(base));
+    noObs.lesson.observationFocus = [];
+    ok(staged.validateBlueprint(noObs, brief15).ok === false
+      && staged.validateBlueprint(noObs, brief15).issues.includes("missing_observation_focus"),
+      "missing observationFocus → fail");
+
+    const wrongCount = JSON.parse(JSON.stringify(base));
+    wrongCount.activityOutlines = wrongCount.activityOutlines.slice(0, 10);
+    ok(staged.validateBlueprint(wrongCount, brief15).ok === false, "wrong outline count still fails");
+  }
+
+  // Known weekly aliases normalize; unknown rejected
+  {
+    const base = JSON.parse(staged.buildStagedFixtureResponse(staged.buildStage1UserPrompt(brief15)));
+    const aliased = {
+      lesson: {
+        title: base.lesson.title,
+        age: base.lesson.age,
+        theme: base.lesson.theme,
+        plan: base.lesson.plan,
+        dailyFocus: base.lesson.dailyFocus,
+        overview: base.lesson.weeklyOverview,
+        learningObjectives: base.lesson.objectives,
+        materials: base.lesson.weeklyMaterials,
+        teacherPrep: base.lesson.teacherPreparation,
+        prepChecklist: base.lesson.prepChecklist,
+        observations: base.lesson.observationFocus,
+        familyNotes: base.lesson.familyConnection,
+        milestones: base.lesson.milestones,
+      },
+      activityOutlines: base.activityOutlines,
+    };
+    const v = staged.validateBlueprint(aliased, brief15);
+    ok(v.ok === true, "known weekly aliases normalize correctly");
+    ok(v.blueprint.lesson.weeklyOverview === base.lesson.weeklyOverview, "overview → weeklyOverview");
+    ok(v.blueprint.lesson.objectives === base.lesson.objectives, "learningObjectives → objectives");
+    ok(v.blueprint.lesson.weeklyMaterials === base.lesson.weeklyMaterials, "materials → weeklyMaterials");
+
+    const unknown = JSON.parse(JSON.stringify(base));
+    unknown.lesson.mysteryWeeklyBlurb = "This should not become stored weekly content.";
+    const u = staged.validateBlueprint(unknown, brief15);
+    ok(u.ok === false && u.issues.some((i) => /unknown_weekly_alias:mysteryWeeklyBlurb/.test(i)),
+      "unknown weekly aliases rejected");
+    ok(!Object.prototype.hasOwnProperty.call(u.blueprint.lesson, "mysteryWeeklyBlurb"),
+      "unknown alias not stored on lesson");
+  }
+
+  // Machine-readable requiredWeeklyFields present in Stage 1 payload
+  {
+    const prompt = staged.buildStage1UserPrompt(brief15);
+    ok(/requiredWeeklyFields/.test(prompt), "Stage 1 payload includes requiredWeeklyFields");
+    for (const field of staged.REQUIRED_WEEKLY_FIELDS) {
+      ok(prompt.includes(`"${field}"`), `requiredWeeklyFields lists ${field}`);
+    }
+    ok(/requiredActivityCount/.test(prompt), "Stage 1 payload includes requiredActivityCount");
+  }
+
+  // Repair preserves 15 valid outlines; fills weekly fields; cannot erase valid weekly with empty
+  {
+    const good = JSON.parse(staged.buildStagedFixtureResponse(staged.buildStage1UserPrompt(brief15)));
+    const emptyWeekly = JSON.parse(JSON.stringify(good));
+    emptyWeekly.lesson.weeklyOverview = "";
+    emptyWeekly.lesson.objectives = "";
+    emptyWeekly.lesson.weeklyMaterials = "";
+    emptyWeekly.lesson.teacherPreparation = "";
+    emptyWeekly.lesson.familyConnection = "";
+    emptyWeekly.lesson.prepChecklist = [];
+    emptyWeekly.lesson.observationFocus = [];
+    const prior = staged.validateBlueprint(emptyWeekly, brief15);
+    ok(prior.ok === false, "empty weekly Stage 1 fails before repair");
+
+    let sawRepairPreserve = false;
+    const repaired = await staged.composeStagedLessonContent(brief15, {
+      forceLive: true,
+      callAi: async (_s, user) => {
+        if (/CREATE_WEEK_BLUEPRINT/.test(user) && /stage1Repair/.test(user)) {
+          sawRepairPreserve = /PRESERVE ALL 15 VALID ACTIVITY OUTLINES/.test(user)
+            && /previousStage1/.test(user)
+            && /requiredWeeklyFields/.test(user);
+          // Repair returns filled weekly fields but drops outlines (must be preserved by merge)
+          return JSON.stringify({
+            lesson: good.lesson,
+            activityOutlines: [],
+          });
+        }
+        if (/CREATE_WEEK_BLUEPRINT/.test(user)) {
+          return JSON.stringify(emptyWeekly);
+        }
+        return staged.buildStagedFixtureResponse(user);
+      },
+    });
+    ok(sawRepairPreserve, "repair prompt preserves 15 outlines and lists failed weekly fields");
+    ok(repaired.ok === true, "repair fills weekly fields and preserves outlines → Stage 1 passes");
+    ok(repaired.usage.lessonArchitectureCalls === 2, "exactly one Stage 1 repair call");
+    ok(activityCountFromContent(repaired.content) === 15, "create path continues only after Stage 1 valid");
+  }
+
+  // Repair empty overwrite cannot erase previously valid weekly field
+  {
+    const good = JSON.parse(staged.buildStagedFixtureResponse(staged.buildStage1UserPrompt(brief15)));
+    const almost = JSON.parse(JSON.stringify(good));
+    almost.lesson.familyConnection = ""; // only family fails
+    const coalesced = staged.coalesceStage1Parsed(
+      staged.validateBlueprint(almost, brief15).blueprint,
+      {
+        lesson: {
+          ...good.lesson,
+          weeklyOverview: "", // repair wrongly empties a previously valid field
+          familyConnection: good.lesson.familyConnection,
+        },
+        activityOutlines: good.activityOutlines,
+      },
+      brief15,
+    );
+    const v = staged.validateBlueprint(coalesced, brief15);
+    ok(v.ok === true, "repair merge preserves valid weeklyOverview against empty overwrite");
+    ok(v.blueprint.lesson.weeklyOverview === almost.lesson.weeklyOverview
+      || v.blueprint.lesson.weeklyOverview === good.lesson.weeklyOverview,
+      "preserved weeklyOverview remains non-empty");
+  }
+
+  // Repair still invalid → BLOCKED, no lesson.create
+  {
+    const emptyWeekly = JSON.parse(staged.buildStagedFixtureResponse(staged.buildStage1UserPrompt(brief15)));
+    emptyWeekly.lesson.weeklyOverview = "";
+    emptyWeekly.lesson.objectives = "";
+    emptyWeekly.lesson.weeklyMaterials = "";
+    emptyWeekly.lesson.teacherPreparation = "";
+    emptyWeekly.lesson.familyConnection = "";
+    emptyWeekly.lesson.prepChecklist = [];
+    emptyWeekly.lesson.observationFocus = [];
+    const blocked = await staged.composeStagedLessonContent(brief15, {
+      forceLive: true,
+      callAi: async (_s, user) => {
+        if (/CREATE_WEEK_BLUEPRINT/.test(user)) return JSON.stringify(emptyWeekly);
+        throw new Error("should not reach expansion when Stage 1 blocked");
+      },
+    });
+    ok(blocked.ok === false && blocked.code === "AI_CREATION_FAILED", "repair still invalid → BLOCKED");
+    ok(blocked.progress?.creationBlueprintComplete !== true, "no trusted lesson.create on Stage 1 failure");
+    ok((blocked.usage?.activityExpansionCalls || 0) === 0, "Stage 2 not reached on Stage 1 failure");
+  }
+
+  // Truncation heuristic: completed + parseable + exact count is not false truncation;
+  // unterminated JSON still reports truncation
+  {
+    const goodJson = staged.buildStagedFixtureResponse(staged.buildStage1UserPrompt(brief15));
+    const fenced = `\`\`\`json\n${goodJson}\n\`\`\``;
+    const okFlags = staged.truncationFlags(fenced, 15, 15, { finishReason: "completed" });
+    ok(okFlags.possibleOutputTruncation !== true,
+      "completed + parseable + exact outline count does NOT falsely report truncation");
+    ok(okFlags.unterminatedJsonTail !== true, "fenced JSON does not false-flag unterminated tail");
+
+    const trunc = architect.detectOutputTruncation("{\"lesson\":{", 0, 15, { finishReason: "completed" });
+    ok(trunc.truncatedLikely === true && trunc.reasons.includes("unterminated_json_tail"),
+      "unterminated JSON still reports truncation");
+  }
+
   console.log(`\n${passed} assertions passed`);
 }
 

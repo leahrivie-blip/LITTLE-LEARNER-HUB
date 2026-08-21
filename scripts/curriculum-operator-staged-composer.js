@@ -23,6 +23,44 @@ const MAX_BATCH_RETRIES = 1; // one retry per failed expansion batch
 const MAX_FINAL_REPAIR_CALLS = 1;
 const STAGE_MAX_OUTPUT_TOKENS = 12000;
 
+/** Canonical Stage 1 weekly Teaching-Kit foundation fields (names-only contract). */
+const REQUIRED_WEEKLY_FIELDS = Object.freeze([
+  "weeklyOverview",
+  "objectives",
+  "weeklyMaterials",
+  "teacherPreparation",
+  "prepChecklist",
+  "observationFocus",
+  "familyConnection",
+]);
+
+const REQUIRED_WEEKLY_TEXT_FIELDS = Object.freeze([
+  "weeklyOverview",
+  "objectives",
+  "weeklyMaterials",
+  "teacherPreparation",
+  "familyConnection",
+]);
+
+const REQUIRED_WEEKLY_LIST_FIELDS = Object.freeze([
+  "prepChecklist",
+  "observationFocus",
+]);
+
+/**
+ * Known Stage 1 weekly aliases → canonical names.
+ * Reuses the finish-composer map; no fuzzy matching.
+ */
+const STAGE1_WEEKLY_ALIASES = Object.freeze({
+  ...composer.WEEK_FIELD_ALIASES,
+  learningObjectives: "objectives",
+  learningobjectives: "objectives",
+  materialsStrategy: "weeklyMaterials",
+  materialsstrategy: "weeklyMaterials",
+  teacherPrepStrategy: "teacherPreparation",
+  teacherprepstrategy: "teacherPreparation",
+});
+
 function text(value, max = 4000) {
   return schema.text(value, max);
 }
@@ -86,13 +124,143 @@ function unwrapAiResult(raw) {
   };
 }
 
-function truncationFlags(rawText, parsedCount, expectedCount) {
-  const trunc = architect.detectOutputTruncation(rawText, parsedCount, expectedCount);
+function truncationFlags(rawText, parsedCount, expectedCount, options = {}) {
+  const trunc = architect.detectOutputTruncation(rawText, parsedCount, expectedCount, options);
   return {
     possibleOutputTruncation: trunc.truncatedLikely === true,
     unterminatedJsonTail: (trunc.reasons || []).includes("unterminated_json_tail"),
     reasons: trunc.reasons || [],
     rawLength: trunc.rawLength,
+    parseSucceeded: trunc.parseSucceeded === true,
+  };
+}
+
+function canonicalizeWeeklyFieldName(field) {
+  const raw = text(field, 80);
+  if (!raw) return "";
+  if (
+    REQUIRED_WEEKLY_FIELDS.includes(raw)
+    || raw === "milestones"
+    || raw === "vocabularyWords"
+    || raw === "vocabCards"
+    || raw === "dailyFocus"
+    || raw === "title"
+    || raw === "age"
+    || raw === "theme"
+    || raw === "plan"
+    || raw === "status"
+  ) {
+    return raw === "vocabCards" ? "vocabularyWords" : raw;
+  }
+  if (STAGE1_WEEKLY_ALIASES[raw]) return STAGE1_WEEKLY_ALIASES[raw];
+  const lower = raw.toLowerCase();
+  if (STAGE1_WEEKLY_ALIASES[lower]) return STAGE1_WEEKLY_ALIASES[lower];
+  return "";
+}
+
+/**
+ * Build the lesson bag for Stage 1: prefer `lesson` object, but also accept
+ * known weekly fields / aliases from the top level so they are not dropped
+ * when the model nests a partial `lesson` object.
+ */
+function extractStage1LessonBag(parsed) {
+  const rejectedAliases = [];
+  const base = parsed?.lesson && typeof parsed.lesson === "object" && !Array.isArray(parsed.lesson)
+    ? { ...parsed.lesson }
+    : {};
+  const sources = [parsed, base];
+  const out = { ...base };
+
+  sources.forEach((src, sourceIndex) => {
+    if (!src || typeof src !== "object" || Array.isArray(src)) return;
+    const fromLessonObject = sourceIndex === 1 || (parsed?.lesson && src === parsed.lesson);
+    Object.keys(src).forEach((key) => {
+      if (key === "lesson" || key === "activityOutlines" || key === "outlines" || key === "activities"
+        || key === "songIntent" || key === "bookIntent") {
+        return;
+      }
+      const canonical = canonicalizeWeeklyFieldName(key);
+      if (!canonical) {
+        // Reject unknown keys on the lesson object (no fuzzy match into schema).
+        if (fromLessonObject
+          || /overview|objective|material|prep|observation|family|milestone|vocab|weekly/i.test(key)) {
+          rejectedAliases.push({ field: key, reason: "unknown_weekly_alias" });
+        }
+        return;
+      }
+      if (["title", "age", "theme", "plan", "status", "dailyFocus"].includes(canonical)
+        && !Object.prototype.hasOwnProperty.call(out, canonical)) {
+        out[canonical] = src[key];
+        return;
+      }
+      if (["title", "age", "theme", "plan", "status", "dailyFocus"].includes(canonical)) {
+        if (!text(out[canonical]) && src[key] != null && src[key] !== "") out[canonical] = src[key];
+        return;
+      }
+      const current = out[canonical];
+      const incoming = src[key];
+      const currentEmpty = Array.isArray(current)
+        ? current.length === 0
+        : !text(current);
+      if (currentEmpty && incoming != null && incoming !== "") {
+        out[canonical] = incoming;
+      }
+    });
+  });
+
+  return { lessonIn: out, rejectedAliases };
+}
+
+/**
+ * When a Stage 1 repair omits or empties a previously valid field / outline set,
+ * preserve the prior valid value. Still re-validated — never a loophole.
+ */
+function coalesceStage1Parsed(priorBlueprint, parsed, brief) {
+  const target = schema.clampInt(brief.activityTarget, 4, 24, createApi.defaultActivityTarget(brief.ageBand));
+  const { lessonIn } = extractStage1LessonBag(parsed);
+  const priorLesson = priorBlueprint?.lesson && typeof priorBlueprint.lesson === "object"
+    ? priorBlueprint.lesson
+    : null;
+  const lesson = { ...lessonIn };
+
+  if (priorLesson) {
+    REQUIRED_WEEKLY_TEXT_FIELDS.forEach((field) => {
+      if (!text(lesson[field]) && text(priorLesson[field]) && !rejectGeneric(field, priorLesson[field])) {
+        lesson[field] = priorLesson[field];
+      }
+    });
+    REQUIRED_WEEKLY_LIST_FIELDS.forEach((field) => {
+      const nextList = schema.asArray(lesson[field]).map((v) => text(v, 200)).filter(Boolean);
+      const priorList = schema.asArray(priorLesson[field]).map((v) => text(v, 200)).filter(Boolean);
+      if (!nextList.length && priorList.length) lesson[field] = priorList;
+    });
+    if ((!lesson.dailyFocus || typeof lesson.dailyFocus !== "object") && priorLesson.dailyFocus) {
+      lesson.dailyFocus = priorLesson.dailyFocus;
+    } else if (lesson.dailyFocus && priorLesson.dailyFocus) {
+      const mergedFocus = { ...lesson.dailyFocus };
+      WEEKDAYS.forEach((day) => {
+        if (!text(mergedFocus[day]) && text(priorLesson.dailyFocus[day])) {
+          mergedFocus[day] = priorLesson.dailyFocus[day];
+        }
+      });
+      lesson.dailyFocus = mergedFocus;
+    }
+    if (!schema.asArray(lesson.milestones).length && schema.asArray(priorLesson.milestones).length) {
+      lesson.milestones = priorLesson.milestones;
+    }
+  }
+
+  let outlines = schema.asArray(parsed?.activityOutlines || parsed?.outlines || parsed?.activities);
+  const priorOutlines = schema.asArray(priorBlueprint?.activityOutlines);
+  if (priorOutlines.length === target && outlines.length !== target) {
+    outlines = priorOutlines;
+  }
+
+  return {
+    lesson,
+    activityOutlines: outlines,
+    songIntent: parsed?.songIntent,
+    bookIntent: parsed?.bookIntent,
   };
 }
 
@@ -121,14 +289,19 @@ function normalizeWeekday(value) {
 function validateBlueprint(parsed, brief) {
   const issues = [];
   const target = schema.clampInt(brief.activityTarget, 4, 24, createApi.defaultActivityTarget(brief.ageBand));
-  const lessonIn = parsed?.lesson && typeof parsed.lesson === "object" ? parsed.lesson : parsed;
+  const { lessonIn, rejectedAliases } = extractStage1LessonBag(parsed);
+  rejectedAliases.forEach((row) => {
+    issues.push(`unknown_weekly_alias:${row.field}`);
+  });
   const title = text(lessonIn?.title || brief.title, 120);
   if (!title) issues.push("missing_title");
 
   const dailyFocusIn = lessonIn?.dailyFocus && typeof lessonIn.dailyFocus === "object" ? lessonIn.dailyFocus : {};
   const dailyFocus = {};
   WEEKDAYS.forEach((day) => {
-    dailyFocus[day] = text(dailyFocusIn[day], 120)
+    const provided = text(dailyFocusIn[day], 120);
+    if (!provided) issues.push(`missing_daily_focus:${day}`);
+    dailyFocus[day] = provided
       || createApi.weekdayProgression(brief.theme || title, brief.ageBand)[day];
   });
 
@@ -214,14 +387,14 @@ function validateBlueprint(parsed, brief) {
       plan: brief.accessPlan === "Pro" ? "Pro" : "Free",
       status: "draft",
       weeklyOverview: text(lessonIn?.weeklyOverview, 2000),
-      objectives: text(lessonIn?.objectives || lessonIn?.learningObjectives, 2000),
-      weeklyMaterials: text(lessonIn?.weeklyMaterials || lessonIn?.materialsStrategy, 2000),
-      teacherPreparation: text(lessonIn?.teacherPreparation || lessonIn?.teacherPrepStrategy, 2000),
+      objectives: text(lessonIn?.objectives, 2000),
+      weeklyMaterials: text(lessonIn?.weeklyMaterials, 2000),
+      teacherPreparation: text(lessonIn?.teacherPreparation, 2000),
       prepChecklist: schema.asArray(lessonIn?.prepChecklist).map((v) => text(v, 200)).filter(Boolean).slice(0, 16),
       observationFocus: schema.asArray(lessonIn?.observationFocus).map((v) => text(v, 200)).filter(Boolean).slice(0, 16),
       familyConnection: text(lessonIn?.familyConnection, 2000),
       milestones: schema.asArray(lessonIn?.milestones).map((v) => text(v, 200)).filter(Boolean).slice(0, 16),
-      vocabularyWords: text(lessonIn?.vocabularyWords, 500),
+      vocabularyWords: text(lessonIn?.vocabularyWords || lessonIn?.vocabCards, 500),
       dailyFocus,
     },
     activityOutlines: outlines,
@@ -229,7 +402,7 @@ function validateBlueprint(parsed, brief) {
     bookIntent: schema.asArray(parsed?.bookIntent).slice(0, 8),
   };
 
-  ["weeklyOverview", "objectives", "weeklyMaterials", "teacherPreparation", "familyConnection"].forEach((field) => {
+  REQUIRED_WEEKLY_TEXT_FIELDS.forEach((field) => {
     const err = rejectGeneric(field, blueprint.lesson[field]);
     if (err) issues.push(err);
   });
@@ -243,6 +416,7 @@ function validateBlueprint(parsed, brief) {
     parsedOutlineCount: outlines.length,
     requiredOutlineCount: target,
     weekdayDistribution: dayCounts,
+    rejectedAliases,
   };
 }
 
@@ -253,6 +427,9 @@ function wordCount(value) {
 function rejectGeneric(field, value) {
   const sample = Array.isArray(value) ? value.join(" ") : text(value);
   if (!sample) return `Empty ${field}`;
+  if (/\b(TODO|TBD|placeholder|lorem ipsum|\[insert)\b/i.test(sample)) {
+    return `Placeholder in ${field}`;
+  }
   if (/\b(children will (explore|learn about)|set out (the )?materials|what do you see\?)\b/i.test(sample)
     && wordCount(sample) < 45) {
     return `Generic filler in ${field}`;
@@ -273,7 +450,10 @@ function buildStage1SystemPrompt(ageBand) {
   return [
     "You are the Little Learner Hub Curriculum Week Architect.",
     "Return ONLY valid JSON for a compact WEEK BLUEPRINT — not full activity field dumps.",
-    "Design the whole week coherently first.",
+    "Stage 1 must return BOTH: (A) a complete weekly Teaching-Kit foundation AND (B) exactly requiredActivityCount activity outlines.",
+    "Do NOT return until every requiredWeeklyFields entry is populated, all requiredWeekdays have dailyFocus, and exactly requiredActivityCount outlines are present.",
+    "Empty strings, empty arrays, placeholder text, and TODO values are invalid.",
+    "Do not sacrifice weekly foundation fields to maximize activity outlines — both are mandatory.",
     "Honor requiredActivityCount exactly with that many activityOutlines.",
     "Each outline is compact: outlineId, name, weekday, domain, concept, developmentalPurpose.",
     "Do not expand full materials/steps/questions yet.",
@@ -283,7 +463,7 @@ function buildStage1SystemPrompt(ageBand) {
   ].join("\n");
 }
 
-function buildStage1UserPrompt(brief, repairIssues) {
+function buildStage1UserPrompt(brief, repairIssues, previousBlueprint) {
   const activityTarget = schema.clampInt(brief.activityTarget, 4, 24, createApi.defaultActivityTarget(brief.ageBand));
   const distribution = architect.expectedWeekdayDistribution(activityTarget);
   const payload = {
@@ -300,16 +480,17 @@ function buildStage1UserPrompt(brief, repairIssues) {
     requiredActivityCount: activityTarget,
     requiredWeekdays: architect.requiredWeekdays(),
     requiredWeekdayDistribution: distribution,
+    requiredWeeklyFields: [...REQUIRED_WEEKLY_FIELDS],
     requiredJsonSchema: {
       lesson: {
         title: "string",
-        weeklyOverview: "string",
-        objectives: "string",
-        weeklyMaterials: "string",
-        teacherPreparation: "string",
-        prepChecklist: ["string"],
-        observationFocus: ["string"],
-        familyConnection: "string",
+        weeklyOverview: "string — specific week progression; not empty",
+        objectives: "string — several age-appropriate goals; not empty",
+        weeklyMaterials: "string — realistic grouped materials; not empty",
+        teacherPreparation: "string — specific prep before the week; not empty",
+        prepChecklist: ["actionable prep item"],
+        observationFocus: ["specific developmental behavior/skill"],
+        familyConnection: "string — realistic optional home connection; not empty",
         milestones: ["string"],
         dailyFocus: { monday: "string", tuesday: "string", wednesday: "string", thursday: "string", friday: "string" },
       },
@@ -324,16 +505,31 @@ function buildStage1UserPrompt(brief, repairIssues) {
     },
     rules: [
       `Return exactly ${activityTarget} activityOutlines.`,
-      "All five weekdays must be represented when activityTarget >= 5.",
+      "Populate EVERY requiredWeeklyFields value with useful non-empty content.",
+      "Empty strings, empty arrays, placeholders, and TODO values are invalid.",
+      "Do not omit weekly foundation fields to fit more outline detail.",
+      "All five weekdays must appear in dailyFocus and in outlines when activityTarget >= 5.",
       "Do not return full activity bodies in Stage 1.",
     ],
   };
   if (repairIssues && repairIssues.length) {
+    const priorOutlines = schema.asArray(previousBlueprint?.activityOutlines);
+    const outlinesAlreadyValid = priorOutlines.length === activityTarget;
     payload.stage1Repair = true;
     payload.fixOnlyTheseIssues = repairIssues.slice(0, 40);
+    payload.previousStage1 = previousBlueprint
+      ? {
+        lesson: previousBlueprint.lesson,
+        activityOutlines: priorOutlines,
+      }
+      : null;
     payload.revisionDirectives = [
-      `Return exactly ${activityTarget} distinct activityOutlines.`,
-      "Preserve strong outlines; fix listed count/coverage/duplicate issues.",
+      outlinesAlreadyValid
+        ? `PRESERVE ALL ${activityTarget} VALID ACTIVITY OUTLINES unchanged.`
+        : `Return exactly ${activityTarget} distinct activityOutlines.`,
+      "Repair ONLY the failed weekly fields listed in fixOnlyTheseIssues unless another Stage 1 validation issue requires a change.",
+      "Return the complete Stage 1 object with requiredWeeklyFields fully populated.",
+      "Empty strings, empty arrays, placeholders, and TODO values remain invalid.",
     ];
   }
   return [
@@ -786,8 +982,6 @@ async function callAiStage(callAi, systemPrompt, userPrompt, usage, diagnostics,
   const unwrapped = unwrapAiResult(raw);
   diagnostics.model = diagnostics.model || unwrapped.model;
   usage.openaiCalls += 1;
-  const flags = truncationFlags(unwrapped.text, stageMeta.parsedHint || 0, stageMeta.expectedObjectCount || 0);
-  if (flags.possibleOutputTruncation) usage.outputTruncationCount += 1;
 
   let parsed = null;
   let parseSuccess = true;
@@ -797,6 +991,24 @@ async function callAiStage(callAi, systemPrompt, userPrompt, usage, diagnostics,
     parseSuccess = false;
   }
 
+  const parsedObjectCount = parseSuccess
+    ? schema.asArray(
+      parsed?.activityOutlines
+      || parsed?.outlines
+      || parsed?.activities
+      || (stageMeta.stage && String(stageMeta.stage).startsWith("activity_expansion")
+        ? parsed?.activities
+        : null),
+    ).length
+    : 0;
+  const flags = truncationFlags(
+    unwrapped.text,
+    Number.isFinite(stageMeta.parsedHint) ? stageMeta.parsedHint : parsedObjectCount,
+    stageMeta.expectedObjectCount || 0,
+    { finishReason: unwrapped.finishReason, status: unwrapped.finishReason },
+  );
+  if (flags.possibleOutputTruncation) usage.outputTruncationCount += 1;
+
   return {
     ok: parseSuccess,
     code: parseSuccess ? "ok" : "malformed_output",
@@ -805,6 +1017,7 @@ async function callAiStage(callAi, systemPrompt, userPrompt, usage, diagnostics,
     rawText: unwrapped.text,
     meta: unwrapped,
     flags,
+    parsedObjectCount,
   };
 }
 
@@ -844,13 +1057,14 @@ async function composeStagedLessonContent(brief, options = {}) {
   // -------- Stage 1 --------
   if (!blueprintComplete) {
     let stage1Issues = null;
+    let priorBlueprint = null;
     for (let attempt = 0; attempt < MAX_ARCHITECTURE_CALLS; attempt += 1) {
       usage.lessonArchitectureCalls += 1;
       usage.lessonArchitectCalls += 1;
       const stage = await callAiStage(
         callAi,
         buildStage1SystemPrompt(brief.ageBand),
-        buildStage1UserPrompt(brief, stage1Issues),
+        buildStage1UserPrompt(brief, stage1Issues, priorBlueprint),
         usage,
         diagnostics,
         { stage: attempt === 0 ? "week_architecture" : "week_architecture_repair", expectedObjectCount: usage.activitiesRequested },
@@ -876,13 +1090,16 @@ async function composeStagedLessonContent(brief, options = {}) {
             error: stage.error || "Stage 1 week architecture failed.",
             usage,
             stagedDiagnostics: diagnostics,
-            progress: { creationBlueprintComplete: false, creationBlueprint: null, activityExpansionBatches: batchState },
+            progress: { creationBlueprintComplete: false, creationBlueprint: priorBlueprint, activityExpansionBatches: batchState },
           };
         }
         stage1Issues = [stage.error || "malformed_json", ...(stage.flags?.reasons || [])];
         continue;
       }
-      const validated = validateBlueprint(stage.parsed, brief);
+      const coalesced = attempt > 0 && priorBlueprint
+        ? coalesceStage1Parsed(priorBlueprint, stage.parsed, brief)
+        : stage.parsed;
+      const validated = validateBlueprint(coalesced, brief);
       pushStageDiag(diagnostics, {
         stage: attempt === 0 ? "week_architecture" : "week_architecture_repair",
         model: stage.meta?.model,
@@ -901,6 +1118,7 @@ async function composeStagedLessonContent(brief, options = {}) {
         blueprintComplete = true;
         break;
       }
+      priorBlueprint = validated.blueprint;
       stage1Issues = validated.issues;
       if (attempt === MAX_ARCHITECTURE_CALLS - 1) {
         return {
@@ -1141,6 +1359,7 @@ module.exports = {
   MAX_BATCH_RETRIES,
   MAX_FINAL_REPAIR_CALLS,
   STAGE_MAX_OUTPUT_TOKENS,
+  REQUIRED_WEEKLY_FIELDS,
   composeStagedLessonContent,
   buildStagedFixtureResponse,
   validateBlueprint,
@@ -1149,5 +1368,10 @@ module.exports = {
   chunkIds,
   outlineIdFor,
   buildStage1UserPrompt,
+  buildStage1SystemPrompt,
   buildExpansionUserPrompt,
+  extractStage1LessonBag,
+  coalesceStage1Parsed,
+  canonicalizeWeeklyFieldName,
+  truncationFlags,
 };
