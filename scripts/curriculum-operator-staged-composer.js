@@ -785,11 +785,11 @@ function buildExpansionSystemPrompt(ageBand) {
 
 function expansionFieldQualityExpectations() {
   return {
+    teacherLanguage: "Multiple activity-specific teacher prompts/questions (newline-separated string). Bad: single \"What do you see?\". Good: 3+ concrete noticing/comparing/predicting prompts tied to the activity.",
     teacherTips: "Activity-specific implementation help (array). Bad: \"Help children as needed.\" Good: offer limited tools first, then add more once engaged.",
     observationPrompts: "Concrete teacher noticeables (array). Bad: \"Observe the child.\" Good: notice one-to-one correspondence, quantity language, recounts.",
-    adaptations: "Real support adaptation. Bad: \"Provide support.\" Good: larger manipulatives + one action at a time.",
+    adaptations: "Real support adaptation (canonical field name: adaptations). Bad: \"Provide support.\" Good: larger manipulatives + one action at a time.",
     extensions: "Real added challenge. Bad: \"Make it harder.\" Good: compare two groups before counting to check.",
-    teacherLanguage: "Multiple age-appropriate prompts (newline-separated), not one generic question.",
     steps: "Multiple actionable steps unless the activity is genuinely tiny.",
     cleanupTips: "May be concise if specific.",
     vocabulary: "May be concise theme words; must include ≥3 usable words.",
@@ -831,8 +831,10 @@ function buildExpansionUserPrompt(brief, blueprint, outlineIds, options = {}) {
       "Every expandExactlyTheseOutlineIds value must appear exactly once.",
       "No unrequested outlineId.",
       "Populate EVERY requiredActivityFields entry — missing/empty/TODO/generic filler fails.",
+      "teacherLanguage: multiple activity-specific prompts (newline-separated), not one generic question.",
       "teacherTips: non-empty array of activity-specific tips.",
       "observationPrompts: non-empty array of concrete observation prompts.",
+      "adaptations: practical activity-specific support (canonical field adaptations).",
       "Use week context so Batch activities do not duplicate earlier concepts.",
       "Do not echo requiredActivityFields into activity objects.",
     ],
@@ -845,67 +847,200 @@ function buildExpansionUserPrompt(brief, blueprint, outlineIds, options = {}) {
   ].join("\n");
 }
 
+/**
+ * Explicit Stage 2 quality issue-code → canonical activity field map.
+ * No fuzzy matching. Only codes emitted by validateExpansionActivityItem / rejectGeneric.
+ */
+const EXPANSION_ISSUE_CODE_FIELD_MAP = Object.freeze({
+  insufficient_questions: "teacherLanguage",
+  missing_tips: "teacherTips",
+  thin_tips: "teacherTips",
+  missing_observation_prompts: "observationPrompts",
+  thin_observation_prompts: "observationPrompts",
+  thin_vocabulary: "vocabulary",
+});
+
+/** When rejectGeneric embeds a field name, normalize known aliases to canonical. */
+const EXPANSION_ISSUE_FIELD_ALIASES = Object.freeze({
+  tips: "teacherTips",
+  teacherTips: "teacherTips",
+  observationPrompts: "observationPrompts",
+  observationQuestions: "observationPrompts",
+  prompts: "observationPrompts",
+  adaptations: "adaptations",
+  supportAdaptations: "adaptations",
+  support: "adaptations",
+  modifications: "adaptations",
+  extensions: "extensions",
+  addedChallenge: "extensions",
+  teacherLanguage: "teacherLanguage",
+  questions: "teacherLanguage",
+  teacherQuestions: "teacherLanguage",
+  vocabulary: "vocabulary",
+  objective: "objective",
+  description: "description",
+  materials: "materials",
+  preparation: "preparation",
+  teacherPrep: "preparation",
+  setup: "setup",
+  steps: "steps",
+  observationOpportunities: "observationOpportunities",
+  observationFocus: "observationOpportunities",
+  safetyNotes: "safetyNotes",
+  safety: "safetyNotes",
+  cleanupTips: "cleanupTips",
+  cleanup: "cleanupTips",
+  mixedAgeAdaptations: "mixedAgeAdaptations",
+  mixedAgeNotes: "mixedAgeAdaptations",
+  indoorAlternatives: "indoorAlternatives",
+  outdoorAlternatives: "outdoorAlternatives",
+  substitutions: "substitutions",
+});
+
+const EXPANSION_STRUCTURAL_ISSUE_RE = /^(missing_outline_id|unrequested_outline_id|duplicate_outline_id|missing_requested_outline_id|bad_weekday|unknown_activity_key|forbidden_activity_key|malformed_json|unmapped_quality_issue)/i;
+
+function canonicalizeExpansionIssueField(field) {
+  const raw = text(field, 80);
+  if (!raw) return "";
+  if (EXPANSION_ISSUE_FIELD_ALIASES[raw]) return EXPANSION_ISSUE_FIELD_ALIASES[raw];
+  if (REQUIRED_EXPANSION_ACTIVITY_FIELDS.includes(raw)) return raw;
+  return "";
+}
+
+function isActionableExpansionQualityIssue(issue) {
+  const raw = text(issue, 240);
+  if (!raw) return false;
+  if (EXPANSION_STRUCTURAL_ISSUE_RE.test(raw)) return false;
+  if (/^unmapped_quality_issue:/i.test(raw)) return false;
+  if (/\.insufficient_questions$/.test(raw)) return true;
+  if (/\.(missing_tips|thin_tips|missing_observation_prompts|thin_observation_prompts|thin_vocabulary)$/.test(raw)) {
+    return true;
+  }
+  if (/^(Too short|Generic filler in|Placeholder in|Empty)\b/i.test(raw)) return true;
+  return false;
+}
+
 function parseExpansionIssueTarget(issue, activities) {
   const raw = text(issue, 240);
-  if (!raw) return null;
-  const tooShort = raw.match(/^Too short:\s*(.+)\.([A-Za-z]+)$/);
-  const generic = raw.match(/^Generic filler in\s+(.+)\.([A-Za-z]+)$/i);
-  const placeholder = raw.match(/^Placeholder in\s+(.+)\.([A-Za-z]+)$/i);
-  const missingTips = raw.match(/^(.+)\.missing_tips$/);
-  const missingObs = raw.match(/^(.+)\.missing_observation_prompts$/);
-  const thinVocab = raw.match(/^(.+)\.thin_vocabulary$/);
-  const thinTips = raw.match(/^(.+)\.thin_tips$/);
-  const thinObs = raw.match(/^(.+)\.thin_observation_prompts$/);
+  if (!raw) return { hit: null, unmapped: false, issue: raw };
+
   let title = null;
   let field = null;
   let reason = "invalid";
+  let code = null;
+
+  const tooShort = raw.match(/^Too short:\s*(.+)\.([A-Za-z]+)$/);
+  const generic = raw.match(/^Generic filler in\s+(.+)\.([A-Za-z]+)$/i);
+  const placeholder = raw.match(/^Placeholder in\s+(.+)\.([A-Za-z]+)$/i);
+  const emptyField = raw.match(/^Empty\s+(.+)\.([A-Za-z]+)$/i);
+  const suffixCode = raw.match(/^(.+)\.(insufficient_questions|missing_tips|thin_tips|missing_observation_prompts|thin_observation_prompts|thin_vocabulary)$/);
+
   if (tooShort) {
-    title = tooShort[1]; field = tooShort[2]; reason = "too_short";
+    title = tooShort[1]; field = tooShort[2]; reason = "too_short"; code = "too_short";
   } else if (generic) {
-    title = generic[1]; field = generic[2]; reason = "generic_filler";
+    title = generic[1]; field = generic[2]; reason = "generic_filler"; code = "generic_filler";
   } else if (placeholder) {
-    title = placeholder[1]; field = placeholder[2]; reason = "placeholder";
-  } else if (missingTips) {
-    title = missingTips[1]; field = "teacherTips"; reason = "missing";
-  } else if (missingObs) {
-    title = missingObs[1]; field = "observationPrompts"; reason = "missing";
-  } else if (thinVocab) {
-    title = thinVocab[1]; field = "vocabulary"; reason = "too_short";
-  } else if (thinTips) {
-    title = thinTips[1]; field = "teacherTips"; reason = "too_short";
-  } else if (thinObs) {
-    title = thinObs[1]; field = "observationPrompts"; reason = "too_short";
+    title = placeholder[1]; field = placeholder[2]; reason = "placeholder"; code = "placeholder";
+  } else if (emptyField) {
+    title = emptyField[1]; field = emptyField[2]; reason = "missing"; code = "empty";
+  } else if (suffixCode) {
+    title = suffixCode[1];
+    code = suffixCode[2];
+    field = EXPANSION_ISSUE_CODE_FIELD_MAP[code] || null;
+    reason = code === "insufficient_questions" || code.startsWith("missing_") ? "missing" : "too_short";
+    if (code === "insufficient_questions") reason = "insufficient_questions";
+  } else if (EXPANSION_STRUCTURAL_ISSUE_RE.test(raw)) {
+    return { hit: null, unmapped: false, issue: raw, structural: true };
+  } else if (isActionableExpansionQualityIssue(raw)) {
+    return { hit: null, unmapped: true, issue: raw };
   } else {
-    return null;
+    return { hit: null, unmapped: false, issue: raw, structural: true };
   }
+
+  const canonical = canonicalizeExpansionIssueField(field);
+  if (!canonical) {
+    return {
+      hit: null,
+      unmapped: isActionableExpansionQualityIssue(raw),
+      issue: raw,
+      code,
+    };
+  }
+
   const act = schema.asArray(activities).find((a) => text(a.title || a.name, 120) === text(title, 120));
-  if (!act?.outlineId) return null;
-  return { outlineId: act.outlineId, field, reason, title: text(title, 120) };
+  if (!act?.outlineId) {
+    return { hit: null, unmapped: true, issue: raw, code };
+  }
+  return {
+    hit: {
+      outlineId: act.outlineId,
+      field: canonical,
+      reason,
+      title: text(title, 120),
+      issueCode: code || canonical,
+      sourceIssue: raw,
+    },
+    unmapped: false,
+    issue: raw,
+  };
 }
 
-function buildExpansionRepairTargets(issues, activities) {
+/**
+ * Plan Stage 2 repair targets from quality issues.
+ * Returns unmapped actionable issues that must block before wasting the repair call.
+ */
+function planExpansionRepair(issues, activities) {
   const byId = new Map();
-  schema.asArray(issues).forEach((issue) => {
-    const hit = parseExpansionIssueTarget(issue, activities);
-    if (!hit) return;
+  const unmapped = [];
+  const initialQualityFailures = schema.asArray(issues).map((i) => text(i, 200)).filter(Boolean);
+
+  initialQualityFailures.forEach((issue) => {
+    const parsed = parseExpansionIssueTarget(issue, activities);
+    if (parsed.unmapped) {
+      unmapped.push(issue);
+      return;
+    }
+    if (!parsed.hit) return;
+    const hit = parsed.hit;
     if (!byId.has(hit.outlineId)) {
       byId.set(hit.outlineId, { outlineId: hit.outlineId, title: hit.title, fields: [] });
     }
     const row = byId.get(hit.outlineId);
     if (!row.fields.some((f) => f.field === hit.field)) {
-      row.fields.push({ field: hit.field, reason: hit.reason });
+      row.fields.push({
+        field: hit.field,
+        reason: hit.reason,
+        issueCode: hit.issueCode,
+        sourceIssue: hit.sourceIssue,
+      });
     }
   });
-  return [...byId.values()];
+
+  const targets = [...byId.values()];
+  return {
+    initialQualityFailures,
+    mappedRepairTargets: targets,
+    unmappedQualityIssues: unmapped,
+    canRepair: unmapped.length === 0 && targets.length > 0,
+  };
+}
+
+function buildExpansionRepairTargets(issues, activities) {
+  return planExpansionRepair(issues, activities).mappedRepairTargets;
 }
 
 function buildExpansionRepairUserPrompt(brief, blueprint, outlineIds, previousActivities, issues, options = {}) {
   const wanted = schema.asArray(outlineIds).map((id) => text(id, 80)).filter(Boolean);
-  const repairTargets = buildExpansionRepairTargets(issues, previousActivities);
+  const plan = options.repairPlan || planExpansionRepair(issues, previousActivities);
+  const repairTargets = plan.mappedRepairTargets;
   const failedIds = repairTargets.map((t) => t.outlineId);
+  const repairedFieldsByOutlineId = Object.fromEntries(
+    repairTargets.map((t) => [t.outlineId, t.fields.map((f) => f.field)]),
+  );
   return [
     "Repair ONLY the failed activity fields in this expansion batch.",
     "Preserve valid activities and valid fields. Keep outlineId / title / dayOfWeek / activityCategory aligned to the blueprint.",
+    "Do not regenerate all activities from scratch — repair every listed canonical field only.",
     JSON.stringify({
       mode: "REPAIR_ACTIVITY_BATCH",
       brief: {
@@ -918,6 +1053,7 @@ function buildExpansionRepairUserPrompt(brief, blueprint, outlineIds, previousAc
       batchNumber: options.batchNumber || null,
       expandExactlyTheseOutlineIds: wanted,
       repairTargets,
+      repairedFieldsByOutlineId,
       fixOnlyTheseIssues: schema.asArray(issues).slice(0, 40),
       requiredActivityFields: [...REQUIRED_EXPANSION_ACTIVITY_FIELDS],
       fieldQualityExpectations: expansionFieldQualityExpectations(),
@@ -941,7 +1077,10 @@ function buildExpansionRepairUserPrompt(brief, blueprint, outlineIds, previousAc
           ? `Focus repairs on outlineIds: ${failedIds.join(", ")}.`
           : "Repair listed issues only.",
         "Preserve strong original fields that already passed validation.",
-        "teacherTips and observationPrompts must be non-empty activity-specific arrays.",
+        "Preserve outlineId, title, dayOfWeek, and activityCategory unless explicitly targeted.",
+        "If teacherLanguage is targeted: return multiple activity-specific prompts (newline-separated), not one generic sentence.",
+        "If adaptations is targeted: return a practical, activity-specific support adaptation (not \"Provide support.\").",
+        "teacherTips and observationPrompts must remain non-empty activity-specific arrays when present/targeted.",
         "Do not echo requiredActivityFields / repairTargets into activity objects.",
         "Do not set status/published/publishedAt.",
       ],
@@ -1114,6 +1253,13 @@ function fieldPassedOnActivity(activity, field, briefTitleIssues) {
       && listFieldSubstanceOk(activity.observationPrompts, 8)
       && !related.some((i) => /\.missing_observation_prompts$|\.thin_observation_prompts$/.test(i));
   }
+  if (field === "teacherLanguage") {
+    const qLines = text(activity.teacherLanguage).split(/\n+/).map((l) => l.trim()).filter(Boolean);
+    const enoughQuestions = qLines.length >= 2 || wordCount(activity.teacherLanguage) >= 24;
+    return enoughQuestions
+      && !rejectGeneric(`${title}.teacherLanguage`, activity.teacherLanguage)
+      && !related.some((i) => /\.insufficient_questions$|Generic filler in .+\.teacherLanguage|Too short: .+\.teacherLanguage/i.test(i));
+  }
   if (EXPANSION_TEXT_FIELDS.includes(field)) {
     return !rejectGeneric(`${title}.${field}`, activity[field])
       && !(field === "vocabulary" && wordCount(activity.vocabulary) < 3);
@@ -1127,9 +1273,9 @@ function coalesceExpansionBatch(priorActivities, parsed, requestedIds, blueprint
   const priorById = new Map(schema.asArray(priorActivities).map((a) => [a.outlineId, a]));
   const repairValidated = validateExpansionBatch(parsed, requestedIds, blueprint, brief);
   const repairById = new Map(repairValidated.activities.map((a) => [a.outlineId, a]));
-  const repairTargets = buildExpansionRepairTargets(priorIssues || repairValidated.issues, priorActivities);
+  const repairPlan = planExpansionRepair(priorIssues || repairValidated.issues, priorActivities);
+  const repairTargets = repairPlan.mappedRepairTargets;
   const targeted = new Map(repairTargets.map((t) => [t.outlineId, new Set(t.fields.map((f) => f.field))]));
-
   const mergedActivities = [];
   requested.forEach((id) => {
     const prior = priorById.get(id);
@@ -1177,6 +1323,13 @@ function coalesceExpansionBatch(priorActivities, parsed, requestedIds, blueprint
 
 function recordBatchDiagnostic(diagnostics, row) {
   diagnostics.batches = Array.isArray(diagnostics.batches) ? diagnostics.batches : [];
+  const repairedFieldsByOutlineId = row.repairedFieldsByOutlineId
+    || Object.fromEntries(
+      schema.asArray(row.repairTargets || row.mappedRepairTargets).map((t) => [
+        text(t.outlineId, 80),
+        schema.asArray(t.fields).map((f) => text(f.field, 60)),
+      ]),
+    );
   diagnostics.batches.push({
     batchNumber: row.batchNumber || null,
     requestedOutlineIds: schema.asArray(row.requestedOutlineIds).map((id) => text(id, 80)).slice(0, 24),
@@ -1189,9 +1342,14 @@ function recordBatchDiagnostic(diagnostics, row) {
     parsedActivityCount: Number.isFinite(row.parsedActivityCount) ? row.parsedActivityCount : null,
     acceptedActivityCount: Number.isFinite(row.acceptedActivityCount) ? row.acceptedActivityCount : null,
     rejectedActivityCount: Number.isFinite(row.rejectedActivityCount) ? row.rejectedActivityCount : null,
+    initialQualityFailures: schema.asArray(row.initialQualityFailures || row.activityQualityFailures)
+      .map((i) => text(i, 200)).slice(0, 40),
     activityQualityFailures: schema.asArray(row.activityQualityFailures).map((i) => text(i, 200)).slice(0, 40),
+    mappedRepairTargets: schema.asArray(row.mappedRepairTargets || row.repairTargets).slice(0, 16),
+    unmappedQualityIssues: schema.asArray(row.unmappedQualityIssues).map((i) => text(i, 200)).slice(0, 20),
+    repairedFieldsByOutlineId,
     repairUsed: row.repairUsed === true,
-    repairTargets: schema.asArray(row.repairTargets).slice(0, 16),
+    repairTargets: schema.asArray(row.repairTargets || row.mappedRepairTargets).slice(0, 16),
     postRepairFailures: schema.asArray(row.postRepairFailures).map((i) => text(i, 200)).slice(0, 40),
     finalBatchPass: row.finalBatchPass === true,
   });
@@ -1581,6 +1739,7 @@ async function composeStagedLessonContent(brief, options = {}) {
   const diagnostics = emptyDiagnostics();
   diagnostics.batchSize = schema.clampInt(options.batchSize, 2, 8, DEFAULT_BATCH_SIZE);
   usage.activitiesRequested = schema.clampInt(brief.activityTarget, 4, 24, createApi.defaultActivityTarget(brief.ageBand));
+  const repairPlanner = typeof options.repairPlanner === "function" ? options.repairPlanner : planExpansionRepair;
 
   const prior = options.priorProgress && typeof options.priorProgress === "object"
     ? options.priorProgress
@@ -1700,19 +1859,42 @@ async function composeStagedLessonContent(brief, options = {}) {
     let priorBatchActivities = null;
     let repairUsed = false;
     let lastRepairTargets = [];
+    let lastUnmappedIssues = [];
+    let lastInitialFailures = [];
     let lastResponseKeys = [];
+    let lastRepairPlan = null;
     for (let attempt = 0; attempt <= MAX_BATCH_RETRIES; attempt += 1) {
-      usage.activityExpansionCalls += 1;
       const isRepair = attempt > 0 && priorBatchActivities;
-      if (isRepair) repairUsed = true;
+      if (isRepair) {
+        lastRepairPlan = repairPlanner(lastIssues, priorBatchActivities);
+        lastRepairTargets = lastRepairPlan.mappedRepairTargets;
+        lastUnmappedIssues = lastRepairPlan.unmappedQualityIssues;
+        if (!lastRepairPlan.canRepair) {
+          // Do not waste the one repair call on unmapped / empty targets.
+          const unmappedTags = lastUnmappedIssues.map((i) => `unmapped_quality_issue:${text(i, 160)}`);
+          lastIssues = [...new Set([...lastIssues, ...unmappedTags])];
+          batchState[batchKey] = {
+            status: "FAILED",
+            outlineIds: ids,
+            issues: lastIssues,
+            repairUsed: false,
+            unmappedQualityIssues: lastUnmappedIssues,
+            mappedRepairTargets: lastRepairTargets,
+          };
+          break;
+        }
+        repairUsed = true;
+      }
+
+      usage.activityExpansionCalls += 1;
       const userPrompt = isRepair
         ? buildExpansionRepairUserPrompt(
           brief,
           blueprint,
           ids,
           priorBatchActivities,
-          lastIssues,
-          { batchNumber: batchIndex + 1 },
+          lastIssues.filter((i) => !/^unmapped_quality_issue:/i.test(String(i))),
+          { batchNumber: batchIndex + 1, repairPlan: lastRepairPlan },
         )
         : buildExpansionUserPrompt(brief, blueprint, ids, { batchNumber: batchIndex + 1 });
       const stage = await callAiStage(
@@ -1748,14 +1930,13 @@ async function composeStagedLessonContent(brief, options = {}) {
       }
       let validated;
       if (isRepair && priorBatchActivities) {
-        lastRepairTargets = buildExpansionRepairTargets(lastIssues, priorBatchActivities);
         validated = coalesceExpansionBatch(
           priorBatchActivities,
           stage.parsed,
           ids,
           blueprint,
           brief,
-          lastIssues,
+          lastIssues.filter((i) => !/^unmapped_quality_issue:/i.test(String(i))),
         );
       } else {
         validated = validateExpansionBatch(stage.parsed, ids, blueprint, brief);
@@ -1793,7 +1974,10 @@ async function composeStagedLessonContent(brief, options = {}) {
           parsedActivityCount: validated.parsedObjectCount,
           acceptedActivityCount: validated.activities.length,
           rejectedActivityCount: 0,
+          initialQualityFailures: lastInitialFailures,
           activityQualityFailures: [],
+          mappedRepairTargets: lastRepairTargets,
+          unmappedQualityIssues: lastUnmappedIssues,
           repairUsed,
           repairTargets: lastRepairTargets,
           postRepairFailures: [],
@@ -1803,6 +1987,25 @@ async function composeStagedLessonContent(brief, options = {}) {
         break;
       }
       lastIssues = validated.issues;
+      if (attempt === 0) {
+        lastInitialFailures = validated.issues;
+        lastRepairPlan = repairPlanner(validated.issues, validated.activities);
+        lastRepairTargets = lastRepairPlan.mappedRepairTargets;
+        lastUnmappedIssues = lastRepairPlan.unmappedQualityIssues;
+        if (!lastRepairPlan.canRepair) {
+          const unmappedTags = lastUnmappedIssues.map((i) => `unmapped_quality_issue:${text(i, 160)}`);
+          lastIssues = [...validated.issues, ...unmappedTags];
+          batchState[batchKey] = {
+            status: "FAILED",
+            outlineIds: ids,
+            issues: lastIssues,
+            repairUsed: false,
+            unmappedQualityIssues: lastUnmappedIssues,
+            mappedRepairTargets: lastRepairTargets,
+          };
+          break;
+        }
+      }
       batchState[batchKey] = {
         status: "FAILED",
         outlineIds: ids,
@@ -1826,7 +2029,10 @@ async function composeStagedLessonContent(brief, options = {}) {
         parsedActivityCount: schema.asArray(priorBatchActivities).length,
         acceptedActivityCount: 0,
         rejectedActivityCount: ids.length,
+        initialQualityFailures: lastInitialFailures.length ? lastInitialFailures : lastIssues,
         activityQualityFailures: lastIssues,
+        mappedRepairTargets: lastRepairTargets,
+        unmappedQualityIssues: lastUnmappedIssues,
         repairUsed,
         repairTargets: lastRepairTargets,
         postRepairFailures: lastIssues,
@@ -1986,6 +2192,9 @@ module.exports = {
   buildExpansionUserPrompt,
   buildExpansionRepairUserPrompt,
   buildExpansionRepairTargets,
+  planExpansionRepair,
+  parseExpansionIssueTarget,
+  EXPANSION_ISSUE_CODE_FIELD_MAP,
   coalesceExpansionBatch,
   extractStage1LessonBag,
   coalesceStage1Parsed,

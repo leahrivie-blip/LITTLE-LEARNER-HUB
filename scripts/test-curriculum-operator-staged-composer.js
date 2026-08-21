@@ -786,6 +786,323 @@ async function main() {
     ok((blocked.usage?.activityExpansionCalls || 0) === 2, "bounded expansion+repair call count");
   }
 
+  // Stage 2 issue-code → canonical-field mapping (Live Test 2 residual: insufficient_questions)
+  {
+    const blueprint = staged.validateBlueprint(
+      JSON.parse(staged.buildStagedFixtureResponse(staged.buildStage1UserPrompt(brief15))),
+      brief15,
+    ).blueprint;
+    const ids = blueprint.activityOutlines.slice(0, 5).map((o) => o.outlineId);
+    const goodBatch = JSON.parse(staged.buildStagedFixtureResponse(
+      staged.buildExpansionUserPrompt(brief15, blueprint, ids),
+    ));
+    const priorValidated = staged.validateExpansionBatch(goodBatch, ids, blueprint, brief15);
+    ok(priorValidated.ok === true, "baseline batch valid before mapping tests");
+
+    ok(staged.EXPANSION_ISSUE_CODE_FIELD_MAP.insufficient_questions === "teacherLanguage",
+      "insufficient_questions maps to teacherLanguage");
+
+    // All 5 activities fail questions → teacherLanguage targets for each
+    const allWeakQs = {
+      activities: priorValidated.activities.map((a) => ({
+        ...a,
+        teacherLanguage: "What do you see?",
+      })),
+    };
+    const weakAllV = staged.validateExpansionBatch(allWeakQs, ids, blueprint, brief15);
+    ok(weakAllV.ok === false, "all-5 weak questions fail validation");
+    ok(weakAllV.issues.filter((i) => /\.insufficient_questions$/.test(i)).length === 5
+      || weakAllV.issues.filter((i) => /teacherLanguage/i.test(i)).length >= 5,
+      "insufficient_questions (or teacherLanguage filler) on all 5 activities");
+    const planAll = staged.planExpansionRepair(weakAllV.issues, weakAllV.activities);
+    ok(planAll.canRepair === true, "mapped question failures are repairable");
+    ok(planAll.unmappedQualityIssues.length === 0, "no unmapped issues for insufficient_questions");
+    ok(planAll.mappedRepairTargets.length === 5, "all 5 failed activities produce repair targets");
+    ok(planAll.mappedRepairTargets.every((t) => t.fields.some((f) => f.field === "teacherLanguage")),
+      "every target includes teacherLanguage for insufficient_questions");
+    ok(ids.every((id) => planAll.mappedRepairTargets.some((t) => t.outlineId === id)),
+      "repair targets cover every outlineId in the batch");
+
+    // Multi-prompt teacherLanguage repair passes; one generic still fails
+    const multiPrompt = [
+      "What do you notice about these two tools?",
+      "What do you think will happen if we add more?",
+      "How are these groups the same or different?",
+    ].join("\n");
+    const repairedQs = {
+      activities: weakAllV.activities.map((a) => ({ ...a, teacherLanguage: multiPrompt })),
+    };
+    const repairedQsV = staged.validateExpansionBatch(repairedQs, ids, blueprint, brief15);
+    ok(repairedQsV.ok === true, "teacherLanguage repair with multiple prompts passes");
+    const stillGeneric = {
+      activities: weakAllV.activities.map((a, i) => (
+        i === 0 ? { ...a, teacherLanguage: "What do you see?" } : { ...a, teacherLanguage: multiPrompt }
+      )),
+    };
+    ok(staged.validateExpansionBatch(stillGeneric, ids, blueprint, brief15).ok === false,
+      "one generic prompt still fails");
+
+    // adaptations too_short → canonical adaptations
+    const thinAdapt = {
+      activities: priorValidated.activities.map((a, i) => (
+        i === 0 ? { ...a, adaptations: "Provide support." } : a
+      )),
+    };
+    const thinAdaptV = staged.validateExpansionBatch(thinAdapt, ids, blueprint, brief15);
+    ok(thinAdaptV.ok === false, "thin adaptations remains BLOCKED");
+    const adaptPlan = staged.planExpansionRepair(thinAdaptV.issues, thinAdaptV.activities);
+    ok(adaptPlan.mappedRepairTargets.some((t) => (
+      t.outlineId === ids[0] && t.fields.some((f) => f.field === "adaptations")
+    )), "adaptations-too-short maps to canonical adaptations field");
+    const substantiveAdapt = {
+      activities: thinAdaptV.activities.map((a, i) => (
+        i === 0
+          ? {
+            ...a,
+            adaptations: "Offer a pre-portioned dough ball and model one press at a time for children who need more support.",
+          }
+          : a
+      )),
+    };
+    ok(staged.validateExpansionBatch(substantiveAdapt, ids, blueprint, brief15).ok === true,
+      "adaptations repair passes when substantive");
+
+    // tips / observationPrompts / vocabulary mapping still works
+    const tipsIssue = `${priorValidated.activities[0].title}.missing_tips`;
+    const obsIssue = `${priorValidated.activities[0].title}.thin_observation_prompts`;
+    const vocabIssue = `${priorValidated.activities[0].title}.thin_vocabulary`;
+    const tipPlan = staged.planExpansionRepair(
+      [tipsIssue, obsIssue, vocabIssue],
+      priorValidated.activities,
+    );
+    const tipFields = tipPlan.mappedRepairTargets.find((t) => t.outlineId === ids[0])?.fields.map((f) => f.field) || [];
+    ok(tipFields.includes("teacherTips"), "tips mapping still works");
+    ok(tipFields.includes("observationPrompts"), "observationPrompts mapping still works");
+    ok(tipFields.includes("vocabulary"), "vocabulary mapping still works");
+
+    // Unmapped actionable issue → block locally; no wasted repair call
+    const unmappedIssue = `Too short: ${priorValidated.activities[0].title}.nonexistentQualityField`;
+    const mixedIssues = [
+      ...weakAllV.issues.filter((i) => /\.insufficient_questions$|teacherLanguage/i.test(i)).slice(0, 1),
+      unmappedIssue,
+    ];
+    const unmappedPlan = staged.planExpansionRepair(mixedIssues, weakAllV.activities);
+    ok(unmappedPlan.unmappedQualityIssues.includes(unmappedIssue),
+      "known actionable issue with no mapping is unmapped");
+    ok(unmappedPlan.canRepair === false, "incomplete mapping cannot repair");
+    ok(staged.planExpansionRepair([unmappedIssue], priorValidated.activities).canRepair === false,
+      "unmapped-only plan blocks repair");
+
+    // Successful question+adaptations repair preserves valid fields, outline IDs, count
+    const brokenCombo = {
+      activities: priorValidated.activities.map((a, i) => ({
+        ...a,
+        teacherLanguage: "What do you see?",
+        ...(i === 0 ? { adaptations: "Provide support." } : {}),
+      })),
+    };
+    const brokenComboV = staged.validateExpansionBatch(brokenCombo, ids, blueprint, brief15);
+    const comboPlan = staged.planExpansionRepair(brokenComboV.issues, brokenComboV.activities);
+    ok(comboPlan.mappedRepairTargets.every((t) => t.fields.some((f) => f.field === "teacherLanguage")),
+      "combo plan targets teacherLanguage on each failed activity");
+    ok(comboPlan.mappedRepairTargets.some((t) => (
+      t.outlineId === ids[0] && t.fields.some((f) => f.field === "adaptations")
+    )), "combo plan also targets adaptations for the thin activity");
+    const repairPromptCombo = staged.buildExpansionRepairUserPrompt(
+      brief15,
+      blueprint,
+      ids,
+      brokenComboV.activities,
+      brokenComboV.issues,
+      { batchNumber: 1, repairPlan: comboPlan },
+    );
+    ok(/If teacherLanguage is targeted/i.test(repairPromptCombo),
+      "repair prompt requires multi-prompt teacherLanguage");
+    ok(/If adaptations is targeted/i.test(repairPromptCombo),
+      "repair prompt requires substantive adaptations");
+    ok(/Do not regenerate all activities from scratch/i.test(repairPromptCombo),
+      "repair prompt forbids full batch regenerate");
+
+    const repairedCombo = {
+      activities: brokenComboV.activities.map((a, i) => ({
+        ...a,
+        objective: "",
+        teacherLanguage: multiPrompt,
+        ...(i === 0
+          ? {
+            adaptations: "Offer hand-over-hand rolling and a smaller dough ball for children needing motor support.",
+          }
+          : {}),
+      })),
+    };
+    const mergedCombo = staged.coalesceExpansionBatch(
+      priorValidated.activities,
+      repairedCombo,
+      ids,
+      blueprint,
+      brief15,
+      brokenComboV.issues,
+    );
+    ok(mergedCombo.ok === true, "merged question+adaptations repair passes");
+    ok(mergedCombo.activities.every((a, i) => a.outlineId === ids[i]), "outline IDs preserved after repair merge");
+    ok(mergedCombo.activities.length === 5, "no extra/missing activities after repair");
+    ok(mergedCombo.activities[0].objective === priorValidated.activities[0].objective,
+      "repair preserves valid non-targeted fields");
+    ok(mergedCombo.activities[0].teacherTips.length > 0, "non-targeted tips remain");
+
+    // Thin adaptations after targeted repair still BLOCKED
+    const badAdaptRepair = {
+      activities: brokenComboV.activities.map((a) => ({
+        ...a,
+        teacherLanguage: multiPrompt,
+        adaptations: a.outlineId === ids[0] ? "Help more." : a.adaptations,
+      })),
+    };
+    const mergedBadAdapt = staged.coalesceExpansionBatch(
+      brokenComboV.activities,
+      badAdaptRepair,
+      ids,
+      blueprint,
+      brief15,
+      brokenComboV.issues,
+    );
+    ok(mergedBadAdapt.ok === false, "thin adaptations after repair remains BLOCKED");
+
+    // Live compose: weak questions then successful multi-prompt repair → continues to batch2+
+    let expandN = 0;
+    let repairN = 0;
+    let createTrusted = false;
+    const successRepair = await staged.composeStagedLessonContent(brief15, {
+      forceLive: true,
+      callAi: async (_s, user) => {
+        if (/CREATE_WEEK_BLUEPRINT/.test(user)) {
+          return staged.buildStagedFixtureResponse(user);
+        }
+        if (/REPAIR_ACTIVITY_BATCH/.test(user)) {
+          repairN += 1;
+          const parsed = JSON.parse(user.slice(user.indexOf("{")));
+          ok(parsed.repairTargets?.every((t) => (
+            schema.asArray(t.fields).some((f) => f.field === "teacherLanguage")
+          )), "live repair payload maps insufficient_questions → teacherLanguage");
+          return JSON.stringify({
+            activities: schema.asArray(parsed.previousBatchActivities).map((a) => ({
+              ...a,
+              teacherLanguage: multiPrompt,
+              adaptations: String(a.adaptations || "").length >= 20
+                ? a.adaptations
+                : "Offer a smaller tray and model one scoop at a time for children who need support.",
+            })),
+          });
+        }
+        if (/EXPAND_ACTIVITY_BATCH/.test(user)) {
+          expandN += 1;
+          const full = JSON.parse(staged.buildStagedFixtureResponse(user));
+          if (expandN === 1) {
+            full.activities = full.activities.map((a) => ({
+              ...a,
+              teacherLanguage: "What do you see?",
+            }));
+          }
+          return JSON.stringify(full);
+        }
+        return staged.buildStagedFixtureResponse(user);
+      },
+    });
+    ok(successRepair.ok === true, "valid repaired batch may continue to Batch 2+");
+    ok(repairN === 1, "one repair max on success path");
+    ok(expandN === 3, "three expansion batches after Batch 1 repair success");
+    ok(activityCountFromContent(successRepair.content) === 15, "repaired path yields 15 activities");
+    const batch1Diag = schema.asArray(successRepair.stagedDiagnostics?.batches).find((b) => b.batchNumber === 1);
+    ok(batch1Diag?.repairUsed === true, "diagnostics mark repairUsed");
+    ok(schema.asArray(batch1Diag?.mappedRepairTargets).length === 5
+      || schema.asArray(batch1Diag?.initialQualityFailures).some((i) => /insufficient_questions|teacherLanguage/i.test(i)),
+      "diagnostics show question failures mapped for Batch 1");
+    ok(batch1Diag?.finalBatchPass === true, "diagnostics finalBatchPass true after repair");
+
+    // Failed batch still prevents lesson.create — weak questions, repair also weak
+    expandN = 0;
+    repairN = 0;
+    createTrusted = false;
+    const stillBlocked = await staged.composeStagedLessonContent(brief15, {
+      forceLive: true,
+      callAi: async (_s, user) => {
+        if (/CREATE_WEEK_BLUEPRINT/.test(user)) {
+          return staged.buildStagedFixtureResponse(user);
+        }
+        if (/REPAIR_ACTIVITY_BATCH/.test(user)) {
+          repairN += 1;
+          const parsed = JSON.parse(user.slice(user.indexOf("{")));
+          return JSON.stringify({
+            activities: schema.asArray(parsed.previousBatchActivities).map((a) => ({
+              ...a,
+              teacherLanguage: "What do you see?",
+            })),
+          });
+        }
+        if (/EXPAND_ACTIVITY_BATCH/.test(user)) {
+          expandN += 1;
+          const full = JSON.parse(staged.buildStagedFixtureResponse(user));
+          full.activities = full.activities.map((a) => ({
+            ...a,
+            teacherLanguage: "What do you see?",
+          }));
+          return JSON.stringify(full);
+        }
+        createTrusted = true;
+        return staged.buildStagedFixtureResponse(user);
+      },
+    });
+    ok(stillBlocked.ok === false && stillBlocked.code === "AI_CREATION_FAILED",
+      "failed Stage 2 still blocks create");
+    ok(repairN === 1 && expandN === 1, "one expand + one repair max when still failing");
+    ok(createTrusted === false, "no lesson.create / further stages when Stage 2 blocked");
+    ok(!schema.isPhase2Executable("lesson.publish"), "publish behavior unchanged");
+
+    // Unmapped quality issue wastes no repair call (inject via repairPlanner option)
+    expandN = 0;
+    repairN = 0;
+    const noWaste = await staged.composeStagedLessonContent(brief15, {
+      forceLive: true,
+      repairPlanner: (issues, activities) => {
+        const real = staged.planExpansionRepair(issues, activities);
+        return {
+          ...real,
+          unmappedQualityIssues: [`Too short: ${activities[0]?.title || "Act"}.nonexistentQualityField`],
+          canRepair: false,
+        };
+      },
+      callAi: async (_s, user) => {
+        if (/CREATE_WEEK_BLUEPRINT/.test(user)) {
+          return staged.buildStagedFixtureResponse(user);
+        }
+        if (/REPAIR_ACTIVITY_BATCH/.test(user)) {
+          repairN += 1;
+          return "{}";
+        }
+        if (/EXPAND_ACTIVITY_BATCH/.test(user)) {
+          expandN += 1;
+          const full = JSON.parse(staged.buildStagedFixtureResponse(user));
+          full.activities = full.activities.map((a) => ({
+            ...a,
+            teacherLanguage: "What do you see?",
+          }));
+          return JSON.stringify(full);
+        }
+        return staged.buildStagedFixtureResponse(user);
+      },
+    });
+    ok(noWaste.ok === false, "unmapped mapping incomplete blocks Stage 2");
+    ok(repairN === 0, "no repair call is wasted when mapping is incomplete");
+    ok(expandN === 1, "only initial expand when unmapped blocks repair");
+    ok(
+      schema.asArray(noWaste.issues).some((i) => /unmapped_quality_issue/.test(String(i)))
+        || schema.asArray(noWaste.stagedDiagnostics?.batches).some((b) => (
+          schema.asArray(b.unmappedQualityIssues).length > 0
+        )),
+      "diagnostics expose unmapped_quality_issue",
+    );
+  }
+
   // Three valid batches → Stage 3 receives exactly 15; diagnostics present; publish blocked
   {
     const composed = await staged.composeStagedLessonContent(brief15, { forceFixture: true });
@@ -797,7 +1114,7 @@ async function main() {
     ok(composed.stagedDiagnostics.batches.every((b) => b.finalBatchPass === true),
       "each batch diagnostic marks finalBatchPass");
     ok(composed.content.lesson.status === "draft", "assembled content remains draft");
-    ok(!schema.isPhase2Executable("lesson.publish"), "publish remains blocked");
+    ok(!schema.isPhase2Executable("lesson.publish"), "publish behavior unchanged (fixture path)");
   }
 
   console.log(`\n${passed} assertions passed`);
