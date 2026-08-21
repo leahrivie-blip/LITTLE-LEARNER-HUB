@@ -1,0 +1,587 @@
+{
+  "aam": {
+    "id": "cur-lp-toddler-all-about-me",
+    "title": "All About Me",
+    "age": "Toddler",
+    "status": "published",
+    "plan": "Pro",
+    "cover": "/api/media/lesson-covers/lesson-cover-a0063b6fff7caeebe429f8f5d8cdde52",
+    "actCount": 15,
+    "enrichmentPublished": false,
+    "draftOnly": true,
+    "previewReady": true,
+    "decisions": {
+      "keep": [
+        "Happy Feet Feelings Dance",
+        "Home Sweet Home Pretend",
+        "I Am Special Celebration",
+        "Name Song Mirror Circle",
+        "Family Photo Sharing"
+      ],
+      "improve": [
+        "Me Portrait Dough Faces",
+        "Me Shadow Chase",
+        "Mirror Me",
+        "Family Photo Story Time",
+        "All About Me Collage Wall",
+        "Body Parts Action Path",
+        "My Name Discovery",
+        "Favorites Discovery Baskets",
+        "Feelings Faces Check-In"
+      ],
+      "replace": [
+        "Handprint Family Tree"
+      ]
+    },
+    "withImg": [
+      "Me Portrait Dough Faces",
+      "Handprint Family Tree",
+      "Mirror Me",
+      "All About Me Collage Wall",
+      "My Name Discovery",
+      "Favorites Discovery Baskets",
+      "Family Photo Sharing",
+      "Feelings Faces Check-In"
+    ],
+    "noImg": [
+      "Happy Feet Feelings Dance",
+      "Me Shadow Chase",
+      "Home Sweet Home Pretend",
+      "I Am Special Celebration",
+      "Family Photo Story Time",
+      "Body Parts Action Path",
+      "Name Song Mirror Circle"
+    ],
+    "imgCount": 8,
+    "printableIds": [
+      "cur-res-661287ba04c0f8ab",
+      "cur-res-21073e8fd703f677"
+    ],
+    "linked": [
+      {
+        "id": "cur-res-661287ba04c0f8ab",
+        "title": "Body Parts Picture Cards (draft)",
+        "status": "draft",
+        "lessons": [
+          "cur-lp-toddler-all-about-me"
+        ]
+      },
+      {
+        "id": "cur-res-21073e8fd703f677",
+        "title": "Favorites Choice Cards (draft)",
+        "status": "draft",
+        "lessons": [
+          "cur-lp-toddler-all-about-me"
+        ]
+      }
+    ],
+    "importCopy": false
+  },
+  "mk": {
+    "id": "cur-lp-549b80f61dfa8d79",
+    "title": "Little Makers Workshop",
+    "age": "Toddler 12–24 Months",
+    "status": "draft",
+    "plan": "Free",
+    "cover": "/api/media/lesson-covers/lesson-cover-7acc5818417dd09468046b5e6bc9b96c",
+    "actCount": 15,
+    "enrichmentPublished": false,
+    "draftOnly": true,
+    "previewReady": true,
+    "decisions": {
+      "keep": [
+        "Giant Floor Drawing",
+        "Cardboard Box Builders",
+        "Sticky Wall Collage",
+        "Play Dough Maker Table",
+        "Our Little Makers Gallery",
+        "Sponge Squish Painting"
+      ],
+      "improve": [
+        "Dot Marker Color Pops",
+        "Marker Car Roads",
+        "Build a Home for a Toy",
+        "Tear and Stick Paper Art",
+        "Recycled Creation Station",
+        "Tape It Together",
+        "Sticker Shape Studio",
+        "Big Brush Wall Painting",
+        "Toy Car Paint Tracks"
+      ],
+      "replace": []
+    },
+    "withImg": [
+      "Giant Floor Drawing",
+      "Cardboard Box Builders",
+      "Recycled Creation Station",
+      "Sticky Wall Collage",
+      "Play Dough Maker Table",
+      "Sponge Squish Painting",
+      "Big Brush Wall Painting"
+    ],
+    "noImg": [
+      "Dot Marker Color Pops",
+      "Marker Car Roads",
+      "Build a Home for a Toy",
+      "Tear and Stick Paper Art",
+      "Tape It Together",
+      "Sticker Shape Studio",
+      "Our Little Makers Gallery",
+      "Toy Car Paint Tracks"
+    ],
+    "imgCount": 7,
+    "printableIds": [
+      "cur-res-eaf645605f866a60",
+      "cur-res-e7d3ec92ec5f13e6"
+    ],
+    "linked": [
+      {
+        "id": "cur-res-eaf645605f866a60",
+        "title": "Maker Station Signs (draft)",
+        "status": "draft",
+        "lessons": [
+          "cur-lp-549b80f61dfa8d79"
+        ]
+      },
+      {
+        "id": "cur-res-e7d3ec92ec5f13e6",
+        "title": "Process Maker Prompt Cards (draft)",
+        "status": "draft",
+        "lessons": [
+          "cur-lp-549b80f61dfa8d79"
+        ]
+      }
+    ],
+    "importCopy": false
+  },
+  "farm": {
+    "id": "cur-lp-preschool-farm-animals",
+    "title": "Farm Animals",
+    "age": "Preschool",
+    "status": "published",
+    "plan": "Free",
+    "cover": "/api/media/lesson-covers/lesson-cover-0cb7f1753716d2a9a24fae5a0f128142",
+    "actCount": 15,
+    "enrichmentPublished": false,
+    "draftOnly": true,
+    "previewReady": true,
+    "decisions": {
+      "keep": [
+        "Grooming and Caring for Animals",
+        "From Farm to Table Story Investigation",
+        "Barnyard Story and Movement Celebration",
+        "Farm Sound & Motion Circle",
+        "Barnyard Movement Trail",
+        "Mystery Farm Sound Game",
+        "Farm Animal Discovery Basket"
+      ],
+      "improve": [
+        "Muddy Animals Wash Laboratory",
+        "Build an Animal Shelter STEM Challenge",
+        "Preschool Farmers Market",
+        "Design Our Class Farm",
+        "Collaborative Animal-Track Mural",
+        "Egg Collection Counting Challenge",
+        "Where Does It Belong? Farm Sorting",
+        "Pretend Milking Fine-Motor Station"
+      ],
+      "replace": []
+    },
+    "withImg": [
+      "Muddy Animals Wash Laboratory",
+      "Build an Animal Shelter STEM Challenge",
+      "Preschool Farmers Market",
+      "Design Our Class Farm",
+      "Collaborative Animal-Track Mural",
+      "Egg Collection Counting Challenge",
+      "Farm Animal Discovery Basket",
+      "Where Does It Belong? Farm Sorting",
+      "Pretend Milking Fine-Motor Station"
+    ],
+    "noImg": [
+      "Grooming and Caring for Animals",
+      "From Farm to Table Story Investigation",
+      "Barnyard Story and Movement Celebration",
+      "Farm Sound & Motion Circle",
+      "Barnyard Movement Trail",
+      "Mystery Farm Sound Game"
+    ],
+    "imgCount": 9,
+    "printableIds": [
+      "cur-res-c5cd1e5e6d5ea78a"
+    ],
+    "linked": [
+      {
+        "id": "cur-res-c5cd1e5e6d5ea78a",
+        "title": "Farm Animals Preschool Picture Card Pack",
+        "status": "published",
+        "lessons": [
+          "cur-lp-preschool-farm-animals"
+        ]
+      }
+    ],
+    "importCopy": false
+  },
+  "preschool": {
+    "id": "cur-lp-preschool-all-about-me",
+    "title": "All About Me",
+    "age": "Preschool",
+    "plan": "Free",
+    "status": "published",
+    "cover": "/images/lesson-covers/all-about-me.jpg",
+    "actCount": 15,
+    "linked": [
+      {
+        "id": "cur-res-draft-all-about-me-picture-cards",
+        "title": "All About Me Picture Card Pack",
+        "status": "published",
+        "lessons": [
+          "cur-lp-preschool-all-about-me"
+        ]
+      }
+    ],
+    "enrichmentDraftUpdatedAt": "2026-08-12T02:18:04.007Z"
+  },
+  "archived": {
+    "id": "cur-lp-88831286195f7477",
+    "title": "Little Makers Workshop",
+    "status": "archived",
+    "actCount": 0
+  },
+  "friends": {
+    "id": "cur-lp-toddler-farm-friends",
+    "title": "Farm Friends",
+    "plan": "Pro",
+    "status": "published",
+    "cover": "/api/media/lesson-covers/lesson-cover-c09185f1b98143e924207441b95b9ef5",
+    "actCount": 14,
+    "enrichmentDraftUpdatedAt": null,
+    "guard": {
+      "ok": true,
+      "before": {
+        "title": "Farm Friends",
+        "status": "published",
+        "plan": "Pro",
+        "updatedAt": "2026-08-08T02:16:30.774Z",
+        "coverImageUrl": "/api/media/lesson-covers/lesson-cover-c09185f1b98143e924207441b95b9ef5",
+        "enrichmentDraftUpdatedAt": ""
+      },
+      "after": {
+        "title": "Farm Friends",
+        "status": "published",
+        "plan": "Pro",
+        "coverImageUrl": "/api/media/lesson-covers/lesson-cover-c09185f1b98143e924207441b95b9ef5",
+        "enrichmentDraftUpdatedAt": ""
+      }
+    }
+  },
+  "farmImgMap": {
+    "Farm Animal Discovery Basket": {
+      "has": true,
+      "decision": "keep",
+      "url": "/api/admin/media/enrichment-photos/tk-enrich-4042d7c7bf73bd1a69d2e8ad88d923e9?variant=full"
+    },
+    "Farm Sound & Motion Circle": {
+      "has": false,
+      "decision": "keep",
+      "url": ""
+    },
+    "Barnyard Movement Trail": {
+      "has": false,
+      "decision": "keep",
+      "url": ""
+    },
+    "Where Does It Belong? Farm Sorting": {
+      "has": true,
+      "decision": "improve",
+      "url": "/api/admin/media/enrichment-photos/tk-enrich-7fff36c8a87ca03792cac58f888b7f79?variant=full"
+    },
+    "Muddy Animals Wash Laboratory": {
+      "has": true,
+      "decision": "improve",
+      "url": "/api/admin/media/enrichment-photos/tk-enrich-c15171cc9289ae7d755f6080a127a4e7?variant=full"
+    },
+    "Build an Animal Shelter STEM Challenge": {
+      "has": true,
+      "decision": "improve",
+      "url": "/api/admin/media/enrichment-photos/tk-enrich-f2afd68a43f96afe5890180ffb25f539?variant=full"
+    },
+    "Preschool Farmers Market": {
+      "has": true,
+      "decision": "improve",
+      "url": "/api/admin/media/enrichment-photos/tk-enrich-446c3ccd67f3ad52b1bf3d10c5c4681b?variant=full"
+    },
+    "Pretend Milking Fine-Motor Station": {
+      "has": true,
+      "decision": "improve",
+      "url": "/api/admin/media/enrichment-photos/tk-enrich-3c13b49f332d0d0fea0cf977a8c2adc5?variant=full"
+    },
+    "From Farm to Table Story Investigation": {
+      "has": false,
+      "decision": "keep",
+      "url": ""
+    },
+    "Egg Collection Counting Challenge": {
+      "has": true,
+      "decision": "improve",
+      "url": "/api/admin/media/enrichment-photos/tk-enrich-d0a34780b7c0cd01a36b1621365b8e37?variant=full"
+    },
+    "Collaborative Animal-Track Mural": {
+      "has": true,
+      "decision": "improve",
+      "url": "/api/admin/media/enrichment-photos/tk-enrich-73aeae5a33213751c3e74d39fcf0a673?variant=full"
+    },
+    "Grooming and Caring for Animals": {
+      "has": false,
+      "decision": "keep",
+      "url": ""
+    },
+    "Mystery Farm Sound Game": {
+      "has": false,
+      "decision": "keep",
+      "url": ""
+    },
+    "Barnyard Story and Movement Celebration": {
+      "has": false,
+      "decision": "keep",
+      "url": ""
+    },
+    "Design Our Class Farm": {
+      "has": true,
+      "decision": "improve",
+      "url": "/api/admin/media/enrichment-photos/tk-enrich-9640cb42f82f3e25d941bd9311fd9789?variant=full"
+    }
+  },
+  "covers": {
+    "aam": {
+      "ok": true,
+      "status": 200,
+      "bytes": 195429,
+      "magic": "ffd8ffdb",
+      "isPdf": false,
+      "isJpeg": true,
+      "isPng": false
+    },
+    "mk": {
+      "ok": true,
+      "status": 200,
+      "bytes": 187181,
+      "magic": "ffd8ffdb",
+      "isPdf": false,
+      "isJpeg": true,
+      "isPng": false
+    },
+    "farm": {
+      "ok": true,
+      "status": 200,
+      "bytes": 196475,
+      "magic": "ffd8ffdb",
+      "isPdf": false,
+      "isJpeg": true,
+      "isPng": false
+    }
+  },
+  "pdfs": [
+    {
+      "id": "cur-res-661287ba04c0f8ab",
+      "title": "Body Parts Picture Cards (draft)",
+      "status": "draft",
+      "lessons": [
+        "cur-lp-toddler-all-about-me"
+      ],
+      "pages": 6,
+      "bytes": 78058,
+      "ok": true
+    },
+    {
+      "id": "cur-res-21073e8fd703f677",
+      "title": "Favorites Choice Cards (draft)",
+      "status": "draft",
+      "lessons": [
+        "cur-lp-toddler-all-about-me"
+      ],
+      "pages": 4,
+      "bytes": 58481,
+      "ok": true
+    },
+    {
+      "id": "cur-res-eaf645605f866a60",
+      "title": "Maker Station Signs (draft)",
+      "status": "draft",
+      "lessons": [
+        "cur-lp-549b80f61dfa8d79"
+      ],
+      "pages": 5,
+      "bytes": 25566,
+      "ok": true
+    },
+    {
+      "id": "cur-res-e7d3ec92ec5f13e6",
+      "title": "Process Maker Prompt Cards (draft)",
+      "status": "draft",
+      "lessons": [
+        "cur-lp-549b80f61dfa8d79"
+      ],
+      "pages": 5,
+      "bytes": 67619,
+      "ok": true
+    },
+    {
+      "id": "cur-res-c5cd1e5e6d5ea78a",
+      "title": "Farm Animals Preschool Picture Card Pack",
+      "status": "published",
+      "lessons": [
+        "cur-lp-preschool-farm-animals"
+      ],
+      "pages": 5,
+      "bytes": 4722412,
+      "ok": true
+    }
+  ],
+  "farmImgOk": 9,
+  "farmImgFail": [],
+  "farmAudit": {
+    "keep": [
+      "Farm Animal Discovery Basket",
+      "Farm Sound & Motion Circle",
+      "Barnyard Movement Trail",
+      "From Farm to Table Story Investigation",
+      "Grooming and Caring for Animals",
+      "Mystery Farm Sound Game",
+      "Barnyard Story and Movement Celebration"
+    ],
+    "improve": [
+      "Where Does It Belong? Farm Sorting",
+      "Muddy Animals Wash Laboratory",
+      "Build an Animal Shelter STEM Challenge",
+      "Preschool Farmers Market",
+      "Pretend Milking Fine-Motor Station",
+      "Egg Collection Counting Challenge",
+      "Collaborative Animal-Track Mural",
+      "Design Our Class Farm"
+    ],
+    "replace": []
+  },
+  "farmImages": {
+    "created": [
+      {
+        "title": "Farm Animal Discovery Basket",
+        "activityKey": "cur-act-e14264deb203e7dc",
+        "requirement": "IMAGE_REQUIRED",
+        "source": "reuse_existing_draft",
+        "url": "/api/admin/media/enrichment-photos/tk-enrich-4042d7c7bf73bd1a69d2e8ad88d923e9?variant=full",
+        "mediaAssetId": "tk-enrich-4042d7c7bf73bd1a69d2e8ad88d923e9"
+      },
+      {
+        "title": "Muddy Animals Wash Laboratory",
+        "activityKey": "cur-act-01c1e912994395f7",
+        "requirement": "IMAGE_REQUIRED",
+        "source": "reuse_existing_draft",
+        "url": "/api/admin/media/enrichment-photos/tk-enrich-c15171cc9289ae7d755f6080a127a4e7?variant=full",
+        "mediaAssetId": "tk-enrich-c15171cc9289ae7d755f6080a127a4e7"
+      },
+      {
+        "title": "Build an Animal Shelter STEM Challenge",
+        "activityKey": "cur-act-07701b43fd761a1e",
+        "requirement": "IMAGE_REQUIRED",
+        "source": "reuse_existing_draft",
+        "url": "/api/admin/media/enrichment-photos/tk-enrich-f2afd68a43f96afe5890180ffb25f539?variant=full",
+        "mediaAssetId": "tk-enrich-f2afd68a43f96afe5890180ffb25f539"
+      },
+      {
+        "title": "Collaborative Animal-Track Mural",
+        "activityKey": "cur-act-76b015234ffc9cac",
+        "requirement": "IMAGE_HELPFUL",
+        "source": "reuse_existing_draft",
+        "url": "/api/admin/media/enrichment-photos/tk-enrich-73aeae5a33213751c3e74d39fcf0a673?variant=full",
+        "mediaAssetId": "tk-enrich-73aeae5a33213751c3e74d39fcf0a673"
+      },
+      {
+        "title": "Design Our Class Farm",
+        "activityKey": "cur-act-27424046373b8597",
+        "requirement": "IMAGE_HELPFUL",
+        "source": "reuse_existing_draft",
+        "url": "/api/admin/media/enrichment-photos/tk-enrich-9640cb42f82f3e25d941bd9311fd9789?variant=full",
+        "mediaAssetId": "tk-enrich-9640cb42f82f3e25d941bd9311fd9789"
+      },
+      {
+        "title": "Where Does It Belong? Farm Sorting",
+        "activityKey": "cur-act-e4fe79e92d9dcb52",
+        "requirement": "IMAGE_HELPFUL",
+        "source": "openai_realistic",
+        "url": "/api/admin/media/enrichment-photos/tk-enrich-7fff36c8a87ca03792cac58f888b7f79?variant=full",
+        "mediaAssetId": "tk-enrich-7fff36c8a87ca03792cac58f888b7f79",
+        "localPath": "/workspace/curriculum-drafts/owner-lesson-complete/farm-animals/generated/where-does-it-belong-farm-sorting.png"
+      },
+      {
+        "title": "Preschool Farmers Market",
+        "activityKey": "cur-act-2211a60c5477985a",
+        "requirement": "IMAGE_HELPFUL",
+        "source": "openai_realistic",
+        "url": "/api/admin/media/enrichment-photos/tk-enrich-446c3ccd67f3ad52b1bf3d10c5c4681b?variant=full",
+        "mediaAssetId": "tk-enrich-446c3ccd67f3ad52b1bf3d10c5c4681b",
+        "localPath": "/workspace/curriculum-drafts/owner-lesson-complete/farm-animals/generated/preschool-farmers-market.png"
+      },
+      {
+        "title": "Pretend Milking Fine-Motor Station",
+        "activityKey": "cur-act-f764929f01edb2a8",
+        "requirement": "IMAGE_REQUIRED",
+        "source": "openai_realistic",
+        "url": "/api/admin/media/enrichment-photos/tk-enrich-3c13b49f332d0d0fea0cf977a8c2adc5?variant=full",
+        "mediaAssetId": "tk-enrich-3c13b49f332d0d0fea0cf977a8c2adc5",
+        "localPath": "/workspace/curriculum-drafts/owner-lesson-complete/farm-animals/generated/pretend-milking-fine-motor-station.png"
+      },
+      {
+        "title": "Egg Collection Counting Challenge",
+        "activityKey": "cur-act-c365a6b09e9d869d",
+        "requirement": "IMAGE_HELPFUL",
+        "source": "openai_realistic",
+        "url": "/api/admin/media/enrichment-photos/tk-enrich-d0a34780b7c0cd01a36b1621365b8e37?variant=full",
+        "mediaAssetId": "tk-enrich-d0a34780b7c0cd01a36b1621365b8e37",
+        "localPath": "/workspace/curriculum-drafts/owner-lesson-complete/farm-animals/generated/egg-collection-counting-challenge.png"
+      }
+    ],
+    "skipped": [
+      {
+        "title": "Farm Sound & Motion Circle",
+        "reason": "IMAGE_NOT_NEEDED",
+        "clearedPrior": true
+      },
+      {
+        "title": "Barnyard Movement Trail",
+        "reason": "IMAGE_NOT_NEEDED",
+        "clearedPrior": true
+      },
+      {
+        "title": "From Farm to Table Story Investigation",
+        "reason": "IMAGE_NOT_NEEDED",
+        "clearedPrior": false
+      },
+      {
+        "title": "Grooming and Caring for Animals",
+        "reason": "IMAGE_NOT_NEEDED",
+        "clearedPrior": false
+      },
+      {
+        "title": "Mystery Farm Sound Game",
+        "reason": "IMAGE_NOT_NEEDED",
+        "clearedPrior": false
+      },
+      {
+        "title": "Barnyard Story and Movement Celebration",
+        "reason": "IMAGE_NOT_NEEDED",
+        "clearedPrior": false
+      }
+    ],
+    "failed": []
+  },
+  "farmCover": {
+    "selectedActivity": "Farm Animal Discovery Basket",
+    "uploadStatus": 200,
+    "assignStatus": 200,
+    "ok": true,
+    "url": "/api/media/lesson-covers/lesson-cover-0cb7f1753716d2a9a24fae5a0f128142",
+    "coverId": "lesson-cover-0cb7f1753716d2a9a24fae5a0f128142",
+    "error": null
+  }
+}
