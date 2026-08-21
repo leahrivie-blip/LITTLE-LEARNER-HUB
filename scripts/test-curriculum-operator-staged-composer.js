@@ -476,6 +476,60 @@ async function main() {
       "unterminated JSON still reports truncation");
   }
 
+  // Contract-key echo must not become unknown_weekly_alias (Live Test 2 residual)
+  {
+    const base = JSON.parse(staged.buildStagedFixtureResponse(staged.buildStage1UserPrompt(brief15)));
+    base.requiredWeeklyFields = [...staged.REQUIRED_WEEKLY_FIELDS];
+    base.lesson.requiredWeeklyFields = [...staged.REQUIRED_WEEKLY_FIELDS];
+    base.lesson.requiredActivityCount = 15;
+    const v = staged.validateBlueprint(base, brief15);
+    ok(v.ok === true, "echoed requiredWeeklyFields does not fail Stage 1");
+    ok(!v.issues.some((i) => /unknown_weekly_alias:requiredWeeklyFields/.test(i)),
+      "requiredWeeklyFields echo is ignored, not rejected");
+    ok(!Object.prototype.hasOwnProperty.call(v.blueprint.lesson, "requiredWeeklyFields"),
+      "contract echo keys are not stored on lesson");
+  }
+
+  // Repair prompt targets failed weekly fields + anti-filler; thin outline rewrite only
+  {
+    const good = JSON.parse(staged.buildStagedFixtureResponse(staged.buildStage1UserPrompt(brief15)));
+    const prior = staged.validateBlueprint(good, brief15).blueprint;
+    prior.lesson.weeklyOverview = "Children will explore bakeries through play.";
+    const issues = [
+      "Generic filler in weeklyOverview",
+      "Baking Science.thin_concept",
+    ];
+    const repairPrompt = staged.buildStage1UserPrompt(brief15, issues, prior);
+    ok(/failedWeeklyFields/.test(repairPrompt), "repair payload lists failedWeeklyFields");
+    ok(/weeklyOverview/.test(repairPrompt), "repair names weeklyOverview failure");
+    ok(/Forbidden:/.test(repairPrompt) || /Children will explore/.test(repairPrompt),
+      "repair forbids shallow filler phrases");
+    ok(/Baking Science/.test(repairPrompt), "repair names thin outline");
+    ok(/Do NOT echo requiredWeeklyFields/.test(repairPrompt), "repair forbids contract-key echo");
+  }
+
+  // Merge: do not let repair overwrite valid weekly with filler; keep valid outline vs thin repair
+  {
+    const good = JSON.parse(staged.buildStagedFixtureResponse(staged.buildStage1UserPrompt(brief15)));
+    const prior = staged.validateBlueprint(good, brief15).blueprint;
+    const fillerRepair = {
+      lesson: {
+        ...prior.lesson,
+        weeklyOverview: "Children will explore bakeries this week.",
+      },
+      activityOutlines: prior.activityOutlines.map((o, i) => (i === 0
+        ? { ...o, concept: "Bake.", developmentalPurpose: "Fun." }
+        : o)),
+    };
+    const coalesced = staged.coalesceStage1Parsed(prior, fillerRepair, brief15);
+    const v = staged.validateBlueprint(coalesced, brief15);
+    ok(v.ok === true, "coalesce keeps valid weeklyOverview and outline substance over bad repair");
+    ok(v.blueprint.lesson.weeklyOverview === prior.lesson.weeklyOverview,
+      "valid weeklyOverview preserved against filler overwrite");
+    ok(v.blueprint.activityOutlines[0].concept === prior.activityOutlines[0].concept,
+      "valid outline concept preserved against thin repair overwrite");
+  }
+
   console.log(`\n${passed} assertions passed`);
 }
 
