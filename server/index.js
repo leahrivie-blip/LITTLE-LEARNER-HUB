@@ -1172,6 +1172,8 @@ function defaultSiteContentStore() {
   return {
     // Temporary logged-in member update banner (admin can set false to disable immediately).
     memberUpdateBannerEnabled: true,
+    // Temporary public Flash Referral Deal banner (admin can set false to disable immediately).
+    flashReferralBannerEnabled: true,
     lessonPlans: {},
     customLessonPlans: [],
     activities: [],
@@ -4258,6 +4260,8 @@ function normalizedSiteContent(value) {
     featureFlags: normalizedFeatureFlags(input.featureFlags),
     // Temporary member update banner — explicit false disables immediately; otherwise on.
     memberUpdateBannerEnabled: input.memberUpdateBannerEnabled !== false,
+    // Temporary Flash Referral Deal — explicit false disables immediately; otherwise on.
+    flashReferralBannerEnabled: input.flashReferralBannerEnabled !== false,
     curriculum: normalizedCurriculumStore(input.curriculum),
     curriculumDraftReviews: draftReviewModel.normalizeQueue(input.curriculumDraftReviews),
     // AI Teacher Assistant library + style prefs (admin Enrichment Editor only).

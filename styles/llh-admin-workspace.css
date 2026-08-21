@@ -10,6 +10,7 @@ body:has(#view-admin.active-view) .topbar,
 body:has(#view-admin.active-view) #freePlanReminderBar,
 body:has(#view-admin.active-view) #freePlanSoftNudge,
 body:has(#view-admin.active-view) #siteAnnouncementBanner,
+body:has(#view-admin.active-view) #llhFlashReferralBanner,
 body:has(#view-admin.active-view) .llh-public-nav {
   display: none !important;
 }

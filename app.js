@@ -7395,6 +7395,7 @@ function emptySiteContent() {
     pricing: {},
     faqs: [],
     announcement: {},
+    flashReferralBannerEnabled: true,
     upgradeMessaging: {},
     founding: {},
     signupConversion: {},
@@ -16456,6 +16457,7 @@ function captureDefaultSiteContent() {
       return { id: `faq-${index + 1}`, question, answer, visible: true, order: index + 1 };
     }).filter((f) => f.question),
     announcement: { text: "", visible: false, expiresAt: "", location: "top", _draft: false },
+    flashReferralBannerEnabled: true,
     upgradeMessaging: {
       upgradePopupHeadline: "This is a Pro Feature",
       upgradeLimitHeadline: "Ready to save hours every week?",
@@ -33519,7 +33521,24 @@ function isFoundingAcquisitionOfferText(text) {
   return /Founding\s+Membership|Founding\s+Member|Founding\s+Price|Lock In My \$9\.99|Lock In \$9\.99|\$9\.99\s+Founding|founding price of just \$9\.99/i.test(String(text || ""));
 }
 
+/**
+ * Temporary Flash Referral Deal on the public homepage.
+ * Defaults ON. Owner Admin turns it off from Website → Announcements
+ * (same siteContent banner-flag pattern as memberUpdateBannerEnabled).
+ * Does not grant credits or change Stripe/subscriptions.
+ * @returns {boolean}
+ */
+function isFlashReferralBannerEnabled() {
+  const site = typeof effectiveSiteContent === "function" ? effectiveSiteContent() : null;
+  if (!site || typeof site !== "object") return true;
+  return site.flashReferralBannerEnabled !== false;
+}
+
 function renderManagedAnnouncementBanner() {
+  const flashBanner = document.querySelector("#llhFlashReferralBanner");
+  if (flashBanner) {
+    flashBanner.hidden = isFlashReferralBannerEnabled() !== true;
+  }
   const banner = document.querySelector("#siteAnnouncementBanner");
   const textEl = document.querySelector("#siteAnnouncementText");
   if (!banner || !textEl) return;
@@ -60640,6 +60659,7 @@ function renderAdminAnnouncementSection() {
   const isDraft = ann._draft === true;
   const isVisible = ann.visible === true;
   const isExpired = ann.expiresAt && new Date(ann.expiresAt) < new Date();
+  const flashReferralOn = content.flashReferralBannerEnabled !== false;
   let statusLabel = adminDraftStatusBadge(isDraft);
   if (!isDraft && isVisible) statusLabel = isExpired ? `<span class="se-status-badge se-draft">⏰ Expired</span>` : `<span class="se-status-badge se-live">🟢 Showing</span>`;
   if (!isDraft && !isVisible) statusLabel = `<span class="se-status-badge">⭕ Hidden</span>`;
@@ -60648,6 +60668,10 @@ function renderAdminAnnouncementSection() {
       <div><p class="eyebrow">Site Editor</p><h3>Site Announcement ${statusLabel}</h3></div>
     </div>
     <form id="adminAnnouncementForm" class="panel-form admin-stacked-form">
+      <label>
+        <input type="checkbox" name="flashReferralBannerEnabled"${flashReferralOn ? " checked" : ""} /> Show Flash Referral Deal banner
+      </label>
+      <p class="muted-copy">Temporary public homepage promo. Uncheck this after the flash deal ends. This does not grant free months or change Stripe billing — verified paid referrals are confirmed by the owner.</p>
       <label>Announcement text
         <textarea name="text" rows="3" placeholder="e.g. 🎉 New lesson plans added! Check them out.">${escapeHtml(ann.text || "")}</textarea>
       </label>
@@ -60692,6 +60716,7 @@ async function saveAdminAnnouncementForm(form) {
     saveFn: async () => {
       const nextContent = nextSiteContentDraft();
       nextContent.announcement = ann;
+      nextContent.flashReferralBannerEnabled = formData.get("flashReferralBannerEnabled") === "on";
       console.log("[SAVE] Database save started");
       await saveAdminSiteContent(nextContent);
       console.log("[SAVE] Database saved");
