@@ -901,6 +901,98 @@ function asActivityStringList(value, maxItems = 8, maxLen = 300) {
   return [text(raw, maxLen)];
 }
 
+/**
+ * Existing insufficient_questions gate (validateExpansionActivityItem):
+ * pass when newline-separated prompt lines ≥ MIN_TEACHER_LANGUAGE_PROMPT_LINES
+ * OR wordCount ≥ TEACHER_LANGUAGE_WORD_FALLBACK.
+ * Do not change these thresholds — prompts/diagnostics must match them.
+ */
+const MIN_TEACHER_LANGUAGE_PROMPT_LINES = 2;
+const TEACHER_LANGUAGE_WORD_FALLBACK = 24;
+
+function teacherLanguageShape(value) {
+  if (value == null) return "empty";
+  if (Array.isArray(value)) return "array";
+  if (typeof value === "string") return text(value) ? "string" : "empty";
+  return typeof value;
+}
+
+/**
+ * Canonical teacherLanguage storage is a newline-separated string.
+ * Models often return a string[] (like teacherTips); schema.text(array) joins with
+ * commas and collapses separately countable prompts into one line — which fails the
+ * existing gate when wordCount < TEACHER_LANGUAGE_WORD_FALLBACK. Preserve array
+ * entries as newline-separated prompts instead. Do not invent comma-splitting of prose.
+ */
+function normalizeTeacherLanguageField(value) {
+  if (Array.isArray(value)) {
+    return asActivityStringList(value, 8, 500).filter(Boolean).join("\n");
+  }
+  return text(value, 2000);
+}
+
+function countTeacherLanguagePrompts(value) {
+  return normalizeTeacherLanguageField(value)
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean).length;
+}
+
+function teacherLanguageMeetsCountGate(value) {
+  const normalized = normalizeTeacherLanguageField(value);
+  return countTeacherLanguagePrompts(normalized) >= MIN_TEACHER_LANGUAGE_PROMPT_LINES
+    || wordCount(normalized) >= TEACHER_LANGUAGE_WORD_FALLBACK;
+}
+
+function buildTeacherLanguageRepairDiagnostics(priorActivities, afterActivities, repairPlan, postIssues, rawBeforeById, rawAfterById) {
+  const priorById = new Map(schema.asArray(priorActivities).map((a) => [a.outlineId, a]));
+  const afterById = new Map(schema.asArray(afterActivities).map((a) => [a.outlineId, a]));
+  const rows = [];
+  schema.asArray(repairPlan?.mappedRepairTargets).forEach((target) => {
+    const teacherField = schema.asArray(target.fields).find((f) => f.field === "teacherLanguage");
+    if (!teacherField) return;
+    const id = text(target.outlineId, 80);
+    const before = priorById.get(id);
+    const after = afterById.get(id);
+    const title = text(before?.title || after?.title || target.title, 120);
+    const rawBefore = rawBeforeById && Object.prototype.hasOwnProperty.call(rawBeforeById, id)
+      ? rawBeforeById[id]
+      : before?.teacherLanguage;
+    const rawAfter = rawAfterById && Object.prototype.hasOwnProperty.call(rawAfterById, id)
+      ? rawAfterById[id]
+      : after?.teacherLanguage;
+    rows.push({
+      outlineId: id,
+      teacherLanguageShapeBefore: teacherLanguageShape(rawBefore),
+      teacherLanguagePromptCountBefore: countTeacherLanguagePrompts(before?.teacherLanguage ?? rawBefore),
+      repairTargetReason: text(teacherField.reason || teacherField.issueCode, 80) || "insufficient_questions",
+      teacherLanguageShapeAfter: teacherLanguageShape(rawAfter),
+      teacherLanguagePromptCountAfter: countTeacherLanguagePrompts(after?.teacherLanguage ?? rawAfter),
+      questionQualityFailuresAfter: schema.asArray(postIssues)
+        .map((issue) => text(issue, 200))
+        .filter((issue) => issue.includes(title) && /\.insufficient_questions$|teacherLanguage/i.test(issue))
+        .slice(0, 8),
+    });
+  });
+  return rows;
+}
+
+function rawTeacherLanguageByOutlineId(parsed) {
+  const out = {};
+  schema.asArray(parsed?.activities).forEach((row) => {
+    const id = text(row?.outlineId || row?.id, 80);
+    if (!id) return;
+    if (Object.prototype.hasOwnProperty.call(row, "teacherLanguage")) {
+      out[id] = row.teacherLanguage;
+    } else if (Object.prototype.hasOwnProperty.call(row, "teacherQuestions")) {
+      out[id] = row.teacherQuestions;
+    } else if (Object.prototype.hasOwnProperty.call(row, "questions")) {
+      out[id] = row.questions;
+    }
+  });
+  return out;
+}
+
 function listFieldSubstanceOk(values, minItemWords = 6) {
   const list = schema.asArray(values).map((v) => text(v, 300)).filter(Boolean);
   if (!list.length) return false;
@@ -935,7 +1027,15 @@ function buildExpansionSystemPrompt(ageBand) {
 
 function expansionFieldQualityExpectations() {
   return {
-    teacherLanguage: "Multiple activity-specific teacher prompts/questions (newline-separated string). Bad: single \"What do you see?\". Good: 3+ concrete noticing/comparing/predicting prompts tied to the activity.",
+    teacherLanguage: [
+      `Canonical format: a single newline-separated STRING (not a JSON array).`,
+      `Include at least ${MIN_TEACHER_LANGUAGE_PROMPT_LINES} distinct activity-specific teacher prompts`,
+      `(one prompt per line) so each is separately countable; prefer 3+ when the activity supports it`,
+      `(observation + prediction/problem-solving + comparison/reflection).`,
+      `Bad: one generic \"What do you see?\"; one paragraph that packs questions without newlines;`,
+      `a JSON array of prompts; three near-duplicate variants.`,
+      `Good: each line is a full, usable, activity-tied open prompt.`,
+    ].join(" "),
     teacherTips: "Activity-specific implementation help (array). Bad: \"Help children as needed.\" Good: offer limited tools first, then add more once engaged.",
     observationPrompts: "Concrete teacher noticeables (array). Bad: \"Observe the child.\" Good: notice one-to-one correspondence, quantity language, recounts.",
     adaptations: "Real support adaptation (canonical field name: adaptations). Bad: \"Provide support.\" Good: larger manipulatives + one action at a time.",
@@ -982,7 +1082,7 @@ function buildExpansionUserPrompt(brief, blueprint, outlineIds, options = {}) {
       "Every expandExactlyTheseOutlineIds value must appear exactly once.",
       "No unrequested outlineId.",
       "Populate EVERY requiredActivityFields entry — missing/empty/TODO/generic filler fails.",
-      "teacherLanguage: multiple activity-specific prompts (newline-separated), not one generic question.",
+      `teacherLanguage: return a newline-separated STRING with at least ${MIN_TEACHER_LANGUAGE_PROMPT_LINES} distinct activity-specific prompts (one per line; prefer 3+). Do not return a JSON array. Do not return one generic question. Do not combine all prompts into a single unparseable paragraph.`,
       "teacherTips: non-empty array of activity-specific tips.",
       "observationPrompts: non-empty array of concrete observation prompts.",
       "adaptations: practical activity-specific support (canonical field adaptations).",
@@ -1228,8 +1328,20 @@ function buildExpansionRepairUserPrompt(brief, blueprint, outlineIds, previousAc
   const safetyTargeted = repairTargets.some((t) => (
     schema.asArray(t.fields).some((f) => f.field === "safetyNotes")
   ));
+  const teacherLanguageTargeted = repairTargets.some((t) => (
+    schema.asArray(t.fields).some((f) => f.field === "teacherLanguage")
+  ));
+  const insufficientQuestionsTargeted = repairTargets.some((t) => (
+    schema.asArray(t.fields).some((f) => (
+      f.field === "teacherLanguage"
+      && (f.reason === "insufficient_questions" || f.issueCode === "insufficient_questions")
+    ))
+  ));
   const safetyOutlineIds = repairTargets
     .filter((t) => schema.asArray(t.fields).some((f) => f.field === "safetyNotes"))
+    .map((t) => t.outlineId);
+  const teacherLanguageOutlineIds = repairTargets
+    .filter((t) => schema.asArray(t.fields).some((f) => f.field === "teacherLanguage"))
     .map((t) => t.outlineId);
   return [
     "Repair ONLY the failed activity fields in this expansion batch.",
@@ -1249,6 +1361,8 @@ function buildExpansionRepairUserPrompt(brief, blueprint, outlineIds, previousAc
       repairTargets,
       repairedFieldsByOutlineId,
       safetyRepairOutlineIds: safetyOutlineIds,
+      teacherLanguageRepairOutlineIds: teacherLanguageOutlineIds,
+      minTeacherLanguagePromptLines: MIN_TEACHER_LANGUAGE_PROMPT_LINES,
       fixOnlyTheseIssues: schema.asArray(issues).slice(0, 40),
       requiredActivityFields: [...REQUIRED_EXPANSION_ACTIVITY_FIELDS],
       fieldQualityExpectations: expansionFieldQualityExpectations(),
@@ -1273,7 +1387,12 @@ function buildExpansionRepairUserPrompt(brief, blueprint, outlineIds, previousAc
           : "Repair listed issues only.",
         "Preserve strong original fields that already passed validation.",
         "Preserve outlineId, title, dayOfWeek, and activityCategory unless explicitly targeted.",
-        "If teacherLanguage is targeted: return multiple activity-specific prompts (newline-separated), not one generic sentence.",
+        teacherLanguageTargeted
+          ? `If teacherLanguage is targeted: return the complete canonical teacherLanguage as a newline-separated STRING with at least ${MIN_TEACHER_LANGUAGE_PROMPT_LINES} distinct activity-specific teacher prompts (one prompt per line; prefer 3+ with observation, prediction/problem-solving, and comparison/reflection). Each prompt must be separately countable by the existing validator. Do not return a JSON array. Do not return one generic sentence. Do not combine prompts into a single unparseable paragraph. Do not return generic filler or near-duplicate variants.`
+          : "",
+        insufficientQuestionsTargeted
+          ? `Replace teacherLanguage with at least ${MIN_TEACHER_LANGUAGE_PROMPT_LINES} distinct activity-specific teacher prompts in the canonical newline-separated string format. Each prompt must be separately countable by the existing validator.`
+          : "",
         "If adaptations is targeted: return a practical, activity-specific support adaptation (not \"Provide support.\").",
         safetyTargeted
           ? "If safetyNotes is targeted: rewrite safetyNotes with specific safety guidance tied to this activity. Identify any relevant hazard, material concern, supervision need, allergy/choking/mouthing/tool/temperature concern when it applies, and explain the teacher action that keeps the activity safe. Do not return generic supervision language. Do not fabricate hazards that do not apply."
@@ -1339,7 +1458,9 @@ function normalizeExpansionActivity(raw, outline, brief, issues) {
     preparation: text(cleaned.preparation || cleaned.teacherPrep, 2000),
     setup: text(cleaned.setup, 2000),
     steps: text(cleaned.steps, 4000),
-    teacherLanguage: text(cleaned.teacherLanguage || cleaned.teacherQuestions || cleaned.questions, 2000),
+    teacherLanguage: normalizeTeacherLanguageField(
+      cleaned.teacherLanguage || cleaned.teacherQuestions || cleaned.questions,
+    ),
     observationOpportunities: text(cleaned.observationOpportunities || cleaned.observationFocus, 2000),
     safetyNotes: text(cleaned.safetyNotes || cleaned.safety, 2000),
     cleanupTips: text(cleaned.cleanupTips || cleaned.cleanup, 2000),
@@ -1385,9 +1506,8 @@ function validateExpansionActivityItem(item, issues) {
   if (!item.observationPrompts.length) issues.push(`${actTitle}.missing_observation_prompts`);
   else if (!listFieldSubstanceOk(item.observationPrompts, 8)) issues.push(`${actTitle}.thin_observation_prompts`);
   if (!WEEKDAYS.includes(item.dayOfWeek)) issues.push(`bad_weekday:${item.dayOfWeek}`);
-  // teacherLanguage should include multiple prompts when substantial
-  const qLines = text(item.teacherLanguage).split(/\n+/).map((l) => l.trim()).filter(Boolean);
-  if (qLines.length < 2 && wordCount(item.teacherLanguage) < 24) {
+  // teacherLanguage: ≥MIN newline-separated prompts OR ≥WORD_FALLBACK words (unchanged gate)
+  if (!teacherLanguageMeetsCountGate(item.teacherLanguage)) {
     issues.push(`${actTitle}.insufficient_questions`);
   }
 }
@@ -1452,9 +1572,7 @@ function fieldPassedOnActivity(activity, field, briefTitleIssues) {
       && !related.some((i) => /\.missing_observation_prompts$|\.thin_observation_prompts$/.test(i));
   }
   if (field === "teacherLanguage") {
-    const qLines = text(activity.teacherLanguage).split(/\n+/).map((l) => l.trim()).filter(Boolean);
-    const enoughQuestions = qLines.length >= 2 || wordCount(activity.teacherLanguage) >= 24;
-    return enoughQuestions
+    return teacherLanguageMeetsCountGate(activity.teacherLanguage)
       && !rejectGeneric(`${title}.teacherLanguage`, activity.teacherLanguage)
       && !related.some((i) => /\.insufficient_questions$|Generic filler in .+\.teacherLanguage|Too short: .+\.teacherLanguage/i.test(i));
   }
@@ -1576,6 +1694,7 @@ function recordBatchDiagnostic(diagnostics, row) {
     repairUsed: row.repairUsed === true,
     repairTargets: mappedRepairTargets,
     postRepairFailures,
+    teacherLanguageDiagnostics: schema.asArray(row.teacherLanguageDiagnostics).slice(0, 16),
     finalBatchPass: row.finalBatchPass === true,
   });
 }
@@ -2176,6 +2295,9 @@ async function composeStagedLessonContent(brief, options = {}) {
     let lastFinishReason = null;
     let lastOutputChars = 0;
     let validated = null;
+    let rawTeacherLanguageBeforeById = {};
+    let rawTeacherLanguageAfterById = {};
+    let teacherLanguageDiagnostics = [];
 
     // ---- Phase A: expansion + optional parse/transport recovery (max 1) ----
     while (expansionAttempts < 1 + MAX_EXPANSION_PARSE_RETRIES) {
@@ -2231,6 +2353,7 @@ async function composeStagedLessonContent(brief, options = {}) {
       }
 
       validated = validateExpansionBatch(stage.parsed, ids, blueprint, brief);
+      rawTeacherLanguageBeforeById = rawTeacherLanguageByOutlineId(stage.parsed);
       if (isExpansionParseTransportFailure(stage, validated, ids.length)) {
         lastIssues = validated.issues.length
           ? validated.issues
@@ -2297,6 +2420,7 @@ async function composeStagedLessonContent(brief, options = {}) {
         repairUsed,
         repairTargets: lastRepairTargets,
         postRepairFailures: lastIssues,
+        teacherLanguageDiagnostics,
         finalBatchPass: false,
         ...extra,
       });
@@ -2484,6 +2608,15 @@ async function composeStagedLessonContent(brief, options = {}) {
         brief,
         lastInitialFailures,
       );
+      rawTeacherLanguageAfterById = rawTeacherLanguageByOutlineId(repairStage.parsed);
+      teacherLanguageDiagnostics = buildTeacherLanguageRepairDiagnostics(
+        priorBatchActivities,
+        validated.activities,
+        lastRepairPlan,
+        validated.issues,
+        rawTeacherLanguageBeforeById,
+        rawTeacherLanguageAfterById,
+      );
       priorBatchActivities = validated.activities;
       lastIssues = validated.issues;
       pushStageDiag(diagnostics, {
@@ -2534,6 +2667,7 @@ async function composeStagedLessonContent(brief, options = {}) {
           repairUsed: true,
           repairTargets: lastRepairTargets,
           postRepairFailures: [],
+          teacherLanguageDiagnostics,
           finalBatchPass: true,
         });
         success = true;
@@ -2738,4 +2872,12 @@ module.exports = {
   isStage1ContractEchoKey,
   asActivityStringList,
   truncationFlags,
+  MIN_TEACHER_LANGUAGE_PROMPT_LINES,
+  TEACHER_LANGUAGE_WORD_FALLBACK,
+  normalizeTeacherLanguageField,
+  countTeacherLanguagePrompts,
+  teacherLanguageMeetsCountGate,
+  teacherLanguageShape,
+  buildTeacherLanguageRepairDiagnostics,
+  rawTeacherLanguageByOutlineId,
 };
