@@ -180,6 +180,7 @@ function emptyDiagnostics() {
   return {
     stages: [],
     batches: [],
+    stage1: null,
     model: null,
     maxOutputTokens: STAGE_MAX_OUTPUT_TOKENS,
     batchSize: DEFAULT_BATCH_SIZE,
@@ -334,13 +335,87 @@ function outlineSubstanceOk(row) {
   return wordCount(concept) >= 6 && wordCount(purpose) >= 4;
 }
 
-function coalesceStage1Parsed(priorBlueprint, parsed, brief) {
+/** Explicit Stage 1 outline issue-code → canonical outline field (no fuzzy match). */
+const STAGE1_OUTLINE_ISSUE_CODE_FIELD_MAP = Object.freeze({
+  thin_concept: "concept",
+  thin_purpose: "developmentalPurpose",
+});
+
+/**
+ * Plan Stage 1 outline-field repair targets from quality issues.
+ * thin_concept → concept; thin_purpose → developmentalPurpose.
+ */
+function planStage1OutlineRepair(issues, outlines) {
+  const list = schema.asArray(outlines);
+  const byId = new Map();
+  const unmappedOutlineIssues = [];
+  const initialThinConceptOutlineIds = [];
+  const initialThinPurposeOutlineIds = [];
+
+  schema.asArray(issues).forEach((rawIssue) => {
+    const raw = text(rawIssue, 240);
+    if (!raw) return;
+    const m = raw.match(/^(.+)\.(thin_concept|thin_purpose)$/);
+    if (!m) return;
+    const label = text(m[1], 120);
+    const code = m[2];
+    const field = STAGE1_OUTLINE_ISSUE_CODE_FIELD_MAP[code];
+    if (!field) {
+      unmappedOutlineIssues.push(raw);
+      return;
+    }
+    const outline = list.find((o) => (
+      text(o?.name, 120) === label || text(o?.outlineId, 80) === label
+    ));
+    if (!outline?.outlineId) {
+      unmappedOutlineIssues.push(raw);
+      return;
+    }
+    if (code === "thin_concept") initialThinConceptOutlineIds.push(outline.outlineId);
+    if (code === "thin_purpose") initialThinPurposeOutlineIds.push(outline.outlineId);
+    if (!byId.has(outline.outlineId)) {
+      byId.set(outline.outlineId, {
+        outlineId: outline.outlineId,
+        name: text(outline.name, 120),
+        weekday: outline.weekday,
+        domain: text(outline.domain, 80),
+        fields: [],
+      });
+    }
+    const row = byId.get(outline.outlineId);
+    if (!row.fields.some((f) => f.field === field)) {
+      row.fields.push({
+        field,
+        reason: code,
+        issueCode: code,
+        sourceIssue: raw,
+      });
+    }
+  });
+
+  return {
+    mappedRepairTargets: [...byId.values()],
+    unmappedOutlineIssues,
+    initialThinConceptOutlineIds: [...new Set(initialThinConceptOutlineIds)],
+    initialThinPurposeOutlineIds: [...new Set(initialThinPurposeOutlineIds)],
+    canRepair: unmappedOutlineIssues.length === 0 && byId.size > 0,
+  };
+}
+
+function coalesceStage1Parsed(priorBlueprint, parsed, brief, options = {}) {
   const target = schema.clampInt(brief.activityTarget, 4, 24, createApi.defaultActivityTarget(brief.ageBand));
   const { lessonIn } = extractStage1LessonBag(parsed);
   const priorLesson = priorBlueprint?.lesson && typeof priorBlueprint.lesson === "object"
     ? priorBlueprint.lesson
     : null;
   const lesson = { ...lessonIn };
+  const repairTargets = schema.asArray(options.repairTargets);
+  const targeted = new Map(
+    repairTargets.map((t) => [
+      text(t.outlineId, 80),
+      new Set(schema.asArray(t.fields).map((f) => text(f.field || f, 60)).filter(Boolean)),
+    ]).filter(([id]) => id),
+  );
 
   if (priorLesson) {
     REQUIRED_WEEKLY_TEXT_FIELDS.forEach((field) => {
@@ -381,9 +456,39 @@ function coalesceStage1Parsed(priorBlueprint, parsed, brief) {
   } else if (priorOutlines.length === target && outlines.length === target) {
     const priorById = new Map(priorOutlines.map((o) => [text(o.outlineId || o.id, 80), o]));
     outlines = outlines.map((row, index) => {
-      const id = text(row?.outlineId || row?.id, 80) || `outline-${index + 1}`;
+      const id = text(row?.outlineId || row?.id, 80) || text(priorOutlines[index]?.outlineId, 80) || `outline-${index + 1}`;
       const prior = priorById.get(id) || priorOutlines[index];
-      if (prior && outlineSubstanceOk(prior) && !outlineSubstanceOk(row)) return prior;
+      if (!prior) return row;
+      const fields = targeted.get(text(prior.outlineId, 80)) || targeted.get(id);
+      if (fields && fields.size) {
+        // Targeted thin-outline repair: preserve identity; replace only listed fields when non-empty.
+        const merged = {
+          ...prior,
+          outlineId: prior.outlineId,
+          name: prior.name,
+          weekday: prior.weekday,
+          domain: prior.domain,
+          concept: prior.concept,
+          developmentalPurpose: prior.developmentalPurpose,
+          expectedAssetIntent: row?.expectedAssetIntent || prior.expectedAssetIntent,
+        };
+        if (fields.has("concept")) {
+          const nextConcept = text(row.concept || row.summary || row.description, 400);
+          // Non-empty repair replaces prior even if still thin — final gate remains authoritative.
+          // Do not keep the old thin concept merely because it was non-empty.
+          if (nextConcept) merged.concept = nextConcept;
+        }
+        if (fields.has("developmentalPurpose")) {
+          const nextPurpose = text(row.developmentalPurpose || row.purpose || row.objective, 400);
+          if (nextPurpose) merged.developmentalPurpose = nextPurpose;
+        }
+        return merged;
+      }
+      if (targeted.size > 0) {
+        // Other outlines were not targeted — preserve exactly.
+        return prior;
+      }
+      if (outlineSubstanceOk(prior) && !outlineSubstanceOk(row)) return prior;
       return row;
     });
   }
@@ -589,7 +694,8 @@ function buildStage1SystemPrompt(ageBand) {
     "Do NOT echo prompt/contract keys (requiredWeeklyFields, requiredActivityCount, requiredJsonSchema, rules, brief, mode) into the lesson object.",
     "Forbidden shallow filler (especially under 45 words): \"Children will explore/learn about…\", \"Set out materials\", \"What do you see?\".",
     "weeklyOverview must name the Mon–Fri progression with concrete classroom actions (not a generic theme sentence).",
-    "Each outline concept must be a specific activity idea (≥6 words); developmentalPurpose ≥4 words.",
+    "Each outline concept must answer: what will children actually do, and what are they exploring/practicing? (≥6 words; not a title restatement).",
+    "developmentalPurpose ≥4 words.",
     "Honor requiredActivityCount exactly with that many activityOutlines.",
     "Each outline is compact: outlineId, name, weekday, domain, concept, developmentalPurpose.",
     "Do not expand full materials/steps/questions yet.",
@@ -635,12 +741,20 @@ function classifyStage1RepairIssues(repairIssues, previousBlueprint) {
   failedWeeklyFields.forEach((field) => {
     failedWeeklySnapshots[field] = priorLesson[field];
   });
+  const outlinePlan = planStage1OutlineRepair(
+    issues,
+    schema.asArray(previousBlueprint?.activityOutlines),
+  );
   return {
     weeklyFieldFailures,
     failedWeeklyFields,
     failedWeeklySnapshots,
     thinOutlineNames: [...new Set(thinOutlineNames)],
     otherIssues,
+    outlineRepairTargets: outlinePlan.mappedRepairTargets,
+    initialThinConceptOutlineIds: outlinePlan.initialThinConceptOutlineIds,
+    initialThinPurposeOutlineIds: outlinePlan.initialThinPurposeOutlineIds,
+    unmappedOutlineIssues: outlinePlan.unmappedOutlineIssues,
   };
 }
 
@@ -680,7 +794,7 @@ function buildStage1UserPrompt(brief, repairIssues, previousBlueprint) {
         name: "string",
         weekday: "monday|tuesday|wednesday|thursday|friday",
         domain: "string",
-        concept: "specific activity concept ≥6 words",
+        concept: "1–2 sentences: what children actually do + what they explore/practice (≥6 words; not a title restatement)",
         developmentalPurpose: "string ≥4 words",
       }],
     },
@@ -690,6 +804,8 @@ function buildStage1UserPrompt(brief, repairIssues, previousBlueprint) {
       "Empty strings, empty arrays, placeholders, and TODO values are invalid.",
       "Do not echo requiredWeeklyFields or other prompt keys into lesson.",
       "Do not write shallow filler like \"Children will explore X\" unless the field is a full specific paragraph (≥45 words) with Mon–Fri detail.",
+      "Each outline concept must answer: What will children actually do, and what are they exploring/practicing?",
+      "Avoid title-restatement concepts.",
       "Do not omit weekly foundation fields to fit more outline detail.",
       "All five weekdays must appear in dailyFocus and in outlines when activityTarget >= 5.",
       "Do not return full activity bodies in Stage 1.",
@@ -701,11 +817,25 @@ function buildStage1UserPrompt(brief, repairIssues, previousBlueprint) {
     const outlinesCountOk = priorOutlines.length === activityTarget;
     const onlyWeeklyOrThin = classified.otherIssues.length === 0
       && (classified.weeklyFieldFailures.length > 0 || classified.thinOutlineNames.length > 0);
+    const conceptTargets = classified.outlineRepairTargets.filter((t) => (
+      schema.asArray(t.fields).some((f) => f.field === "concept")
+    ));
+    const purposeTargets = classified.outlineRepairTargets.filter((t) => (
+      schema.asArray(t.fields).some((f) => f.field === "developmentalPurpose")
+    ));
     payload.stage1Repair = true;
     payload.fixOnlyTheseIssues = repairIssues.slice(0, 40);
     payload.failedWeeklyFields = classified.failedWeeklyFields;
     payload.failedWeeklySnapshots = classified.failedWeeklySnapshots;
     payload.thinOutlineNames = classified.thinOutlineNames;
+    payload.stage1OutlineRepairTargets = classified.outlineRepairTargets;
+    payload.initialThinConceptOutlineIds = classified.initialThinConceptOutlineIds;
+    payload.conceptQualityExpectation = [
+      "A valid concept states (1) what children actually do,",
+      "(2) the meaningful skill / exploration / developmental purpose,",
+      "and (3) enough specificity to distinguish it from the title and other outlines.",
+      "Usually 1–2 useful sentences. Unacceptable: vague title-like phrases or \"Children explore X.\"",
+    ].join(" ");
     payload.previousStage1 = previousBlueprint
       ? {
         lesson: previousBlueprint.lesson,
@@ -716,8 +846,14 @@ function buildStage1UserPrompt(brief, repairIssues, previousBlueprint) {
       outlinesCountOk && classified.thinOutlineNames.length === 0
         ? `PRESERVE ALL ${activityTarget} VALID ACTIVITY OUTLINES unchanged.`
         : outlinesCountOk
-          ? `Keep all ${activityTarget} outlines. Rewrite concept/developmentalPurpose ONLY for thin outlines: ${classified.thinOutlineNames.join(", ") || "(none)"}. Do not redesign the week.`
+          ? `Keep all ${activityTarget} outlines. Repair ONLY the fields listed in stage1OutlineRepairTargets (by outlineId). Preserve outlineId, weekday, name, and domain unless those fields are listed. Do not redesign the week.`
           : `Return exactly ${activityTarget} distinct activityOutlines.`,
+      conceptTargets.length
+        ? `thin_concept → concept for outlineIds: ${conceptTargets.map((t) => t.outlineId).join(", ")}. Rewrite each listed concept with concrete child actions + skill/exploration so it is no longer thin.`
+        : "",
+      purposeTargets.length
+        ? `thin_purpose → developmentalPurpose for outlineIds: ${purposeTargets.map((t) => t.outlineId).join(", ")}. Rewrite only those purposes.`
+        : "",
       classified.failedWeeklyFields.length
         ? `Repair ONLY these failed weekly fields: ${classified.failedWeeklyFields.join(", ")}. Rewrite them with concrete, non-filler Teaching Kit substance.`
         : "Repair ONLY the failed issues listed in fixOnlyTheseIssues.",
@@ -1803,9 +1939,18 @@ async function composeStagedLessonContent(brief, options = {}) {
   if (!blueprintComplete) {
     let stage1Issues = null;
     let priorBlueprint = null;
+    let stage1OutlineRepairPlan = null;
+    let initialThinConceptOutlineIds = [];
     for (let attempt = 0; attempt < MAX_ARCHITECTURE_CALLS; attempt += 1) {
       usage.lessonArchitectureCalls += 1;
       usage.lessonArchitectCalls += 1;
+      if (attempt > 0 && priorBlueprint && stage1Issues) {
+        stage1OutlineRepairPlan = planStage1OutlineRepair(
+          stage1Issues,
+          priorBlueprint.activityOutlines,
+        );
+        initialThinConceptOutlineIds = stage1OutlineRepairPlan.initialThinConceptOutlineIds;
+      }
       const stage = await callAiStage(
         callAi,
         buildStage1SystemPrompt(brief.ageBand),
@@ -1829,6 +1974,13 @@ async function composeStagedLessonContent(brief, options = {}) {
           ok: false,
         });
         if (attempt === MAX_ARCHITECTURE_CALLS - 1) {
+          diagnostics.stage1 = {
+            initialThinConceptOutlineIds,
+            repairTargets: stage1OutlineRepairPlan?.mappedRepairTargets || [],
+            repairedConceptOutlineIds: [],
+            postRepairThinConceptOutlineIds: initialThinConceptOutlineIds.slice(),
+            finalStage1Pass: false,
+          };
           return {
             ok: false,
             code: "AI_CREATION_FAILED",
@@ -1842,7 +1994,9 @@ async function composeStagedLessonContent(brief, options = {}) {
         continue;
       }
       const coalesced = attempt > 0 && priorBlueprint
-        ? coalesceStage1Parsed(priorBlueprint, stage.parsed, brief)
+        ? coalesceStage1Parsed(priorBlueprint, stage.parsed, brief, {
+          repairTargets: stage1OutlineRepairPlan?.mappedRepairTargets || [],
+        })
         : stage.parsed;
       const validated = validateBlueprint(coalesced, brief);
       pushStageDiag(diagnostics, {
@@ -1861,11 +2015,60 @@ async function composeStagedLessonContent(brief, options = {}) {
       if (validated.ok) {
         blueprint = validated.blueprint;
         blueprintComplete = true;
+        const repairedConceptOutlineIds = [];
+        if (attempt > 0 && priorBlueprint && stage1OutlineRepairPlan) {
+          const priorById = new Map(
+            schema.asArray(priorBlueprint.activityOutlines).map((o) => [o.outlineId, o]),
+          );
+          schema.asArray(stage1OutlineRepairPlan.mappedRepairTargets).forEach((t) => {
+            if (!schema.asArray(t.fields).some((f) => f.field === "concept")) return;
+            const prior = priorById.get(t.outlineId);
+            const next = schema.asArray(validated.blueprint.activityOutlines)
+              .find((o) => o.outlineId === t.outlineId);
+            if (next && text(next.concept) && text(next.concept) !== text(prior?.concept)) {
+              repairedConceptOutlineIds.push(t.outlineId);
+            }
+          });
+        }
+        diagnostics.stage1 = {
+          initialThinConceptOutlineIds,
+          repairTargets: stage1OutlineRepairPlan?.mappedRepairTargets || [],
+          repairedConceptOutlineIds,
+          postRepairThinConceptOutlineIds: [],
+          finalStage1Pass: true,
+        };
         break;
       }
       priorBlueprint = validated.blueprint;
       stage1Issues = validated.issues;
+      if (attempt === 0) {
+        initialThinConceptOutlineIds = planStage1OutlineRepair(
+          validated.issues,
+          validated.blueprint.activityOutlines,
+        ).initialThinConceptOutlineIds;
+      }
       if (attempt === MAX_ARCHITECTURE_CALLS - 1) {
+        const postRepairThin = planStage1OutlineRepair(
+          validated.issues,
+          validated.blueprint.activityOutlines,
+        ).initialThinConceptOutlineIds;
+        const repairedConceptOutlineIds = [];
+        if (priorBlueprint && stage1OutlineRepairPlan) {
+          // priorBlueprint here is the failed post-repair blueprint; compare to first-pass via plan ids
+          schema.asArray(stage1OutlineRepairPlan.mappedRepairTargets).forEach((t) => {
+            if (!schema.asArray(t.fields).some((f) => f.field === "concept")) return;
+            const next = schema.asArray(validated.blueprint.activityOutlines)
+              .find((o) => o.outlineId === t.outlineId);
+            if (next && wordCount(next.concept) >= 6) repairedConceptOutlineIds.push(t.outlineId);
+          });
+        }
+        diagnostics.stage1 = {
+          initialThinConceptOutlineIds,
+          repairTargets: stage1OutlineRepairPlan?.mappedRepairTargets || [],
+          repairedConceptOutlineIds,
+          postRepairThinConceptOutlineIds: postRepairThin,
+          finalStage1Pass: false,
+        };
         return {
           ok: false,
           code: "AI_CREATION_FAILED",
@@ -1877,6 +2080,16 @@ async function composeStagedLessonContent(brief, options = {}) {
         };
       }
     }
+  }
+
+  if (blueprintComplete && !diagnostics.stage1) {
+    diagnostics.stage1 = {
+      initialThinConceptOutlineIds: [],
+      repairTargets: [],
+      repairedConceptOutlineIds: [],
+      postRepairThinConceptOutlineIds: [],
+      finalStage1Pass: true,
+    };
   }
 
   const outlineIds = schema.asArray(blueprint.activityOutlines).map((o) => o.outlineId);
@@ -2479,6 +2692,8 @@ module.exports = {
   coalesceStage1Parsed,
   canonicalizeWeeklyFieldName,
   classifyStage1RepairIssues,
+  planStage1OutlineRepair,
+  STAGE1_OUTLINE_ISSUE_CODE_FIELD_MAP,
   isStage1ContractEchoKey,
   asActivityStringList,
   truncationFlags,

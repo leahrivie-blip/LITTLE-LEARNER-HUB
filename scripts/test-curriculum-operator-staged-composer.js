@@ -554,6 +554,215 @@ async function main() {
       "valid outline concept preserved against thin repair overwrite");
   }
 
+  // Stage 1 thin_concept → concept repair (Live Test opjob_8cc9a47275bd8b3c)
+  {
+    const good = JSON.parse(staged.buildStagedFixtureResponse(staged.buildStage1UserPrompt(brief15)));
+    const prior = staged.validateBlueprint(good, brief15).blueprint;
+    const thinId = prior.activityOutlines[0].outlineId;
+    const thinName = prior.activityOutlines[0].name;
+    const preserved = prior.activityOutlines.slice(1).map((o) => ({
+      outlineId: o.outlineId,
+      name: o.name,
+      weekday: o.weekday,
+      domain: o.domain,
+      concept: o.concept,
+      developmentalPurpose: o.developmentalPurpose,
+    }));
+
+    // Live-shaped thin concept (5 words) triggers thin_concept; detector unchanged
+    const thinBlueprint = {
+      ...good,
+      lesson: prior.lesson,
+      activityOutlines: prior.activityOutlines.map((o, i) => (
+        i === 0
+          ? { ...o, concept: "Innovatively crafting unique pastry shapes" }
+          : o
+      )),
+    };
+    const thinV = staged.validateBlueprint(thinBlueprint, brief15);
+    ok(thinV.ok === false && thinV.issues.some((i) => i === `${thinName}.thin_concept`),
+      "vague concept triggers thin_concept");
+    ok(staged.STAGE1_OUTLINE_ISSUE_CODE_FIELD_MAP.thin_concept === "concept",
+      "thin_concept maps to concept");
+
+    const plan = staged.planStage1OutlineRepair(thinV.issues, thinV.blueprint.activityOutlines);
+    ok(plan.mappedRepairTargets.some((t) => (
+      t.outlineId === thinId && t.fields.some((f) => f.field === "concept" && f.reason === "thin_concept")
+    )), "repair target includes correct outlineId + concept");
+    ok(plan.initialThinConceptOutlineIds.includes(thinId),
+      "initialThinConceptOutlineIds lists failing outline");
+
+    const repairPrompt = staged.buildStage1UserPrompt(brief15, thinV.issues, thinV.blueprint);
+    ok(/stage1OutlineRepairTargets/.test(repairPrompt) && new RegExp(thinId).test(repairPrompt),
+      "repair prompt includes outlineId-targeted concept repair");
+    ok(/what children actually do/i.test(repairPrompt) && /thin_concept → concept/i.test(repairPrompt),
+      "repair prompt explains substantive concept requirements");
+
+    const substantiveConcept = "Children roll, press, cut, and shape play dough into pretend bakery foods using simple tools, building fine-motor strength while using descriptive language.";
+    const goodRepair = {
+      lesson: thinV.blueprint.lesson,
+      activityOutlines: thinV.blueprint.activityOutlines.map((o, i) => (
+        i === 0
+          ? {
+            ...o,
+            name: "CHANGED NAME SHOULD NOT APPLY",
+            weekday: "friday",
+            domain: "CHANGED",
+            concept: substantiveConcept,
+            developmentalPurpose: o.developmentalPurpose,
+          }
+          : {
+            ...o,
+            concept: "SHOULD NOT CHANGE OTHER OUTLINES",
+            developmentalPurpose: "SHOULD NOT CHANGE",
+          }
+      )),
+    };
+    const mergedGood = staged.coalesceStage1Parsed(thinV.blueprint, goodRepair, brief15, {
+      repairTargets: plan.mappedRepairTargets,
+    });
+    const mergedV = staged.validateBlueprint(mergedGood, brief15);
+    ok(mergedV.ok === true, "substantive replacement passes");
+    ok(mergedV.blueprint.activityOutlines[0].outlineId === thinId, "outlineId preserved");
+    ok(mergedV.blueprint.activityOutlines[0].weekday === thinV.blueprint.activityOutlines[0].weekday,
+      "weekday preserved");
+    ok(mergedV.blueprint.activityOutlines[0].name === thinName, "name preserved when valid");
+    ok(mergedV.blueprint.activityOutlines[0].domain === thinV.blueprint.activityOutlines[0].domain,
+      "domain preserved when valid");
+    ok(mergedV.blueprint.activityOutlines[0].developmentalPurpose
+      === thinV.blueprint.activityOutlines[0].developmentalPurpose,
+      "developmentalPurpose preserved if valid");
+    ok(mergedV.blueprint.activityOutlines[0].concept === substantiveConcept,
+      "targeted concept replaced with substantive repair");
+    const othersUnchanged = preserved.every((p, idx) => {
+      const got = mergedV.blueprint.activityOutlines[idx + 1];
+      return got
+        && got.concept === p.concept
+        && got.developmentalPurpose === p.developmentalPurpose
+        && got.name === p.name
+        && got.weekday === p.weekday
+        && got.domain === p.domain
+        && got.outlineId === p.outlineId;
+    });
+    ok(othersUnchanged, "valid other 14 outlines remain unchanged");
+
+    const vagueRepair = {
+      lesson: thinV.blueprint.lesson,
+      activityOutlines: thinV.blueprint.activityOutlines.map((o, i) => (
+        i === 0 ? { ...o, concept: "Children explore baking." } : o
+      )),
+    };
+    const mergedVague = staged.coalesceStage1Parsed(thinV.blueprint, vagueRepair, brief15, {
+      repairTargets: plan.mappedRepairTargets,
+    });
+    const vagueV = staged.validateBlueprint(mergedVague, brief15);
+    ok(vagueV.ok === false && vagueV.issues.some((i) => /\.thin_concept$/.test(i)),
+      "vague replacement still fails");
+    ok(mergedVague.activityOutlines[0].concept === "Children explore baking.",
+      "thin repair replaces prior thin concept (gate remains authoritative)");
+
+    // thin developmentalPurpose targeted independently
+    const thinPurposeBp = {
+      ...good,
+      lesson: prior.lesson,
+      activityOutlines: prior.activityOutlines.map((o, i) => (
+        i === 1 ? { ...o, developmentalPurpose: "Fun play" } : o
+      )),
+    };
+    const purposeV = staged.validateBlueprint(thinPurposeBp, brief15);
+    ok(purposeV.issues.some((i) => /\.thin_purpose$/.test(i)), "thin developmentalPurpose fails");
+    const purposePlan = staged.planStage1OutlineRepair(
+      purposeV.issues,
+      purposeV.blueprint.activityOutlines,
+    );
+    ok(purposePlan.mappedRepairTargets.some((t) => (
+      t.outlineId === prior.activityOutlines[1].outlineId
+      && t.fields.some((f) => f.field === "developmentalPurpose")
+    )), "thin developmentalPurpose targeted if it independently fails");
+
+    // one repair max; failed repair blocks Stage 2 / create
+    let stage1Calls = 0;
+    let expandCalls = 0;
+    const blocked = await staged.composeStagedLessonContent(brief15, {
+      forceLive: true,
+      callAi: async (_s, user) => {
+        if (/CREATE_WEEK_BLUEPRINT/.test(user)) {
+          stage1Calls += 1;
+          if (/stage1Repair/.test(user)) {
+            ok(/stage1OutlineRepairTargets/.test(user) && /thin_concept → concept/.test(user),
+              "live Stage 1 repair uses explicit concept targets");
+            const full = JSON.parse(staged.buildStagedFixtureResponse(user));
+            // Keep thin concept after repair
+            const parsed = JSON.parse(user.slice(user.indexOf("{")));
+            const thinIds = schema.asArray(parsed.initialThinConceptOutlineIds);
+            full.activityOutlines = full.activityOutlines.map((o) => (
+              thinIds.includes(o.outlineId)
+                ? { ...o, concept: "Innovatively crafting unique pastry shapes" }
+                : o
+            ));
+            // If no ids in prompt fixture path, thin first outline
+            if (!thinIds.length) {
+              full.activityOutlines[0].concept = "Innovatively crafting unique pastry shapes";
+            }
+            return JSON.stringify(full);
+          }
+          const full = JSON.parse(staged.buildStagedFixtureResponse(user));
+          full.activityOutlines[0].concept = "Innovatively crafting unique pastry shapes";
+          return JSON.stringify(full);
+        }
+        if (/EXPAND_ACTIVITY_BATCH/.test(user)) {
+          expandCalls += 1;
+          return staged.buildStagedFixtureResponse(user);
+        }
+        return staged.buildStagedFixtureResponse(user);
+      },
+    });
+    ok(blocked.ok === false && blocked.code === "AI_CREATION_FAILED",
+      "failed repair still blocks Stage 2");
+    ok(stage1Calls === 2, "one Stage 1 repair max");
+    ok(expandCalls === 0, "Stage 2 not reached after Stage 1 thin_concept failure");
+    ok(!blocked.content, "no lesson.create on Stage 1 failure");
+    ok(blocked.stagedDiagnostics?.stage1?.finalStage1Pass === false, "finalStage1Pass false");
+    ok(schema.asArray(blocked.stagedDiagnostics?.stage1?.repairTargets).some((t) => (
+      schema.asArray(t.fields).some((f) => f.field === "concept")
+    )), "diagnostics show thin_concept → concept targets");
+
+    // valid repaired Stage 1 continues to Stage 2
+    stage1Calls = 0;
+    expandCalls = 0;
+    const recovered = await staged.composeStagedLessonContent(brief15, {
+      forceLive: true,
+      callAi: async (_s, user) => {
+        if (/CREATE_WEEK_BLUEPRINT/.test(user)) {
+          stage1Calls += 1;
+          const full = JSON.parse(staged.buildStagedFixtureResponse(user));
+          if (/stage1Repair/.test(user)) {
+            const parsed = JSON.parse(user.slice(user.indexOf("{")));
+            const thinIds = new Set(schema.asArray(parsed.initialThinConceptOutlineIds));
+            full.activityOutlines = full.activityOutlines.map((o) => (
+              thinIds.has(o.outlineId) || (!thinIds.size && o === full.activityOutlines[0])
+                ? { ...o, concept: substantiveConcept }
+                : o
+            ));
+            return JSON.stringify(full);
+          }
+          full.activityOutlines[0].concept = "Innovatively crafting unique pastry shapes";
+          return JSON.stringify(full);
+        }
+        if (/EXPAND_ACTIVITY_BATCH/.test(user) || /REPAIR_ACTIVITY_BATCH/.test(user)
+          || /could not be parsed/i.test(user)) {
+          expandCalls += 1;
+          return staged.buildStagedFixtureResponse(user);
+        }
+        return staged.buildStagedFixtureResponse(user);
+      },
+    });
+    ok(recovered.ok === true, "valid repaired Stage 1 continues to Stage 2");
+    ok(stage1Calls === 2 && expandCalls >= 3, "Stage 1 repair then Stage 2 batches run");
+    ok(recovered.stagedDiagnostics?.stage1?.finalStage1Pass === true, "finalStage1Pass true after repair");
+    ok(!schema.isPhase2Executable("lesson.publish"), "publish remains disabled");
+  }
+
   // ---- Stage 2 expansion quality (Live Test 2 residual) ----
   {
     const blueprint = staged.validateBlueprint(
