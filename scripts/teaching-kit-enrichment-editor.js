@@ -2353,7 +2353,19 @@
     window.removeEventListener("beforeunload", onBeforeUnload);
     revokeDraftMediaBlobs();
     const el = host();
-    if (el) el.innerHTML = "";
+    if (el) {
+      el.innerHTML = "";
+      el.hidden = true;
+      el.setAttribute("hidden", "");
+      try {
+        el.style.removeProperty("display");
+      } catch (_error) {
+        el.style.display = "";
+      }
+    }
+    if (typeof root.releaseTeachingKitEditorOverlayHost === "function") {
+      root.releaseTeachingKitEditorOverlayHost();
+    }
     if (returnToQueue && typeof setAdminSectionTab === "function") {
       setAdminSectionTab("curriculum-draft-review");
       if (root.LLHDraftReviewQueue?.mount) {
