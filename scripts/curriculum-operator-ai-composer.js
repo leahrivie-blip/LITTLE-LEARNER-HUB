@@ -100,6 +100,9 @@ const WEEKLY_CHANGES_KEYS = Object.freeze([
   "weekChanges",
   "week_changes",
   "fieldChanges",
+  "changes",
+  "fields",
+  "updates",
 ]);
 
 const PAYLOAD_WRAPPER_KEYS = Object.freeze([
@@ -112,6 +115,7 @@ const PAYLOAD_WRAPPER_KEYS = Object.freeze([
   "lesson",
   "upgrade",
   "content",
+  "enrichmentDraft",
 ]);
 
 function isWriteAction(action) {
@@ -137,17 +141,20 @@ function unwrapComposerPayload(parsed) {
       const inner = parsed?.[key];
       if (looksLikeComposerPayload(inner)) {
         return {
-          ...parsed,
-          ...inner,
-          lessonId: inner.lessonId || parsed.lessonId,
-          title: inner.title != null ? inner.title : parsed.title,
-          age: inner.age != null ? inner.age : parsed.age,
-          plan: inner.plan != null ? inner.plan : parsed.plan,
+          payload: {
+            ...parsed,
+            ...inner,
+            lessonId: inner.lessonId || parsed.lessonId,
+            title: inner.title != null ? inner.title : parsed.title,
+            age: inner.age != null ? inner.age : parsed.age,
+            plan: inner.plan != null ? inner.plan : parsed.plan,
+          },
+          detectedWrapper: key,
         };
       }
     }
   }
-  return parsed;
+  return { payload: parsed, detectedWrapper: null };
 }
 
 function normalizeWeekFieldName(field) {
@@ -160,6 +167,111 @@ function normalizeWeekFieldName(field) {
   return raw;
 }
 
+function changeEntryFingerprint(row) {
+  if (row == null) return "";
+  if (typeof row === "string" || typeof row === "number") return JSON.stringify({ action: "", value: text(row, 4000) });
+  if (Array.isArray(row)) return JSON.stringify({ action: "", value: row.map((v) => text(v, 400)).filter(Boolean) });
+  if (typeof row !== "object") return JSON.stringify({ action: "", value: text(row, 400) });
+  const action = text(row.action || row.decision, 20).toUpperCase();
+  const value = row.value != null ? row.value : (row.text != null ? row.text : row.content);
+  if (Array.isArray(value)) {
+    return JSON.stringify({ action, value: value.map((v) => text(v, 400)).filter(Boolean) });
+  }
+  return JSON.stringify({ action, value: text(value, 4000) });
+}
+
+/**
+ * Convert array-shaped weekly change lists into a field→entry map.
+ * Supports rows like { field|name|key, action, value } used by some model outputs.
+ * Identical duplicates are deduped; conflicting duplicates hard-reject.
+ */
+function weeklyChangesFromArray(rows) {
+  const source = {};
+  const rejected = [];
+  const seenFingerprints = {};
+  schema.asArray(rows).forEach((row, index) => {
+    if (!row || typeof row !== "object" || Array.isArray(row)) {
+      rejected.push({
+        field: `row_${index}`,
+        reason: "invalid_change",
+        message: `Malformed weekly change row at index ${index}`,
+      });
+      return;
+    }
+    if (row.activityId != null || row.activityIds != null) {
+      rejected.push({
+        field: `row_${index}`,
+        reason: "forbidden_field",
+        message: `Activity IDs are not allowed inside weekly change arrays (row ${index})`,
+      });
+      return;
+    }
+    const rawField = text(row.field || row.name || row.key || row.path, 80)
+      .replace(/^week\./, "");
+    if (!rawField) {
+      rejected.push({
+        field: `row_${index}`,
+        reason: "unknown_field",
+        message: `Weekly change row ${index} missing field name`,
+      });
+      return;
+    }
+    if (/image|printable|pdf|cover|lessonId|status|publishedAt|accessPlan|^plan$|^age$|^title$/i.test(rawField)) {
+      rejected.push({
+        field: rawField,
+        reason: "forbidden_field",
+        message: `Forbidden weekly array field: ${rawField}`,
+      });
+      return;
+    }
+    const canonical = normalizeWeekFieldName(rawField);
+    if (!WEEK_FIELDS.includes(canonical)) {
+      rejected.push({
+        field: rawField,
+        reason: "unknown_field",
+        message: `Unknown weekly field: ${rawField}`,
+      });
+      return;
+    }
+    const hasValue = row.value != null || row.text != null || row.content != null
+      || typeof row === "string"
+      || Array.isArray(row);
+    const action = text(row.action || row.decision, 20).toUpperCase();
+    if (action && !isWriteAction(action)) {
+      rejected.push({
+        field: rawField,
+        reason: "invalid_change",
+        message: `Unsupported action for ${rawField}: ${action}`,
+      });
+      return;
+    }
+    if (!hasValue && action) {
+      rejected.push({
+        field: rawField,
+        reason: "invalid_change",
+        message: `Missing value for ${rawField}`,
+      });
+      return;
+    }
+    const fingerprint = changeEntryFingerprint(row);
+    if (Object.prototype.hasOwnProperty.call(source, canonical)) {
+      if (seenFingerprints[canonical] === fingerprint) {
+        // Identical duplicate — keep first entry.
+        return;
+      }
+      rejected.push({
+        field: rawField,
+        reason: "conflict_duplicate",
+        message: `Conflicting duplicate weekly field in array: ${canonical}`,
+      });
+      return;
+    }
+    source[canonical] = row;
+    seenFingerprints[canonical] = fingerprint;
+  });
+  return { source, rejected };
+}
+
 /**
  * Pull weekly change map from weeklyChanges / week / weekly / top-level fields.
  */
@@ -167,12 +279,22 @@ function extractWeeklyChangesInput(parsed) {
   const rejected = [];
   let source = null;
   let sourceKey = "";
+  let weeklyChangesShape = "absent";
 
   for (const key of WEEKLY_CHANGES_KEYS) {
     const candidate = parsed?.[key];
-    if (candidate && typeof candidate === "object" && !Array.isArray(candidate)) {
+    if (Array.isArray(candidate)) {
+      const fromArr = weeklyChangesFromArray(candidate);
+      source = fromArr.source;
+      rejected.push(...fromArr.rejected);
+      sourceKey = `${key}[]`;
+      weeklyChangesShape = "array";
+      break;
+    }
+    if (candidate && typeof candidate === "object") {
       source = candidate;
       sourceKey = key;
+      weeklyChangesShape = "object";
       break;
     }
   }
@@ -180,6 +302,14 @@ function extractWeeklyChangesInput(parsed) {
     // Prefer change-shaped week objects; still accept content maps.
     source = parsed.week;
     sourceKey = "week";
+    weeklyChangesShape = "object";
+  }
+  if (!source && parsed?.enrichmentDraft?.week
+    && typeof parsed.enrichmentDraft.week === "object"
+    && !Array.isArray(parsed.enrichmentDraft.week)) {
+    source = parsed.enrichmentDraft.week;
+    sourceKey = "enrichmentDraft.week";
+    weeklyChangesShape = "object";
   }
 
   if (!source) {
@@ -191,6 +321,7 @@ function extractWeeklyChangesInput(parsed) {
     Object.keys(WEEK_FIELD_ALIASES).forEach((alias) => {
       if (Object.prototype.hasOwnProperty.call(parsed, alias)) source[alias] = parsed[alias];
     });
+    if (Object.keys(source).length) weeklyChangesShape = "object";
   }
 
   const weeklyIn = {};
@@ -217,7 +348,53 @@ function extractWeeklyChangesInput(parsed) {
     weeklyIn[field] = source[rawField];
   });
 
-  return { weeklyIn, rejected, sourceKey };
+  return { weeklyIn, rejected, sourceKey, weeklyChangesShape };
+}
+
+function activityChangesShape(parsed) {
+  if (!Object.prototype.hasOwnProperty.call(parsed || {}, "activities")) return "absent";
+  if (Array.isArray(parsed.activities)) return "array";
+  if (parsed.activities && typeof parsed.activities === "object") return "object";
+  return "other";
+}
+
+/**
+ * Non-sensitive composer response-shape diagnostics for Operator jobs.
+ * Never include raw AI text, prompts, or secrets.
+ */
+function buildComposerShapeDiagnostics({
+  topLevelKeys,
+  detectedWrapper,
+  extracted,
+  accepted,
+  rejected,
+  parsed,
+  mutationCount,
+} = {}) {
+  const weeklyAccepted = schema.asArray(accepted).filter((row) => row.scope === "week");
+  const activityAccepted = schema.asArray(accepted).filter((row) => row.scope === "activity");
+  const rejectionCodes = [...new Set(schema.asArray(rejected).map((row) => text(row.reason, 40)).filter(Boolean))];
+  return {
+    responseTopLevelKeys: schema.asArray(topLevelKeys).map((k) => text(k, 80)).filter(Boolean).slice(0, 40),
+    detectedWrapper: detectedWrapper ? text(detectedWrapper, 40) : null,
+    weeklyChangesShape: text(extracted?.weeklyChangesShape || "absent", 20) || "absent",
+    weeklySourceKey: text(extracted?.sourceKey, 80) || null,
+    normalizedWeeklyFieldNames: Object.keys(extracted?.weeklyIn || {}).slice(0, 32),
+    acceptedWeeklyCount: weeklyAccepted.length,
+    rejectedWeeklyCount: schema.asArray(rejected).filter((row) => !String(row.field || "").includes(".")).length,
+    rejectionReasonCodes: rejectionCodes.slice(0, 24),
+    activityChangesShape: activityChangesShape(parsed),
+    acceptedActivityCount: activityAccepted.length,
+    finalMutationCount: Number(mutationCount) || 0,
+    // Detailed rows retained for deterministic tests / safe debugging (no raw AI text).
+    expectedKeys: ["lessonId", "weeklyChanges", "activities", "songs", "books"],
+    accepted: schema.asArray(accepted).slice(0, 64),
+    rejected: schema.asArray(rejected).slice(0, 64).map((row) => ({
+      field: text(row.field, 120),
+      reason: text(row.reason, 40),
+      message: text(row.message, 240),
+    })),
+  };
 }
 
 /**
@@ -553,14 +730,42 @@ function validateComposerOutput(rawText, work, plan) {
   try {
     parsed = JSON.parse(stripJsonFences(rawText));
   } catch (_e) {
-    return { ok: false, code: "malformed_output", error: "AI returned malformed JSON." };
+    return {
+      ok: false,
+      code: "malformed_output",
+      error: "AI returned malformed JSON.",
+      diagnostics: buildComposerShapeDiagnostics({
+        topLevelKeys: [],
+        detectedWrapper: null,
+        extracted: { weeklyChangesShape: "absent", sourceKey: "", weeklyIn: {} },
+        accepted: [],
+        rejected: [{ field: "root", reason: "malformed_json", message: "malformed JSON" }],
+        parsed: null,
+        mutationCount: 0,
+      }),
+    };
   }
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-    return { ok: false, code: "malformed_output", error: "AI returned non-object JSON." };
+    return {
+      ok: false,
+      code: "malformed_output",
+      error: "AI returned non-object JSON.",
+      diagnostics: buildComposerShapeDiagnostics({
+        topLevelKeys: [],
+        detectedWrapper: null,
+        extracted: { weeklyChangesShape: "absent", sourceKey: "", weeklyIn: {} },
+        accepted: [],
+        rejected: [{ field: "root", reason: "malformed_json", message: "non-object JSON" }],
+        parsed: null,
+        mutationCount: 0,
+      }),
+    };
   }
 
   const topLevelKeys = Object.keys(parsed);
-  parsed = unwrapComposerPayload(parsed);
+  const unwrapped = unwrapComposerPayload(parsed);
+  const detectedWrapper = unwrapped.detectedWrapper;
+  parsed = unwrapped.payload;
 
   const lessonId = text(parsed.lessonId, 160);
   if (lessonId && lessonId !== work.lessonId) {
@@ -586,44 +791,49 @@ function validateComposerOutput(rawText, work, plan) {
   const rejected = [];
   const extracted = extractWeeklyChangesInput(parsed);
 
-  // Hard-fail unsupported / forbidden week keys (do not silently drop into empty_changes).
+  function shapeDiagnostics(extraRejected = [], mutationCount = 0) {
+    return buildComposerShapeDiagnostics({
+      topLevelKeys,
+      detectedWrapper,
+      extracted,
+      accepted,
+      rejected: [...rejected, ...extraRejected],
+      parsed,
+      mutationCount,
+    });
+  }
+
+  // Hard-fail unsupported / forbidden / conflicting week keys (do not silently drop into empty_changes).
   const hardWeekReject = extracted.rejected.find((row) => (
-    row.reason === "unknown_field" || row.reason === "forbidden_field"
+    row.reason === "unknown_field"
+    || row.reason === "forbidden_field"
+    || row.reason === "conflict_duplicate"
   ));
   if (hardWeekReject) {
     return {
       ok: false,
       code: hardWeekReject.reason,
       error: hardWeekReject.message,
-      diagnostics: {
-        topLevelKeys,
-        expectedKeys: ["lessonId", "weeklyChanges", "activities", "songs", "books"],
-        weeklySourceKey: extracted.sourceKey,
-        accepted: [],
-        rejected: extracted.rejected,
-        finalMutationCount: 0,
-      },
+      diagnostics: shapeDiagnostics(extracted.rejected, 0),
     };
   }
   extracted.rejected.forEach((row) => rejected.push(row));
 
   for (const field of Object.keys(extracted.weeklyIn)) {
     if (/image|printable|pdf|cover/i.test(field)) {
-      return { ok: false, code: "forbidden_field", error: `Forbidden field: ${field}` };
+      return {
+        ok: false,
+        code: "forbidden_field",
+        error: `Forbidden field: ${field}`,
+        diagnostics: shapeDiagnostics([{ field, reason: "forbidden_field", message: `Forbidden field: ${field}` }]),
+      };
     }
     if (!WEEK_FIELDS.includes(field)) {
       return {
         ok: false,
         code: "unknown_field",
         error: `Unknown weekly field: ${field}`,
-        diagnostics: {
-          topLevelKeys,
-          expectedKeys: ["lessonId", "weeklyChanges", "activities", "songs", "books"],
-          weeklySourceKey: extracted.sourceKey,
-          accepted,
-          rejected: [...rejected, { field, reason: "unknown_field", message: `Unknown weekly field: ${field}` }],
-          finalMutationCount: 0,
-        },
+        diagnostics: shapeDiagnostics([{ field, reason: "unknown_field", message: `Unknown weekly field: ${field}` }]),
       };
     }
     if (!allowedWeek.has(field)) {
@@ -642,14 +852,7 @@ function validateComposerOutput(rawText, work, plan) {
         ok: false,
         code: "invalid_change",
         error: norm.error,
-        diagnostics: {
-          topLevelKeys,
-          expectedKeys: ["lessonId", "weeklyChanges", "activities", "songs", "books"],
-          weeklySourceKey: extracted.sourceKey,
-          accepted,
-          rejected: [...rejected, { field, reason: "invalid_change", message: norm.error }],
-          finalMutationCount: 0,
-        },
+        diagnostics: shapeDiagnostics([{ field, reason: "invalid_change", message: norm.error }]),
       };
     }
     weeklyChanges[field] = { action: norm.action, value: norm.value };
@@ -668,18 +871,11 @@ function validateComposerOutput(rawText, work, plan) {
         ok: false,
         code: "unknown_activity_id",
         error: `Unknown or KEEP activityId: ${activityId}`,
-        diagnostics: {
-          topLevelKeys,
-          expectedKeys: ["lessonId", "weeklyChanges", "activities", "songs", "books"],
-          weeklySourceKey: extracted.sourceKey,
-          accepted,
-          rejected: [...rejected, {
-            field: activityId,
-            reason: "unknown_activity_id",
-            message: `Unknown or KEEP activityId: ${activityId}`,
-          }],
-          finalMutationCount: Object.keys(weeklyChanges).length,
-        },
+        diagnostics: shapeDiagnostics([{
+          field: activityId,
+          reason: "unknown_activity_id",
+          message: `Unknown or KEEP activityId: ${activityId}`,
+        }], Object.keys(weeklyChanges).length),
       };
     }
     const allowedFields = new Map(allowedActs.get(activityId).fields.map((f) => [f.field, f]));
@@ -755,13 +951,7 @@ function validateComposerOutput(rawText, work, plan) {
       ok: false,
       code: "unrequested_songs",
       error: "Songs returned but not requested.",
-      diagnostics: {
-        topLevelKeys,
-        expectedKeys: ["lessonId", "weeklyChanges", "activities", "songs", "books"],
-        accepted,
-        rejected,
-        finalMutationCount: 0,
-      },
+      diagnostics: shapeDiagnostics([{ field: "songs", reason: "unrequested_songs", message: "Songs returned but not requested." }]),
     };
   }
 
@@ -785,13 +975,7 @@ function validateComposerOutput(rawText, work, plan) {
       ok: false,
       code: "unrequested_books",
       error: "Books returned but not requested.",
-      diagnostics: {
-        topLevelKeys,
-        expectedKeys: ["lessonId", "weeklyChanges", "activities", "songs", "books"],
-        accepted,
-        rejected,
-        finalMutationCount: 0,
-      },
+      diagnostics: shapeDiagnostics([{ field: "books", reason: "unrequested_books", message: "Books returned but not requested." }]),
     };
   }
 
@@ -800,14 +984,7 @@ function validateComposerOutput(rawText, work, plan) {
     + songs.length
     + (books && books.length ? books.length : 0);
 
-  const diagnostics = {
-    topLevelKeys,
-    expectedKeys: ["lessonId", "weeklyChanges", "activities", "songs", "books"],
-    weeklySourceKey: extracted.sourceKey,
-    accepted,
-    rejected,
-    finalMutationCount: mutationCount,
-  };
+  const diagnostics = shapeDiagnostics([], mutationCount);
 
   if (!mutationCount) {
     // Distinguish: work was requested but nothing usable survived normalization/validation.
@@ -989,6 +1166,7 @@ async function composeUpgradeContent({
       error: validated.error || "AI output rejected.",
       work,
       usage,
+      diagnostics: validated.diagnostics || null,
       rawPreview: text(raw, 400),
     };
   }
@@ -998,6 +1176,7 @@ async function composeUpgradeContent({
     work,
     usage,
     validatedPlan: validated.plan,
+    diagnostics: validated.diagnostics || null,
   };
 }
 
@@ -1143,4 +1322,6 @@ module.exports = {
   extractWeeklyChangesInput,
   normalizeWeekFieldName,
   coerceChangeEntry,
+  buildComposerShapeDiagnostics,
+  weeklyChangesFromArray,
 };
