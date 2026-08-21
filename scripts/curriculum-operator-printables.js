@@ -15,9 +15,270 @@ const PRINTABLE_WRITE = Object.freeze(["CREATE", "REPLACE"]);
 const BRAND_FOOTER = "littlelearnershubbyleah.com";
 const PAGE_WIDTH = 612; // US Letter
 const PAGE_HEIGHT = 792;
+/** Soft per-lesson printable pack budget — ordinary finish must self-budget to this, not SCOPE_REVIEW. */
+const SOFT_PRINTABLE_PACKS_PER_LESSON = 5;
+/** Soft page budget = pack soft max × this multiplier (existing assessPrintableScope formula). */
+const SOFT_PRINTABLE_PAGES_PER_PACK = 6;
+const PRINTABLE_BUDGET_DEFER_REASON = "printable_budget_priority";
+const PRINTABLE_IMPORTANCE = Object.freeze({
+  REQUIRED: "REQUIRED",
+  HIGH_VALUE: "HIGH_VALUE",
+  OPTIONAL: "OPTIONAL",
+  NOT_NEEDED: "NOT_NEEDED",
+});
 
 function text(value, max = 2000) {
   return schema.text(value, max);
+}
+
+function softPrintablePackBudget(lessonCount = 1) {
+  const n = Math.max(1, Number(lessonCount) || 1);
+  return Math.max(SOFT_PRINTABLE_PACKS_PER_LESSON, n * SOFT_PRINTABLE_PACKS_PER_LESSON);
+}
+
+function softPrintablePageBudget(lessonCount = 1) {
+  return softPrintablePackBudget(lessonCount) * SOFT_PRINTABLE_PAGES_PER_PACK;
+}
+
+/**
+ * True when the owner explicitly asked for above-soft full printable coverage.
+ * Normal create/finish must NOT set this — those self-budget instead of SCOPE_REVIEW.
+ */
+function commandRequestsFullPrintableCoverage(command) {
+  const raw = text(command?.rawCommand || command?.command?.rawCommand || "", 2000);
+  if (!raw) return false;
+  return /\b(printable|print\s*pack)s?\s+for\s+(all|every|each)\b/i.test(raw)
+    || /\b(all|every|each)\s+(\d+\s+)?activit(y|ies).{0,40}\b(printable|print\s*pack)/i.test(raw)
+    || /\bgenerate\s+(a\s+)?(printable|print\s*pack)\s+for\s+all\b/i.test(raw)
+    || /\bprintable\s+pack\s+for\s+(all|every)\b/i.test(raw);
+}
+
+function printableActionPageCount(action) {
+  const fromSpec = Number(action?.spec?.pageCount);
+  if (Number.isFinite(fromSpec) && fromSpec > 0) return Math.floor(fromSpec);
+  const pages = schema.asArray(action?.spec?.pages).length;
+  return Math.max(1, pages || 1);
+}
+
+function printableCandidateId(action, index = 0) {
+  const activityId = text(action?.activityId, 160);
+  if (activityId) return activityId;
+  const existing = text(
+    action?.spec?.printableIdIfExisting || schema.asArray(action?.spec?.existingResourceIds)[0],
+    160,
+  );
+  if (existing) return `resource:${existing}`;
+  return `printable-candidate-${index}`;
+}
+
+/**
+ * Conservative REQUIRED: only when the activity is designed around child-facing
+ * pieces that cannot reasonably run without the printable (card/mat activities).
+ * Dramatic-play props “benefit from” printables → HIGH_VALUE, not REQUIRED.
+ * Do not mark everything REQUIRED — optional over-planning must self-budget.
+ */
+function printableImportance(action) {
+  const decision = normalizePrintableDecision(action?.decision);
+  if (decision === "KEEP" || decision === "NOT_NEEDED" || decision === "REMOVE") {
+    return PRINTABLE_IMPORTANCE.NOT_NEEDED;
+  }
+  const type = text(action?.spec?.resourceType || action?.spec?.type, 40).toLowerCase();
+  const reason = text(action?.reason || action?.spec?.reason || action?.spec?.purpose, 600).toLowerCase();
+  const title = text(action?.activityTitle || action?.spec?.title, 180).toLowerCase();
+  const blob = `${type} ${reason} ${title}`;
+
+  if (/counting_mats|matching_cards|sorting_cards|sequencing_cards/.test(type)
+    || /needs usable pieces|card\/sorting\/matching activity needs/i.test(blob)) {
+    return PRINTABLE_IMPORTANCE.REQUIRED;
+  }
+  if (decision === "REPLACE" && /generic|zone\/sign|filler|weak/i.test(blob)) {
+    return PRINTABLE_IMPORTANCE.HIGH_VALUE;
+  }
+  if (/dramatic_play/.test(type)
+    || /dramatic play benefits from props|menus?, tickets?, food cards/i.test(blob)
+    || /picture_cards|visual|teacher.?use|prompt card|sequence|accessibility/i.test(blob)
+    || /picture_cards/.test(type)) {
+    return PRINTABLE_IMPORTANCE.HIGH_VALUE;
+  }
+  if (decision === "REPLACE") return PRINTABLE_IMPORTANCE.HIGH_VALUE;
+  return PRINTABLE_IMPORTANCE.OPTIONAL;
+}
+
+/**
+ * Lower number = higher priority. Deterministic; no randomness.
+ * Aligns with: required → shared/visual → high-value teacher cards → reusable → optional.
+ */
+function printableWritePriorityScore(action, activity = {}) {
+  const decision = normalizePrintableDecision(action?.decision);
+  const importance = printableImportance(action);
+  const type = text(action?.spec?.resourceType || action?.spec?.type, 40).toLowerCase();
+  const reason = text(action?.reason || action?.spec?.reason, 600);
+  const title = text(action?.activityTitle || activity?.title, 180);
+  const category = text(activity?.activityCategory || activity?.domain, 80);
+  const blob = `${title} ${category} ${type} ${reason}`.toLowerCase();
+  const multiActivity = schema.asArray(action?.spec?.activityIds).filter(Boolean).length > 1;
+
+  if (decision === "REPLACE") {
+    if (/generic|zone|sign|filler|weak/i.test(reason) || /generic|zone|sign/i.test(blob)) return 1;
+    return 2;
+  }
+  if (!PRINTABLE_WRITE.includes(decision)) return 99;
+
+  if (importance === PRINTABLE_IMPORTANCE.REQUIRED) {
+    return multiActivity ? 3 : 4;
+  }
+  if (multiActivity) return 5;
+  if (importance === PRINTABLE_IMPORTANCE.HIGH_VALUE) {
+    if (/sequenc|match|sort|count|visual|accessibility|dramatic_play/i.test(blob)) return 6;
+    return 7;
+  }
+  return 8;
+}
+
+/**
+ * Apply soft pack + page budgets to planned printable CREATE/REPLACE actions.
+ * KEEP / REMOVE / existing NOT_NEEDED unchanged. Excess optional writes → NOT_NEEDED
+ * with typed reason printable_budget_priority. REQUIRED over soft budget is not silently cut.
+ */
+function applyPrintableGenerationSoftBudget(actions, options = {}) {
+  const list = schema.asArray(actions).map((a) => ({ ...a }));
+  const softPackMax = Math.max(0, Number(options.softPackMax) || softPrintablePackBudget(options.lessonCount || 1));
+  const softPageMax = Math.max(0, Number(options.softPageMax) || softPrintablePageBudget(options.lessonCount || 1));
+  const activityOrder = new Map(
+    schema.asArray(options.activities).map((a, index) => [text(a.id || a.itemId, 160), index]),
+  );
+  const byId = new Map(
+    schema.asArray(options.activities).map((a) => [text(a.id || a.itemId, 160), a]),
+  );
+  const originalActions = schema.asArray(actions);
+
+  const writeIndexes = [];
+  list.forEach((action, index) => {
+    if (PRINTABLE_WRITE.includes(normalizePrintableDecision(action.decision))) writeIndexes.push(index);
+  });
+
+  const ranked = writeIndexes
+    .map((index) => {
+      const action = list[index];
+      const id = printableCandidateId(action, index);
+      const activity = byId.get(text(action.activityId, 160)) || {};
+      const importance = printableImportance(action);
+      return {
+        index,
+        candidateId: id,
+        activityId: text(action.activityId, 160),
+        priority: printableWritePriorityScore(action, activity),
+        importance,
+        pages: printableActionPageCount(action),
+        order: activityOrder.has(text(action.activityId, 160))
+          ? activityOrder.get(text(action.activityId, 160))
+          : 9999,
+        idKey: id,
+      };
+    })
+    .sort((a, b) => (
+      a.priority - b.priority
+      || a.order - b.order
+      || String(a.idKey).localeCompare(String(b.idKey))
+      || a.index - b.index
+    ));
+
+  const requiredRows = ranked.filter((row) => row.importance === PRINTABLE_IMPORTANCE.REQUIRED);
+  const requiredPackCount = requiredRows.length;
+  const requiredPageCount = requiredRows.reduce((sum, row) => sum + row.pages, 0);
+  const requiredOverBudget = requiredPackCount > softPackMax || requiredPageCount > softPageMax;
+
+  const selected = [];
+  const deferred = [];
+  let packUsed = 0;
+  let pageUsed = 0;
+
+  if (requiredOverBudget) {
+    // Do not silently drop REQUIRED — caller should SCOPE_REVIEW.
+    ranked.forEach((row) => selected.push(row));
+  } else {
+    ranked.forEach((row) => {
+      const nextPacks = packUsed + 1;
+      const nextPages = pageUsed + row.pages;
+      if (nextPacks <= softPackMax && nextPages <= softPageMax) {
+        selected.push(row);
+        packUsed = nextPacks;
+        pageUsed = nextPages;
+      } else {
+        deferred.push(row);
+      }
+    });
+  }
+
+  const selectedIds = selected.map((row) => row.candidateId);
+  const deferredIds = deferred.map((row) => row.candidateId);
+  const requiredIds = requiredRows.map((row) => row.candidateId);
+  const reasonByCandidateId = {};
+
+  deferred.forEach((row) => {
+    const action = list[row.index];
+    const priorDecision = normalizePrintableDecision(action.decision);
+    list[row.index] = {
+      ...action,
+      decision: "NOT_NEEDED",
+      priorDecision,
+      priorityScore: row.priority,
+      printableImportance: row.importance,
+      reason: `${PRINTABLE_BUDGET_DEFER_REASON}: deferred optional ${priorDecision} (priority ${row.priority}, ${row.pages}p) to respect soft printable budget ${softPackMax} packs / ${softPageMax} pages.`,
+      budgetDeferred: true,
+      spec: action.spec ? { ...action.spec, decision: "NOT_NEEDED" } : action.spec,
+    };
+    reasonByCandidateId[row.candidateId] = PRINTABLE_BUDGET_DEFER_REASON;
+  });
+  selected.forEach((row) => {
+    list[row.index] = {
+      ...list[row.index],
+      priorityScore: row.priority,
+      printableImportance: row.importance,
+      budgetSelected: true,
+    };
+    reasonByCandidateId[row.candidateId] = text(list[row.index].reason, 200) || "selected";
+  });
+
+  const plannedBefore = writeIndexes.length;
+  const pageEstimateBeforeAccurate = writeIndexes.reduce((sum, index) => (
+    sum + printableActionPageCount(originalActions[index])
+  ), 0);
+  const finalCreateCount = list.filter((a) => normalizePrintableDecision(a.decision) === "CREATE").length;
+  const finalReplaceCount = list.filter((a) => normalizePrintableDecision(a.decision) === "REPLACE").length;
+  const finalNotNeededCount = list.filter((a) => normalizePrintableDecision(a.decision) === "NOT_NEEDED").length;
+  const finalKeepCount = list.filter((a) => normalizePrintableDecision(a.decision) === "KEEP").length;
+  const finalPackCount = finalCreateCount + finalReplaceCount;
+  const finalEstimatedPageCount = list
+    .filter((a) => PRINTABLE_WRITE.includes(normalizePrintableDecision(a.decision)))
+    .reduce((sum, a) => sum + printableActionPageCount(a), 0);
+
+  return {
+    actions: list,
+    diagnostics: {
+      printableCandidatesTotal: plannedBefore,
+      printableSoftPackBudget: softPackMax,
+      printableSoftPageBudget: softPageMax,
+      plannedPackCountBeforeBudget: plannedBefore,
+      estimatedPageCountBeforeBudget: pageEstimateBeforeAccurate,
+      requiredPrintableCandidateIds: requiredIds,
+      selectedPrintableCandidateIds: selectedIds,
+      deferredPrintableCandidateIds: deferredIds,
+      consolidatedPrintableCandidateIds: [],
+      finalPackCount,
+      finalEstimatedPageCount,
+      finalCreateCount,
+      finalReplaceCount,
+      finalKeepCount,
+      finalNotNeededCount,
+      printableBudgetApplied: deferred.length > 0,
+      printableBudgetReasonByCandidateId: reasonByCandidateId,
+      requiredOverBudget,
+      explicitScopeOverride: false,
+      hardLimitExceeded: false,
+    },
+    requiredOverBudget,
+  };
 }
 
 function loadPdfLib() {
@@ -342,11 +603,11 @@ function plannedPrintableWriteCount(actions) {
 function assessPrintableScope({ actions, lessonCount = 1, limits = {} }) {
   const planned = plannedPrintableWriteCount(actions);
   const hardMax = Number(limits.maxPrintableGenerations) || schema.DEFAULT_LIMITS.maxPrintableGenerations;
-  const softPerLesson = 5;
-  const softMax = Math.max(softPerLesson, Number(lessonCount) * softPerLesson);
+  const softMax = softPrintablePackBudget(lessonCount);
+  const softPageMax = softPrintablePageBudget(lessonCount);
   const pageEstimate = schema.asArray(actions)
     .filter((a) => PRINTABLE_WRITE.includes(normalizePrintableDecision(a.decision)))
-    .reduce((sum, a) => sum + Math.max(1, Number(a.spec?.pageCount) || 1), 0);
+    .reduce((sum, a) => sum + printableActionPageCount(a), 0);
   if (planned > hardMax) {
     return {
       ok: false,
@@ -355,10 +616,11 @@ function assessPrintableScope({ actions, lessonCount = 1, limits = {} }) {
       planned,
       hardMax,
       softMax,
+      softPageMax,
       pageEstimate,
     };
   }
-  if (planned > softMax || pageEstimate > softMax * 6) {
+  if (planned > softMax || pageEstimate > softPageMax) {
     return {
       ok: false,
       code: "SCOPE_REVIEW_REQUIRED",
@@ -366,10 +628,11 @@ function assessPrintableScope({ actions, lessonCount = 1, limits = {} }) {
       planned,
       hardMax,
       softMax,
+      softPageMax,
       pageEstimate,
     };
   }
-  return { ok: true, planned, hardMax, softMax, pageEstimate };
+  return { ok: true, planned, hardMax, softMax, softPageMax, pageEstimate };
 }
 
 function drawFooter(page, font, size = 9) {
@@ -1028,6 +1291,8 @@ async function runPrintablePlanForLesson({
   unlinkPrintableResource,
   alreadySucceededKeys = new Set(),
   lessonCount = 1,
+  command = null,
+  forceFullPrintableCoverage = false,
   saveDraft,
   callAi = null,
   useContentPlanner = true,
@@ -1047,10 +1312,126 @@ async function runPrintablePlanForLesson({
     };
   }
 
-  const actions = buildPrintableActionsFromAudit(plan, activities, audit, curriculum, {
+  const rawActions = buildPrintableActionsFromAudit(plan, activities, audit, curriculum, {
     replaceWeakPrintables,
   });
-  const scope = assessPrintableScope({ actions, lessonCount, limits: limits || {} });
+  const softPackMax = softPrintablePackBudget(lessonCount);
+  const softPageMax = softPrintablePageBudget(lessonCount);
+  const hardMax = Number(limits?.maxPrintableGenerations) || schema.DEFAULT_LIMITS.maxPrintableGenerations;
+  const plannedBeforeBudget = plannedPrintableWriteCount(rawActions);
+  const pageEstimateBefore = schema.asArray(rawActions)
+    .filter((a) => PRINTABLE_WRITE.includes(normalizePrintableDecision(a.decision)))
+    .reduce((sum, a) => sum + printableActionPageCount(a), 0);
+  const explicitFullCoverage = forceFullPrintableCoverage === true
+    || commandRequestsFullPrintableCoverage(command);
+
+  // Explicit owner request for above-soft full coverage still requires scope review.
+  if (explicitFullCoverage && (plannedBeforeBudget > softPackMax || pageEstimateBefore > softPageMax)) {
+    const scope = assessPrintableScope({
+      actions: rawActions,
+      lessonCount: Math.max(1, Number(lessonCount) || 1),
+      limits: limits || {},
+    });
+    return {
+      ok: false,
+      code: "SCOPE_REVIEW_REQUIRED",
+      error: scope.reason || `Explicit full-printable request planned ${plannedBeforeBudget} packs / ~${pageEstimateBefore} pages above soft budget.`,
+      actions: rawActions,
+      counts: summarizePrintableActions(rawActions),
+      enrichmentDraft: plan?.enrichmentDraft || null,
+      changed: false,
+      generations: 0,
+      scope: { ...scope, explicitFullCoverage: true },
+      printableBudgetDiagnostics: {
+        printableCandidatesTotal: plannedBeforeBudget,
+        printableSoftPackBudget: softPackMax,
+        printableSoftPageBudget: softPageMax,
+        plannedPackCountBeforeBudget: plannedBeforeBudget,
+        estimatedPageCountBeforeBudget: pageEstimateBefore,
+        requiredPrintableCandidateIds: [],
+        selectedPrintableCandidateIds: [],
+        deferredPrintableCandidateIds: [],
+        consolidatedPrintableCandidateIds: [],
+        finalPackCount: plannedBeforeBudget,
+        finalEstimatedPageCount: pageEstimateBefore,
+        printableBudgetApplied: false,
+        requiredOverBudget: false,
+        explicitScopeOverride: true,
+        hardLimitExceeded: false,
+      },
+      cost: { printablePlannerCalls: 0, printableRevisionCalls: 0, printableVisualGenerations: 0 },
+    };
+  }
+
+  // Ordinary finish/create: self-budget optional CREATE/REPLACE to soft pack + page max.
+  const budgeted = applyPrintableGenerationSoftBudget(rawActions, {
+    softPackMax,
+    softPageMax,
+    lessonCount,
+    activities,
+  });
+  const actions = budgeted.actions;
+  let printableBudgetDiagnostics = budgeted.diagnostics;
+
+  if (budgeted.requiredOverBudget) {
+    const scope = assessPrintableScope({
+      actions: rawActions,
+      lessonCount: Math.max(1, Number(lessonCount) || 1),
+      limits: limits || {},
+    });
+    return {
+      ok: false,
+      code: "SCOPE_REVIEW_REQUIRED",
+      error: scope.reason || `Required printable packs exceed soft budget ${softPackMax} packs / ${softPageMax} pages.`,
+      actions: rawActions,
+      counts: summarizePrintableActions(rawActions),
+      enrichmentDraft: plan?.enrichmentDraft || null,
+      changed: false,
+      generations: 0,
+      scope: { ...scope, requiredOverBudget: true },
+      printableBudgetDiagnostics: {
+        ...printableBudgetDiagnostics,
+        printableBudgetApplied: false,
+        requiredOverBudget: true,
+        selectedPrintableCandidateIds: printableBudgetDiagnostics.requiredPrintableCandidateIds,
+        deferredPrintableCandidateIds: [],
+        finalPackCount: plannedBeforeBudget,
+        finalEstimatedPageCount: pageEstimateBefore,
+      },
+      cost: { printablePlannerCalls: 0, printableRevisionCalls: 0, printableVisualGenerations: 0 },
+    };
+  }
+
+  const plannedAfterBudget = plannedPrintableWriteCount(actions);
+  if (plannedAfterBudget > hardMax) {
+    const scope = assessPrintableScope({
+      actions,
+      lessonCount: Math.max(1, Number(lessonCount) || 1),
+      limits: limits || {},
+    });
+    return {
+      ok: false,
+      code: scope.code || "SCOPE_REVIEW_REQUIRED",
+      error: scope.reason,
+      actions,
+      counts: summarizePrintableActions(actions),
+      enrichmentDraft: plan?.enrichmentDraft || null,
+      changed: false,
+      generations: 0,
+      scope,
+      printableBudgetDiagnostics: {
+        ...printableBudgetDiagnostics,
+        hardLimitExceeded: true,
+      },
+      cost: { printablePlannerCalls: 0, printableRevisionCalls: 0, printableVisualGenerations: 0 },
+    };
+  }
+
+  const scope = assessPrintableScope({
+    actions,
+    lessonCount: Math.max(1, Number(lessonCount) || 1),
+    limits: limits || {},
+  });
   if (!scope.ok) {
     return {
       ok: false,
@@ -1062,6 +1443,7 @@ async function runPrintablePlanForLesson({
       changed: false,
       generations: 0,
       scope,
+      printableBudgetDiagnostics,
       cost: { printablePlannerCalls: 0, printableRevisionCalls: 0, printableVisualGenerations: 0 },
     };
   }
@@ -1076,7 +1458,6 @@ async function runPrintablePlanForLesson({
   let printablePlannerCalls = 0;
   let printableRevisionCalls = 0;
   let printableVisualGenerations = 0;
-  const hardMax = Number(limits?.maxPrintableGenerations) || schema.DEFAULT_LIMITS.maxPrintableGenerations;
   const results = [];
   const knownActivityIds = schema.asArray(activities).map((a) => text(a.id, 160)).filter(Boolean);
   const packVisualCache = visualCache instanceof Map ? visualCache : new Map();
@@ -1500,6 +1881,7 @@ async function runPrintablePlanForLesson({
     changed,
     generations,
     scope,
+    printableBudgetDiagnostics,
     cost: { printablePlannerCalls, printableRevisionCalls, printableVisualGenerations },
   };
 }
@@ -1507,6 +1889,10 @@ async function runPrintablePlanForLesson({
 module.exports = {
   PRINTABLE_WRITE,
   BRAND_FOOTER,
+  SOFT_PRINTABLE_PACKS_PER_LESSON,
+  SOFT_PRINTABLE_PAGES_PER_PACK,
+  PRINTABLE_BUDGET_DEFER_REASON,
+  PRINTABLE_IMPORTANCE,
   normalizePrintableDecision,
   sanitizePrintableFileName,
   titleToFileName,
@@ -1516,6 +1902,13 @@ module.exports = {
   buildPrintableActionsFromAudit,
   summarizePrintableActions,
   plannedPrintableWriteCount,
+  softPrintablePackBudget,
+  softPrintablePageBudget,
+  commandRequestsFullPrintableCoverage,
+  printableActionPageCount,
+  printableImportance,
+  printableWritePriorityScore,
+  applyPrintableGenerationSoftBudget,
   assessPrintableScope,
   isWeakGenericPrintable,
   idealPrintableForActivity,
