@@ -78,6 +78,14 @@ const STAGE1_CONTRACT_ECHO_KEYS = Object.freeze(new Set([
   "previousStage1",
   "stage1Repair",
   "revisionDirectives",
+  "outlineCountRepair",
+  "stage1RepairReason",
+  "stage1OutlineRepairTargets",
+  "initialThinConceptOutlineIds",
+  "failedWeeklyFields",
+  "failedWeeklySnapshots",
+  "thinOutlineNames",
+  "conceptQualityExpectation",
   "mode",
   "brief",
   "rules",
@@ -343,6 +351,117 @@ const STAGE1_OUTLINE_ISSUE_CODE_FIELD_MAP = Object.freeze({
 });
 
 /**
+ * Parse `outline_count_mismatch:11!=15` → { current, requested } or null.
+ * @param {unknown} issue
+ * @returns {{ current: number, requested: number } | null}
+ */
+function parseOutlineCountMismatchIssue(issue) {
+  const raw = text(issue, 120);
+  const m = raw.match(/^outline_count_mismatch:(\d+)!=(\d+)$/);
+  if (!m) return null;
+  return {
+    current: Number(m[1]),
+    requested: Number(m[2]),
+  };
+}
+
+/**
+ * Weekday slot gaps vs required distribution (non-negative needed counts).
+ * @param {Record<string, number>} before
+ * @param {Record<string, number>} required
+ * @returns {Record<string, number>}
+ */
+function weekdaySlotsNeeded(before, required) {
+  const needed = {};
+  WEEKDAYS.forEach((day) => {
+    needed[day] = Math.max(0, (Number(required?.[day]) || 0) - (Number(before?.[day]) || 0));
+  });
+  return needed;
+}
+
+/**
+ * Count-mismatch repair plan for Stage 1 (bounded; used by repair prompt + diagnostics).
+ * Does not weaken the exact-count gate — only structures the existing one-shot repair.
+ */
+function planStage1OutlineCountRepair(issues, outlines, brief) {
+  const mismatchIssue = schema.asArray(issues)
+    .map((i) => parseOutlineCountMismatchIssue(i))
+    .find(Boolean) || null;
+  const target = schema.clampInt(brief?.activityTarget, 4, 24, createApi.defaultActivityTarget(brief?.ageBand));
+  const list = schema.asArray(outlines);
+  const before = Object.fromEntries(WEEKDAYS.map((d) => [d, 0]));
+  list.forEach((row) => {
+    const day = normalizeWeekday(row?.weekday || row?.dayOfWeek);
+    if (WEEKDAYS.includes(day)) before[day] += 1;
+  });
+  const requested = mismatchIssue ? mismatchIssue.requested : target;
+  const current = list.length || (mismatchIssue ? mismatchIssue.current : 0);
+  const missing = Math.max(0, requested - current);
+  const required = architect.expectedWeekdayDistribution(requested);
+  return {
+    active: Boolean(mismatchIssue) && missing > 0,
+    issue: mismatchIssue
+      ? `outline_count_mismatch:${mismatchIssue.current}!=${mismatchIssue.requested}`
+      : null,
+    requestedOutlineCount: requested,
+    currentOutlineCount: current,
+    missingOutlineCount: missing,
+    existingOutlineIds: list.map((o) => text(o.outlineId || o.id, 80)).filter(Boolean),
+    existingOutlineNames: list.map((o) => text(o.name || o.title, 120)).filter(Boolean),
+    conceptsAlreadyUsed: list
+      .map((o) => text(o.concept || o.summary || o.description, 400))
+      .filter((c) => wordCount(c) >= 4),
+    weekdayDistributionBefore: before,
+    requiredWeekdayDistribution: required,
+    weekdaySlotsNeeded: weekdaySlotsNeeded(before, required),
+  };
+}
+
+/**
+ * Merge prior short outline set with repair outlines without counting duplicates.
+ * Prefer prior rows first, then append distinct repair rows until target (or exhausted).
+ * Never pads with placeholders; never duplicates by id/name/concept.
+ */
+function mergeStage1OutlinesForCountRepair(priorOutlines, repairOutlines, target) {
+  const max = Math.max(0, Number(target) || 0);
+  const prior = schema.asArray(priorOutlines);
+  const next = schema.asArray(repairOutlines);
+  if (prior.length === max) return prior;
+  if (!prior.length) return dedupeStage1OutlineRows(next, max);
+  if (!next.length) return prior;
+
+  if (next.length === max) {
+    const dedupedNext = dedupeStage1OutlineRows(next, max);
+    if (dedupedNext.length === max) return dedupedNext;
+  }
+  return dedupeStage1OutlineRows([...prior, ...next], max);
+}
+
+function dedupeStage1OutlineRows(rows, max = 0) {
+  const usedIds = new Set();
+  const usedNames = new Set();
+  const usedConcepts = new Set();
+  const merged = [];
+  schema.asArray(rows).forEach((row) => {
+    if (!row || typeof row !== "object") return;
+    if (max > 0 && merged.length >= max) return;
+    const id = text(row.outlineId || row.id, 80);
+    const name = text(row.name || row.title, 120).toLowerCase();
+    const conceptKey = architect.conceptKey(
+      text(row.concept || row.summary || row.description || row.name || row.title, 400),
+    );
+    if (id && usedIds.has(id)) return;
+    if (name && usedNames.has(name)) return;
+    if (conceptKey && usedConcepts.has(conceptKey)) return;
+    if (id) usedIds.add(id);
+    if (name) usedNames.add(name);
+    if (conceptKey) usedConcepts.add(conceptKey);
+    merged.push(row);
+  });
+  return merged;
+}
+
+/**
  * Plan Stage 1 outline-field repair targets from quality issues.
  * thin_concept → concept; thin_purpose → developmentalPurpose.
  */
@@ -452,9 +571,7 @@ function coalesceStage1Parsed(priorBlueprint, parsed, brief, options = {}) {
 
   let outlines = schema.asArray(parsed?.activityOutlines || parsed?.outlines || parsed?.activities);
   const priorOutlines = schema.asArray(priorBlueprint?.activityOutlines);
-  if (priorOutlines.length === target && outlines.length !== target) {
-    outlines = priorOutlines;
-  } else if (priorOutlines.length === target && outlines.length === target) {
+  if (priorOutlines.length === target && outlines.length === target) {
     const priorById = new Map(priorOutlines.map((o) => [text(o.outlineId || o.id, 80), o]));
     outlines = outlines.map((row, index) => {
       const id = text(row?.outlineId || row?.id, 80) || text(priorOutlines[index]?.outlineId, 80) || `outline-${index + 1}`;
@@ -492,6 +609,12 @@ function coalesceStage1Parsed(priorBlueprint, parsed, brief, options = {}) {
       if (outlineSubstanceOk(prior) && !outlineSubstanceOk(row)) return prior;
       return row;
     });
+  } else if (priorOutlines.length === target && outlines.length !== target) {
+    // Full prior set was valid count — do not accept a shorter repair rewrite.
+    outlines = priorOutlines;
+  } else if (priorOutlines.length > 0 && priorOutlines.length !== target) {
+    // Count-mismatch recovery: keep prior distinct outlines; append distinct repair rows.
+    outlines = mergeStage1OutlinesForCountRepair(priorOutlines, outlines, target);
   }
 
   return {
@@ -707,6 +830,9 @@ function buildStage1SystemPrompt(ageBand) {
     "Each outline concept must answer: what will children actually do, and what are they exploring/practicing? (≥6 words; not a title restatement).",
     "developmentalPurpose ≥4 words.",
     "Honor requiredActivityCount exactly with that many activityOutlines.",
+    "activityOutlines.length MUST equal requiredActivityCount — never fewer, never more.",
+    "Do not stop early. Do not omit outlines to save space. Do not write \"etc.\" or summarize remaining activities.",
+    "Do not return until activityOutlines contains every required outline.",
     "Each outline is compact: outlineId, name, weekday, domain, concept, developmentalPurpose.",
     "Do not expand full materials/steps/questions yet.",
     "No duplicate or near-duplicate concepts.",
@@ -719,8 +845,13 @@ function classifyStage1RepairIssues(repairIssues, previousBlueprint) {
   const issues = schema.asArray(repairIssues).map((i) => text(i, 200)).filter(Boolean);
   const weeklyFieldFailures = [];
   const thinOutlineNames = [];
+  const outlineCountMismatchIssues = [];
   const otherIssues = [];
   issues.forEach((issue) => {
+    if (parseOutlineCountMismatchIssue(issue)) {
+      outlineCountMismatchIssues.push(issue);
+      return;
+    }
     const weeklyHit = REQUIRED_WEEKLY_TEXT_FIELDS.find((f) => issue.includes(f))
       || REQUIRED_WEEKLY_LIST_FIELDS.find((f) => issue.toLowerCase().includes(f.toLowerCase()));
     if (weeklyHit || /Empty |Generic filler|Too short:|Placeholder|missing_prep_checklist|missing_observation_focus|missing_daily_focus/i.test(issue)) {
@@ -760,6 +891,7 @@ function classifyStage1RepairIssues(repairIssues, previousBlueprint) {
     failedWeeklyFields,
     failedWeeklySnapshots,
     thinOutlineNames: [...new Set(thinOutlineNames)],
+    outlineCountMismatchIssues,
     otherIssues,
     outlineRepairTargets: outlinePlan.mappedRepairTargets,
     initialThinConceptOutlineIds: outlinePlan.initialThinConceptOutlineIds,
@@ -810,6 +942,9 @@ function buildStage1UserPrompt(brief, repairIssues, previousBlueprint) {
     },
     rules: [
       `Return exactly ${activityTarget} activityOutlines.`,
+      `activityOutlines.length MUST equal ${activityTarget} — never fewer, never more.`,
+      "Do not stop early. Do not omit outlines to save space. Do not write \"etc.\" or summarize remaining activities.",
+      "Do not return until activityOutlines contains every required outline.",
       "Populate EVERY requiredWeeklyFields value with useful non-empty content.",
       "Empty strings, empty arrays, placeholders, and TODO values are invalid.",
       "Do not echo requiredWeeklyFields or other prompt keys into lesson.",
@@ -824,8 +959,10 @@ function buildStage1UserPrompt(brief, repairIssues, previousBlueprint) {
   if (repairIssues && repairIssues.length) {
     const priorOutlines = schema.asArray(previousBlueprint?.activityOutlines);
     const classified = classifyStage1RepairIssues(repairIssues, previousBlueprint);
+    const countRepair = planStage1OutlineCountRepair(repairIssues, priorOutlines, brief);
     const outlinesCountOk = priorOutlines.length === activityTarget;
     const onlyWeeklyOrThin = classified.otherIssues.length === 0
+      && classified.outlineCountMismatchIssues.length === 0
       && (classified.weeklyFieldFailures.length > 0 || classified.thinOutlineNames.length > 0);
     const conceptTargets = classified.outlineRepairTargets.filter((t) => (
       schema.asArray(t.fields).some((f) => f.field === "concept")
@@ -852,12 +989,36 @@ function buildStage1UserPrompt(brief, repairIssues, previousBlueprint) {
         activityOutlines: priorOutlines,
       }
       : null;
+    if (countRepair.active) {
+      payload.outlineCountRepair = {
+        requestedOutlineCount: countRepair.requestedOutlineCount,
+        currentOutlineCount: countRepair.currentOutlineCount,
+        missingOutlineCount: countRepair.missingOutlineCount,
+        existingOutlineIds: countRepair.existingOutlineIds,
+        existingOutlineNames: countRepair.existingOutlineNames,
+        conceptsAlreadyUsed: countRepair.conceptsAlreadyUsed,
+        weekdayDistributionBefore: countRepair.weekdayDistributionBefore,
+        requiredWeekdayDistribution: countRepair.requiredWeekdayDistribution,
+        weekdaySlotsNeeded: countRepair.weekdaySlotsNeeded,
+      };
+      payload.stage1RepairReason = "outline_count_mismatch";
+    }
     payload.revisionDirectives = [
-      outlinesCountOk && classified.thinOutlineNames.length === 0
-        ? `PRESERVE ALL ${activityTarget} VALID ACTIVITY OUTLINES unchanged.`
-        : outlinesCountOk
-          ? `Keep all ${activityTarget} outlines. Repair ONLY the fields listed in stage1OutlineRepairTargets (by outlineId). Preserve outlineId, weekday, name, and domain unless those fields are listed. Do not redesign the week.`
-          : `Return exactly ${activityTarget} distinct activityOutlines.`,
+      countRepair.active
+        ? [
+          `outline_count_mismatch: requiredActivityCount=${countRepair.requestedOutlineCount}; received ${countRepair.currentOutlineCount}.`,
+          `Keep all ${countRepair.currentOutlineCount} existing distinct outlines from previousStage1.activityOutlines.`,
+          `Add exactly ${countRepair.missingOutlineCount} NEW distinct activityOutlines so the final array length is ${countRepair.requestedOutlineCount}.`,
+          "Fill weekdaySlotsNeeded so final weekdayDistribution matches requiredWeekdayDistribution.",
+          "Do not duplicate existingOutlineIds, existingOutlineNames, or conceptsAlreadyUsed.",
+          "Do not stop early. Do not summarize remaining activities. Do not use generic filler placeholders.",
+          `You may return either (A) the complete ${countRepair.requestedOutlineCount}-outline array, or (B) only the ${countRepair.missingOutlineCount} missing outlines (they will be merged with the kept prior set).`,
+        ].join(" ")
+        : outlinesCountOk && classified.thinOutlineNames.length === 0
+          ? `PRESERVE ALL ${activityTarget} VALID ACTIVITY OUTLINES unchanged.`
+          : outlinesCountOk
+            ? `Keep all ${activityTarget} outlines. Repair ONLY the fields listed in stage1OutlineRepairTargets (by outlineId). Preserve outlineId, weekday, name, and domain unless those fields are listed. Do not redesign the week.`
+            : `Return exactly ${activityTarget} distinct activityOutlines.`,
       conceptTargets.length
         ? `thin_concept → concept for outlineIds: ${conceptTargets.map((t) => t.outlineId).join(", ")}. Rewrite each listed concept with concrete child actions + skill/exploration so it is no longer thin.`
         : "",
@@ -2759,6 +2920,75 @@ async function callAiStage(callAi, systemPrompt, userPrompt, usage, diagnostics,
   };
 }
 
+function buildStage1CountDiagnostics({
+  brief,
+  rawParsed = null,
+  validated = null,
+  priorBlueprint = null,
+  stageFlags = null,
+  stage1Issues = null,
+  repairCallCount = 0,
+  finalStage1Pass = false,
+  extra = {},
+} = {}) {
+  const target = schema.clampInt(
+    brief?.activityTarget,
+    4,
+    24,
+    createApi.defaultActivityTarget(brief?.ageBand),
+  );
+  const rawList = schema.asArray(
+    rawParsed?.activityOutlines || rawParsed?.outlines || rawParsed?.activities,
+  );
+  const normalizedList = schema.asArray(validated?.blueprint?.activityOutlines);
+  const rawOutlineCount = rawList.length;
+  const normalizedOutlineCount = normalizedList.length;
+  const validOutlineCount = normalizedList.filter((row) => outlineSubstanceOk(row)).length;
+  const droppedOutlineCount = Math.max(0, rawOutlineCount - normalizedOutlineCount);
+  const droppedOutlineReasons = schema.asArray(validated?.issues)
+    .map((i) => text(i, 200))
+    .filter((i) => /invalid_outline_|bad_outline_weekday|duplicate_outline|missing_outline_name/i.test(i))
+    .slice(0, 24);
+  const mismatch = schema.asArray(validated?.issues || stage1Issues)
+    .map((i) => parseOutlineCountMismatchIssue(i))
+    .find(Boolean);
+  const countPlan = planStage1OutlineCountRepair(
+    validated?.issues || stage1Issues || [],
+    priorBlueprint?.activityOutlines || validated?.blueprint?.activityOutlines || [],
+    brief,
+  );
+  const weekdayBefore = priorBlueprint
+    ? (() => {
+      const counts = Object.fromEntries(WEEKDAYS.map((d) => [d, 0]));
+      schema.asArray(priorBlueprint.activityOutlines).forEach((row) => {
+        const day = normalizeWeekday(row?.weekday);
+        if (WEEKDAYS.includes(day)) counts[day] += 1;
+      });
+      return counts;
+    })()
+    : null;
+  return {
+    requestedOutlineCount: target,
+    rawOutlineCount,
+    normalizedOutlineCount,
+    validOutlineCount,
+    droppedOutlineCount,
+    droppedOutlineReasons,
+    outlineCountMismatch: Boolean(mismatch) || normalizedOutlineCount !== target,
+    missingOutlineCount: Math.max(0, target - normalizedOutlineCount),
+    stage1RepairReason: countPlan.active
+      ? "outline_count_mismatch"
+      : (repairCallCount > 0 ? text(extra.stage1RepairReason, 80) || "stage1_quality_repair" : null),
+    stage1RepairCallCount: repairCallCount,
+    postRepairOutlineCount: repairCallCount > 0 ? normalizedOutlineCount : null,
+    weekdayDistributionBefore: weekdayBefore || countPlan.weekdayDistributionBefore || null,
+    weekdayDistributionAfter: validated?.weekdayDistribution || null,
+    truncationDetected: stageFlags?.possibleOutputTruncation === true,
+    finalStage1Pass: finalStage1Pass === true,
+    ...extra,
+  };
+}
+
 /**
  * Main staged compose entry — same success shape as composeNewLessonContent.
  */
@@ -2799,6 +3029,7 @@ async function composeStagedLessonContent(brief, options = {}) {
     let priorBlueprint = null;
     let stage1OutlineRepairPlan = null;
     let initialThinConceptOutlineIds = [];
+    let stage1CountSnapshot = null;
     for (let attempt = 0; attempt < MAX_ARCHITECTURE_CALLS; attempt += 1) {
       usage.lessonArchitectureCalls += 1;
       usage.lessonArchitectCalls += 1;
@@ -2832,13 +3063,22 @@ async function composeStagedLessonContent(brief, options = {}) {
           ok: false,
         });
         if (attempt === MAX_ARCHITECTURE_CALLS - 1) {
-          diagnostics.stage1 = {
-            initialThinConceptOutlineIds,
-            repairTargets: stage1OutlineRepairPlan?.mappedRepairTargets || [],
-            repairedConceptOutlineIds: [],
-            postRepairThinConceptOutlineIds: initialThinConceptOutlineIds.slice(),
+          diagnostics.stage1 = buildStage1CountDiagnostics({
+            brief,
+            rawParsed: null,
+            validated: priorBlueprint ? { blueprint: priorBlueprint, issues: stage1Issues, weekdayDistribution: null, parsedOutlineCount: schema.asArray(priorBlueprint.activityOutlines).length } : null,
+            priorBlueprint,
+            stageFlags: stage.flags,
+            stage1Issues,
+            repairCallCount: Math.max(0, attempt),
             finalStage1Pass: false,
-          };
+            extra: {
+              initialThinConceptOutlineIds,
+              repairTargets: stage1OutlineRepairPlan?.mappedRepairTargets || [],
+              repairedConceptOutlineIds: [],
+              postRepairThinConceptOutlineIds: initialThinConceptOutlineIds.slice(),
+            },
+          });
           return {
             ok: false,
             code: "AI_CREATION_FAILED",
@@ -2851,12 +3091,24 @@ async function composeStagedLessonContent(brief, options = {}) {
         stage1Issues = [stage.error || "malformed_json", ...(stage.flags?.reasons || [])];
         continue;
       }
+      const rawOutlineCount = schema.asArray(
+        stage.parsed?.activityOutlines || stage.parsed?.outlines || stage.parsed?.activities,
+      ).length;
       const coalesced = attempt > 0 && priorBlueprint
         ? coalesceStage1Parsed(priorBlueprint, stage.parsed, brief, {
           repairTargets: stage1OutlineRepairPlan?.mappedRepairTargets || [],
         })
         : stage.parsed;
       const validated = validateBlueprint(coalesced, brief);
+      if (attempt === 0) {
+        stage1CountSnapshot = {
+          requestedOutlineCount: validated.requiredOutlineCount,
+          rawOutlineCount,
+          normalizedOutlineCount: validated.parsedOutlineCount,
+          weekdayDistributionBefore: validated.weekdayDistribution,
+          truncationDetected: stage.flags?.possibleOutputTruncation === true,
+        };
+      }
       pushStageDiag(diagnostics, {
         stage: attempt === 0 ? "week_architecture" : "week_architecture_repair",
         model: stage.meta?.model,
@@ -2888,13 +3140,33 @@ async function composeStagedLessonContent(brief, options = {}) {
             }
           });
         }
-        diagnostics.stage1 = {
-          initialThinConceptOutlineIds,
-          repairTargets: stage1OutlineRepairPlan?.mappedRepairTargets || [],
-          repairedConceptOutlineIds,
-          postRepairThinConceptOutlineIds: [],
+        diagnostics.stage1 = buildStage1CountDiagnostics({
+          brief,
+          rawParsed: stage.parsed,
+          validated,
+          priorBlueprint,
+          stageFlags: stage.flags,
+          stage1Issues,
+          repairCallCount: attempt,
           finalStage1Pass: true,
-        };
+          extra: {
+            ...(stage1CountSnapshot || {}),
+            rawOutlineCount: stage1CountSnapshot?.rawOutlineCount ?? rawOutlineCount,
+            normalizedOutlineCount: stage1CountSnapshot?.normalizedOutlineCount ?? validated.parsedOutlineCount,
+            postRepairOutlineCount: attempt > 0 ? validated.parsedOutlineCount : null,
+            weekdayDistributionBefore: stage1CountSnapshot?.weekdayDistributionBefore || null,
+            weekdayDistributionAfter: validated.weekdayDistribution,
+            initialThinConceptOutlineIds,
+            repairTargets: stage1OutlineRepairPlan?.mappedRepairTargets || [],
+            repairedConceptOutlineIds,
+            postRepairThinConceptOutlineIds: [],
+            stage1RepairReason: attempt > 0
+              ? (schema.asArray(stage1Issues).some((i) => parseOutlineCountMismatchIssue(i))
+                ? "outline_count_mismatch"
+                : "stage1_quality_repair")
+              : null,
+          },
+        });
         break;
       }
       priorBlueprint = validated.blueprint;
@@ -2920,13 +3192,28 @@ async function composeStagedLessonContent(brief, options = {}) {
             if (next && wordCount(next.concept) >= 6) repairedConceptOutlineIds.push(t.outlineId);
           });
         }
-        diagnostics.stage1 = {
-          initialThinConceptOutlineIds,
-          repairTargets: stage1OutlineRepairPlan?.mappedRepairTargets || [],
-          repairedConceptOutlineIds,
-          postRepairThinConceptOutlineIds: postRepairThin,
+        diagnostics.stage1 = buildStage1CountDiagnostics({
+          brief,
+          rawParsed: stage.parsed,
+          validated,
+          priorBlueprint,
+          stageFlags: stage.flags,
+          stage1Issues,
+          repairCallCount: attempt,
           finalStage1Pass: false,
-        };
+          extra: {
+            ...(stage1CountSnapshot || {}),
+            postRepairOutlineCount: validated.parsedOutlineCount,
+            weekdayDistributionAfter: validated.weekdayDistribution,
+            initialThinConceptOutlineIds,
+            repairTargets: stage1OutlineRepairPlan?.mappedRepairTargets || [],
+            repairedConceptOutlineIds,
+            postRepairThinConceptOutlineIds: postRepairThin,
+            stage1RepairReason: schema.asArray(stage1Issues).some((i) => parseOutlineCountMismatchIssue(i))
+              ? "outline_count_mismatch"
+              : "stage1_quality_repair",
+          },
+        });
         return {
           ok: false,
           code: "AI_CREATION_FAILED",
@@ -2941,13 +3228,26 @@ async function composeStagedLessonContent(brief, options = {}) {
   }
 
   if (blueprintComplete && !diagnostics.stage1) {
-    diagnostics.stage1 = {
-      initialThinConceptOutlineIds: [],
-      repairTargets: [],
-      repairedConceptOutlineIds: [],
-      postRepairThinConceptOutlineIds: [],
+    diagnostics.stage1 = buildStage1CountDiagnostics({
+      brief,
+      validated: blueprint
+        ? {
+          blueprint,
+          parsedOutlineCount: schema.asArray(blueprint.activityOutlines).length,
+          requiredOutlineCount: usage.activitiesRequested,
+          weekdayDistribution: null,
+          issues: [],
+        }
+        : null,
+      repairCallCount: 0,
       finalStage1Pass: true,
-    };
+      extra: {
+        initialThinConceptOutlineIds: [],
+        repairTargets: [],
+        repairedConceptOutlineIds: [],
+        postRepairThinConceptOutlineIds: [],
+      },
+    });
   }
 
   const outlineIds = schema.asArray(blueprint.activityOutlines).map((o) => o.outlineId);
@@ -3768,6 +4068,10 @@ module.exports = {
   canonicalizeWeeklyFieldName,
   classifyStage1RepairIssues,
   planStage1OutlineRepair,
+  planStage1OutlineCountRepair,
+  parseOutlineCountMismatchIssue,
+  mergeStage1OutlinesForCountRepair,
+  buildStage1CountDiagnostics,
   STAGE1_OUTLINE_ISSUE_CODE_FIELD_MAP,
   isStage1ContractEchoKey,
   asActivityStringList,

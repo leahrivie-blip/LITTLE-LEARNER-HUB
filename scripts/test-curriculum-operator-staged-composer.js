@@ -86,6 +86,164 @@ async function main() {
     ok(bad.progress?.creationBlueprintComplete !== true, "failed Stage 1 does not mark blueprint complete for create");
   }
 
+  // Stage 1 outline_count_mismatch (live opjob_a5b8f0cc7ca7d574: 11!=15)
+  {
+    const full = JSON.parse(staged.buildStagedFixtureResponse(staged.buildStage1UserPrompt(brief15)));
+    ok(full.activityOutlines.length === 15, "request 15 / receive 15 fixture baseline");
+    const v15 = staged.validateBlueprint(full, brief15);
+    ok(v15.ok === true && v15.parsedOutlineCount === 15, "request 15 / receive 15 → passes");
+
+    const short11 = { ...full, activityOutlines: full.activityOutlines.slice(0, 11) };
+    const v11 = staged.validateBlueprint(short11, brief15);
+    ok(v11.ok === false, "request 15 / receive 11 → fails exact-count gate before repair");
+    ok(v11.issues.some((i) => i === "outline_count_mismatch:11!=15"), "exact outline_count_mismatch:11!=15 issue");
+    ok(v11.parsedOutlineCount === 11, "normalized count reports 11 before repair");
+
+    const countPlan = staged.planStage1OutlineCountRepair(
+      v11.issues,
+      v11.blueprint.activityOutlines,
+      brief15,
+    );
+    ok(countPlan.active === true && countPlan.missingOutlineCount === 4, "count repair plans 4 missing outlines");
+    ok(countPlan.requestedOutlineCount === 15 && countPlan.currentOutlineCount === 11, "count repair uses requested vs current");
+
+    const repairPrompt = staged.buildStage1UserPrompt(brief15, v11.issues, v11.blueprint);
+    ok(/outlineCountRepair/.test(repairPrompt), "repair prompt includes outlineCountRepair");
+    ok(/"missingOutlineCount": 4/.test(repairPrompt), "repair prompt states missingOutlineCount=4");
+    ok(/outline_count_mismatch/.test(repairPrompt), "repair prompt targets outline_count_mismatch");
+    ok(/weekdaySlotsNeeded/.test(repairPrompt), "repair prompt includes weekdaySlotsNeeded");
+
+    // 11→15 targeted repair succeeds (full replacement on repair call)
+    let calls = 0;
+    let expandCalls = 0;
+    let repairUserSeen = "";
+    const recovered = await staged.composeStagedLessonContent(brief15, {
+      forceLive: true,
+      callAi: async (_s, user) => {
+        if (/CREATE_WEEK_BLUEPRINT/.test(user)) {
+          calls += 1;
+          const parsed = JSON.parse(staged.buildStagedFixtureResponse(user));
+          if (calls === 1) {
+            parsed.activityOutlines = parsed.activityOutlines.slice(0, 11);
+            return JSON.stringify(parsed);
+          }
+          repairUserSeen = user;
+          return staged.buildStagedFixtureResponse(user); // full 15
+        }
+        if (/EXPAND_ACTIVITY_BATCH/.test(user)) {
+          expandCalls += 1;
+          return staged.buildStagedFixtureResponse(user);
+        }
+        return staged.buildStagedFixtureResponse(user);
+      },
+    });
+    ok(recovered.ok === true, "11→15 targeted repair succeeds");
+    ok(calls === 2, "one bounded Stage 1 repair max remains enforced (success path)");
+    ok(/outlineCountRepair/.test(repairUserSeen) || /outline_count_mismatch/.test(repairUserSeen),
+      "live-shaped Stage 1 repair uses outline count contract");
+    ok(expandCalls >= 1, "exact 15 proceeds to Stage 2");
+    ok(recovered.stagedDiagnostics?.stage1?.finalStage1Pass === true, "finalStage1Pass after count repair");
+    ok(recovered.stagedDiagnostics?.stage1?.requestedOutlineCount === 15, "diagnostics requestedOutlineCount=15");
+    ok(recovered.stagedDiagnostics?.stage1?.rawOutlineCount === 11, "diagnostics rawOutlineCount=11 on first pass");
+    ok(recovered.stagedDiagnostics?.stage1?.postRepairOutlineCount === 15, "diagnostics postRepairOutlineCount=15");
+    ok(recovered.stagedDiagnostics?.stage1?.stage1RepairReason === "outline_count_mismatch",
+      "diagnostics stage1RepairReason=outline_count_mismatch");
+    ok(recovered.stagedDiagnostics?.stage1?.truncationDetected === false, "truncationDetected false when model under-generated");
+    ok(activityCountFromContent(recovered.content) === 15, "assembled lesson has exactly 15 after count repair");
+    const names = schema.asArray(recovered.content?.activities || recovered.content?.lesson?.activities)
+      .map((a) => String(a.title || a.name || "").toLowerCase());
+    ok(new Set(names.filter(Boolean)).size === names.filter(Boolean).length, "repaired outlines remain distinct");
+
+    // Supplemental missing-only repair merge (prior 11 + 4 new)
+    const prior11 = v11.blueprint.activityOutlines;
+    const missingFour = full.activityOutlines.slice(11, 15).map((o, i) => ({
+      ...o,
+      outlineId: `bakery-extra-${i + 1}`,
+      name: `Bakery Extra Station ${i + 1}`,
+      concept: `Children practice a distinct bakery skill at extra station ${i + 1} with trays and tools.`,
+      developmentalPurpose: `Build a unique fine-motor and language goal for extra station ${i + 1}.`,
+    }));
+    const merged = staged.mergeStage1OutlinesForCountRepair(prior11, missingFour, 15);
+    ok(merged.length === 15, "merge prior 11 + 4 missing → 15");
+    const coalesced = staged.coalesceStage1Parsed(
+      v11.blueprint,
+      { lesson: full.lesson, activityOutlines: missingFour },
+      brief15,
+      { repairTargets: [] },
+    );
+    const mergedV = staged.validateBlueprint(coalesced, brief15);
+    ok(mergedV.ok === true && mergedV.parsedOutlineCount === 15, "coalesce count-repair merge validates at 15");
+    ok(Object.values(mergedV.weekdayDistribution).every((n) => n === 3), "repaired outlines satisfy weekday distribution");
+
+    // still-short repair blocks create
+    let shortCalls = 0;
+    const stillShort = await staged.composeStagedLessonContent(brief15, {
+      forceLive: true,
+      callAi: async (_s, user) => {
+        if (/CREATE_WEEK_BLUEPRINT/.test(user)) {
+          shortCalls += 1;
+          const parsed = JSON.parse(staged.buildStagedFixtureResponse(user));
+          parsed.activityOutlines = parsed.activityOutlines.slice(0, 11);
+          return JSON.stringify(parsed);
+        }
+        throw new Error("should not reach expansion when Stage 1 still short");
+      },
+    });
+    ok(stillShort.ok === false && /outline_count_mismatch/.test(String(stillShort.error || "")),
+      "still-short repair blocks create");
+    ok(shortCalls === 2, "still-short path uses exactly one Stage 1 repair");
+    ok((stillShort.usage?.activityExpansionCalls || 0) === 0, "Stage 2 not reached when count still wrong");
+
+    // generic filler / duplicate padding still fail
+    const fillerFour = Array.from({ length: 4 }, (_, i) => ({
+      outlineId: `filler-${i}`,
+      name: `Children will explore bakery ${i}`,
+      weekday: "monday",
+      domain: "Art",
+      concept: "Children explore.",
+      developmentalPurpose: "Learn.",
+    }));
+    const fillerMerged = staged.coalesceStage1Parsed(
+      v11.blueprint,
+      { lesson: full.lesson, activityOutlines: [...prior11, ...fillerFour] },
+      brief15,
+      {},
+    );
+    const fillerV = staged.validateBlueprint(fillerMerged, brief15);
+    ok(fillerV.ok === false, "generic filler repair still fails");
+
+    const dupPad = staged.coalesceStage1Parsed(
+      v11.blueprint,
+      { lesson: full.lesson, activityOutlines: [...prior11, ...prior11.slice(0, 4)] },
+      brief15,
+      {},
+    );
+    ok(dupPad.activityOutlines.length < 15, "duplicate padding still fails (deduped, not counted to 15)");
+    const dupV = staged.validateBlueprint(dupPad, brief15);
+    ok(dupV.ok === false && dupV.issues.some((i) => /outline_count_mismatch/.test(i)),
+      "duplicate padding does not satisfy exact-count gate");
+
+    // parser / array normalization preserves valid entries
+    const asActivitiesKey = { lesson: full.lesson, activities: full.activityOutlines };
+    const norm = staged.validateBlueprint(asActivitiesKey, brief15);
+    ok(norm.ok === true && norm.parsedOutlineCount === 15, "array normalization preserves all valid entries");
+
+    // truncation classification remains correct for unterminated JSON
+    const truncFlags = staged.truncationFlags("{\"activityOutlines\":[", 0, 15, { finishReason: "length" });
+    ok(truncFlags.possibleOutputTruncation === true, "output truncation classification remains correct");
+
+    // request 10 uses exact requested count (not hard-coded 15)
+    const brief10b = { ...brief15, activityTarget: 10, title: "Ten Count Week", theme: "Ten" };
+    const full10 = JSON.parse(staged.buildStagedFixtureResponse(staged.buildStage1UserPrompt(brief10b)));
+    const v10ok = staged.validateBlueprint(full10, brief10b);
+    ok(v10ok.ok === true && v10ok.parsedOutlineCount === 10, "request 10 still uses exact requested count");
+    const short8 = { ...full10, activityOutlines: full10.activityOutlines.slice(0, 8) };
+    const v8 = staged.validateBlueprint(short8, brief10b);
+    ok(v8.issues.some((i) => i === "outline_count_mismatch:8!=10"), "non-15 counts use exact requested target");
+    const plan10 = staged.planStage1OutlineCountRepair(v8.issues, v8.blueprint.activityOutlines, brief10b);
+    ok(plan10.requestedOutlineCount === 10 && plan10.missingOutlineCount === 2, "count repair respects activityTarget=10");
+  }
+
   // Full staged fixture compose → exactly 15
   {
     const good = await architect.composeNewLessonContent(brief15, { forceFixture: true });
