@@ -22311,8 +22311,26 @@ function applyMergedEnrichmentToActivities(existingActivities, mergedActivities,
     if (act.lessonPlanId !== planId) return act;
     const match = byId.get(act.id) || byItem.get(act.itemId);
     if (!match) return act;
+    // Persist enrichment into the same curriculum.activities records Owner Admin edits.
+    // Blank merged values never wipe existing published text (|| fallback).
     return normalizedCurriculumActivity({
       ...act,
+      title: match.title || act.title || "",
+      dayOfWeek: match.dayOfWeek || act.dayOfWeek || "",
+      activityCategory: match.activityCategory || act.activityCategory || "",
+      ageModifications: match.ageModifications || act.ageModifications || "",
+      durationMinutes: (match.durationMinutes != null && match.durationMinutes !== "")
+        ? match.durationMinutes
+        : act.durationMinutes,
+      objective: match.objective || act.objective || "",
+      description: match.description || act.description || "",
+      materials: match.materials || act.materials || "",
+      preparation: match.preparation || act.preparation || act.prep || "",
+      setup: match.setup || act.setup || "",
+      steps: match.steps || act.steps || "",
+      teacherLanguage: match.teacherLanguage || act.teacherLanguage || "",
+      safetyNotes: match.safetyNotes || act.safetyNotes || "",
+      cleanupTips: match.cleanupTips || act.cleanupTips || act.cleanup || "",
       setupImageUrl: sanitizedActivityImageUrl(match.setupImageUrl || act.setupImageUrl || ""),
       exampleImageUrl: sanitizedActivityImageUrl(match.exampleImageUrl || act.exampleImageUrl || ""),
       setupMediaAssetId: enrichmentMedia.isEnrichmentMediaAssetId(match.setupMediaAssetId) ? match.setupMediaAssetId : (act.setupMediaAssetId || ""),
@@ -22327,8 +22345,7 @@ function applyMergedEnrichmentToActivities(existingActivities, mergedActivities,
       outdoorAlternatives: match.outdoorAlternatives || act.outdoorAlternatives || "",
       adaptations: match.adaptations || act.adaptations || "",
       extensions: match.extensions || act.extensions || "",
-      setup: match.setup || act.setup || "",
-      steps: match.steps || act.steps || "",
+      mixedAgeAdaptations: match.mixedAgeAdaptations || act.mixedAgeAdaptations || "",
       updatedAt: new Date().toISOString(),
     });
   }).filter(Boolean);

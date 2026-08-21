@@ -1,13 +1,16 @@
 #!/usr/bin/env node
 /**
- * Complete one Owner Admin lesson (enrichment DRAFT only) from a config module.
+ * Complete one Owner Admin lesson from a config module.
+ *
+ * 1) Builds enrichment draft (fields, photos, printables, cover)
+ * 2) Persists into LIVE lesson/activity records via saveMode "publish_enrichment"
+ *    (same as Apply enrichment — content only; does NOT change Free/Pro or status)
+ * 3) Refuses READY unless live Owner Admin records contain the completed fields
  *
  * Usage:
- *   LLH_APPLY_PRODUCTION_DRAFTS=1 node scripts/complete-owner-lesson.js bugs-butterflies
- *   LLH_APPLY_PRODUCTION_DRAFTS=1 node scripts/complete-owner-lesson.js big-feelings
- *   LLH_APPLY_PRODUCTION_DRAFTS=1 node scripts/complete-owner-lesson.js black-white-discovery
+ *   LLH_APPLY_PRODUCTION_DRAFTS=1 node scripts/complete-owner-lesson.js farm-animals
  *
- * Does NOT publish enrichment. Does NOT change Free/Pro or lesson status.
+ * Does NOT auto-publish draft lessons. Does NOT change Free/Pro.
  */
 "use strict";
 
@@ -438,12 +441,61 @@ async function main() {
     report.cover = { ok: false, error: "no_generated_image_for_cover" };
   }
 
+  // Persist completed content into the REAL Owner Admin lesson/activity records.
+  // This is the existing "Apply enrichment" path — content completion only; status unchanged.
+  await client.ensureToken(tokenRef);
+  site = await client.loadAdminSite(tokenRef.token);
+  const draftForApply = (site.curriculum.lessonPlans || []).find((p) => p.id === config.planId)?.enrichmentDraft;
+  if (!draftForApply || !Object.keys(draftForApply.activities || {}).length) {
+    throw new Error("Cannot persist live lesson: enrichment draft missing after save");
+  }
+  const applyRes = await client.applyEnrichmentToLiveLesson(
+    tokenRef.token,
+    config.planId,
+    site.updatedAt,
+    draftForApply,
+  );
+  console.log(
+    "LIVE_PERSIST",
+    applyRes.status,
+    applyRes.json?.saveMode,
+    applyRes.json?.duplicate || false,
+    applyRes.json?.error || applyRes.json?.code || "ok",
+  );
+  if (applyRes.status !== 200) {
+    throw new Error(
+      `live lesson persist failed (${applyRes.status}): ${applyRes.json?.error || applyRes.raw?.slice(0, 300)}`,
+    );
+  }
+  report.livePersist = {
+    status: applyRes.status,
+    saveMode: applyRes.json?.saveMode || "publish_enrichment",
+    duplicate: !!applyRes.json?.duplicate,
+    versionId: applyRes.json?.versionId || "",
+  };
+
+  // Ensure curriculum.activities match dailyPlans (Owner Admin lesson editor source).
+  await client.ensureToken(tokenRef);
+  site = await client.loadAdminSite(tokenRef.token);
+  const syncRes = await client.syncLiveActivitiesFromDailyPlans(
+    tokenRef.token,
+    config.planId,
+    site.updatedAt,
+  );
+  console.log("LIVE_SYNC", syncRes.status, syncRes.json?.error || "ok");
+  if (syncRes.status !== 200) {
+    throw new Error(
+      `live activity sync failed (${syncRes.status}): ${syncRes.json?.error || syncRes.raw?.slice(0, 300)}`,
+    );
+  }
+  report.liveSync = { status: syncRes.status };
+
   await client.ensureToken(tokenRef);
   site = await client.loadAdminSite(tokenRef.token);
   const finalPlan = (site.curriculum.lessonPlans || []).find((p) => p.id === config.planId);
-  const draft = finalPlan?.enrichmentDraft || {};
-  const draftActKeys = Object.keys(draft.activities || {}).filter((k) => k.startsWith("cur-act-"));
-  const withImages = draftActKeys.filter((k) => draft.activities[k]?.setupImageUrl || draft.activities[k]?.exampleImageUrl);
+  const liveActsFinal = (site.curriculum.activities || []).filter(
+    (a) => a.lessonPlanId === config.planId && a.status !== "archived",
+  );
   const linkedRes = (site.curriculum.resources || []).filter((r) =>
     (r.lessonPlanIds || []).includes(config.planId) || (finalPlan.resourceIds || []).includes(r.id)
   );
@@ -451,15 +503,37 @@ async function main() {
     String(p.title || "").trim().toLowerCase() === String(finalPlan.title || "").trim().toLowerCase()
   );
 
+  const minImages = (config.imageCoverPreference || []).length
+    ? Object.values(config.activities || {}).filter((a) => {
+      const planImg = String(a.imagePlan || "IMAGE_NOT_NEEDED");
+      return planImg !== "IMAGE_NOT_NEEDED";
+    }).length
+    : 0;
+  const liveCheck = client.assertLiveLessonComplete(site, config.planId, {
+    expectedActivityCount: liveActs.length,
+    minImages: Math.min(minImages, report.images.created.length),
+    requiredResourceIds: [
+      ...(config.printables?.keepResourceIds || []),
+      ...createdPrintableIds,
+    ],
+  });
+  report.liveComplete = liveCheck;
+  if (!liveCheck.ok) {
+    throw new Error(
+      `NOT READY — live Owner Admin lesson incomplete: ${liveCheck.errors.join(" | ")}`,
+    );
+  }
+
   report.verify = {
     id: finalPlan?.id,
     title: finalPlan?.title,
     age: finalPlan?.age,
     status: finalPlan?.status,
     plan: finalPlan?.plan,
-    activityCount: liveActs.length,
-    draftActivityCount: draftActKeys.length,
-    draftActivitiesWithImages: withImages.length,
+    activityCount: liveActsFinal.length,
+    liveActivitiesWithImages: liveActsFinal.filter((a) => a.setupImageUrl || a.exampleImageUrl).length,
+    enrichmentDraftCleared: !finalPlan?.enrichmentDraft
+      || !Object.keys(finalPlan.enrichmentDraft?.activities || {}).length,
     coverImageUrl: (finalPlan?.coverImageUrl || "").slice(0, 200),
     linkedResources: linkedRes.map((r) => ({ id: r.id, title: r.title, status: r.status, lessonPlanIds: r.lessonPlanIds || [] })),
     freeProUnchanged: finalPlan?.plan === report.before.plan,
@@ -467,6 +541,7 @@ async function main() {
     idUnchanged: finalPlan?.id === config.planId,
     enrichmentPublished: !!(finalPlan?.enrichmentPublished && Object.keys(finalPlan.enrichmentPublished || {}).length),
     exactTitleCount: titleDupes.length,
+    readyBecauseLiveComplete: true,
   };
 
   if (!report.verify.freeProUnchanged) throw new Error("Free/Pro changed");

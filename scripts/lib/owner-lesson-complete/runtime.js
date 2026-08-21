@@ -118,6 +118,115 @@ function createClient(env = process.env) {
     }, { Authorization: `Bearer ${token}` }, siteUrl);
   }
 
+  /**
+   * Persist enrichment into the real lesson/activity records Owner Admin edits.
+   * Uses existing saveMode "publish_enrichment" (Apply enrichment):
+   * - merges draft fields + photos onto live activities/plan
+   * - clears enrichmentDraft
+   * - does NOT change lesson status (never sets operatorOwnerPublish)
+   * - promotes draft printables only when the lesson is already public
+   */
+  async function applyEnrichmentToLiveLesson(token, planId, expectedUpdatedAt, enrichmentDraft) {
+    return requestJson("POST", "/api/admin/curriculum/lesson-plans", {
+      saveMode: "publish_enrichment",
+      expectedUpdatedAt: expectedUpdatedAt || "",
+      adminEmail,
+      publishedBy: adminEmail || "owner-complete-script",
+      lessonPlan: {
+        id: planId,
+        enrichmentDraft: enrichmentDraft || undefined,
+      },
+    }, { Authorization: `Bearer ${token}` }, siteUrl);
+  }
+
+  /**
+   * Re-sync curriculum.activities from the lesson dailyPlans (same path Owner Admin
+   * full lesson save uses). Needed so activity fields that landed on dailyPlans
+   * appear in the activity records the lesson editor reads.
+   * Preserves status / Free-Pro / cover; does not set operatorOwnerPublish.
+   */
+  async function syncLiveActivitiesFromDailyPlans(token, planId, expectedUpdatedAt) {
+    const site = await loadAdminSite(token);
+    const plan = (site.curriculum.lessonPlans || []).find((p) => p.id === planId);
+    if (!plan) throw new Error(`syncLiveActivities: lesson ${planId} not found`);
+    return requestJson("POST", "/api/admin/curriculum/lesson-plans", {
+      expectedUpdatedAt: expectedUpdatedAt || site.updatedAt || "",
+      adminEmail,
+      lessonPlan: {
+        ...plan,
+        // Explicit identity — never invent a status change.
+        id: planId,
+        status: plan.status,
+        plan: plan.plan,
+      },
+    }, { Authorization: `Bearer ${token}` }, siteUrl);
+  }
+
+  /**
+   * Readiness against live curriculum activities (same source as Owner Admin lesson editor).
+   * READY is forbidden while completed content exists only in an unapplied enrichmentDraft.
+   */
+  function assertLiveLessonComplete(site, planId, {
+    expectedActivityCount = 15,
+    minImages = 0,
+    requiredResourceIds = [],
+  } = {}) {
+    const plan = (site.curriculum.lessonPlans || []).find((p) => p.id === planId);
+    if (!plan) return { ok: false, errors: [`lesson ${planId} missing`] };
+    const errors = [];
+    const draft = plan.enrichmentDraft;
+    const draftKeys = draft && typeof draft === "object"
+      ? Object.keys(draft.activities || {}).filter((k) => k.startsWith("cur-act-"))
+      : [];
+    if (draftKeys.length) {
+      errors.push(`enrichmentDraft still has ${draftKeys.length} activities — content not persisted to live lesson`);
+    }
+    const live = (site.curriculum.activities || []).filter(
+      (a) => a.lessonPlanId === planId && a.status !== "archived",
+    );
+    if (live.length !== expectedActivityCount) {
+      errors.push(`live activities=${live.length} expected ${expectedActivityCount}`);
+    }
+    const requiredFields = [
+      "objective", "description", "materials", "steps", "teacherLanguage", "safetyNotes",
+    ];
+    const blank = [];
+    for (const a of live) {
+      for (const f of requiredFields) {
+        const v = a[f];
+        const ok = Array.isArray(v) ? v.length > 0 : String(v || "").trim().length > 0;
+        if (!ok) blank.push(`${a.title}.${f}`);
+      }
+    }
+    if (blank.length) {
+      errors.push(`live blank fields (${blank.length}): ${blank.slice(0, 6).join("; ")}`);
+    }
+    const withImg = live.filter((a) => a.setupImageUrl || a.exampleImageUrl);
+    if (withImg.length < minImages) {
+      errors.push(`live images=${withImg.length} expected >= ${minImages}`);
+    }
+    const resources = site.curriculum.resources || [];
+    for (const rid of requiredResourceIds) {
+      const r = resources.find((x) => x.id === rid);
+      if (!r) errors.push(`resource missing ${rid}`);
+      else if (!(r.lessonPlanIds || []).includes(planId) && !(plan.resourceIds || []).includes(rid)) {
+        errors.push(`resource ${rid} not linked`);
+      }
+    }
+    return {
+      ok: errors.length === 0,
+      errors,
+      liveActivityCount: live.length,
+      liveImageCount: withImg.length,
+      draftActivityCount: draftKeys.length,
+      status: plan.status,
+      plan: plan.plan,
+      coverImageUrl: plan.coverImageUrl || "",
+      title: plan.title,
+      age: plan.age,
+    };
+  }
+
   async function uploadSetupPhoto(token, planId, activityKey, pngPath) {
     const buf = fs.readFileSync(pngPath);
     const mime = /\.jpe?g$/i.test(pngPath) ? "image/jpeg" : "image/png";
@@ -209,6 +318,9 @@ function createClient(env = process.env) {
     loadAdminSite,
     ensureToken,
     saveEnrichmentDraft,
+    applyEnrichmentToLiveLesson,
+    syncLiveActivitiesFromDailyPlans,
+    assertLiveLessonComplete,
     uploadSetupPhoto,
     uploadCoverJpeg,
     replacePrintablePdf,
