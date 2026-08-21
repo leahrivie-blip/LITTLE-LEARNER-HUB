@@ -273,6 +273,8 @@ async function main() {
     reportShape("array weeklyChanges", raw, validated);
     ok(validated.ok === true, "array-shaped weeklyChanges produces accepted mutations");
     ok(validated.diagnostics.weeklySourceKey === "weeklyChanges[]", "array source key recorded");
+    ok(validated.diagnostics.weeklyChangesShape === "array", "weeklyChangesShape=array");
+    ok(validated.diagnostics.acceptedWeeklyCount === work.weekRequests.length, "acceptedWeeklyCount matches");
   }
 
   // Alternate map keys: changes / fields / updates
@@ -282,6 +284,7 @@ async function main() {
       const raw = JSON.stringify({ lessonId: LESSON_ID, [key]: map, activities: [] });
       const validated = composer.validateComposerOutput(raw, work, plan);
       ok(validated.ok === true, `${key} map key normalizes to weekly mutations`);
+      ok(validated.diagnostics.weeklyChangesShape === "object", `${key} shape=object`);
     }
   }
 
@@ -298,6 +301,99 @@ async function main() {
     });
     const validated = composer.validateComposerOutput(raw, work, plan);
     ok(validated.ok === true, "enrichmentDraft.week plain values accepted");
+    ok(validated.diagnostics.weeklySourceKey === "enrichmentDraft.week"
+      || validated.diagnostics.detectedWrapper === "enrichmentDraft",
+    "enrichmentDraft.week source recorded");
+  }
+
+  // result / data wrappers around object and array forms
+  {
+    const map = productionLikeWeeklyMap(work);
+    const arr = work.weekRequests.map((req) => ({
+      field: req.field,
+      action: req.action,
+      value: changeFor(req.field, req.action).value,
+    }));
+    const resultObj = composer.validateComposerOutput(JSON.stringify({
+      result: { lessonId: LESSON_ID, weeklyChanges: map, activities: [] },
+    }), work, plan);
+    ok(resultObj.ok === true, "result wrapper + object weeklyChanges accepted");
+    ok(resultObj.diagnostics.detectedWrapper === "result", "detectedWrapper=result");
+
+    const dataArr = composer.validateComposerOutput(JSON.stringify({
+      data: { lessonId: LESSON_ID, weeklyChanges: arr, activities: [] },
+    }), work, plan);
+    ok(dataArr.ok === true, "data wrapper + array weeklyChanges accepted");
+    ok(dataArr.diagnostics.detectedWrapper === "data", "detectedWrapper=data");
+    ok(dataArr.diagnostics.weeklyChangesShape === "array", "wrapper+array weeklyChangesShape=array");
+  }
+
+  // Identical array duplicates deduplicated
+  {
+    const req = work.weekRequests[0];
+    const entry = {
+      field: req.field,
+      action: req.action,
+      value: changeFor(req.field, req.action).value,
+    };
+    const raw = JSON.stringify({
+      lessonId: LESSON_ID,
+      weeklyChanges: [entry, { ...entry }],
+      activities: [],
+    });
+    const validated = composer.validateComposerOutput(raw, work, plan);
+    ok(validated.ok === true, "identical array duplicates deduplicated");
+    ok(validated.diagnostics.acceptedWeeklyCount === 1, "dedupe keeps one accepted field");
+    ok(!(validated.diagnostics.rejectionReasonCodes || []).includes("conflict_duplicate"),
+      "identical duplicates are not conflicts");
+  }
+
+  // Conflicting array duplicates rejected
+  {
+    const req = work.weekRequests[0];
+    const raw = JSON.stringify({
+      lessonId: LESSON_ID,
+      weeklyChanges: [
+        { field: req.field, action: req.action, value: changeFor(req.field, req.action).value },
+        { field: req.field, action: req.action, value: `${changeFor(req.field, req.action).value} CONFLICT DIFFERENT` },
+      ],
+      activities: [],
+    });
+    const validated = composer.validateComposerOutput(raw, work, plan);
+    ok(validated.ok === false && validated.code === "conflict_duplicate",
+      "conflicting duplicate array entries rejected");
+  }
+
+  // Activity IDs inside weekly arrays rejected
+  {
+    const raw = JSON.stringify({
+      lessonId: LESSON_ID,
+      weeklyChanges: [{
+        field: "weeklyOverview",
+        action: "REPLACE",
+        value: longValue("x"),
+        activityId: "cur-act-nope",
+      }],
+      activities: [],
+    });
+    const validated = composer.validateComposerOutput(raw, work, plan);
+    ok(validated.ok === false && validated.code === "forbidden_field",
+      "activity IDs in weekly field arrays rejected");
+  }
+
+  // Safe diagnostics present (no raw AI body)
+  {
+    const raw = JSON.stringify({
+      lessonId: LESSON_ID,
+      weeklyChanges: { weeklyOverview: changeFor("weeklyOverview", "REPLACE") },
+      activities: [],
+    });
+    const validated = composer.validateComposerOutput(raw, work, plan);
+    ok(validated.diagnostics.responseTopLevelKeys.includes("weeklyChanges"), "diagnostics responseTopLevelKeys");
+    ok(typeof validated.diagnostics.acceptedWeeklyCount === "number", "diagnostics acceptedWeeklyCount");
+    ok(Array.isArray(validated.diagnostics.normalizedWeeklyFieldNames), "diagnostics normalizedWeeklyFieldNames");
+    ok(!JSON.stringify(validated.diagnostics).includes(longValue("bakery").slice(0, 40)),
+      "diagnostics do not embed full field values");
   }
 
   // Unsupported alias rejected

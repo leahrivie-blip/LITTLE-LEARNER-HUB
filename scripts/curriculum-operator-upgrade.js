@@ -321,6 +321,7 @@ async function buildUpgradeDraft(plan, curriculum, audit, options = {}) {
       intended: { week: {}, activities: {} },
       keepSnapshots,
       usage: composed.usage || { calls: 0, inputChars: 0, outputChars: 0 },
+      composerDiagnostics: composed.diagnostics || null,
       mutations: {
         images: false,
         printables: false,
@@ -345,6 +346,8 @@ async function buildUpgradeDraft(plan, curriculum, audit, options = {}) {
       intended: { week: {}, activities: {} },
       keepSnapshots,
       usage: composed.usage || { calls: 0, inputChars: 0, outputChars: 0 },
+      composerDiagnostics: composed.diagnostics || null,
+      code: composed.code || null,
       mutations: {
         images: false,
         printables: false,
@@ -371,6 +374,7 @@ async function buildUpgradeDraft(plan, curriculum, audit, options = {}) {
     keepSnapshots,
     usage: composed.usage || { calls: 1, inputChars: 0, outputChars: 0 },
     validatedPlan: composed.validatedPlan,
+    composerDiagnostics: composed.diagnostics || null,
     mutations: {
       images: false,
       printables: false,

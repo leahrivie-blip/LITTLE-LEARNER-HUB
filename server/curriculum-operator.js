@@ -997,6 +997,7 @@ function createCurriculumOperatorApi(deps) {
       let kept = (before.audit.weeklyContent || []).filter((f) => f.decision === "KEEP").map((f) => f.field);
       let updated = [];
       let aiUsage = null;
+      let composerDiagnostics = null;
       let upgradeVerification = null;
       let ownerReviewStatus = creating ? "PARTIAL" : "AUDIT_ONLY";
       let afterScores = before.audit.scores;
@@ -1046,6 +1047,7 @@ function createCurriculumOperatorApi(deps) {
           job.costCounters.openaiCalls = (job.costCounters.openaiCalls || 0) + Number(built.usage.calls || 0);
         }
         aiUsage = built.usage || null;
+        composerDiagnostics = built.composerDiagnostics || null;
 
         if (built.aiFailed) {
           jobApi.appendLog(
@@ -1070,6 +1072,7 @@ function createCurriculumOperatorApi(deps) {
             ownerReviewStatus: "BLOCKED",
             published: false,
             aiUsage,
+            composerDiagnostics,
             textComplete: false,
             actions: markSteps(lr.actions, schema.asArray(lr.actions).map((a) => a.type), "failed", {
               error: built.code || "ai_composer_failed",
@@ -1500,6 +1503,7 @@ function createCurriculumOperatorApi(deps) {
         readyForReview: ownerReviewStatus === "READY_FOR_OWNER_REVIEW",
         published: false,
         aiUsage,
+        composerDiagnostics,
         error: ok ? null : (combinedError || "Lesson processing incomplete."),
         actions: markSteps(lr.actions, stepTypes, ok || ownerReviewStatus === "PARTIAL" ? "success" : "failed", {
           output: {
