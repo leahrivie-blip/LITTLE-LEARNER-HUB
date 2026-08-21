@@ -1565,6 +1565,9 @@
         observationOpportunities: ownedObs
           || (view.observationPrompts.length ? view.observationPrompts.join("\n") : "")
           || act.observationOpportunities,
+        observationPrompts: view.observationPrompts.length
+          ? view.observationPrompts
+          : (Array.isArray(act.observationPrompts) ? act.observationPrompts : []),
         vocabulary: view.vocabulary.join(", ") || act.vocabulary,
         indoorAlternatives: view.indoorAlternatives || act.indoorAlternatives,
         outdoorAlternatives: view.outdoorAlternatives || act.outdoorAlternatives,
@@ -1680,6 +1683,9 @@
           substitutions: match.substitutions || item.substitutions,
           settingTags: match.settingTags || item.settingTags,
           observationOpportunities: match.observationOpportunities || item.observationOpportunities,
+          observationPrompts: Array.isArray(match.observationPrompts) && match.observationPrompts.length
+            ? match.observationPrompts
+            : (item.observationPrompts || []),
           vocabulary: match.vocabulary || item.vocabulary,
           indoorAlternatives: match.indoorAlternatives || item.indoorAlternatives,
           outdoorAlternatives: match.outdoorAlternatives || item.outdoorAlternatives,
