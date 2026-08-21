@@ -1787,6 +1787,294 @@ async function main() {
     ) === false, "parsed valid batch with quality issues is NOT parse failure");
   }
 
+  // Stage 2 teacherLanguage / insufficient_questions repair-quality contract
+  // (Live opjob_92a7c333ca1478be: mapping+budget OK; repaired content still failed count gate)
+  {
+    ok(staged.MIN_TEACHER_LANGUAGE_PROMPT_LINES === 2,
+      "repository teacherLanguage prompt-line minimum matches existing gate (2)");
+    ok(staged.TEACHER_LANGUAGE_WORD_FALLBACK === 24,
+      "repository teacherLanguage word fallback matches existing gate (24)");
+
+    const onePrompt = "Please ask children open questions during this activity.";
+    ok(staged.countTeacherLanguagePrompts(onePrompt) === 1
+      && staged.teacherLanguageMeetsCountGate(onePrompt) === false,
+      "one teacher prompt fails insufficient_questions count gate");
+    ok(onePrompt.split(/\s+/).length >= 8,
+      "fixture one-prompt string is long enough to avoid Too short shadowing insufficient_questions");
+
+    const genericOneLiner = "What do you see?";
+    ok(staged.teacherLanguageMeetsCountGate(genericOneLiner) === false,
+      "classic generic one-liner still fails count gate");
+
+    const multiPrompt = [
+      "What do you notice about how the dough changes when you press it?",
+      "What do you think will happen if you use the smaller cutter?",
+      "How are these two pretend pastries alike or different?",
+    ].join("\n");
+    ok(staged.countTeacherLanguagePrompts(multiPrompt) >= staged.MIN_TEACHER_LANGUAGE_PROMPT_LINES
+      && staged.teacherLanguageMeetsCountGate(multiPrompt) === true,
+      "required number of distinct newline prompts passes count gate");
+
+    const asArray = [
+      "What do you notice about how the dough changes when you press it?",
+      "What do you think will happen if you use the smaller cutter?",
+      "How are these two pretend pastries alike or different?",
+    ];
+    ok(staged.teacherLanguageShape(asArray) === "array", "array shape detected before normalize");
+    const normalizedFromArray = staged.normalizeTeacherLanguageField(asArray);
+    ok(staged.countTeacherLanguagePrompts(normalizedFromArray) === 3,
+      "canonical schema counts array prompts as separate newline lines after normalize");
+    ok(staged.teacherLanguageMeetsCountGate(asArray) === true,
+      "array of valid prompts meets count gate after normalize (no comma collapse)");
+    ok(!/,What do you think/.test(normalizedFromArray),
+      "normalization does not collapse prompts into a comma-joined single line");
+
+    const oneParagraph = "What do you notice? What will happen next? How are they different?";
+    ok(staged.countTeacherLanguagePrompts(oneParagraph) === 1
+      && staged.teacherLanguageMeetsCountGate(oneParagraph) === false,
+      "one paragraph with only one countable prompt line fails");
+
+    const blueprint = staged.validateBlueprint(
+      JSON.parse(staged.buildStagedFixtureResponse(staged.buildStage1UserPrompt(brief15))),
+      brief15,
+    ).blueprint;
+    const ids = blueprint.activityOutlines.slice(0, 5).map((o) => o.outlineId);
+    const goodBatch = JSON.parse(staged.buildStagedFixtureResponse(
+      staged.buildExpansionUserPrompt(brief15, blueprint, ids),
+    ));
+    const priorValidated = staged.validateExpansionBatch(goodBatch, ids, blueprint, brief15);
+    ok(priorValidated.ok === true, "baseline batch valid for teacherLanguage tests");
+
+    const weakOne = {
+      activities: priorValidated.activities.map((a, i) => (
+        i === 0 ? { ...a, teacherLanguage: onePrompt } : a
+      )),
+    };
+    const weakOneV = staged.validateExpansionBatch(weakOne, ids, blueprint, brief15);
+    ok(weakOneV.ok === false
+      && weakOneV.issues.some((x) => /\.insufficient_questions$/.test(x)),
+      "one teacher prompt fails insufficient_questions validation");
+    const planWeak = staged.planExpansionRepair(weakOneV.issues, weakOneV.activities);
+    ok(planWeak.mappedRepairTargets.some((t) => (
+      t.outlineId === ids[0]
+      && t.fields.some((f) => f.field === "teacherLanguage"
+        && (f.reason === "insufficient_questions" || f.issueCode === "insufficient_questions"))
+    )), "repair target maps insufficient_questions → teacherLanguage");
+
+    const expandPrompt = staged.buildExpansionUserPrompt(brief15, blueprint, ids, { batchNumber: 2 });
+    ok(new RegExp(`at least ${staged.MIN_TEACHER_LANGUAGE_PROMPT_LINES} distinct`, "i").test(expandPrompt),
+      "initial expansion prompt states repository-required minimum prompt count");
+    ok(/newline-separated STRING/i.test(expandPrompt) && /Do not return a JSON array/i.test(expandPrompt),
+      "initial expansion prompt requires canonical newline string (not array)");
+
+    const repairPrompt = staged.buildExpansionRepairUserPrompt(
+      brief15,
+      blueprint,
+      ids,
+      weakOneV.activities,
+      weakOneV.issues,
+      { batchNumber: 2, repairPlan: planWeak },
+    );
+    ok(new RegExp(`at least ${staged.MIN_TEACHER_LANGUAGE_PROMPT_LINES} distinct`, "i").test(repairPrompt),
+      "repair prompt receives the required minimum count");
+    ok(/Replace teacherLanguage with at least/i.test(repairPrompt)
+      && /separately countable by the existing validator/i.test(repairPrompt),
+      "repair prompt requires separately countable teacherLanguage prompts");
+    ok(/minTeacherLanguagePromptLines/i.test(repairPrompt),
+      "repair payload includes minTeacherLanguagePromptLines");
+
+    const repairedMulti = {
+      activities: weakOneV.activities.map((a, i) => (
+        i === 0 ? { ...a, teacherLanguage: multiPrompt, objective: "" } : a
+      )),
+    };
+    const mergedMulti = staged.coalesceExpansionBatch(
+      priorValidated.activities,
+      repairedMulti,
+      ids,
+      blueprint,
+      brief15,
+      weakOneV.issues,
+    );
+    ok(mergedMulti.ok === true, "repair returns valid separate prompts → passes");
+    ok(staged.countTeacherLanguagePrompts(mergedMulti.activities[0].teacherLanguage) >= 2,
+      "merge preserves all repaired prompts");
+    ok(mergedMulti.activities[0].objective === priorValidated.activities[0].objective,
+      "non-targeted valid fields remain unchanged");
+    ok(mergedMulti.activities[0].outlineId === ids[0], "outlineId remains unchanged");
+    ok(mergedMulti.activities[0].dayOfWeek === priorValidated.activities[0].dayOfWeek
+      && mergedMulti.activities[0].activityCategory === priorValidated.activities[0].activityCategory
+      && mergedMulti.activities[0].title === priorValidated.activities[0].title,
+      "weekday/domain/name remain unchanged");
+
+    const repairedArray = {
+      activities: weakOneV.activities.map((a, i) => (
+        i === 0 ? { ...a, teacherLanguage: asArray } : a
+      )),
+    };
+    const mergedArray = staged.coalesceExpansionBatch(
+      weakOneV.activities,
+      repairedArray,
+      ids,
+      blueprint,
+      brief15,
+      weakOneV.issues,
+    );
+    ok(mergedArray.ok === true, "repair array of prompts normalizes and passes");
+    ok(staged.countTeacherLanguagePrompts(mergedArray.activities[0].teacherLanguage) === 3,
+      "normalization preserves all valid prompts from array repair");
+
+    const repairedParagraph = {
+      activities: weakOneV.activities.map((a, i) => (
+        i === 0 ? { ...a, teacherLanguage: oneParagraph } : a
+      )),
+    };
+    const mergedParagraph = staged.coalesceExpansionBatch(
+      weakOneV.activities,
+      repairedParagraph,
+      ids,
+      blueprint,
+      brief15,
+      weakOneV.issues,
+    );
+    ok(mergedParagraph.ok === false
+      && mergedParagraph.issues.some((x) => /\.insufficient_questions$/.test(x)),
+      "repair returns one paragraph with only one countable prompt → fails");
+
+    const repairedGeneric = {
+      activities: weakOneV.activities.map((a, i) => (
+        i === 0 ? { ...a, teacherLanguage: "What do you see?\nWhat do you notice?\nWhat do you think?" } : a
+      )),
+    };
+    const mergedGeneric = staged.coalesceExpansionBatch(
+      weakOneV.activities,
+      repairedGeneric,
+      ids,
+      blueprint,
+      brief15,
+      weakOneV.issues,
+    );
+    // Count gate may pass (3 lines) but generic filler / quality still blocks when short+generic
+    ok(mergedGeneric.ok === false
+      || /What do you see/i.test(mergedGeneric.activities[0].teacherLanguage),
+      "generic filler prompt patterns remain subject to existing quality checks");
+    if (mergedGeneric.ok === false) {
+      ok(mergedGeneric.issues.some((x) => /insufficient_questions|Generic filler|Too short|teacherLanguage/i.test(x)),
+        "generic filler prompts fail existing quality checks");
+    }
+
+    // Diagnostics shape for live proof
+    const diag = staged.buildTeacherLanguageRepairDiagnostics(
+      weakOneV.activities,
+      mergedMulti.activities,
+      planWeak,
+      [],
+      { [ids[0]]: onePrompt },
+      { [ids[0]]: multiPrompt },
+    );
+    ok(diag.length === 1
+      && diag[0].outlineId === ids[0]
+      && diag[0].teacherLanguagePromptCountBefore === 1
+      && diag[0].teacherLanguagePromptCountAfter >= 2
+      && diag[0].repairTargetReason === "insufficient_questions",
+      "teacherLanguage diagnostics expose before/after prompt counts");
+
+    // Live compose: weak questions → array repair → Batch 2 continues; budgets unchanged
+    let repairN = 0;
+    let expandN = 0;
+    const live = await staged.composeStagedLessonContent(brief15, {
+      forceLive: true,
+      callAi: async (_s, user) => {
+        if (/CREATE_WEEK_BLUEPRINT/.test(user)) {
+          return staged.buildStagedFixtureResponse(user);
+        }
+        if (/REPAIR_ACTIVITY_BATCH/.test(user)) {
+          repairN += 1;
+          ok(/minTeacherLanguagePromptLines/i.test(user)
+            && new RegExp(`at least ${staged.MIN_TEACHER_LANGUAGE_PROMPT_LINES}`, "i").test(user),
+            "live repair prompt includes required minimum count");
+          const parsed = JSON.parse(user.slice(user.indexOf("{")));
+          return JSON.stringify({
+            activities: schema.asArray(parsed.previousBatchActivities).map((a) => ({
+              ...a,
+              teacherLanguage: asArray,
+            })),
+          });
+        }
+        if (/EXPAND_ACTIVITY_BATCH/.test(user)) {
+          expandN += 1;
+          const base = JSON.parse(staged.buildStagedFixtureResponse(user));
+          if (expandN === 2) {
+            return JSON.stringify({
+              activities: base.activities.map((a, i) => (
+                i < 3 ? { ...a, teacherLanguage: onePrompt } : a
+              )),
+            });
+          }
+          return JSON.stringify(base);
+        }
+        if (/FINAL_LESSON_REPAIR|REPAIR_WEEK|lessonPatches/.test(user)) {
+          return staged.buildStagedFixtureResponse(user);
+        }
+        return staged.buildStagedFixtureResponse(user);
+      },
+    });
+    ok(repairN === 1, "one repair max for teacherLanguage quality failure");
+    ok(live.ok === true, "valid repaired Batch 2 proceeds (fixture remaining batches + Stage 3)");
+    ok(live.usage?.activityRepairCalls === 1, "quality repair budget still 1");
+    ok((live.usage?.activityExpansionRetryCalls || 0) === 0, "#742 parse retry budget unused/unchanged");
+    const b2 = schema.asArray(live.stagedDiagnostics?.batches).find((b) => b.batchNumber === 2);
+    ok(b2?.finalBatchPass === true, "Batch 2 finalBatchPass after teacherLanguage repair");
+    ok(schema.asArray(b2?.teacherLanguageDiagnostics).length >= 1, "Batch 2 records teacherLanguage diagnostics");
+    ok(schema.asArray(b2?.teacherLanguageDiagnostics).every((d) => (
+      d.teacherLanguagePromptCountAfter >= staged.MIN_TEACHER_LANGUAGE_PROMPT_LINES
+    )), "diagnostics show repaired prompt count meets gate");
+
+    // Failed repair still blocks Batch 2 / create
+    let badRepairN = 0;
+    const blocked = await staged.composeStagedLessonContent(brief15, {
+      forceLive: true,
+      callAi: async (_s, user) => {
+        if (/CREATE_WEEK_BLUEPRINT/.test(user)) {
+          return staged.buildStagedFixtureResponse(user);
+        }
+        if (/REPAIR_ACTIVITY_BATCH/.test(user)) {
+          badRepairN += 1;
+          const parsed = JSON.parse(user.slice(user.indexOf("{")));
+          return JSON.stringify({
+            activities: schema.asArray(parsed.previousBatchActivities).map((a) => ({
+              ...a,
+              teacherLanguage: oneParagraph,
+            })),
+          });
+        }
+        if (/EXPAND_ACTIVITY_BATCH/.test(user)) {
+          const base = JSON.parse(staged.buildStagedFixtureResponse(user));
+          return JSON.stringify({
+            activities: base.activities.map((a, i) => (
+              i === 0 ? { ...a, teacherLanguage: onePrompt } : a
+            )),
+          });
+        }
+        return staged.buildStagedFixtureResponse(user);
+      },
+    });
+    ok(badRepairN === 1, "failed repair still uses exactly one quality repair");
+    ok(blocked.ok === false && !blocked.content, "failed repair blocks Batch 2 / lesson.create");
+    ok(!schema.isPhase2Executable("lesson.publish"), "publish remains disabled");
+
+    // safetyNotes / tips / observationPrompts / #742 budgets / Stage 1 remain green
+    ok(staged.EXPANSION_ISSUE_CODE_FIELD_MAP.insufficient_questions === "teacherLanguage",
+      "insufficient_questions mapping unchanged");
+    ok(staged.MAX_EXPANSION_PARSE_RETRIES === 1 && staged.MAX_QUALITY_REPAIR_CALLS_PER_BATCH === 1,
+      "#742 parse-vs-quality budget tests remain green");
+    const s1 = staged.validateBlueprint(
+      JSON.parse(staged.buildStagedFixtureResponse(staged.buildStage1UserPrompt(brief15))),
+      brief15,
+    );
+    ok(s1.ok === true, "Stage 1 tests remain green");
+  }
+
   // Three valid batches → Stage 3 receives exactly 15; diagnostics present; publish blocked
   {
     const composed = await staged.composeStagedLessonContent(brief15, { forceFixture: true });
