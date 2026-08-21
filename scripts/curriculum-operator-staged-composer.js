@@ -61,6 +61,31 @@ const STAGE1_WEEKLY_ALIASES = Object.freeze({
   teacherprepstrategy: "teacherPreparation",
 });
 
+/**
+ * Prompt/contract keys the model sometimes echoes into Stage 1 JSON.
+ * Ignore them — never store, never flag as unknown_weekly_alias.
+ */
+const STAGE1_CONTRACT_ECHO_KEYS = Object.freeze(new Set([
+  "requiredWeeklyFields",
+  "requiredActivityCount",
+  "requiredWeekdays",
+  "requiredWeekdayDistribution",
+  "requiredJsonSchema",
+  "fixOnlyTheseIssues",
+  "previousStage1",
+  "stage1Repair",
+  "revisionDirectives",
+  "mode",
+  "brief",
+  "rules",
+  "exclusions",
+  "activityTarget",
+  "accessPlan",
+  "ageBand",
+  "ageLabel",
+  "CREATE_WEEK_BLUEPRINT",
+]));
+
 function text(value, max = 4000) {
   return schema.text(value, max);
 }
@@ -158,6 +183,14 @@ function canonicalizeWeeklyFieldName(field) {
   return "";
 }
 
+function isStage1ContractEchoKey(key) {
+  const raw = text(key, 80);
+  if (!raw) return false;
+  if (STAGE1_CONTRACT_ECHO_KEYS.has(raw)) return true;
+  if (STAGE1_CONTRACT_ECHO_KEYS.has(raw.toLowerCase())) return true;
+  return false;
+}
+
 /**
  * Build the lesson bag for Stage 1: prefer `lesson` object, but also accept
  * known weekly fields / aliases from the top level so they are not dropped
@@ -168,6 +201,10 @@ function extractStage1LessonBag(parsed) {
   const base = parsed?.lesson && typeof parsed.lesson === "object" && !Array.isArray(parsed.lesson)
     ? { ...parsed.lesson }
     : {};
+  // Strip echoed contract keys from the lesson bag before normalization.
+  Object.keys(base).forEach((key) => {
+    if (isStage1ContractEchoKey(key)) delete base[key];
+  });
   const sources = [parsed, base];
   const out = { ...base };
 
@@ -179,9 +216,11 @@ function extractStage1LessonBag(parsed) {
         || key === "songIntent" || key === "bookIntent") {
         return;
       }
+      if (isStage1ContractEchoKey(key)) return;
       const canonical = canonicalizeWeeklyFieldName(key);
       if (!canonical) {
-        // Reject unknown keys on the lesson object (no fuzzy match into schema).
+        // Reject unknown content-like keys (no fuzzy match into schema).
+        // Prompt echo keys are ignored above; remaining unknowns stay rejected.
         if (fromLessonObject
           || /overview|objective|material|prep|observation|family|milestone|vocab|weekly/i.test(key)) {
           rejectedAliases.push({ field: key, reason: "unknown_weekly_alias" });
@@ -215,6 +254,13 @@ function extractStage1LessonBag(parsed) {
  * When a Stage 1 repair omits or empties a previously valid field / outline set,
  * preserve the prior valid value. Still re-validated — never a loophole.
  */
+function outlineSubstanceOk(row) {
+  if (!row || typeof row !== "object") return false;
+  const concept = text(row.concept || row.summary || row.description, 400);
+  const purpose = text(row.developmentalPurpose || row.purpose || row.objective, 400);
+  return wordCount(concept) >= 6 && wordCount(purpose) >= 4;
+}
+
 function coalesceStage1Parsed(priorBlueprint, parsed, brief) {
   const target = schema.clampInt(brief.activityTarget, 4, 24, createApi.defaultActivityTarget(brief.ageBand));
   const { lessonIn } = extractStage1LessonBag(parsed);
@@ -225,9 +271,14 @@ function coalesceStage1Parsed(priorBlueprint, parsed, brief) {
 
   if (priorLesson) {
     REQUIRED_WEEKLY_TEXT_FIELDS.forEach((field) => {
-      if (!text(lesson[field]) && text(priorLesson[field]) && !rejectGeneric(field, priorLesson[field])) {
-        lesson[field] = priorLesson[field];
-      }
+      const nextVal = lesson[field];
+      const priorVal = priorLesson[field];
+      const nextErr = rejectGeneric(field, nextVal);
+      const priorErr = rejectGeneric(field, priorVal);
+      // Keep prior when repair empties or replaces a previously valid field with invalid filler.
+      if (priorErr) return;
+      if (!text(priorVal) && !Array.isArray(priorVal)) return;
+      if (nextErr || !text(nextVal)) lesson[field] = priorVal;
     });
     REQUIRED_WEEKLY_LIST_FIELDS.forEach((field) => {
       const nextList = schema.asArray(lesson[field]).map((v) => text(v, 200)).filter(Boolean);
@@ -254,6 +305,14 @@ function coalesceStage1Parsed(priorBlueprint, parsed, brief) {
   const priorOutlines = schema.asArray(priorBlueprint?.activityOutlines);
   if (priorOutlines.length === target && outlines.length !== target) {
     outlines = priorOutlines;
+  } else if (priorOutlines.length === target && outlines.length === target) {
+    const priorById = new Map(priorOutlines.map((o) => [text(o.outlineId || o.id, 80), o]));
+    outlines = outlines.map((row, index) => {
+      const id = text(row?.outlineId || row?.id, 80) || `outline-${index + 1}`;
+      const prior = priorById.get(id) || priorOutlines[index];
+      if (prior && outlineSubstanceOk(prior) && !outlineSubstanceOk(row)) return prior;
+      return row;
+    });
   }
 
   return {
@@ -454,6 +513,10 @@ function buildStage1SystemPrompt(ageBand) {
     "Do NOT return until every requiredWeeklyFields entry is populated, all requiredWeekdays have dailyFocus, and exactly requiredActivityCount outlines are present.",
     "Empty strings, empty arrays, placeholder text, and TODO values are invalid.",
     "Do not sacrifice weekly foundation fields to maximize activity outlines — both are mandatory.",
+    "Do NOT echo prompt/contract keys (requiredWeeklyFields, requiredActivityCount, requiredJsonSchema, rules, brief, mode) into the lesson object.",
+    "Forbidden shallow filler (especially under 45 words): \"Children will explore/learn about…\", \"Set out materials\", \"What do you see?\".",
+    "weeklyOverview must name the Mon–Fri progression with concrete classroom actions (not a generic theme sentence).",
+    "Each outline concept must be a specific activity idea (≥6 words); developmentalPurpose ≥4 words.",
     "Honor requiredActivityCount exactly with that many activityOutlines.",
     "Each outline is compact: outlineId, name, weekday, domain, concept, developmentalPurpose.",
     "Do not expand full materials/steps/questions yet.",
@@ -461,6 +524,51 @@ function buildStage1SystemPrompt(ageBand) {
     "Distribute across Monday–Friday (normally 3 per weekday for 15).",
     ageRules,
   ].join("\n");
+}
+
+function classifyStage1RepairIssues(repairIssues, previousBlueprint) {
+  const issues = schema.asArray(repairIssues).map((i) => text(i, 200)).filter(Boolean);
+  const weeklyFieldFailures = [];
+  const thinOutlineNames = [];
+  const otherIssues = [];
+  issues.forEach((issue) => {
+    const weeklyHit = REQUIRED_WEEKLY_TEXT_FIELDS.find((f) => issue.includes(f))
+      || REQUIRED_WEEKLY_LIST_FIELDS.find((f) => issue.toLowerCase().includes(f.toLowerCase()));
+    if (weeklyHit || /Empty |Generic filler|Too short:|Placeholder|missing_prep_checklist|missing_observation_focus|missing_daily_focus/i.test(issue)) {
+      weeklyFieldFailures.push(issue);
+      return;
+    }
+    const thin = issue.match(/^(.+)\.thin_(concept|purpose)$/);
+    if (thin) {
+      thinOutlineNames.push(thin[1]);
+      return;
+    }
+    otherIssues.push(issue);
+  });
+  const failedWeeklyFields = [];
+  REQUIRED_WEEKLY_FIELDS.forEach((field) => {
+    if (issues.some((i) => i.includes(field) || i.toLowerCase().includes(field.toLowerCase()))) {
+      failedWeeklyFields.push(field);
+    }
+  });
+  if (issues.some((i) => /missing_prep_checklist/i.test(i)) && !failedWeeklyFields.includes("prepChecklist")) {
+    failedWeeklyFields.push("prepChecklist");
+  }
+  if (issues.some((i) => /missing_observation_focus/i.test(i)) && !failedWeeklyFields.includes("observationFocus")) {
+    failedWeeklyFields.push("observationFocus");
+  }
+  const priorLesson = previousBlueprint?.lesson || {};
+  const failedWeeklySnapshots = {};
+  failedWeeklyFields.forEach((field) => {
+    failedWeeklySnapshots[field] = priorLesson[field];
+  });
+  return {
+    weeklyFieldFailures,
+    failedWeeklyFields,
+    failedWeeklySnapshots,
+    thinOutlineNames: [...new Set(thinOutlineNames)],
+    otherIssues,
+  };
 }
 
 function buildStage1UserPrompt(brief, repairIssues, previousBlueprint) {
@@ -484,7 +592,7 @@ function buildStage1UserPrompt(brief, repairIssues, previousBlueprint) {
     requiredJsonSchema: {
       lesson: {
         title: "string",
-        weeklyOverview: "string — specific week progression; not empty",
+        weeklyOverview: "string — specific Mon–Fri progression with concrete actions; not empty; not generic filler",
         objectives: "string — several age-appropriate goals; not empty",
         weeklyMaterials: "string — realistic grouped materials; not empty",
         teacherPreparation: "string — specific prep before the week; not empty",
@@ -499,14 +607,16 @@ function buildStage1UserPrompt(brief, repairIssues, previousBlueprint) {
         name: "string",
         weekday: "monday|tuesday|wednesday|thursday|friday",
         domain: "string",
-        concept: "one-sentence activity concept",
-        developmentalPurpose: "string",
+        concept: "specific activity concept ≥6 words",
+        developmentalPurpose: "string ≥4 words",
       }],
     },
     rules: [
       `Return exactly ${activityTarget} activityOutlines.`,
       "Populate EVERY requiredWeeklyFields value with useful non-empty content.",
       "Empty strings, empty arrays, placeholders, and TODO values are invalid.",
+      "Do not echo requiredWeeklyFields or other prompt keys into lesson.",
+      "Do not write shallow filler like \"Children will explore X\" unless the field is a full specific paragraph (≥45 words) with Mon–Fri detail.",
       "Do not omit weekly foundation fields to fit more outline detail.",
       "All five weekdays must appear in dailyFocus and in outlines when activityTarget >= 5.",
       "Do not return full activity bodies in Stage 1.",
@@ -514,9 +624,15 @@ function buildStage1UserPrompt(brief, repairIssues, previousBlueprint) {
   };
   if (repairIssues && repairIssues.length) {
     const priorOutlines = schema.asArray(previousBlueprint?.activityOutlines);
-    const outlinesAlreadyValid = priorOutlines.length === activityTarget;
+    const classified = classifyStage1RepairIssues(repairIssues, previousBlueprint);
+    const outlinesCountOk = priorOutlines.length === activityTarget;
+    const onlyWeeklyOrThin = classified.otherIssues.length === 0
+      && (classified.weeklyFieldFailures.length > 0 || classified.thinOutlineNames.length > 0);
     payload.stage1Repair = true;
     payload.fixOnlyTheseIssues = repairIssues.slice(0, 40);
+    payload.failedWeeklyFields = classified.failedWeeklyFields;
+    payload.failedWeeklySnapshots = classified.failedWeeklySnapshots;
+    payload.thinOutlineNames = classified.thinOutlineNames;
     payload.previousStage1 = previousBlueprint
       ? {
         lesson: previousBlueprint.lesson,
@@ -524,13 +640,21 @@ function buildStage1UserPrompt(brief, repairIssues, previousBlueprint) {
       }
       : null;
     payload.revisionDirectives = [
-      outlinesAlreadyValid
+      outlinesCountOk && classified.thinOutlineNames.length === 0
         ? `PRESERVE ALL ${activityTarget} VALID ACTIVITY OUTLINES unchanged.`
-        : `Return exactly ${activityTarget} distinct activityOutlines.`,
-      "Repair ONLY the failed weekly fields listed in fixOnlyTheseIssues unless another Stage 1 validation issue requires a change.",
-      "Return the complete Stage 1 object with requiredWeeklyFields fully populated.",
+        : outlinesCountOk
+          ? `Keep all ${activityTarget} outlines. Rewrite concept/developmentalPurpose ONLY for thin outlines: ${classified.thinOutlineNames.join(", ") || "(none)"}. Do not redesign the week.`
+          : `Return exactly ${activityTarget} distinct activityOutlines.`,
+      classified.failedWeeklyFields.length
+        ? `Repair ONLY these failed weekly fields: ${classified.failedWeeklyFields.join(", ")}. Rewrite them with concrete, non-filler Teaching Kit substance.`
+        : "Repair ONLY the failed issues listed in fixOnlyTheseIssues.",
+      "Forbidden: \"Children will explore/learn about…\", \"Set out materials\", \"What do you see?\" as short weeklyOverview/objectives text.",
+      "weeklyOverview must describe Monday→Friday progression with specific classroom actions.",
+      "Do NOT echo requiredWeeklyFields / requiredActivityCount / requiredJsonSchema into the JSON lesson object.",
+      "Return the complete Stage 1 object with required weekly fields fully populated.",
       "Empty strings, empty arrays, placeholders, and TODO values remain invalid.",
-    ];
+      onlyWeeklyOrThin ? "Do not invent a new set of outlines unless an outline count/distribution issue is listed." : "",
+    ].filter(Boolean);
   }
   return [
     "Create a compact weekly Teaching Kit blueprint.",
@@ -1360,6 +1484,7 @@ module.exports = {
   MAX_FINAL_REPAIR_CALLS,
   STAGE_MAX_OUTPUT_TOKENS,
   REQUIRED_WEEKLY_FIELDS,
+  STAGE1_CONTRACT_ECHO_KEYS,
   composeStagedLessonContent,
   buildStagedFixtureResponse,
   validateBlueprint,
@@ -1373,5 +1498,7 @@ module.exports = {
   extractStage1LessonBag,
   coalesceStage1Parsed,
   canonicalizeWeeklyFieldName,
+  classifyStage1RepairIssues,
+  isStage1ContractEchoKey,
   truncationFlags,
 };
