@@ -181,6 +181,7 @@ function emptyDiagnostics() {
     stages: [],
     batches: [],
     stage1: null,
+    finalPreCreate: null,
     model: null,
     maxOutputTokens: STAGE_MAX_OUTPUT_TOKENS,
     batchSize: DEFAULT_BATCH_SIZE,
@@ -1387,11 +1388,15 @@ function buildExpansionRepairUserPrompt(brief, blueprint, outlineIds, previousAc
           : "Repair listed issues only.",
         "Preserve strong original fields that already passed validation.",
         "Preserve outlineId, title, dayOfWeek, and activityCategory unless explicitly targeted.",
+        "Fix EVERY listed repairTargets field in this one response. Do not skip any outlineId or field. Do not repair only the first failure.",
         teacherLanguageTargeted
           ? `If teacherLanguage is targeted: return the complete canonical teacherLanguage as a newline-separated STRING with at least ${MIN_TEACHER_LANGUAGE_PROMPT_LINES} distinct activity-specific teacher prompts (one prompt per line; prefer 3+ with observation, prediction/problem-solving, and comparison/reflection). Each prompt must be separately countable by the existing validator. Do not return a JSON array. Do not return one generic sentence. Do not combine prompts into a single unparseable paragraph. Do not return generic filler or near-duplicate variants.`
           : "",
         insufficientQuestionsTargeted
           ? `Replace teacherLanguage with at least ${MIN_TEACHER_LANGUAGE_PROMPT_LINES} distinct activity-specific teacher prompts in the canonical newline-separated string format. Each prompt must be separately countable by the existing validator.`
+          : "",
+        repairTargets.some((t) => schema.asArray(t.fields).some((f) => f.field === "objective"))
+          ? "If objective is targeted: write an activity-specific objective that names the developmental skill, the child action, and how it connects to this activity. Meet the existing depth/length gate — do not return a thin one-liner."
           : "",
         "If adaptations is targeted: return a practical, activity-specific support adaptation (not \"Provide support.\").",
         safetyTargeted
@@ -1510,6 +1515,154 @@ function validateExpansionActivityItem(item, issues) {
   if (!teacherLanguageMeetsCountGate(item.teacherLanguage)) {
     issues.push(`${actTitle}.insufficient_questions`);
   }
+}
+
+/**
+ * Convert a legacy Stage 2 issue string into a structured quality finding.
+ * Reuses parseExpansionIssueTarget — does not invent new codes or fields.
+ */
+function toStructuredQualityIssue(issueString, activities) {
+  const raw = text(issueString, 240);
+  const parsed = parseExpansionIssueTarget(raw, activities);
+  if (parsed.hit) {
+    return {
+      outlineId: parsed.hit.outlineId,
+      field: parsed.hit.field,
+      code: text(parsed.hit.issueCode || parsed.hit.reason, 80),
+      reason: text(parsed.hit.reason, 80),
+      message: raw,
+      sourceIssue: raw,
+    };
+  }
+  return {
+    outlineId: null,
+    field: null,
+    code: parsed.unmapped ? "unmapped_quality_issue" : (parsed.structural ? "structural" : "unknown"),
+    reason: parsed.unmapped ? "unmapped" : "structural",
+    message: raw,
+    sourceIssue: raw,
+    unmapped: parsed.unmapped === true,
+    structural: parsed.structural === true,
+  };
+}
+
+function issueCountByField(structuredIssues) {
+  const counts = {};
+  schema.asArray(structuredIssues).forEach((row) => {
+    const field = text(row?.field, 60) || "_unmapped";
+    counts[field] = (counts[field] || 0) + 1;
+  });
+  return counts;
+}
+
+/**
+ * Deterministic PRE-CREATE / Stage 2 quality sweep.
+ * Runs the existing validateExpansionActivityItem rules across every activity
+ * and returns ALL failures in one pass (does not stop after the first).
+ * Does not weaken gates. Does not invent new field requirements.
+ */
+function sweepExpansionActivitiesQuality(activities) {
+  const list = schema.asArray(activities).filter((a) => a && typeof a === "object");
+  const issueStrings = [];
+  list.forEach((item) => {
+    validateExpansionActivityItem(item, issueStrings);
+  });
+  const structuredIssues = issueStrings.map((iss) => toStructuredQualityIssue(iss, list));
+  return {
+    ok: issueStrings.length === 0,
+    issueStrings,
+    structuredIssues,
+    issueCountByField: issueCountByField(structuredIssues),
+    activityCount: list.length,
+  };
+}
+
+/**
+ * Final pre-create sweep over the full assembled Stage 2 activity set (typically 15).
+ * Field rules = Stage 2 sweep. Also checks count, weekday coverage, duplicate titles,
+ * near-duplicate titles, and placeholder/TODO blobs — same spirit as architect gates.
+ */
+function sweepAssembledLessonQuality(expandedActivities, brief) {
+  const activities = schema.asArray(expandedActivities).filter((a) => a && typeof a === "object");
+  const fieldSweep = sweepExpansionActivitiesQuality(activities);
+  const issueStrings = [...fieldSweep.issueStrings];
+  const structuredIssues = [...fieldSweep.structuredIssues];
+  const target = schema.clampInt(brief?.activityTarget, 4, 24, 12);
+
+  if (activities.length !== target) {
+    const msg = `activity_count_mismatch:${activities.length}!=${target}`;
+    issueStrings.push(msg);
+    structuredIssues.push({
+      outlineId: null,
+      field: null,
+      code: "activity_count_mismatch",
+      reason: "structural",
+      message: msg,
+      sourceIssue: msg,
+      structural: true,
+    });
+  }
+
+  const dist = Object.fromEntries(WEEKDAYS.map((d) => [d, 0]));
+  activities.forEach((a) => {
+    const day = normalizeWeekday(a.dayOfWeek);
+    if (Object.prototype.hasOwnProperty.call(dist, day)) dist[day] += 1;
+  });
+  if (target >= 5) {
+    const daysUsed = WEEKDAYS.filter((d) => dist[d] > 0);
+    if (daysUsed.length < 5) {
+      const msg = `weekday_coverage_incomplete:${daysUsed.length}<5`;
+      issueStrings.push(msg);
+      structuredIssues.push({
+        outlineId: null, field: null, code: "weekday_coverage_incomplete",
+        reason: "structural", message: msg, sourceIssue: msg, structural: true,
+      });
+    }
+    const counts = WEEKDAYS.map((d) => dist[d]);
+    const max = Math.max(...counts);
+    const min = Math.min(...counts);
+    if (max - min > 1) {
+      const msg = `weekday_distribution_imbalanced:max${max}-min${min}`;
+      issueStrings.push(msg);
+      structuredIssues.push({
+        outlineId: null, field: null, code: "weekday_distribution_imbalanced",
+        reason: "structural", message: msg, sourceIssue: msg, structural: true,
+      });
+    }
+  }
+
+  const titles = activities.map((a) => text(a.title, 120).toLowerCase()).filter(Boolean);
+  if (new Set(titles).size < titles.length) {
+    const msg = "duplicate_activity_titles";
+    issueStrings.push(msg);
+    structuredIssues.push({
+      outlineId: null, field: null, code: "duplicate_activity_titles",
+      reason: "structural", message: msg, sourceIssue: msg, structural: true,
+    });
+  }
+  for (let i = 0; i < titles.length; i += 1) {
+    for (let j = i + 1; j < titles.length; j += 1) {
+      if (createApi.similarityScore(titles[i], titles[j]) >= 0.75) {
+        const msg = `similar_titles:${titles[i]}~${titles[j]}`;
+        if (!issueStrings.includes(msg)) {
+          issueStrings.push(msg);
+          structuredIssues.push({
+            outlineId: null, field: null, code: "similar_titles",
+            reason: "structural", message: msg, sourceIssue: msg, structural: true,
+          });
+        }
+      }
+    }
+  }
+
+  return {
+    ok: issueStrings.length === 0,
+    issueStrings,
+    structuredIssues,
+    issueCountByField: issueCountByField(structuredIssues),
+    activityCount: activities.length,
+    weekdayDistribution: dist,
+  };
 }
 
 function validateExpansionBatch(parsed, requestedIds, blueprint, brief) {
@@ -1695,6 +1848,11 @@ function recordBatchDiagnostic(diagnostics, row) {
     repairTargets: mappedRepairTargets,
     postRepairFailures,
     teacherLanguageDiagnostics: schema.asArray(row.teacherLanguageDiagnostics).slice(0, 16),
+    preRepairQualityIssues: schema.asArray(row.preRepairQualityIssues).slice(0, 40),
+    issueCountByField: row.issueCountByField && typeof row.issueCountByField === "object"
+      ? row.issueCountByField
+      : {},
+    postRepairQualityIssues: schema.asArray(row.postRepairQualityIssues).slice(0, 40),
     finalBatchPass: row.finalBatchPass === true,
   });
 }
@@ -1702,11 +1860,8 @@ function recordBatchDiagnostic(diagnostics, row) {
 function assembleLessonObject(blueprint, expandedActivities) {
   return {
     lesson: { ...blueprint.lesson },
-    activities: schema.asArray(expandedActivities).map((a) => {
-      const { outlineId, ...rest } = a;
-      void outlineId;
-      return rest;
-    }),
+    // Keep outlineId so final pre-create sweep / Stage 4 repair can target precisely.
+    activities: schema.asArray(expandedActivities).map((a) => ({ ...a })),
     songIntent: blueprint.songIntent || [],
     bookIntent: blueprint.bookIntent || [],
   };
@@ -1721,16 +1876,33 @@ function buildFinalRepairSystemPrompt() {
   ].join("\n");
 }
 
-function buildFinalRepairUserPrompt(brief, assembled, issues) {
+function buildFinalRepairUserPrompt(brief, assembled, issues, options = {}) {
   const issueList = schema.asArray(issues).map((i) => String(i));
+  const repairPlan = options.repairPlan || planExpansionRepair(issueList, assembled.activities);
   const failedActs = schema.asArray(assembled.activities).filter((a) => {
     const title = text(a.title, 120);
-    return issueList.some((iss) => iss.includes(title));
+    const id = text(a.outlineId, 80);
+    return issueList.some((iss) => iss.includes(title))
+      || repairPlan.mappedRepairTargets.some((t) => t.outlineId === id);
   });
   return JSON.stringify({
     mode: "REPAIR_TARGETED_LESSON_PATCH",
     brief: { title: brief.title, ageBand: brief.ageBand, activityTarget: brief.activityTarget },
     fixOnlyTheseIssues: issueList.slice(0, 40),
+    repairTargets: repairPlan.mappedRepairTargets,
+    repairedFieldsByOutlineId: Object.fromEntries(
+      repairPlan.mappedRepairTargets.map((t) => [t.outlineId, t.fields.map((f) => f.field)]),
+    ),
+    minTeacherLanguagePromptLines: MIN_TEACHER_LANGUAGE_PROMPT_LINES,
+    fieldQualityExpectations: expansionFieldQualityExpectations(),
+    rules: [
+      "Fix EVERY listed repairTargets field in one response. Do not skip any outlineId or field.",
+      "Preserve outlineId, title, dayOfWeek, and activityCategory.",
+      "Preserve valid non-targeted fields.",
+      `teacherLanguage (when targeted): newline-separated STRING with ≥${MIN_TEACHER_LANGUAGE_PROMPT_LINES} distinct prompts.`,
+      "objective (when targeted): activity-specific skill + child action + activity connection; meet existing depth gate.",
+      "safetyNotes (when targeted): activity-specific hazard/supervision + teacher action; no generic supervise-only filler.",
+    ],
     weeklyContext: {
       dailyFocus: assembled.lesson?.dailyFocus,
       activityTitles: schema.asArray(assembled.activities).map((a) => a.title),
@@ -2492,13 +2664,23 @@ async function composeStagedLessonContent(brief, options = {}) {
     } else {
       lastIssues = validated.issues;
       lastInitialFailures = validated.issues;
-      lastRepairPlan = repairPlanner(validated.issues, validated.activities);
+      const preSweep = sweepExpansionActivitiesQuality(validated.activities);
+      // Prefer full sweep issue list (all field failures) while keeping any structural batch issues.
+      const structuralOnly = schema.asArray(validated.issues).filter((iss) => (
+        !preSweep.issueStrings.includes(iss)
+      ));
+      const sweepIssueStrings = [...preSweep.issueStrings, ...structuralOnly];
+      lastInitialFailures = sweepIssueStrings.length ? sweepIssueStrings : validated.issues;
+      lastIssues = lastInitialFailures;
+      lastRepairPlan = repairPlanner(lastInitialFailures, validated.activities);
       lastRepairTargets = lastRepairPlan.mappedRepairTargets;
       lastUnmappedIssues = lastRepairPlan.unmappedQualityIssues;
+      const preRepairQualityIssues = preSweep.structuredIssues;
+      const preIssueCountByField = preSweep.issueCountByField;
 
       if (!lastRepairPlan.canRepair || MAX_QUALITY_REPAIR_CALLS_PER_BATCH < 1) {
         const unmappedTags = lastUnmappedIssues.map((i) => `unmapped_quality_issue:${text(i, 160)}`);
-        lastIssues = [...new Set([...validated.issues, ...unmappedTags])];
+        lastIssues = [...new Set([...lastInitialFailures, ...unmappedTags])];
         batchState[batchKey] = {
           status: "FAILED",
           outlineIds: ids,
@@ -2509,7 +2691,11 @@ async function composeStagedLessonContent(brief, options = {}) {
           unmappedQualityIssues: lastUnmappedIssues,
           mappedRepairTargets: lastRepairTargets,
         };
-        recordFailDiag();
+        recordFailDiag({
+          preRepairQualityIssues,
+          issueCountByField: preIssueCountByField,
+          postRepairQualityIssues: preRepairQualityIssues,
+        });
         return {
           ok: false,
           code: "AI_CREATION_FAILED",
@@ -2525,7 +2711,7 @@ async function composeStagedLessonContent(brief, options = {}) {
         };
       }
 
-      // ONE targeted quality repair (does not consume parse-retry budget)
+      // ONE targeted quality repair for ALL mapped targets in this batch
       repairUsed = true;
       batchRepairCalls += 1;
       usage.activityRepairCalls += 1;
@@ -2584,7 +2770,11 @@ async function composeStagedLessonContent(brief, options = {}) {
           expansionAttempts,
           mappedRepairTargets: lastRepairTargets,
         };
-        recordFailDiag();
+        recordFailDiag({
+          preRepairQualityIssues,
+          issueCountByField: preIssueCountByField,
+          postRepairQualityIssues: preRepairQualityIssues,
+        });
         return {
           ok: false,
           code: "AI_CREATION_FAILED",
@@ -2608,6 +2798,17 @@ async function composeStagedLessonContent(brief, options = {}) {
         brief,
         lastInitialFailures,
       );
+      // Full post-repair sweep across all activities/fields (not only targeted fields).
+      const postSweep = sweepExpansionActivitiesQuality(validated.activities);
+      const postStructural = schema.asArray(validated.issues).filter((iss) => (
+        !postSweep.issueStrings.includes(iss)
+      ));
+      const postAllIssues = [...postSweep.issueStrings, ...postStructural];
+      validated = {
+        ...validated,
+        issues: postAllIssues,
+        ok: postAllIssues.length === 0 && validated.activities.length === ids.length,
+      };
       rawTeacherLanguageAfterById = rawTeacherLanguageByOutlineId(repairStage.parsed);
       teacherLanguageDiagnostics = buildTeacherLanguageRepairDiagnostics(
         priorBatchActivities,
@@ -2668,6 +2869,9 @@ async function composeStagedLessonContent(brief, options = {}) {
           repairTargets: lastRepairTargets,
           postRepairFailures: [],
           teacherLanguageDiagnostics,
+          preRepairQualityIssues,
+          issueCountByField: preIssueCountByField,
+          postRepairQualityIssues: [],
           finalBatchPass: true,
         });
         success = true;
@@ -2681,7 +2885,12 @@ async function composeStagedLessonContent(brief, options = {}) {
           expansionAttempts,
           mappedRepairTargets: lastRepairTargets,
         };
-        recordFailDiag({ postRepairFailures: lastIssues });
+        recordFailDiag({
+          postRepairFailures: lastIssues,
+          preRepairQualityIssues,
+          issueCountByField: preIssueCountByField,
+          postRepairQualityIssues: postSweep.structuredIssues,
+        });
         return {
           ok: false,
           code: "AI_CREATION_FAILED",
@@ -2734,36 +2943,120 @@ async function composeStagedLessonContent(brief, options = {}) {
     };
   }
 
-  // -------- Stage 3 assemble + validate --------
+  // -------- Stage 3 assemble + final pre-create quality sweep --------
   let assembled = assembleLessonObject(blueprint, expandedActivities);
-  let validated = architect.validateArchitectOutput(JSON.stringify(assembled), brief);
+  const finalSweep = sweepAssembledLessonQuality(expandedActivities, brief);
+  let architectValidated = architect.validateArchitectOutput(JSON.stringify(assembled), brief);
+  const mergedFinalIssues = [...new Set([
+    ...schema.asArray(finalSweep.issueStrings),
+    ...schema.asArray(architectValidated.issues),
+  ])];
+  let validated = {
+    ...architectValidated,
+    issues: mergedFinalIssues,
+    ok: mergedFinalIssues.length === 0,
+    error: mergedFinalIssues.length
+      ? `Final quality gate failed: ${mergedFinalIssues.slice(0, 8).join("; ")}`
+      : architectValidated.error,
+  };
+
+  const finalRepairPlan = planExpansionRepair(mergedFinalIssues, expandedActivities);
+  diagnostics.finalPreCreate = {
+    finalPreCreateIssues: finalSweep.structuredIssues,
+    finalIssueCountByField: finalSweep.issueCountByField,
+    architectIssues: schema.asArray(architectValidated.issues).map((i) => text(i, 200)).slice(0, 40),
+    finalRepairTargets: finalRepairPlan.mappedRepairTargets,
+    unmappedQualityIssues: finalRepairPlan.unmappedQualityIssues,
+    finalPostRepairIssues: null,
+    finalQualityPass: validated.ok === true,
+    activityCount: finalSweep.activityCount,
+    weekdayDistribution: finalSweep.weekdayDistribution,
+  };
+
   pushStageDiag(diagnostics, {
     stage: "assemble_validate",
     outputChars: JSON.stringify(assembled).length,
     parseSuccess: true,
     expectedObjectCount: usage.activitiesRequested,
-    parsedObjectCount: validated.parsedActivityCount,
-    validationIssues: validated.issues || [],
+    parsedObjectCount: architectValidated.parsedActivityCount,
+    validationIssues: mergedFinalIssues,
     ok: validated.ok,
   });
 
-  // -------- Stage 4 targeted repair --------
+  // -------- Stage 4 targeted repair (ONE call for ALL final repairable issues) --------
   let repaired = false;
   if (!validated.ok && MAX_FINAL_REPAIR_CALLS > 0) {
+    if (finalRepairPlan.unmappedQualityIssues.length > 0) {
+      const unmappedTags = finalRepairPlan.unmappedQualityIssues
+        .map((i) => `unmapped_quality_issue:${text(i, 160)}`);
+      const blockedIssues = [...new Set([...mergedFinalIssues, ...unmappedTags])];
+      diagnostics.finalPreCreate.finalPostRepairIssues = blockedIssues.map((i) => (
+        toStructuredQualityIssue(i, expandedActivities)
+      ));
+      diagnostics.finalPreCreate.finalQualityPass = false;
+      return {
+        ok: false,
+        code: "AI_CREATION_FAILED",
+        error: `Final quality gate failed: ${blockedIssues.slice(0, 8).join("; ")}`,
+        issues: blockedIssues,
+        usage,
+        stagedDiagnostics: diagnostics,
+        progress: {
+          creationBlueprintComplete: true,
+          creationBlueprint: blueprint,
+          activityExpansionBatches: batchState,
+        },
+      };
+    }
+
     usage.activityRepairCalls += 1;
     usage.lessonRevisionCalls += 1;
     const repairStage = await callAiStage(
       callAi,
       buildFinalRepairSystemPrompt(),
-      buildFinalRepairUserPrompt(brief, assembled, validated.issues),
+      buildFinalRepairUserPrompt(brief, assembled, mergedFinalIssues, { repairPlan: finalRepairPlan }),
       usage,
       diagnostics,
-      { stage: "targeted_repair", expectedObjectCount: schema.asArray(validated.issues).length },
+      { stage: "targeted_repair", expectedObjectCount: schema.asArray(mergedFinalIssues).length },
     );
     if (repairStage.ok && repairStage.parsed) {
       assembled = applyRepairPatch(assembled, repairStage.parsed);
-      validated = architect.validateArchitectOutput(JSON.stringify(assembled), brief);
+      // Prefer patched activities that retain outlineId; fall back to re-linking by title.
+      const patchedActivities = schema.asArray(assembled.activities).map((a, index) => {
+        const prior = expandedActivities[index];
+        return {
+          ...a,
+          outlineId: text(a.outlineId || prior?.outlineId, 80),
+          teacherLanguage: normalizeTeacherLanguageField(a.teacherLanguage),
+          teacherTips: asActivityStringList(a.teacherTips || a.tips),
+          observationPrompts: asActivityStringList(a.observationPrompts),
+          substitutions: asActivityStringList(a.substitutions),
+        };
+      });
+      const postFinalSweep = sweepAssembledLessonQuality(patchedActivities, brief);
+      architectValidated = architect.validateArchitectOutput(JSON.stringify(assembled), brief);
+      const postMerged = [...new Set([
+        ...schema.asArray(postFinalSweep.issueStrings),
+        ...schema.asArray(architectValidated.issues),
+      ])];
+      validated = {
+        ...architectValidated,
+        issues: postMerged,
+        ok: postMerged.length === 0,
+        error: postMerged.length
+          ? `Final quality gate failed: ${postMerged.slice(0, 8).join("; ")}`
+          : null,
+        content: architectValidated.content,
+      };
       repaired = validated.ok === true;
+      diagnostics.finalPreCreate.finalPostRepairIssues = postFinalSweep.structuredIssues;
+      diagnostics.finalPreCreate.finalIssueCountByField = postFinalSweep.issueCountByField;
+      diagnostics.finalPreCreate.finalQualityPass = validated.ok === true;
+      if (validated.ok) {
+        // Rebuild architect content from patched activities when sweep+architect clear
+        validated = architect.validateArchitectOutput(JSON.stringify(assembled), brief);
+        diagnostics.finalPreCreate.finalQualityPass = validated.ok === true;
+      }
       pushStageDiag(diagnostics, {
         stage: "targeted_repair",
         model: repairStage.meta?.model,
@@ -2776,6 +3069,10 @@ async function composeStagedLessonContent(brief, options = {}) {
         ok: validated.ok,
       });
     } else {
+      diagnostics.finalPreCreate.finalPostRepairIssues = mergedFinalIssues.map((i) => (
+        toStructuredQualityIssue(i, expandedActivities)
+      ));
+      diagnostics.finalPreCreate.finalQualityPass = false;
       pushStageDiag(diagnostics, {
         stage: "targeted_repair",
         outputChars: repairStage.rawText?.length || 0,
@@ -2784,6 +3081,9 @@ async function composeStagedLessonContent(brief, options = {}) {
         ok: false,
       });
     }
+  } else if (validated.ok) {
+    diagnostics.finalPreCreate.finalPostRepairIssues = [];
+    diagnostics.finalPreCreate.finalQualityPass = true;
   }
 
   if (!validated.ok) {
@@ -2880,4 +3180,9 @@ module.exports = {
   teacherLanguageShape,
   buildTeacherLanguageRepairDiagnostics,
   rawTeacherLanguageByOutlineId,
+  sweepExpansionActivitiesQuality,
+  sweepAssembledLessonQuality,
+  toStructuredQualityIssue,
+  issueCountByField,
+  buildFinalRepairUserPrompt,
 };
