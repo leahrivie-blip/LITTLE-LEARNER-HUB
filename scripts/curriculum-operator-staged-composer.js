@@ -19,7 +19,10 @@ const composer = require("./curriculum-operator-ai-composer.js");
 const WEEKDAYS = createApi.WEEKDAYS;
 const DEFAULT_BATCH_SIZE = 5;
 const MAX_ARCHITECTURE_CALLS = 2; // initial + one Stage-1 repair
-const MAX_BATCH_RETRIES = 1; // one retry per failed expansion batch
+/** @deprecated Use MAX_EXPANSION_PARSE_RETRIES + MAX_QUALITY_REPAIR_CALLS_PER_BATCH. Kept for export compat. */
+const MAX_BATCH_RETRIES = 1;
+const MAX_EXPANSION_PARSE_RETRIES = 1; // one parse/transport recovery per batch
+const MAX_QUALITY_REPAIR_CALLS_PER_BATCH = 1; // one targeted quality repair per batch
 const MAX_FINAL_REPAIR_CALLS = 1;
 const STAGE_MAX_OUTPUT_TOKENS = 12000;
 
@@ -164,6 +167,7 @@ function emptyUsage() {
     lessonRevisionCalls: 0,
     lessonArchitectureCalls: 0,
     activityExpansionCalls: 0,
+    activityExpansionRetryCalls: 0,
     activityRepairCalls: 0,
     activitiesRequested: 0,
     activitiesCompleted: 0,
@@ -848,6 +852,42 @@ function buildExpansionUserPrompt(brief, blueprint, outlineIds, options = {}) {
 }
 
 /**
+ * Parse/transport recovery prompt — same requested batch only; no redesign.
+ */
+function buildExpansionParseRetryUserPrompt(brief, blueprint, outlineIds, options = {}) {
+  const base = buildExpansionUserPrompt(brief, blueprint, outlineIds, options);
+  return [
+    "Your previous response could not be parsed. Return the same requested activity batch in valid structured JSON only.",
+    "Do not redesign the batch. Keep the exact expandExactlyTheseOutlineIds, weekday/domain/name alignment, and required activity fields.",
+    "Do not omit activities. Do not add extras. Return parseable JSON only.",
+    base,
+  ].join("\n");
+}
+
+/**
+ * True when the expansion response failed as parse/transport (not activity quality).
+ * Quality failures with a parsed activity set must NOT use this path.
+ */
+function isExpansionParseTransportFailure(stage, validated, expectedCount) {
+  if (!stage || stage.ok !== true) return true;
+  const expected = Number(expectedCount) || 0;
+  const parsedCount = Number.isFinite(validated?.parsedObjectCount)
+    ? validated.parsedObjectCount
+    : Number(stage.parsedObjectCount) || 0;
+  if (parsedCount === 0) return true;
+  if (stage.flags?.unterminatedJsonTail === true && parsedCount < expected) return true;
+  if (stage.flags?.possibleOutputTruncation === true && parsedCount === 0) return true;
+  const issues = schema.asArray(validated?.issues);
+  if (expected > 0) {
+    const missingRequested = issues.filter((i) => /^missing_requested_outline_id:/.test(String(i))).length;
+    if (missingRequested >= expected) return true;
+  }
+  const activities = schema.asArray(validated?.activities).filter((a) => a && a.outlineId);
+  if (expected > 0 && activities.length === 0) return true;
+  return false;
+}
+
+/**
  * Explicit Stage 2 quality issue-code → canonical activity field map.
  * No fuzzy matching. Only codes emitted by validateExpansionActivityItem / rejectGeneric.
  */
@@ -1339,6 +1379,14 @@ function recordBatchDiagnostic(diagnostics, row) {
     finishReason: row.finishReason ? text(row.finishReason, 80) : null,
     outputChars: Number(row.outputChars) || 0,
     truncationDetected: row.truncationDetected === true,
+    expansionAttempts: Number.isFinite(row.expansionAttempts) ? row.expansionAttempts : null,
+    parseRetryUsed: row.parseRetryUsed === true,
+    parseFailures: schema.asArray(row.parseFailures).map((i) => text(i, 200)).slice(0, 20),
+    activityExpansionRetryCalls: Number.isFinite(row.activityExpansionRetryCalls)
+      ? row.activityExpansionRetryCalls
+      : null,
+    activityRepairCalls: Number.isFinite(row.activityRepairCalls) ? row.activityRepairCalls : null,
+    initialParsedCount: Number.isFinite(row.initialParsedCount) ? row.initialParsedCount : null,
     parsedActivityCount: Number.isFinite(row.parsedActivityCount) ? row.parsedActivityCount : null,
     acceptedActivityCount: Number.isFinite(row.acceptedActivityCount) ? row.acceptedActivityCount : null,
     rejectedActivityCount: Number.isFinite(row.rejectedActivityCount) ? row.rejectedActivityCount : null,
@@ -1858,44 +1906,36 @@ async function composeStagedLessonContent(brief, options = {}) {
     let success = false;
     let priorBatchActivities = null;
     let repairUsed = false;
+    let parseRetryUsed = false;
+    let expansionAttempts = 0;
+    let batchExpansionRetryCalls = 0;
+    let batchRepairCalls = 0;
+    let parseFailures = [];
+    let initialParsedCount = null;
     let lastRepairTargets = [];
     let lastUnmappedIssues = [];
     let lastInitialFailures = [];
     let lastResponseKeys = [];
     let lastRepairPlan = null;
-    for (let attempt = 0; attempt <= MAX_BATCH_RETRIES; attempt += 1) {
-      const isRepair = attempt > 0 && priorBatchActivities;
-      if (isRepair) {
-        lastRepairPlan = repairPlanner(lastIssues, priorBatchActivities);
-        lastRepairTargets = lastRepairPlan.mappedRepairTargets;
-        lastUnmappedIssues = lastRepairPlan.unmappedQualityIssues;
-        if (!lastRepairPlan.canRepair) {
-          // Do not waste the one repair call on unmapped / empty targets.
-          const unmappedTags = lastUnmappedIssues.map((i) => `unmapped_quality_issue:${text(i, 160)}`);
-          lastIssues = [...new Set([...lastIssues, ...unmappedTags])];
-          batchState[batchKey] = {
-            status: "FAILED",
-            outlineIds: ids,
-            issues: lastIssues,
-            repairUsed: false,
-            unmappedQualityIssues: lastUnmappedIssues,
-            mappedRepairTargets: lastRepairTargets,
-          };
-          break;
-        }
-        repairUsed = true;
-      }
+    let lastTruncation = false;
+    let lastModel = null;
+    let lastFinishReason = null;
+    let lastOutputChars = 0;
+    let validated = null;
 
+    // ---- Phase A: expansion + optional parse/transport recovery (max 1) ----
+    while (expansionAttempts < 1 + MAX_EXPANSION_PARSE_RETRIES) {
+      const isParseRetry = expansionAttempts > 0;
+      expansionAttempts += 1;
+      if (isParseRetry) {
+        parseRetryUsed = true;
+        batchExpansionRetryCalls += 1;
+        usage.activityExpansionRetryCalls += 1;
+      }
       usage.activityExpansionCalls += 1;
-      const userPrompt = isRepair
-        ? buildExpansionRepairUserPrompt(
-          brief,
-          blueprint,
-          ids,
-          priorBatchActivities,
-          lastIssues.filter((i) => !/^unmapped_quality_issue:/i.test(String(i))),
-          { batchNumber: batchIndex + 1, repairPlan: lastRepairPlan },
-        )
+
+      const userPrompt = isParseRetry
+        ? buildExpansionParseRetryUserPrompt(brief, blueprint, ids, { batchNumber: batchIndex + 1 })
         : buildExpansionUserPrompt(brief, blueprint, ids, { batchNumber: batchIndex + 1 });
       const stage = await callAiStage(
         callAi,
@@ -1904,20 +1944,26 @@ async function composeStagedLessonContent(brief, options = {}) {
         usage,
         diagnostics,
         {
-          stage: `activity_expansion_${batchKey}${isRepair ? "_repair" : ""}`,
+          stage: `activity_expansion_${batchKey}${isParseRetry ? "_parse_retry" : ""}`,
           expectedObjectCount: ids.length,
         },
       );
       lastResponseKeys = stage.parsed && typeof stage.parsed === "object"
         ? Object.keys(stage.parsed).slice(0, 24)
         : [];
+      lastModel = stage.meta?.model || lastModel;
+      lastFinishReason = stage.meta?.finishReason || lastFinishReason;
+      lastOutputChars = stage.rawText?.length || 0;
+      lastTruncation = stage.flags?.possibleOutputTruncation === true;
+
       if (!stage.ok) {
         lastIssues = [stage.error || "malformed_json", ...(stage.flags?.reasons || [])];
+        parseFailures.push(...lastIssues);
         pushStageDiag(diagnostics, {
-          stage: `activity_expansion_${batchKey}${isRepair ? "_repair" : ""}`,
+          stage: `activity_expansion_${batchKey}${isParseRetry ? "_parse_retry" : ""}`,
           model: stage.meta?.model,
           finishReason: stage.meta?.finishReason,
-          outputChars: stage.rawText?.length || 0,
+          outputChars: lastOutputChars,
           parseSuccess: false,
           expectedObjectCount: ids.length,
           parsedObjectCount: 0,
@@ -1926,27 +1972,41 @@ async function composeStagedLessonContent(brief, options = {}) {
           validationIssues: lastIssues,
           ok: false,
         });
-        continue;
+        if (!isParseRetry && MAX_EXPANSION_PARSE_RETRIES > 0) continue;
+        break;
       }
-      let validated;
-      if (isRepair && priorBatchActivities) {
-        validated = coalesceExpansionBatch(
-          priorBatchActivities,
-          stage.parsed,
-          ids,
-          blueprint,
-          brief,
-          lastIssues.filter((i) => !/^unmapped_quality_issue:/i.test(String(i))),
-        );
-      } else {
-        validated = validateExpansionBatch(stage.parsed, ids, blueprint, brief);
+
+      validated = validateExpansionBatch(stage.parsed, ids, blueprint, brief);
+      if (isExpansionParseTransportFailure(stage, validated, ids.length)) {
+        lastIssues = validated.issues.length
+          ? validated.issues
+          : ["parse_transport_failure", ...(stage.flags?.reasons || [])];
+        parseFailures.push(...lastIssues);
+        pushStageDiag(diagnostics, {
+          stage: `activity_expansion_${batchKey}${isParseRetry ? "_parse_retry" : ""}`,
+          model: stage.meta?.model,
+          finishReason: stage.meta?.finishReason,
+          outputChars: lastOutputChars,
+          parseSuccess: false,
+          expectedObjectCount: ids.length,
+          parsedObjectCount: validated.parsedObjectCount,
+          possibleOutputTruncation: stage.flags?.possibleOutputTruncation,
+          unterminatedJsonTail: stage.flags?.unterminatedJsonTail,
+          validationIssues: lastIssues,
+          ok: false,
+        });
+        if (!isParseRetry && MAX_EXPANSION_PARSE_RETRIES > 0) continue;
+        validated = null;
+        break;
       }
+
       priorBatchActivities = validated.activities;
+      if (initialParsedCount == null) initialParsedCount = validated.parsedObjectCount;
       pushStageDiag(diagnostics, {
-        stage: `activity_expansion_${batchKey}${isRepair ? "_repair" : ""}`,
+        stage: `activity_expansion_${batchKey}${isParseRetry ? "_parse_retry" : ""}`,
         model: stage.meta?.model,
         finishReason: stage.meta?.finishReason,
-        outputChars: stage.rawText?.length || 0,
+        outputChars: lastOutputChars,
         parseSuccess: true,
         expectedObjectCount: ids.length,
         parsedObjectCount: validated.parsedObjectCount,
@@ -1955,77 +2015,24 @@ async function composeStagedLessonContent(brief, options = {}) {
         validationIssues: validated.issues,
         ok: validated.ok,
       });
-      if (validated.ok) {
-        batchState[batchKey] = {
-          status: "SUCCESS",
-          outlineIds: ids,
-          activities: validated.activities,
-          repairUsed,
-        };
-        validated.activities.forEach((a) => expandedById.set(a.outlineId, a));
-        recordBatchDiagnostic(diagnostics, {
-          batchNumber: batchIndex + 1,
-          requestedOutlineIds: ids,
-          responseTopLevelKeys: lastResponseKeys,
-          model: stage.meta?.model,
-          finishReason: stage.meta?.finishReason,
-          outputChars: stage.rawText?.length || 0,
-          truncationDetected: stage.flags?.possibleOutputTruncation === true,
-          parsedActivityCount: validated.parsedObjectCount,
-          acceptedActivityCount: validated.activities.length,
-          rejectedActivityCount: 0,
-          initialQualityFailures: lastInitialFailures,
-          activityQualityFailures: [],
-          mappedRepairTargets: lastRepairTargets,
-          unmappedQualityIssues: lastUnmappedIssues,
-          repairUsed,
-          repairTargets: lastRepairTargets,
-          postRepairFailures: [],
-          finalBatchPass: true,
-        });
-        success = true;
-        break;
-      }
-      lastIssues = validated.issues;
-      if (attempt === 0) {
-        lastInitialFailures = validated.issues;
-        lastRepairPlan = repairPlanner(validated.issues, validated.activities);
-        lastRepairTargets = lastRepairPlan.mappedRepairTargets;
-        lastUnmappedIssues = lastRepairPlan.unmappedQualityIssues;
-        if (!lastRepairPlan.canRepair) {
-          const unmappedTags = lastUnmappedIssues.map((i) => `unmapped_quality_issue:${text(i, 160)}`);
-          lastIssues = [...validated.issues, ...unmappedTags];
-          batchState[batchKey] = {
-            status: "FAILED",
-            outlineIds: ids,
-            issues: lastIssues,
-            repairUsed: false,
-            unmappedQualityIssues: lastUnmappedIssues,
-            mappedRepairTargets: lastRepairTargets,
-          };
-          break;
-        }
-      }
-      batchState[batchKey] = {
-        status: "FAILED",
-        outlineIds: ids,
-        issues: lastIssues,
-        repairUsed,
-      };
+      break; // parseable batch obtained — leave Phase A
     }
 
-    if (!success) {
-      if (!batchState[batchKey] || batchState[batchKey].status !== "FAILED") {
-        batchState[batchKey] = { status: "FAILED", outlineIds: ids, issues: lastIssues, repairUsed };
-      }
+    const recordFailDiag = (extra = {}) => {
       recordBatchDiagnostic(diagnostics, {
         batchNumber: batchIndex + 1,
         requestedOutlineIds: ids,
         responseTopLevelKeys: lastResponseKeys,
-        model: diagnostics.model,
-        finishReason: null,
-        outputChars: 0,
-        truncationDetected: false,
+        model: lastModel || diagnostics.model,
+        finishReason: lastFinishReason,
+        outputChars: lastOutputChars,
+        truncationDetected: lastTruncation,
+        expansionAttempts,
+        parseRetryUsed,
+        parseFailures,
+        activityExpansionRetryCalls: batchExpansionRetryCalls,
+        activityRepairCalls: batchRepairCalls,
+        initialParsedCount,
         parsedActivityCount: schema.asArray(priorBatchActivities).length,
         acceptedActivityCount: 0,
         rejectedActivityCount: ids.length,
@@ -2037,7 +2044,275 @@ async function composeStagedLessonContent(brief, options = {}) {
         repairTargets: lastRepairTargets,
         postRepairFailures: lastIssues,
         finalBatchPass: false,
+        ...extra,
       });
+    };
+
+    if (!validated || !priorBatchActivities) {
+      batchState[batchKey] = {
+        status: "FAILED",
+        outlineIds: ids,
+        issues: lastIssues,
+        repairUsed: false,
+        parseRetryUsed,
+        expansionAttempts,
+      };
+      recordFailDiag();
+      return {
+        ok: false,
+        code: "AI_CREATION_FAILED",
+        error: `Stage 2 batch ${batchKey} failed: ${lastIssues.slice(0, 8).join("; ")}`,
+        issues: lastIssues,
+        usage,
+        stagedDiagnostics: diagnostics,
+        progress: {
+          creationBlueprintComplete: true,
+          creationBlueprint: blueprint,
+          activityExpansionBatches: batchState,
+        },
+      };
+    }
+
+    // ---- Phase B: quality validation (+ optional one targeted repair) ----
+    if (validated.ok) {
+      batchState[batchKey] = {
+        status: "SUCCESS",
+        outlineIds: ids,
+        activities: validated.activities,
+        repairUsed: false,
+        parseRetryUsed,
+        expansionAttempts,
+      };
+      validated.activities.forEach((a) => expandedById.set(a.outlineId, a));
+      recordBatchDiagnostic(diagnostics, {
+        batchNumber: batchIndex + 1,
+        requestedOutlineIds: ids,
+        responseTopLevelKeys: lastResponseKeys,
+        model: lastModel,
+        finishReason: lastFinishReason,
+        outputChars: lastOutputChars,
+        truncationDetected: lastTruncation,
+        expansionAttempts,
+        parseRetryUsed,
+        parseFailures,
+        activityExpansionRetryCalls: batchExpansionRetryCalls,
+        activityRepairCalls: 0,
+        initialParsedCount,
+        parsedActivityCount: validated.parsedObjectCount,
+        acceptedActivityCount: validated.activities.length,
+        rejectedActivityCount: 0,
+        initialQualityFailures: [],
+        activityQualityFailures: [],
+        mappedRepairTargets: [],
+        unmappedQualityIssues: [],
+        repairUsed: false,
+        repairTargets: [],
+        postRepairFailures: [],
+        finalBatchPass: true,
+      });
+      success = true;
+    } else {
+      lastIssues = validated.issues;
+      lastInitialFailures = validated.issues;
+      lastRepairPlan = repairPlanner(validated.issues, validated.activities);
+      lastRepairTargets = lastRepairPlan.mappedRepairTargets;
+      lastUnmappedIssues = lastRepairPlan.unmappedQualityIssues;
+
+      if (!lastRepairPlan.canRepair || MAX_QUALITY_REPAIR_CALLS_PER_BATCH < 1) {
+        const unmappedTags = lastUnmappedIssues.map((i) => `unmapped_quality_issue:${text(i, 160)}`);
+        lastIssues = [...new Set([...validated.issues, ...unmappedTags])];
+        batchState[batchKey] = {
+          status: "FAILED",
+          outlineIds: ids,
+          issues: lastIssues,
+          repairUsed: false,
+          parseRetryUsed,
+          expansionAttempts,
+          unmappedQualityIssues: lastUnmappedIssues,
+          mappedRepairTargets: lastRepairTargets,
+        };
+        recordFailDiag();
+        return {
+          ok: false,
+          code: "AI_CREATION_FAILED",
+          error: `Stage 2 batch ${batchKey} failed: ${lastIssues.slice(0, 8).join("; ")}`,
+          issues: lastIssues,
+          usage,
+          stagedDiagnostics: diagnostics,
+          progress: {
+            creationBlueprintComplete: true,
+            creationBlueprint: blueprint,
+            activityExpansionBatches: batchState,
+          },
+        };
+      }
+
+      // ONE targeted quality repair (does not consume parse-retry budget)
+      repairUsed = true;
+      batchRepairCalls += 1;
+      usage.activityRepairCalls += 1;
+      const repairPrompt = buildExpansionRepairUserPrompt(
+        brief,
+        blueprint,
+        ids,
+        priorBatchActivities,
+        lastIssues.filter((i) => !/^unmapped_quality_issue:/i.test(String(i))),
+        { batchNumber: batchIndex + 1, repairPlan: lastRepairPlan },
+      );
+      const repairStage = await callAiStage(
+        callAi,
+        buildExpansionSystemPrompt(brief.ageBand),
+        repairPrompt,
+        usage,
+        diagnostics,
+        {
+          stage: `activity_expansion_${batchKey}_repair`,
+          expectedObjectCount: ids.length,
+        },
+      );
+      lastResponseKeys = repairStage.parsed && typeof repairStage.parsed === "object"
+        ? Object.keys(repairStage.parsed).slice(0, 24)
+        : lastResponseKeys;
+      lastModel = repairStage.meta?.model || lastModel;
+      lastFinishReason = repairStage.meta?.finishReason || lastFinishReason;
+      lastOutputChars = repairStage.rawText?.length || 0;
+      lastTruncation = repairStage.flags?.possibleOutputTruncation === true || lastTruncation;
+
+      if (!repairStage.ok) {
+        lastIssues = [
+          ...lastInitialFailures,
+          repairStage.error || "malformed_json",
+          ...(repairStage.flags?.reasons || []),
+        ];
+        pushStageDiag(diagnostics, {
+          stage: `activity_expansion_${batchKey}_repair`,
+          model: repairStage.meta?.model,
+          finishReason: repairStage.meta?.finishReason,
+          outputChars: lastOutputChars,
+          parseSuccess: false,
+          expectedObjectCount: ids.length,
+          parsedObjectCount: 0,
+          possibleOutputTruncation: repairStage.flags?.possibleOutputTruncation,
+          unterminatedJsonTail: repairStage.flags?.unterminatedJsonTail,
+          validationIssues: lastIssues,
+          ok: false,
+        });
+        batchState[batchKey] = {
+          status: "FAILED",
+          outlineIds: ids,
+          issues: lastIssues,
+          repairUsed: true,
+          parseRetryUsed,
+          expansionAttempts,
+          mappedRepairTargets: lastRepairTargets,
+        };
+        recordFailDiag();
+        return {
+          ok: false,
+          code: "AI_CREATION_FAILED",
+          error: `Stage 2 batch ${batchKey} failed: ${lastIssues.slice(0, 8).join("; ")}`,
+          issues: lastIssues,
+          usage,
+          stagedDiagnostics: diagnostics,
+          progress: {
+            creationBlueprintComplete: true,
+            creationBlueprint: blueprint,
+            activityExpansionBatches: batchState,
+          },
+        };
+      }
+
+      validated = coalesceExpansionBatch(
+        priorBatchActivities,
+        repairStage.parsed,
+        ids,
+        blueprint,
+        brief,
+        lastInitialFailures,
+      );
+      priorBatchActivities = validated.activities;
+      lastIssues = validated.issues;
+      pushStageDiag(diagnostics, {
+        stage: `activity_expansion_${batchKey}_repair`,
+        model: repairStage.meta?.model,
+        finishReason: repairStage.meta?.finishReason,
+        outputChars: lastOutputChars,
+        parseSuccess: true,
+        expectedObjectCount: ids.length,
+        parsedObjectCount: validated.parsedObjectCount,
+        possibleOutputTruncation: repairStage.flags?.possibleOutputTruncation,
+        unterminatedJsonTail: repairStage.flags?.unterminatedJsonTail,
+        validationIssues: validated.issues,
+        ok: validated.ok,
+      });
+
+      if (validated.ok) {
+        batchState[batchKey] = {
+          status: "SUCCESS",
+          outlineIds: ids,
+          activities: validated.activities,
+          repairUsed: true,
+          parseRetryUsed,
+          expansionAttempts,
+        };
+        validated.activities.forEach((a) => expandedById.set(a.outlineId, a));
+        recordBatchDiagnostic(diagnostics, {
+          batchNumber: batchIndex + 1,
+          requestedOutlineIds: ids,
+          responseTopLevelKeys: lastResponseKeys,
+          model: lastModel,
+          finishReason: lastFinishReason,
+          outputChars: lastOutputChars,
+          truncationDetected: lastTruncation,
+          expansionAttempts,
+          parseRetryUsed,
+          parseFailures,
+          activityExpansionRetryCalls: batchExpansionRetryCalls,
+          activityRepairCalls: batchRepairCalls,
+          initialParsedCount,
+          parsedActivityCount: validated.parsedObjectCount,
+          acceptedActivityCount: validated.activities.length,
+          rejectedActivityCount: 0,
+          initialQualityFailures: lastInitialFailures,
+          activityQualityFailures: [],
+          mappedRepairTargets: lastRepairTargets,
+          unmappedQualityIssues: lastUnmappedIssues,
+          repairUsed: true,
+          repairTargets: lastRepairTargets,
+          postRepairFailures: [],
+          finalBatchPass: true,
+        });
+        success = true;
+      } else {
+        batchState[batchKey] = {
+          status: "FAILED",
+          outlineIds: ids,
+          issues: lastIssues,
+          repairUsed: true,
+          parseRetryUsed,
+          expansionAttempts,
+          mappedRepairTargets: lastRepairTargets,
+        };
+        recordFailDiag({ postRepairFailures: lastIssues });
+        return {
+          ok: false,
+          code: "AI_CREATION_FAILED",
+          error: `Stage 2 batch ${batchKey} failed: ${lastIssues.slice(0, 8).join("; ")}`,
+          issues: lastIssues,
+          usage,
+          stagedDiagnostics: diagnostics,
+          progress: {
+            creationBlueprintComplete: true,
+            creationBlueprint: blueprint,
+            activityExpansionBatches: batchState,
+          },
+        };
+      }
+    }
+
+    if (!success) {
+      batchState[batchKey] = { status: "FAILED", outlineIds: ids, issues: lastIssues, repairUsed, parseRetryUsed };
+      recordFailDiag();
       return {
         ok: false,
         code: "AI_CREATION_FAILED",
@@ -2174,6 +2449,8 @@ module.exports = {
   DEFAULT_BATCH_SIZE,
   MAX_ARCHITECTURE_CALLS,
   MAX_BATCH_RETRIES,
+  MAX_EXPANSION_PARSE_RETRIES,
+  MAX_QUALITY_REPAIR_CALLS_PER_BATCH,
   MAX_FINAL_REPAIR_CALLS,
   STAGE_MAX_OUTPUT_TOKENS,
   REQUIRED_WEEKLY_FIELDS,
@@ -2190,10 +2467,12 @@ module.exports = {
   buildStage1UserPrompt,
   buildStage1SystemPrompt,
   buildExpansionUserPrompt,
+  buildExpansionParseRetryUserPrompt,
   buildExpansionRepairUserPrompt,
   buildExpansionRepairTargets,
   planExpansionRepair,
   parseExpansionIssueTarget,
+  isExpansionParseTransportFailure,
   EXPANSION_ISSUE_CODE_FIELD_MAP,
   coalesceExpansionBatch,
   extractStage1LessonBag,

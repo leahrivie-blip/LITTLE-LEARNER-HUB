@@ -783,7 +783,10 @@ async function main() {
     ok(expandCalls === 1, "one expand + one repair only for failed batch");
     ok(/Stage 2 batch batch1 failed/i.test(String(blocked.error || "")),
       "failed batch does not trigger lesson.create");
-    ok((blocked.usage?.activityExpansionCalls || 0) === 2, "bounded expansion+repair call count");
+    ok((blocked.usage?.activityExpansionCalls || 0) === 1, "quality repair does not count as expansion");
+    ok((blocked.usage?.activityRepairCalls || 0) === 1, "one quality repair call counted");
+    ok((blocked.usage?.activityExpansionRetryCalls || 0) === 0,
+      "quality failure does not consume parse retry budget");
   }
 
   // Stage 2 issue-code → canonical-field mapping (Live Test 2 residual: insufficient_questions)
@@ -1101,6 +1104,285 @@ async function main() {
         )),
       "diagnostics expose unmapped_quality_issue",
     );
+  }
+
+  // Stage 2 parse-recovery vs quality-repair budgets (Live Test opjob_b82cd662d3f24b3c)
+  {
+    const multiPrompt = [
+      "What do you notice about these two tools?",
+      "What do you think will happen if we add more?",
+      "How are these groups the same or different?",
+    ].join("\n");
+
+    // 1. first expansion parses + quality passes → 1 call total
+    {
+      let expandN = 0;
+      let repairN = 0;
+      let parseRetryN = 0;
+      const r = await staged.composeStagedLessonContent(brief15, {
+        forceLive: true,
+        callAi: async (_s, user) => {
+          if (/CREATE_WEEK_BLUEPRINT/.test(user)) return staged.buildStagedFixtureResponse(user);
+          if (/could not be parsed/i.test(user)) parseRetryN += 1;
+          if (/REPAIR_ACTIVITY_BATCH/.test(user)) {
+            repairN += 1;
+            return "{}";
+          }
+          if (/EXPAND_ACTIVITY_BATCH/.test(user)) {
+            expandN += 1;
+            return staged.buildStagedFixtureResponse(user);
+          }
+          return staged.buildStagedFixtureResponse(user);
+        },
+      });
+      ok(r.ok === true, "happy path: first expansion parses + quality passes");
+      ok(expandN === 3 && repairN === 0 && parseRetryN === 0,
+        "happy path → 1 expand per batch, 0 repair, 0 parse retry");
+      ok((r.usage?.activityExpansionCalls || 0) === 3
+        && (r.usage?.activityExpansionRetryCalls || 0) === 0
+        && (r.usage?.activityRepairCalls || 0) === 0,
+        "happy path counters bounded (3 expand / 0 retry / 0 repair)");
+    }
+
+    // 2. first expansion parse fails, second parses + quality passes → 2 expansion, 0 repair
+    {
+      let expandN = 0;
+      let repairN = 0;
+      let parseRetryN = 0;
+      const r = await staged.composeStagedLessonContent(brief15, {
+        forceLive: true,
+        callAi: async (_s, user) => {
+          if (/CREATE_WEEK_BLUEPRINT/.test(user)) return staged.buildStagedFixtureResponse(user);
+          if (/REPAIR_ACTIVITY_BATCH/.test(user)) {
+            repairN += 1;
+            return "{}";
+          }
+          if (/EXPAND_ACTIVITY_BATCH/.test(user)) {
+            expandN += 1;
+            if (/could not be parsed/i.test(user)) parseRetryN += 1;
+            // Fail only the first Batch 1 expand; parse-retry + later batches succeed
+            if (expandN === 1 && !/could not be parsed/i.test(user)) {
+              return "{ not valid json";
+            }
+            return staged.buildStagedFixtureResponse(user);
+          }
+          return staged.buildStagedFixtureResponse(user);
+        },
+      });
+      ok(r.ok === true, "parse fail then parse-ok quality-pass succeeds");
+      ok(parseRetryN === 1 && repairN === 0, "2 expansion path uses parse retry, 0 repair");
+      ok((r.usage?.activityExpansionCalls || 0) === 4
+        && (r.usage?.activityExpansionRetryCalls || 0) === 1
+        && (r.usage?.activityRepairCalls || 0) === 0,
+        "parse-retry counters: expand includes retry; repair unused");
+      const b1 = schema.asArray(r.stagedDiagnostics?.batches).find((b) => b.batchNumber === 1);
+      ok(b1?.parseRetryUsed === true && b1?.repairUsed === false && b1?.finalBatchPass === true,
+        "diagnostics: parseRetryUsed true, quality repair unused, batch pass");
+    }
+
+    // 3. first parses but quality fails → 1 expansion + 1 repair
+    {
+      let expandN = 0;
+      let repairN = 0;
+      let parseRetryN = 0;
+      const r = await staged.composeStagedLessonContent(brief15, {
+        forceLive: true,
+        callAi: async (_s, user) => {
+          if (/CREATE_WEEK_BLUEPRINT/.test(user)) return staged.buildStagedFixtureResponse(user);
+          if (/REPAIR_ACTIVITY_BATCH/.test(user)) {
+            repairN += 1;
+            const parsed = JSON.parse(user.slice(user.indexOf("{")));
+            return JSON.stringify({
+              activities: schema.asArray(parsed.previousBatchActivities).map((a) => ({
+                ...a,
+                teacherLanguage: multiPrompt,
+                vocabulary: "bakery, dough, count, share, place",
+                objective: "Children practice counting bakery tools with one-to-one correspondence and comparing groups.",
+              })),
+            });
+          }
+          if (/EXPAND_ACTIVITY_BATCH/.test(user)) {
+            expandN += 1;
+            if (/could not be parsed/i.test(user)) parseRetryN += 1;
+            const full = JSON.parse(staged.buildStagedFixtureResponse(user));
+            if (expandN === 1) {
+              full.activities = full.activities.map((a) => ({
+                ...a,
+                teacherLanguage: "What do you see?",
+                vocabulary: "hi",
+                objective: "Explore.",
+              }));
+            }
+            return JSON.stringify(full);
+          }
+          return staged.buildStagedFixtureResponse(user);
+        },
+      });
+      ok(r.ok === true, "quality-fail then repair succeeds");
+      ok(expandN === 3 && repairN === 1 && parseRetryN === 0,
+        "quality path: 1 expand + 1 repair, no parse retry");
+      ok((r.usage?.activityExpansionRetryCalls || 0) === 0
+        && (r.usage?.activityRepairCalls || 0) === 1,
+        "quality failure does not consume parse retry budget");
+    }
+
+    // 4+5. Live pattern: malformed → parse retry 5/5 → quality fail → repair runs with targets
+    {
+      let expandN = 0;
+      let repairN = 0;
+      let parseRetryN = 0;
+      const r = await staged.composeStagedLessonContent(brief15, {
+        forceLive: true,
+        callAi: async (_s, user) => {
+          if (/CREATE_WEEK_BLUEPRINT/.test(user)) return staged.buildStagedFixtureResponse(user);
+          if (/REPAIR_ACTIVITY_BATCH/.test(user)) {
+            repairN += 1;
+            const parsed = JSON.parse(user.slice(user.indexOf("{")));
+            const fields = new Set();
+            schema.asArray(parsed.repairTargets).forEach((t) => {
+              schema.asArray(t.fields).forEach((f) => fields.add(f.field));
+            });
+            ok(fields.has("objective") && fields.has("vocabulary") && fields.has("teacherLanguage"),
+              "live pattern repairTargets include objective/vocabulary/teacherLanguage");
+            return JSON.stringify({
+              activities: schema.asArray(parsed.previousBatchActivities).map((a) => ({
+                ...a,
+                teacherLanguage: multiPrompt,
+                vocabulary: "bakery, dough, count, share, place",
+                objective: "Children practice counting bakery tools with one-to-one correspondence and comparing groups.",
+              })),
+            });
+          }
+          if (/EXPAND_ACTIVITY_BATCH/.test(user)) {
+            expandN += 1;
+            if (/could not be parsed/i.test(user)) parseRetryN += 1;
+            if (expandN === 1 && !/could not be parsed/i.test(user)) {
+              return "{ truncated malformed";
+            }
+            const full = JSON.parse(staged.buildStagedFixtureResponse(user));
+            // After parse retry for batch1: inject live quality failures
+            if (parseRetryN === 1 && expandN === 2) {
+              full.activities = full.activities.map((a, i) => ({
+                ...a,
+                objective: "Explore.",
+                vocabulary: "hi",
+                teacherLanguage: i < 2 ? "What do you see?" : a.teacherLanguage,
+              }));
+            }
+            return JSON.stringify(full);
+          }
+          return staged.buildStagedFixtureResponse(user);
+        },
+      });
+      ok(r.ok === true, "live pattern: parse retry + quality repair both allowed");
+      ok(parseRetryN === 1 && repairN === 1, "parse retry used and quality repair used (separate)");
+      ok((r.usage?.activityExpansionRetryCalls || 0) === 1
+        && (r.usage?.activityRepairCalls || 0) === 1,
+        "parse failure does not consume quality repair budget");
+      ok(repairN === 1, "no second quality repair / no third uncontrolled repair");
+      const b1 = schema.asArray(r.stagedDiagnostics?.batches).find((b) => b.batchNumber === 1);
+      ok(b1?.expansionAttempts === 2, "Batch 1 expansionAttempts capped at initial+1 parse retry");
+      ok(b1?.parseRetryUsed === true && b1?.repairUsed === true && b1?.finalBatchPass === true,
+        "diagnostics separate parseRetryUsed and repairUsed");
+      ok(schema.asArray(b1?.mappedRepairTargets).length >= 1, "mappedRepairTargets populated after parseable batch");
+      ok(activityCountFromContent(r.content) === 15, "valid repaired Batch 1 may continue to Batch 2/3");
+    }
+
+    // 6. second parse failure → BLOCK
+    {
+      let expandN = 0;
+      let repairN = 0;
+      const r = await staged.composeStagedLessonContent(brief15, {
+        forceLive: true,
+        callAi: async (_s, user) => {
+          if (/CREATE_WEEK_BLUEPRINT/.test(user)) return staged.buildStagedFixtureResponse(user);
+          if (/REPAIR_ACTIVITY_BATCH/.test(user)) {
+            repairN += 1;
+            return "{}";
+          }
+          if (/EXPAND_ACTIVITY_BATCH/.test(user)) {
+            expandN += 1;
+            return "{ still broken";
+          }
+          return staged.buildStagedFixtureResponse(user);
+        },
+      });
+      ok(r.ok === false && r.code === "AI_CREATION_FAILED", "second parse failure → BLOCK");
+      ok(expandN === 2 && repairN === 0, "max one parse retry; no quality repair without parse");
+      ok((r.usage?.activityExpansionRetryCalls || 0) === 1
+        && (r.usage?.activityRepairCalls || 0) === 0,
+        "double parse fail: retry=1 repair=0");
+      const b1 = schema.asArray(r.stagedDiagnostics?.batches).find((b) => b.batchNumber === 1);
+      ok(b1?.finalBatchPass === false && b1?.parseRetryUsed === true, "parseRetryUsed with finalBatchPass false");
+    }
+
+    // 7+8. repair still invalid → BLOCK; no second quality repair
+    {
+      let repairN = 0;
+      const r = await staged.composeStagedLessonContent(brief15, {
+        forceLive: true,
+        callAi: async (_s, user) => {
+          if (/CREATE_WEEK_BLUEPRINT/.test(user)) return staged.buildStagedFixtureResponse(user);
+          if (/REPAIR_ACTIVITY_BATCH/.test(user)) {
+            repairN += 1;
+            const parsed = JSON.parse(user.slice(user.indexOf("{")));
+            return JSON.stringify({
+              activities: schema.asArray(parsed.previousBatchActivities).map((a) => ({
+                ...a,
+                teacherLanguage: "What do you see?",
+              })),
+            });
+          }
+          if (/EXPAND_ACTIVITY_BATCH/.test(user)) {
+            const full = JSON.parse(staged.buildStagedFixtureResponse(user));
+            full.activities = full.activities.map((a) => ({
+              ...a,
+              teacherLanguage: "What do you see?",
+            }));
+            return JSON.stringify(full);
+          }
+          return staged.buildStagedFixtureResponse(user);
+        },
+      });
+      ok(r.ok === false && r.code === "AI_CREATION_FAILED", "repair still invalid → BLOCK");
+      ok(repairN === 1, "no second quality repair");
+      ok(!r.content, "failed Stage 2 still blocks lesson.create");
+      ok(!schema.isPhase2Executable("lesson.publish"), "publish behavior unchanged");
+    }
+
+    // 9–12 already covered above; parse retry prompt shape
+    ok(/could not be parsed/i.test(
+      staged.buildExpansionParseRetryUserPrompt(
+        brief15,
+        staged.validateBlueprint(
+          JSON.parse(staged.buildStagedFixtureResponse(staged.buildStage1UserPrompt(brief15))),
+          brief15,
+        ).blueprint,
+        ["o1"],
+        { batchNumber: 1 },
+      ),
+    ), "parse retry prompt asks for same batch as valid JSON only");
+
+    ok(staged.MAX_EXPANSION_PARSE_RETRIES === 1
+      && staged.MAX_QUALITY_REPAIR_CALLS_PER_BATCH === 1,
+      "hard limits: max 1 parse retry and 1 quality repair per batch");
+
+    ok(staged.isExpansionParseTransportFailure(
+      { ok: false, flags: { possibleOutputTruncation: true } },
+      null,
+      5,
+    ) === true, "malformed stage classified as parse/transport failure");
+
+    ok(staged.isExpansionParseTransportFailure(
+      { ok: true, flags: {}, parsedObjectCount: 5 },
+      {
+        ok: false,
+        parsedObjectCount: 5,
+        activities: [{ outlineId: "a" }],
+        issues: ["Title.insufficient_questions"],
+      },
+      5,
+    ) === false, "parsed valid batch with quality issues is NOT parse failure");
   }
 
   // Three valid batches → Stage 3 receives exactly 15; diagnostics present; publish blocked
