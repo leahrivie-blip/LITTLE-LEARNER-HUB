@@ -1028,6 +1028,17 @@ function buildExpansionSystemPrompt(ageBand) {
 
 function expansionFieldQualityExpectations() {
   return {
+    description: [
+      "Concrete activity-specific description of what the experience looks like.",
+      "Include what children will do, the core materials/action/context, and what makes this activity distinct from the title alone.",
+      "Bad: \"Children will explore bakery materials through play.\" / \"Children will learn about baking.\" / vague hands-on filler.",
+      "Good: name the child actions and materials (scoop, pour, mix, sort, role-play, etc.) so a teacher can picture the experience.",
+    ].join(" "),
+    objective: [
+      "Activity-specific learning objective naming the developmental skill, the child action that practices it, and the connection to this activity.",
+      "Bad: \"Children will develop fine motor skills.\" / \"Children will practice counting.\" / \"Children will learn about bakeries.\"",
+      "Good: skill + concrete child action in this activity (e.g. one-to-one correspondence by counting and matching items during play).",
+    ].join(" "),
     teacherLanguage: [
       `Canonical format: a single newline-separated STRING (not a JSON array).`,
       `Include at least ${MIN_TEACHER_LANGUAGE_PROMPT_LINES} distinct activity-specific teacher prompts`,
@@ -1045,6 +1056,138 @@ function expansionFieldQualityExpectations() {
     cleanupTips: "May be concise if specific.",
     vocabulary: "May be concise theme words; must include ≥3 usable words.",
     safetyNotes: "Activity-specific safety guidance (≥8 words). Name a relevant hazard/supervision need (choking, mouthing, allergy, spills, tools, temperature, etc. when applicable) and the teacher action that reduces it. Bad: \"Supervise children.\" / \"Use safe materials.\" Good: large non-chokable pieces + remove cracked tools + supervise mouthing.",
+  };
+}
+
+/**
+ * Per-field repair contract for aggregated Stage 2 repairTargets.
+ * Distinguishes generic_filler (REPLACE/REWRITE) from too_short/missing (write substantive).
+ * Does not weaken rejectGeneric — only instructs the model.
+ */
+function fieldRepairQualityInstruction(field, reason) {
+  const canonical = canonicalizeExpansionIssueField(field) || text(field, 60);
+  const why = text(reason, 80);
+  if (canonical === "description") {
+    if (why === "generic_filler") {
+      return [
+        "The existing description is long enough but too generic.",
+        "REPLACE it with concrete activity-specific text.",
+        "Do not preserve or lightly paraphrase the generic wording.",
+        "Include what children will do, the core materials/action/context, and what makes this activity distinct.",
+        "Forbidden short patterns: \"Children will explore/learn about…\", vague \"fun hands-on activity\" filler.",
+      ].join(" ");
+    }
+    return [
+      "Write a concrete activity-specific description: what children do,",
+      "core materials/action/context, and what makes the experience distinct from the title alone.",
+    ].join(" ");
+  }
+  if (canonical === "objective") {
+    if (why === "generic_filler") {
+      return [
+        "The existing objective is structurally present but too generic.",
+        "REWRITE it to name the actual developmental skill and the child action used in this activity.",
+        "Do not preserve or lightly paraphrase the generic wording.",
+        "Tie the skill to this specific activity's materials/actions.",
+        "Forbidden short patterns: \"Children will develop fine motor skills.\" / \"Children will practice counting.\" / \"Children will learn about…\" without a concrete activity action.",
+      ].join(" ");
+    }
+    return [
+      "Write an activity-specific objective naming the developmental skill,",
+      "the child action that practices it, and how it connects to this activity.",
+      "Meet the existing depth gate — not a thin one-liner.",
+    ].join(" ");
+  }
+  if (canonical === "teacherLanguage") {
+    return [
+      `Return a newline-separated STRING with at least ${MIN_TEACHER_LANGUAGE_PROMPT_LINES} distinct activity-specific prompts.`,
+      "Do not return a JSON array or one generic sentence.",
+    ].join(" ");
+  }
+  if (canonical === "safetyNotes") {
+    return "Rewrite with activity-specific hazard/supervision guidance and the teacher action that reduces risk — not generic supervise-only filler.";
+  }
+  if (canonical === "materials") {
+    return "List concrete activity materials with enough detail to set up the experience (not a one-word list).";
+  }
+  return "";
+}
+
+/**
+ * Enrich mapped repairTargets with per-field qualityInstruction + activity context
+ * for aggregated Stage 2 repair. Does not change mapping/sweep logic.
+ */
+function enrichExpansionRepairTargets(repairTargets, previousActivities, blueprint) {
+  const priorById = new Map(schema.asArray(previousActivities).map((a) => [text(a.outlineId, 80), a]));
+  const outlineMap = new Map(
+    schema.asArray(blueprint?.activityOutlines).map((o) => [text(o.outlineId, 80), o]),
+  );
+  return schema.asArray(repairTargets).map((target) => {
+    const id = text(target.outlineId, 80);
+    const prior = priorById.get(id) || {};
+    const outline = outlineMap.get(id) || {};
+    const fields = schema.asArray(target.fields).map((f) => {
+      const field = text(f.field, 60);
+      const reason = text(f.reason || f.issueCode, 80);
+      const instruction = fieldRepairQualityInstruction(field, reason);
+      return {
+        field,
+        reason,
+        issueCode: text(f.issueCode || reason, 80),
+        sourceIssue: text(f.sourceIssue, 200),
+        ...(instruction ? { qualityInstruction: instruction } : {}),
+      };
+    });
+    return {
+      outlineId: id,
+      title: text(target.title || prior.title || outline.name, 120),
+      fields,
+      activityContext: {
+        name: text(prior.title || outline.name || target.title, 120),
+        weekday: text(prior.dayOfWeek || outline.weekday, 20),
+        domain: text(prior.activityCategory || outline.domain, 80),
+        concept: text(outline.concept, 500),
+        developmentalPurpose: text(outline.developmentalPurpose, 500),
+        materials: text(prior.materials, 500),
+        setup: text(prior.setup, 500),
+        currentDescription: text(prior.description, 500),
+        currentObjective: text(prior.objective, 500),
+      },
+    };
+  });
+}
+
+function collectGenericFillerRepairDiagnostics(repairTargets, preIssues, postIssues) {
+  const targets = schema.asArray(repairTargets);
+  const genericFillerTargets = targets
+    .map((t) => ({
+      outlineId: text(t.outlineId, 80),
+      fields: schema.asArray(t.fields)
+        .filter((f) => text(f.reason || f.issueCode, 80) === "generic_filler")
+        .map((f) => text(f.field, 60)),
+    }))
+    .filter((t) => t.fields.length > 0);
+  const descriptionRepairsByOutlineId = Object.fromEntries(
+    targets
+      .filter((t) => schema.asArray(t.fields).some((f) => f.field === "description"))
+      .map((t) => [text(t.outlineId, 80), schema.asArray(t.fields).filter((f) => f.field === "description")]),
+  );
+  const objectiveRepairsByOutlineId = Object.fromEntries(
+    targets
+      .filter((t) => schema.asArray(t.fields).some((f) => f.field === "objective"))
+      .map((t) => [text(t.outlineId, 80), schema.asArray(t.fields).filter((f) => f.field === "objective")]),
+  );
+  const isGeneric = (row) => {
+    if (!row || typeof row !== "object") return /generic_filler|Generic filler/i.test(String(row || ""));
+    return text(row.code || row.reason, 80) === "generic_filler"
+      || /Generic filler/i.test(text(row.message || row.sourceIssue, 200));
+  };
+  return {
+    genericFillerTargets,
+    descriptionRepairsByOutlineId,
+    objectiveRepairsByOutlineId,
+    genericFillerBefore: schema.asArray(preIssues).filter(isGeneric).slice(0, 20),
+    genericFillerAfter: schema.asArray(postIssues).filter(isGeneric).slice(0, 20),
   };
 }
 
@@ -1083,6 +1226,8 @@ function buildExpansionUserPrompt(brief, blueprint, outlineIds, options = {}) {
       "Every expandExactlyTheseOutlineIds value must appear exactly once.",
       "No unrequested outlineId.",
       "Populate EVERY requiredActivityFields entry — missing/empty/TODO/generic filler fails.",
+      "description: concrete child actions + materials/context; not \"Children will explore/learn about X\".",
+      "objective: developmental skill + child action tied to this activity; not a thin generic skill sentence.",
       `teacherLanguage: return a newline-separated STRING with at least ${MIN_TEACHER_LANGUAGE_PROMPT_LINES} distinct activity-specific prompts (one per line; prefer 3+). Do not return a JSON array. Do not return one generic question. Do not combine all prompts into a single unparseable paragraph.`,
       "teacherTips: non-empty array of activity-specific tips.",
       "observationPrompts: non-empty array of concrete observation prompts.",
@@ -1321,7 +1466,11 @@ function buildExpansionRepairTargets(issues, activities) {
 function buildExpansionRepairUserPrompt(brief, blueprint, outlineIds, previousActivities, issues, options = {}) {
   const wanted = schema.asArray(outlineIds).map((id) => text(id, 80)).filter(Boolean);
   const plan = options.repairPlan || planExpansionRepair(issues, previousActivities);
-  const repairTargets = plan.mappedRepairTargets;
+  const repairTargets = enrichExpansionRepairTargets(
+    plan.mappedRepairTargets,
+    previousActivities,
+    blueprint,
+  );
   const failedIds = repairTargets.map((t) => t.outlineId);
   const repairedFieldsByOutlineId = Object.fromEntries(
     repairTargets.map((t) => [t.outlineId, t.fields.map((f) => f.field)]),
@@ -1338,6 +1487,18 @@ function buildExpansionRepairUserPrompt(brief, blueprint, outlineIds, previousAc
       && (f.reason === "insufficient_questions" || f.issueCode === "insufficient_questions")
     ))
   ));
+  const descriptionGenericTargeted = repairTargets.some((t) => (
+    schema.asArray(t.fields).some((f) => f.field === "description" && f.reason === "generic_filler")
+  ));
+  const objectiveGenericTargeted = repairTargets.some((t) => (
+    schema.asArray(t.fields).some((f) => f.field === "objective" && f.reason === "generic_filler")
+  ));
+  const descriptionTargeted = repairTargets.some((t) => (
+    schema.asArray(t.fields).some((f) => f.field === "description")
+  ));
+  const objectiveTargeted = repairTargets.some((t) => (
+    schema.asArray(t.fields).some((f) => f.field === "objective")
+  ));
   const safetyOutlineIds = repairTargets
     .filter((t) => schema.asArray(t.fields).some((f) => f.field === "safetyNotes"))
     .map((t) => t.outlineId);
@@ -1348,6 +1509,7 @@ function buildExpansionRepairUserPrompt(brief, blueprint, outlineIds, previousAc
     "Repair ONLY the failed activity fields in this expansion batch.",
     "Preserve valid activities and valid fields. Keep outlineId / title / dayOfWeek / activityCategory aligned to the blueprint.",
     "Do not regenerate all activities from scratch — repair every listed canonical field only.",
+    "Use each repairTargets[].activityContext (name, concept, developmentalPurpose, materials, setup) and each field's qualityInstruction.",
     JSON.stringify({
       mode: "REPAIR_ACTIVITY_BATCH",
       brief: {
@@ -1378,6 +1540,7 @@ function buildExpansionRepairUserPrompt(brief, blueprint, outlineIds, previousAc
             weekday: o.weekday,
             domain: o.domain,
             concept: o.concept,
+            developmentalPurpose: o.developmentalPurpose,
           })),
       },
       previousBatchActivities: schema.asArray(previousActivities),
@@ -1389,13 +1552,23 @@ function buildExpansionRepairUserPrompt(brief, blueprint, outlineIds, previousAc
         "Preserve strong original fields that already passed validation.",
         "Preserve outlineId, title, dayOfWeek, and activityCategory unless explicitly targeted.",
         "Fix EVERY listed repairTargets field in this one response. Do not skip any outlineId or field. Do not repair only the first failure.",
+        "Follow each field's qualityInstruction exactly. generic_filler means REPLACE/REWRITE — do not lengthen or lightly paraphrase the same generic sentence.",
         teacherLanguageTargeted
           ? `If teacherLanguage is targeted: return the complete canonical teacherLanguage as a newline-separated STRING with at least ${MIN_TEACHER_LANGUAGE_PROMPT_LINES} distinct activity-specific teacher prompts (one prompt per line; prefer 3+ with observation, prediction/problem-solving, and comparison/reflection). Each prompt must be separately countable by the existing validator. Do not return a JSON array. Do not return one generic sentence. Do not combine prompts into a single unparseable paragraph. Do not return generic filler or near-duplicate variants.`
           : "",
         insufficientQuestionsTargeted
           ? `Replace teacherLanguage with at least ${MIN_TEACHER_LANGUAGE_PROMPT_LINES} distinct activity-specific teacher prompts in the canonical newline-separated string format. Each prompt must be separately countable by the existing validator.`
           : "",
-        repairTargets.some((t) => schema.asArray(t.fields).some((f) => f.field === "objective"))
+        descriptionGenericTargeted
+          ? "If description is targeted for generic_filler: The existing description is long enough but too generic. REPLACE it with concrete activity-specific text. Do not preserve or lightly paraphrase the generic wording. Include what children will do, the core materials/action/context, and what makes this activity distinct."
+          : "",
+        descriptionTargeted && !descriptionGenericTargeted
+          ? "If description is targeted: write a concrete activity-specific description of child actions, materials/context, and what makes the experience distinct."
+          : "",
+        objectiveGenericTargeted
+          ? "If objective is targeted for generic_filler: The existing objective is structurally present but too generic. REWRITE it to name the actual developmental skill and the child action used in this activity. Do not preserve or lightly paraphrase the generic wording."
+          : "",
+        objectiveTargeted && !objectiveGenericTargeted
           ? "If objective is targeted: write an activity-specific objective that names the developmental skill, the child action, and how it connects to this activity. Meet the existing depth/length gate — do not return a thin one-liner."
           : "",
         "If adaptations is targeted: return a practical, activity-specific support adaptation (not \"Provide support.\").",
@@ -1853,6 +2026,15 @@ function recordBatchDiagnostic(diagnostics, row) {
       ? row.issueCountByField
       : {},
     postRepairQualityIssues: schema.asArray(row.postRepairQualityIssues).slice(0, 40),
+    genericFillerTargets: schema.asArray(row.genericFillerTargets).slice(0, 16),
+    descriptionRepairsByOutlineId: row.descriptionRepairsByOutlineId && typeof row.descriptionRepairsByOutlineId === "object"
+      ? row.descriptionRepairsByOutlineId
+      : {},
+    objectiveRepairsByOutlineId: row.objectiveRepairsByOutlineId && typeof row.objectiveRepairsByOutlineId === "object"
+      ? row.objectiveRepairsByOutlineId
+      : {},
+    genericFillerBefore: schema.asArray(row.genericFillerBefore).slice(0, 20),
+    genericFillerAfter: schema.asArray(row.genericFillerAfter).slice(0, 20),
     finalBatchPass: row.finalBatchPass === true,
   });
 }
@@ -2677,6 +2859,11 @@ async function composeStagedLessonContent(brief, options = {}) {
       lastUnmappedIssues = lastRepairPlan.unmappedQualityIssues;
       const preRepairQualityIssues = preSweep.structuredIssues;
       const preIssueCountByField = preSweep.issueCountByField;
+      const genericDiagBase = collectGenericFillerRepairDiagnostics(
+        lastRepairTargets,
+        preRepairQualityIssues,
+        [],
+      );
 
       if (!lastRepairPlan.canRepair || MAX_QUALITY_REPAIR_CALLS_PER_BATCH < 1) {
         const unmappedTags = lastUnmappedIssues.map((i) => `unmapped_quality_issue:${text(i, 160)}`);
@@ -2695,6 +2882,8 @@ async function composeStagedLessonContent(brief, options = {}) {
           preRepairQualityIssues,
           issueCountByField: preIssueCountByField,
           postRepairQualityIssues: preRepairQualityIssues,
+          ...genericDiagBase,
+          genericFillerAfter: genericDiagBase.genericFillerBefore,
         });
         return {
           ok: false,
@@ -2774,6 +2963,8 @@ async function composeStagedLessonContent(brief, options = {}) {
           preRepairQualityIssues,
           issueCountByField: preIssueCountByField,
           postRepairQualityIssues: preRepairQualityIssues,
+          ...genericDiagBase,
+          genericFillerAfter: genericDiagBase.genericFillerBefore,
         });
         return {
           ok: false,
@@ -2809,6 +3000,11 @@ async function composeStagedLessonContent(brief, options = {}) {
         issues: postAllIssues,
         ok: postAllIssues.length === 0 && validated.activities.length === ids.length,
       };
+      const genericDiag = collectGenericFillerRepairDiagnostics(
+        lastRepairTargets,
+        preRepairQualityIssues,
+        postSweep.structuredIssues,
+      );
       rawTeacherLanguageAfterById = rawTeacherLanguageByOutlineId(repairStage.parsed);
       teacherLanguageDiagnostics = buildTeacherLanguageRepairDiagnostics(
         priorBatchActivities,
@@ -2872,6 +3068,7 @@ async function composeStagedLessonContent(brief, options = {}) {
           preRepairQualityIssues,
           issueCountByField: preIssueCountByField,
           postRepairQualityIssues: [],
+          ...genericDiag,
           finalBatchPass: true,
         });
         success = true;
@@ -2890,6 +3087,7 @@ async function composeStagedLessonContent(brief, options = {}) {
           preRepairQualityIssues,
           issueCountByField: preIssueCountByField,
           postRepairQualityIssues: postSweep.structuredIssues,
+          ...genericDiag,
         });
         return {
           ok: false,
@@ -3185,4 +3383,9 @@ module.exports = {
   toStructuredQualityIssue,
   issueCountByField,
   buildFinalRepairUserPrompt,
+  expansionFieldQualityExpectations,
+  fieldRepairQualityInstruction,
+  enrichExpansionRepairTargets,
+  collectGenericFillerRepairDiagnostics,
+  rejectGeneric,
 };
