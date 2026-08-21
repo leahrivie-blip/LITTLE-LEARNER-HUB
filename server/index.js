@@ -31747,27 +31747,33 @@ const server = http.createServer(async (request, response) => {
           saveOperatorEnrichmentDraft,
           createOperatorLessonPlan,
           openAiConfigured: Boolean(isConfiguredValue(OPENAI_API_KEY)),
-          callOperatorAi: async (systemPrompt, userPrompt) => {
+          callOperatorAi: async (systemPrompt, userPrompt, aiOptions = {}) => {
             const forceFixture = process.env.NODE_ENV === "test"
               || ["1", "true", "yes"].includes(String(process.env.LLH_OPERATOR_AI_FIXTURE || "").trim().toLowerCase());
             if (forceFixture) {
-              const composer = require("../scripts/curriculum-operator-ai-composer.js");
-              // Prefer create-architect fixture when the prompt is a create brief.
-              if (/CREATE_NEW_LESSON_ARCHITECT|requiredActivityCount/i.test(String(userPrompt || ""))) {
+              const stagedComposer = require("../scripts/curriculum-operator-staged-composer.js");
+              // Prefer staged fixtures for create; upgrade composer for other prompts.
+              if (/CREATE_WEEK_BLUEPRINT|EXPAND_ACTIVITY_BATCH|REPAIR_TARGETED_LESSON_PATCH|CREATE_NEW_LESSON_ARCHITECT|requiredActivityCount/i.test(String(userPrompt || ""))) {
+                if (/CREATE_WEEK_BLUEPRINT|EXPAND_ACTIVITY_BATCH|REPAIR_TARGETED_LESSON_PATCH/i.test(String(userPrompt || ""))) {
+                  return stagedComposer.buildStagedFixtureResponse(userPrompt);
+                }
                 const architect = require("../scripts/curriculum-operator-create-architect.js");
                 return architect.buildOperatorCreateArchitectFixtureResponse(userPrompt);
               }
+              const composer = require("../scripts/curriculum-operator-ai-composer.js");
               return composer.buildOperatorAiFixtureResponse(userPrompt);
             }
             if (!isConfiguredValue(OPENAI_API_KEY)) {
               throw new Error("OpenAI is not configured for the curriculum operator.");
             }
-            // Full Teaching Kit JSON (esp. 15 activities) needs a high output budget.
-            // Historical create failures returned ~5 activities with valid-looking JSON —
-            // raise max_output_tokens so the model is not forced to stop early.
-            const OPERATOR_AI_MAX_OUTPUT_TOKENS = 24000;
+            // Staged create uses smaller per-call budgets; single-shot upgrade keeps the higher cap.
+            const stagedCreate = /CREATE_WEEK_BLUEPRINT|EXPAND_ACTIVITY_BATCH|REPAIR_TARGETED_LESSON_PATCH/i.test(String(userPrompt || ""));
+            const OPERATOR_AI_MAX_OUTPUT_TOKENS = Number(aiOptions.maxOutputTokens) > 0
+              ? Math.floor(Number(aiOptions.maxOutputTokens))
+              : (stagedCreate ? 12000 : 24000);
             return callOpenAiRaw(systemPrompt, userPrompt, {
               maxOutputTokens: OPERATOR_AI_MAX_OUTPUT_TOKENS,
+              returnMeta: aiOptions.returnMeta === true,
             });
           },
           enrichmentMedia,

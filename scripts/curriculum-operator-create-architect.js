@@ -695,77 +695,14 @@ async function callArchitectOnce(brief, callAi, revision) {
 /**
  * Production path: require AI (or fixture-mode AI). Never fall back to deterministic seeds.
  */
+/**
+ * Production create path: staged week architecture + batched activity expansion.
+ * Single-shot full-lesson generation is no longer used for create (response-size failures).
+ * Lazy-require avoids circular dependency with the staged composer module.
+ */
 async function composeNewLessonContent(brief, options = {}) {
-  const fixtureMode = isCreateFixtureMode(options);
-  let callAi = options.callAi;
-  if (fixtureMode && typeof callAi !== "function") {
-    callAi = async (_system, user) => buildOperatorCreateArchitectFixtureResponse(user);
-  }
-  if (typeof callAi !== "function") {
-    return {
-      ok: false,
-      code: "AI_CREATION_FAILED",
-      error: "Structured AI lesson architect requires callAi. Deterministic production fallback is disabled.",
-      usage: { lessonArchitectCalls: 0, lessonRevisionCalls: 0 },
-    };
-  }
-
-  const first = await callArchitectOnce(brief, callAi, null);
-  const usage = {
-    lessonArchitectCalls: first.usage?.lessonArchitectCalls || 0,
-    lessonRevisionCalls: 0,
-  };
-  if (first.ok) {
-    return {
-      ok: true,
-      content: first.content,
-      activityCount: schema.clampInt(brief.activityTarget, 4, 24, 12),
-      progression: first.content.lesson.dailyFocus,
-      preliminaryAssetIntent: first.content.preliminaryAssetIntent || [],
-      researchStatus: brief.researchRequested ? "RESEARCH_NOT_AVAILABLE" : "not_requested",
-      usage,
-      source: fixtureMode ? "fixture_ai" : "live_ai",
-    };
-  }
-
-  if (first.code === "AI_CREATION_FAILED" && !first.content) {
-    return {
-      ok: false,
-      code: "AI_CREATION_FAILED",
-      error: first.error,
-      usage,
-    };
-  }
-
-  const revision = await callArchitectOnce(brief, callAi, {
-    revisionIssues: first.issues || [first.error],
-    previousContent: first.content || null,
-    previousActivityCount: first.parsedActivityCount,
-  });
-  usage.lessonRevisionCalls = 1;
-  usage.lessonArchitectCalls += revision.usage?.lessonArchitectCalls || 0;
-
-  if (!revision.ok) {
-    return {
-      ok: false,
-      code: "AI_CREATION_FAILED",
-      error: revision.error || first.error || "AI lesson architect failed quality after revision.",
-      issues: revision.issues || first.issues,
-      usage,
-    };
-  }
-
-  return {
-    ok: true,
-    content: revision.content,
-    activityCount: schema.clampInt(brief.activityTarget, 4, 24, 12),
-    progression: revision.content.lesson.dailyFocus,
-    preliminaryAssetIntent: revision.content.preliminaryAssetIntent || [],
-    researchStatus: brief.researchRequested ? "RESEARCH_NOT_AVAILABLE" : "not_requested",
-    usage,
-    revised: true,
-    source: fixtureMode ? "fixture_ai" : "live_ai",
-  };
+  const staged = require("./curriculum-operator-staged-composer.js");
+  return staged.composeStagedLessonContent(brief, options);
 }
 
 module.exports = {
