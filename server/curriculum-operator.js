@@ -752,27 +752,56 @@ function createCurriculumOperatorApi(deps) {
       jobApi.appendLog(job, `Duplicate warning acknowledged — continuing create (${dup.message}).`, "warn");
     }
 
+    const stagedComposer = require("../scripts/curriculum-operator-staged-composer.js");
     const contentBuilt = await createArchitect.composeNewLessonContent(brief, {
+      priorProgress: {
+        creationBlueprintComplete: lr.creationBlueprintComplete === true,
+        creationBlueprint: lr.creationBlueprint || null,
+        activityExpansionBatches: lr.activityExpansionBatches || null,
+      },
       callAi: typeof callOperatorAi === "function"
-        ? async (systemPrompt, userPrompt) => {
-          // Prefer create-architect fixture when in fixture mode so upgrade fixture
-          // JSON is not mistaken for a full lesson payload.
+        ? async (systemPrompt, userPrompt, aiOptions = {}) => {
+          // Prefer staged fixtures in fixture mode so Stage 1/2 prompts are not
+          // answered with a full single-shot lesson dump.
           if (createArchitect.isCreateFixtureMode()) {
-            return createArchitect.buildOperatorCreateArchitectFixtureResponse(userPrompt);
+            return stagedComposer.buildStagedFixtureResponse(userPrompt);
           }
-          return callOperatorAi(systemPrompt, userPrompt);
+          return callOperatorAi(systemPrompt, userPrompt, {
+            maxOutputTokens: Number(aiOptions.maxOutputTokens) > 0
+              ? Number(aiOptions.maxOutputTokens)
+              : 12000,
+            returnMeta: aiOptions.returnMeta === true,
+          });
         }
         : undefined,
     });
     job.progress.currentAction = "creation.base_content";
+    if (contentBuilt.progress) {
+      lr.creationBlueprintComplete = contentBuilt.progress.creationBlueprintComplete === true;
+      lr.creationBlueprint = contentBuilt.progress.creationBlueprint || null;
+      lr.activityExpansionBatches = contentBuilt.progress.activityExpansionBatches || null;
+    }
+    if (contentBuilt.stagedDiagnostics) {
+      lr.stagedDiagnostics = contentBuilt.stagedDiagnostics;
+    }
     if (contentBuilt.usage) {
+      const u = contentBuilt.usage;
       job.costCounters.lessonArchitectCalls = (job.costCounters.lessonArchitectCalls || 0)
-        + Number(contentBuilt.usage.lessonArchitectCalls || 0);
+        + Number(u.lessonArchitectCalls || 0);
       job.costCounters.lessonRevisionCalls = (job.costCounters.lessonRevisionCalls || 0)
-        + Number(contentBuilt.usage.lessonRevisionCalls || 0);
+        + Number(u.lessonRevisionCalls || 0);
+      job.costCounters.lessonArchitectureCalls = (job.costCounters.lessonArchitectureCalls || 0)
+        + Number(u.lessonArchitectureCalls || 0);
+      job.costCounters.activityExpansionCalls = (job.costCounters.activityExpansionCalls || 0)
+        + Number(u.activityExpansionCalls || 0);
+      job.costCounters.activityRepairCalls = (job.costCounters.activityRepairCalls || 0)
+        + Number(u.activityRepairCalls || 0);
+      job.costCounters.activitiesRequested = Number(u.activitiesRequested || job.costCounters.activitiesRequested || 0);
+      job.costCounters.activitiesCompleted = Number(u.activitiesCompleted || job.costCounters.activitiesCompleted || 0);
+      job.costCounters.outputTruncationCount = (job.costCounters.outputTruncationCount || 0)
+        + Number(u.outputTruncationCount || 0);
       job.costCounters.openaiCalls = (job.costCounters.openaiCalls || 0)
-        + Number(contentBuilt.usage.lessonArchitectCalls || 0)
-        + Number(contentBuilt.usage.lessonRevisionCalls || 0);
+        + Number(u.openaiCalls || 0);
     }
     if (brief.researchRequested) {
       jobApi.appendLog(job, "Research requested: RESEARCH_NOT_AVAILABLE (no approved research mechanism).", "info");
@@ -794,12 +823,16 @@ function createCurriculumOperatorApi(deps) {
           error: contentBuilt.error || "AI lesson architect failed.",
           code: contentBuilt.code || "AI_CREATION_FAILED",
           aiUsage: contentBuilt.usage || null,
+          stagedDiagnostics: contentBuilt.stagedDiagnostics || lr.stagedDiagnostics || null,
+          creationBlueprintComplete: contentBuilt.progress?.creationBlueprintComplete === true,
+          creationBlueprint: contentBuilt.progress?.creationBlueprint || lr.creationBlueprint || null,
+          activityExpansionBatches: contentBuilt.progress?.activityExpansionBatches || lr.activityExpansionBatches || null,
         },
       };
     }
     jobApi.appendLog(
       job,
-      `AI lesson architect ok (${contentBuilt.source || "ai"}; activities=${contentBuilt.activityCount}${contentBuilt.revised ? "; revised" : ""}).`,
+      `AI staged composer ok (${contentBuilt.source || "ai"}; activities=${contentBuilt.activityCount}${contentBuilt.revised ? "; repaired" : ""}; arch=${contentBuilt.usage?.lessonArchitectureCalls || 0}; expand=${contentBuilt.usage?.activityExpansionCalls || 0}).`,
       "info",
     );
 

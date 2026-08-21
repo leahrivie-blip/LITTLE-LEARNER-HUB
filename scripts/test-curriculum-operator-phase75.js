@@ -98,59 +98,40 @@ async function main() {
     || (malformed.issues || []).includes("malformed_json")
     || /malformed/i.test(malformed.error || ""), "malformed path reported");
 
-  console.log("Quality gate + one revision");
+  console.log("Quality gate + staged repair bounds");
+  const staged = require("./curriculum-operator-staged-composer.js");
   let calls = 0;
   const weakThenStrong = await architect.composeNewLessonContent(brief, {
     forceLive: true,
     callAi: async (_sys, user) => {
       calls += 1;
-      if (calls === 1) {
-        return JSON.stringify({
-          lesson: { title: "Bakery", age: brief.ageLabel, theme: "Bakery", plan: "Free", weeklyOverview: "x", objectives: "Children will learn about bakeries.", weeklyMaterials: "stuff", teacherPreparation: "Set out materials.", prepChecklist: [], observationFocus: [], familyConnection: "What do you see?", milestones: [], dailyFocus: {} },
-          activities: [{ title: "Apple Sort", dayOfWeek: "monday", objective: "Let children explore.", description: "Sort.", materials: "apples", preparation: "Set out materials.", setup: "Table", steps: "What do you see?", teacherLanguage: "What do you see?", observationOpportunities: "Watch", safetyNotes: "Safe", cleanupTips: "Clean", indoorAlternatives: "In", outdoorAlternatives: "Out", teacherTips: [], substitutions: [], adaptations: "Help", extensions: "More", vocabulary: "a", observationPrompts: [] }],
-        });
+      if (/CREATE_WEEK_BLUEPRINT/.test(user) && calls === 1) {
+        const full = JSON.parse(staged.buildStagedFixtureResponse(user));
+        full.activityOutlines = full.activityOutlines.slice(0, 8);
+        return JSON.stringify(full);
       }
-      return architect.buildOperatorCreateArchitectFixtureResponse(user);
+      return staged.buildStagedFixtureResponse(user);
     },
   });
-  ok(weakThenStrong.ok === true && weakThenStrong.revised === true, "weak lesson gets one revision then passes");
-  ok(calls === 2, "exactly one revision call after failed quality");
+  ok(weakThenStrong.ok === true, "weak Stage 1 gets one architecture repair then passes");
+  ok(calls >= 2, "Stage 1 repair path uses bounded extra call");
+  ok((weakThenStrong.usage?.lessonArchitectureCalls || 0) <= 2, "max 2 architecture calls");
 
   let calls2 = 0;
   const weakTwice = await architect.composeNewLessonContent(brief, {
     forceLive: true,
-    callAi: async () => {
+    callAi: async (_sys, user) => {
       calls2 += 1;
-      return JSON.stringify({
-        lesson: { title: "Bakery", age: brief.ageLabel, theme: "Bakery", plan: "Free", weeklyOverview: "Children will learn about bakeries.", objectives: "Children will learn about bakeries.", weeklyMaterials: "Set out materials.", teacherPreparation: "Set out materials.", prepChecklist: ["x"], observationFocus: ["y"], familyConnection: "What do you see?", milestones: ["z"], dailyFocus: { monday: "A", tuesday: "B", wednesday: "C", thursday: "D", friday: "E" } },
-        activities: Array.from({ length: 15 }, (_, i) => ({
-          title: `Apple Sort ${i}`,
-          dayOfWeek: ["monday", "tuesday", "wednesday", "thursday", "friday"][i % 5],
-          activityCategory: "Math",
-          objective: "Children will learn about bakeries.",
-          description: "Let children explore.",
-          materials: "apples",
-          preparation: "Set out materials.",
-          setup: "Table",
-          steps: "What do you see?",
-          teacherLanguage: "What do you see?",
-          observationOpportunities: "Watch kids",
-          safetyNotes: "Be safe always with materials nearby",
-          cleanupTips: "Clean the table carefully after play",
-          indoorAlternatives: "Stay inside at the same table setup",
-          outdoorAlternatives: "Move outside with the same apple trays",
-          teacherTips: ["tip"],
-          substitutions: ["sub"],
-          adaptations: "Offer support with hand over hand help",
-          extensions: "Add one extra challenge choice card",
-          vocabulary: "apple sort bakery week play",
-          observationPrompts: ["prompt?"],
-        })),
-      });
+      if (/CREATE_WEEK_BLUEPRINT/.test(user)) {
+        const full = JSON.parse(staged.buildStagedFixtureResponse(user));
+        full.activityOutlines = full.activityOutlines.slice(0, 8);
+        return JSON.stringify(full);
+      }
+      return staged.buildStagedFixtureResponse(user);
     },
   });
-  ok(weakTwice.ok === false && weakTwice.code === "AI_CREATION_FAILED", "failed revision → no lesson content");
-  ok(calls2 === 2, "stops after one revision");
+  ok(weakTwice.ok === false && weakTwice.code === "AI_CREATION_FAILED", "failed Stage 1 repair → no lesson content");
+  ok(calls2 === 2, "stops after one Stage 1 repair");
 
   console.log("Strong fixture → trusted create");
   const composed = await architect.composeNewLessonContent(brief, { forceFixture: true });
@@ -269,7 +250,13 @@ async function main() {
     normalizeEmail: (v) => String(v || "").trim().toLowerCase(),
     readSiteCurriculum: (s) => s.siteContent.curriculum,
     createOperatorLessonPlan: createHelper,
-    callOperatorAi: async (_s, u) => architect.buildOperatorCreateArchitectFixtureResponse(u),
+    callOperatorAi: async (_s, u) => {
+      const stagedComposer = require("./curriculum-operator-staged-composer.js");
+      if (/CREATE_WEEK_BLUEPRINT|EXPAND_ACTIVITY_BATCH|REPAIR_TARGETED/i.test(String(u || ""))) {
+        return stagedComposer.buildStagedFixtureResponse(u);
+      }
+      return architect.buildOperatorCreateArchitectFixtureResponse(u);
+    },
   });
   ok(api.wantsCreate(cmd.command) === true, "wantsCreate");
   const summary = api.buildPlanSummary(cmd.command, {

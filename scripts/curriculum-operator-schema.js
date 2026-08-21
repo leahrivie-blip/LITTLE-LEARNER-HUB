@@ -643,6 +643,12 @@ function emptyCostCounters() {
     bookGuidesImproved: 0,
     lessonArchitectCalls: 0,
     lessonRevisionCalls: 0,
+    lessonArchitectureCalls: 0,
+    activityExpansionCalls: 0,
+    activityRepairCalls: 0,
+    activitiesRequested: 0,
+    activitiesCompleted: 0,
+    outputTruncationCount: 0,
   };
 }
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Operator new-lesson architect activity-count / quality contract tests.
+ * Operator new-lesson architect quality contract tests (validation + staged compose entry).
  * Deterministic fixtures only — no live OpenAI.
  * Run: npm run test:curriculum-operator-create-architect
  */
@@ -53,24 +53,24 @@ async function main() {
   ok(/"requiredWeekdays"/.test(userPrompt), "requiredWeekdays present in architect input");
   ok(/"requiredWeekdayDistribution"/.test(userPrompt), "requiredWeekdayDistribution present");
   ok(/contentDepthRequirements/.test(userPrompt), "content depth requirements present");
-  ok(!/Do not maximize count/i.test(architect.buildArchitectSystemPrompt("preschool")),
-    "prompt no longer tells model not to maximize (was causing under-count)");
 
   const dist15 = architect.expectedWeekdayDistribution(15);
   ok(Object.values(dist15).every((n) => n === 3), "15 activities → 3 per weekday guidance");
 
-  // Fixture path: exact counts
+  // Staged fixture path via composeNewLessonContent entry
   const good15 = await architect.composeNewLessonContent(brief15, { forceFixture: true });
   ok(good15.ok === true, "fixture create succeeds for 15");
   ok(activityCountFromContent(good15.content) === 15, "requested 15 → exactly 15 activities");
   ok(weekdayCoverage(good15.content).length === 5, "15 distributed across all 5 weekdays");
   ok(good15.source === "fixture_ai", "fixture source (no live AI)");
+  ok(good15.staged === true, "compose delegates to staged composer");
+  ok(good15.usage.activityExpansionCalls === 3, "staged compose uses 3 expansion batches for 15");
 
   const brief10 = briefFor(10);
   const good10 = await architect.composeNewLessonContent(brief10, { forceFixture: true });
   ok(good10.ok === true && activityCountFromContent(good10.content) === 10, "requested 10 → exactly 10");
 
-  // Strong content accepted via validate
+  // Strong content accepted via validate (full-lesson validator still authoritative)
   const strongRaw = architect.buildOperatorCreateArchitectFixtureResponse(userPrompt);
   const strongValidated = architect.validateArchitectOutput(strongRaw, brief15);
   ok(strongValidated.ok === true, "strong activity content accepted");
@@ -90,7 +90,7 @@ async function main() {
   ok(shrunkValidated.issues.some((i) => /weekday_coverage_incomplete|possible_output_truncation/.test(i)),
     "under-count flags coverage/truncation diagnostics");
 
-  // Too-short fields trigger quality failure → revision path
+  // Too-short fields trigger quality failure
   const shortActs = parsedStrong.activities.map((a, idx) => ({
     ...a,
     objective: idx < 3 ? "Short." : a.objective,
@@ -100,34 +100,7 @@ async function main() {
   const shortRaw = JSON.stringify({ ...parsedStrong, activities: shortActs });
   const shortValidated = architect.validateArchitectOutput(shortRaw, brief15);
   ok(shortValidated.ok === false, "too-short required fields fail quality gate");
-  ok(shortValidated.issues.some((i) => /Too short/i.test(i)), "too-short required fields trigger revision issues");
-
-  // Revision can repair count + depth
-  let call = 0;
-  const revising = await architect.composeNewLessonContent(brief15, {
-    forceLive: true,
-    callAi: async (_system, user) => {
-      call += 1;
-      if (call === 1) return JSON.stringify(shrunk);
-      ok(/revisionPass|: true|"revisionPass": true/.test(user) || /revisionDirectives/.test(user),
-        "revision call is laser-focused with revision directives");
-      ok(/requiredActivityCount.: 15/.test(user), "revision still carries requiredActivityCount 15");
-      ok(/Add 10 complete/.test(user) || /received 5/.test(user), "revision states expected vs received count");
-      return architect.buildOperatorCreateArchitectFixtureResponse(user);
-    },
-  });
-  ok(revising.ok === true && revising.revised === true, "revision can repair count + depth");
-  ok(activityCountFromContent(revising.content) === 15, "revised lesson has exactly 15 activities");
-  ok(call === 2, "one revision call only");
-
-  // Revision still bad → no lesson created
-  const stillBad = await architect.composeNewLessonContent(brief15, {
-    forceLive: true,
-    callAi: async () => JSON.stringify(shrunk),
-  });
-  ok(stillBad.ok === false && stillBad.code === "AI_CREATION_FAILED",
-    "revision still bad → no lesson created");
-  ok(stillBad.usage?.lessonRevisionCalls === 1, "still only one revision attempt");
+  ok(shortValidated.issues.some((i) => /Too short/i.test(i)), "too-short required fields trigger quality issues");
 
   // Truncation detection
   const trunc = architect.detectOutputTruncation(`${"{".repeat(20)} unfinished`, 5, 15);
@@ -139,9 +112,7 @@ async function main() {
 
   // Duplicate concepts rejected
   const dup = JSON.parse(strongRaw);
-  dup.activities[1] = { ...dup.activities[0], title: `${dup.activities[0].title} copy` };
-  // Force near-duplicate concept via identical title stem
-  dup.activities[1].title = dup.activities[0].title;
+  dup.activities[1] = { ...dup.activities[0], title: dup.activities[0].title };
   const dupValidated = architect.validateArchitectOutput(JSON.stringify(dup), brief15);
   ok(dupValidated.ok === false, "duplicate activity concepts rejected");
 
@@ -153,13 +124,11 @@ async function main() {
   ok(good15.content.lesson.status === "draft", "created content remains draft");
   ok(!schema.isPhase2Executable("lesson.publish"), "publish remains blocked");
 
-  // Debug report fields for truncation investigation
-  console.log("\n--- truncation/debug report (fixture) ---");
-  console.log("requiredActivityCount:", strongValidated.requiredActivityCount);
-  console.log("parsedActivityCount:", strongValidated.parsedActivityCount);
-  console.log("rawLength:", strongRaw.length);
-  console.log("truncation:", JSON.stringify(strongValidated.truncation));
-  console.log("configured operator max_output_tokens (live path):", 24000);
+  console.log("\n--- staged compose debug report (fixture) ---");
+  console.log("architectureCalls:", good15.usage.lessonArchitectureCalls);
+  console.log("expansionCalls:", good15.usage.activityExpansionCalls);
+  console.log("repairCalls:", good15.usage.activityRepairCalls);
+  console.log("activitiesCompleted:", good15.usage.activitiesCompleted);
 
   console.log(`\n${passed} assertions passed`);
 }

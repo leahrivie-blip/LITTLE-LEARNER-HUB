@@ -104,6 +104,19 @@ function normalizeLessonResult(raw = {}) {
       ? input.finalVerification
       : null,
     aiUsage: input.aiUsage && typeof input.aiUsage === "object" ? input.aiUsage : null,
+    composerDiagnostics: input.composerDiagnostics && typeof input.composerDiagnostics === "object"
+      ? input.composerDiagnostics
+      : null,
+    stagedDiagnostics: input.stagedDiagnostics && typeof input.stagedDiagnostics === "object"
+      ? input.stagedDiagnostics
+      : null,
+    creationBlueprintComplete: input.creationBlueprintComplete === true,
+    creationBlueprint: input.creationBlueprint && typeof input.creationBlueprint === "object"
+      ? input.creationBlueprint
+      : null,
+    activityExpansionBatches: input.activityExpansionBatches && typeof input.activityExpansionBatches === "object"
+      ? input.activityExpansionBatches
+      : null,
     ownerReviewStatus: ownerReviewStatus || null,
     readyForReview: input.readyForReview === true || ownerReviewStatus === "READY_FOR_OWNER_REVIEW",
     publishRequested: input.publishRequested === true,
@@ -167,6 +180,14 @@ function normalizeOperatorJob(raw = {}) {
         bookGuideCalls: Number(input.costCounters.bookGuideCalls) || 0,
         booksLinked: Number(input.costCounters.booksLinked) || 0,
         bookGuidesImproved: Number(input.costCounters.bookGuidesImproved) || 0,
+        lessonArchitectCalls: Number(input.costCounters.lessonArchitectCalls) || 0,
+        lessonRevisionCalls: Number(input.costCounters.lessonRevisionCalls) || 0,
+        lessonArchitectureCalls: Number(input.costCounters.lessonArchitectureCalls) || 0,
+        activityExpansionCalls: Number(input.costCounters.activityExpansionCalls) || 0,
+        activityRepairCalls: Number(input.costCounters.activityRepairCalls) || 0,
+        activitiesRequested: Number(input.costCounters.activitiesRequested) || 0,
+        activitiesCompleted: Number(input.costCounters.activitiesCompleted) || 0,
+        outputTruncationCount: Number(input.costCounters.outputTruncationCount) || 0,
       } : {}),
     },
     log: schema.asArray(input.log).slice(-500),
