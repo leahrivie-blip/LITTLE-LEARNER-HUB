@@ -1105,12 +1105,32 @@ function fieldRepairQualityInstruction(field, reason) {
     ].join(" ");
   }
   if (canonical === "safetyNotes") {
-    return "Rewrite with activity-specific hazard/supervision guidance and the teacher action that reduces risk — not generic supervise-only filler.";
+    if (why === "generic_filler") {
+      return [
+        "The existing safetyNotes text is structurally present but too generic.",
+        "REPLACE the existing generic safety text. Do not lightly paraphrase it.",
+        "Write activity-specific safety guidance that identifies the relevant material/tool/environment risk IF one exists,",
+        "what the teacher should do to reduce that risk, and supervision expectations tied specifically to this activity.",
+        "Only mention risks relevant to the actual materials/actions (e.g. small parts/choking, mouthing, allergy, spills, scissors/tools, sensory ingestion, temperature, sanitation).",
+        "Do not fabricate hazards. Do not return supervise-only or \"use safe materials\" filler.",
+      ].join(" ");
+    }
+    // too_short / missing / other: expand with substance (do not merely lengthen empty filler)
+    return [
+      "Expand safetyNotes with relevant hazard + teacher action for this activity.",
+      "Name a concrete material/tool/supervision need and the teacher action that reduces risk.",
+      "Do not return generic supervise-only filler.",
+    ].join(" ");
   }
   if (canonical === "materials") {
     return "List concrete activity materials with enough detail to set up the experience (not a one-word list).";
   }
   return "";
+}
+
+/** Instruction type label for diagnostics: REPLACE (generic_filler) vs EXPAND (too_short/other). */
+function safetyRepairInstructionType(reason) {
+  return text(reason, 80) === "generic_filler" ? "REPLACE" : "EXPAND";
 }
 
 /**
@@ -1130,13 +1150,17 @@ function enrichExpansionRepairTargets(repairTargets, previousActivities, bluepri
       const field = text(f.field, 60);
       const reason = text(f.reason || f.issueCode, 80);
       const instruction = fieldRepairQualityInstruction(field, reason);
-      return {
+      const row = {
         field,
         reason,
         issueCode: text(f.issueCode || reason, 80),
         sourceIssue: text(f.sourceIssue, 200),
         ...(instruction ? { qualityInstruction: instruction } : {}),
       };
+      if (field === "safetyNotes") {
+        row.instructionType = safetyRepairInstructionType(reason);
+      }
+      return row;
     });
     return {
       outlineId: id,
@@ -1150,8 +1174,10 @@ function enrichExpansionRepairTargets(repairTargets, previousActivities, bluepri
         developmentalPurpose: text(outline.developmentalPurpose, 500),
         materials: text(prior.materials, 500),
         setup: text(prior.setup, 500),
+        steps: text(prior.steps, 500),
         currentDescription: text(prior.description, 500),
         currentObjective: text(prior.objective, 500),
+        currentSafetyNotes: text(prior.safetyNotes, 500),
       },
     };
   });
@@ -1182,12 +1208,39 @@ function collectGenericFillerRepairDiagnostics(repairTargets, preIssues, postIss
     return text(row.code || row.reason, 80) === "generic_filler"
       || /Generic filler/i.test(text(row.message || row.sourceIssue, 200));
   };
+  const isSafetyGeneric = (row) => {
+    if (!isGeneric(row)) return false;
+    if (row && typeof row === "object") {
+      return text(row.field, 60) === "safetyNotes"
+        || /\.safetyNotes$/i.test(text(row.message || row.sourceIssue, 200));
+    }
+    return /safetyNotes/i.test(String(row || ""));
+  };
+  const safetyFields = targets.flatMap((t) => (
+    schema.asArray(t.fields)
+      .filter((f) => text(f.field, 60) === "safetyNotes")
+      .map((f) => ({
+        outlineId: text(t.outlineId, 80),
+        reason: text(f.reason || f.issueCode, 80),
+        instructionType: text(f.instructionType, 40) || safetyRepairInstructionType(f.reason || f.issueCode),
+      }))
+  ));
+  const safetyRepairReasonByOutlineId = Object.fromEntries(
+    safetyFields.map((row) => [row.outlineId, row.reason]),
+  );
+  const safetyRepairInstructionTypeByOutlineId = Object.fromEntries(
+    safetyFields.map((row) => [row.outlineId, row.instructionType]),
+  );
   return {
     genericFillerTargets,
     descriptionRepairsByOutlineId,
     objectiveRepairsByOutlineId,
     genericFillerBefore: schema.asArray(preIssues).filter(isGeneric).slice(0, 20),
     genericFillerAfter: schema.asArray(postIssues).filter(isGeneric).slice(0, 20),
+    safetyRepairReasonByOutlineId,
+    safetyRepairInstructionType: safetyRepairInstructionTypeByOutlineId,
+    genericSafetyBefore: schema.asArray(preIssues).filter(isSafetyGeneric).slice(0, 20),
+    genericSafetyAfter: schema.asArray(postIssues).filter(isSafetyGeneric).slice(0, 20),
   };
 }
 
@@ -1478,6 +1531,14 @@ function buildExpansionRepairUserPrompt(brief, blueprint, outlineIds, previousAc
   const safetyTargeted = repairTargets.some((t) => (
     schema.asArray(t.fields).some((f) => f.field === "safetyNotes")
   ));
+  const safetyGenericTargeted = repairTargets.some((t) => (
+    schema.asArray(t.fields).some((f) => f.field === "safetyNotes" && f.reason === "generic_filler")
+  ));
+  const safetyTooShortTargeted = repairTargets.some((t) => (
+    schema.asArray(t.fields).some((f) => (
+      f.field === "safetyNotes" && f.reason !== "generic_filler"
+    ))
+  ));
   const teacherLanguageTargeted = repairTargets.some((t) => (
     schema.asArray(t.fields).some((f) => f.field === "teacherLanguage")
   ));
@@ -1509,7 +1570,7 @@ function buildExpansionRepairUserPrompt(brief, blueprint, outlineIds, previousAc
     "Repair ONLY the failed activity fields in this expansion batch.",
     "Preserve valid activities and valid fields. Keep outlineId / title / dayOfWeek / activityCategory aligned to the blueprint.",
     "Do not regenerate all activities from scratch — repair every listed canonical field only.",
-    "Use each repairTargets[].activityContext (name, concept, developmentalPurpose, materials, setup) and each field's qualityInstruction.",
+    "Use each repairTargets[].activityContext (name, concept, developmentalPurpose, materials, setup, steps, currentSafetyNotes) and each field's qualityInstruction.",
     JSON.stringify({
       mode: "REPAIR_ACTIVITY_BATCH",
       brief: {
@@ -1572,8 +1633,14 @@ function buildExpansionRepairUserPrompt(brief, blueprint, outlineIds, previousAc
           ? "If objective is targeted: write an activity-specific objective that names the developmental skill, the child action, and how it connects to this activity. Meet the existing depth/length gate — do not return a thin one-liner."
           : "",
         "If adaptations is targeted: return a practical, activity-specific support adaptation (not \"Provide support.\").",
-        safetyTargeted
-          ? "If safetyNotes is targeted: rewrite safetyNotes with specific safety guidance tied to this activity. Identify any relevant hazard, material concern, supervision need, allergy/choking/mouthing/tool/temperature concern when it applies, and explain the teacher action that keeps the activity safe. Do not return generic supervision language. Do not fabricate hazards that do not apply."
+        safetyGenericTargeted
+          ? "If safetyNotes is targeted for generic_filler: REPLACE the existing generic safety text. Do not lightly paraphrase it. Write activity-specific safety guidance using materials/setup/steps from activityContext: identify the relevant material/tool/environment risk IF one exists, what the teacher should do to reduce that risk, and supervision expectations tied to this activity. Do not fabricate hazards. Do not return generic supervision language. Do not return supervise-only or \"use safe materials\" filler."
+          : "",
+        safetyTooShortTargeted && !safetyGenericTargeted
+          ? "If safetyNotes is targeted (too_short/missing): expand with a relevant hazard + teacher action for this activity. Do not return generic supervision language. Do not fabricate hazards that do not apply."
+          : "",
+        safetyTargeted && safetyGenericTargeted && safetyTooShortTargeted
+          ? "If safetyNotes is targeted for too_short/missing on other activities: expand with relevant hazard + teacher action. Do not return generic supervision language. Do not fabricate hazards that do not apply."
           : "",
         "teacherTips and observationPrompts must remain non-empty activity-specific arrays when present/targeted.",
         "Do not echo requiredActivityFields / repairTargets into activity objects.",
@@ -2035,6 +2102,14 @@ function recordBatchDiagnostic(diagnostics, row) {
       : {},
     genericFillerBefore: schema.asArray(row.genericFillerBefore).slice(0, 20),
     genericFillerAfter: schema.asArray(row.genericFillerAfter).slice(0, 20),
+    safetyRepairReasonByOutlineId: row.safetyRepairReasonByOutlineId && typeof row.safetyRepairReasonByOutlineId === "object"
+      ? row.safetyRepairReasonByOutlineId
+      : {},
+    safetyRepairInstructionType: row.safetyRepairInstructionType && typeof row.safetyRepairInstructionType === "object"
+      ? row.safetyRepairInstructionType
+      : {},
+    genericSafetyBefore: schema.asArray(row.genericSafetyBefore).slice(0, 20),
+    genericSafetyAfter: schema.asArray(row.genericSafetyAfter).slice(0, 20),
     finalBatchPass: row.finalBatchPass === true,
   });
 }
@@ -3387,5 +3462,6 @@ module.exports = {
   fieldRepairQualityInstruction,
   enrichExpansionRepairTargets,
   collectGenericFillerRepairDiagnostics,
+  safetyRepairInstructionType,
   rejectGeneric,
 };
