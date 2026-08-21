@@ -833,6 +833,36 @@ async function main() {
       && staged.validateExpansionBatch(weakQs, ids, blueprint, brief15).issues.some((x) => /insufficient_questions|Generic filler|Too short/.test(x)),
       "insufficient questions fail where required");
 
+    // safetyNotes quality (Live Test opjob_4a680fc724ab0e3d)
+    const superviseOnly = {
+      activities: goodBatch.activities.map((a, i) => (
+        i === 0 ? { ...a, safetyNotes: "Supervise children." } : a
+      )),
+    };
+    ok(staged.validateExpansionBatch(superviseOnly, ids, blueprint, brief15).ok === false
+      && staged.validateExpansionBatch(superviseOnly, ids, blueprint, brief15).issues.some((x) => /safetyNotes/i.test(x)),
+      "generic \"Supervise children\" fails safetyNotes");
+    const safeMaterialsOnly = {
+      activities: goodBatch.activities.map((a, i) => (
+        i === 0 ? { ...a, safetyNotes: "Use safe materials." } : a
+      )),
+    };
+    ok(staged.validateExpansionBatch(safeMaterialsOnly, ids, blueprint, brief15).ok === false
+      && staged.validateExpansionBatch(safeMaterialsOnly, ids, blueprint, brief15).issues.some((x) => /safetyNotes|Too short/i.test(x)),
+      "short \"Use safe materials\" fails");
+    const specificSafety = {
+      activities: goodBatch.activities.map((a, i) => (
+        i === 0
+          ? {
+            ...a,
+            safetyNotes: "Use only large, non-chokable play pieces and supervise closely if children tend to mouth materials. Remove any cracked or damaged tools before use.",
+          }
+          : a
+      )),
+    };
+    ok(staged.validateExpansionBatch(specificSafety, ids, blueprint, brief15).ok === true,
+      "activity-specific safety guidance passes");
+
     const conciseOk = {
       activities: goodBatch.activities.map((a, i) => (
         i === 0
@@ -996,6 +1026,169 @@ async function main() {
     ok((blocked.usage?.activityRepairCalls || 0) === 1, "one quality repair call counted");
     ok((blocked.usage?.activityExpansionRetryCalls || 0) === 0,
       "quality failure does not consume parse retry budget");
+  }
+
+  // Stage 2 safetyNotes targeted repair (Live Test opjob_4a680fc724ab0e3d)
+  {
+    const blueprint = staged.validateBlueprint(
+      JSON.parse(staged.buildStagedFixtureResponse(staged.buildStage1UserPrompt(brief15))),
+      brief15,
+    ).blueprint;
+    const ids = blueprint.activityOutlines.slice(0, 5).map((o) => o.outlineId);
+    const goodBatch = JSON.parse(staged.buildStagedFixtureResponse(
+      staged.buildExpansionUserPrompt(brief15, blueprint, ids),
+    ));
+    const priorValidated = staged.validateExpansionBatch(goodBatch, ids, blueprint, brief15);
+    const thinSafety = {
+      activities: priorValidated.activities.map((a, i) => (
+        i < 3 ? { ...a, safetyNotes: "Supervise children." } : a
+      )),
+    };
+    const thinV = staged.validateExpansionBatch(thinSafety, ids, blueprint, brief15);
+    ok(thinV.ok === false, "thin safetyNotes fail before repair");
+    const plan = staged.planExpansionRepair(thinV.issues, thinV.activities);
+    ok(plan.mappedRepairTargets.filter((t) => (
+      t.fields.some((f) => f.field === "safetyNotes")
+    )).length === 3, "too_short:safetyNotes maps to safetyNotes on 3 activities");
+    ok(plan.mappedRepairTargets.every((t) => {
+      if (!t.fields.some((f) => f.field === "safetyNotes")) return true;
+      return ids.includes(t.outlineId)
+        && t.fields.some((f) => (
+          f.field === "safetyNotes"
+          && (f.reason === "too_short" || f.reason === "generic_filler")
+        ));
+    }), "targeted repair receives exact outlineId and failure reason");
+
+    const repairPrompt = staged.buildExpansionRepairUserPrompt(
+      brief15,
+      blueprint,
+      ids,
+      thinV.activities,
+      thinV.issues,
+      { batchNumber: 1, repairPlan: plan },
+    );
+    ok(/If safetyNotes is targeted/i.test(repairPrompt)
+      && /Do not return generic supervision language/i.test(repairPrompt),
+      "repair prompt requires activity-specific safetyNotes substance");
+    ok(/safetyRepairOutlineIds/.test(repairPrompt), "repair prompt lists safetyRepairOutlineIds");
+
+    const substantive = "Use only large, non-chokable play pieces and supervise closely if children tend to mouth materials. Keep plastic cutters child-safe and remove any cracked tools before use.";
+    const goodRepair = {
+      activities: thinV.activities.map((a, i) => (
+        i < 3
+          ? { ...a, safetyNotes: substantive, objective: "" }
+          : { ...a, objective: "" }
+      )),
+    };
+    const merged = staged.coalesceExpansionBatch(
+      priorValidated.activities,
+      goodRepair,
+      ids,
+      blueprint,
+      brief15,
+      thinV.issues,
+    );
+    ok(merged.ok === true, "repaired substantive safetyNotes passes");
+    ok(merged.activities.slice(0, 3).every((a) => a.safetyNotes === substantive),
+      "repaired field fully replaces the targeted thin value");
+    ok(merged.activities[0].objective === priorValidated.activities[0].objective,
+      "valid non-targeted fields remain unchanged");
+    ok(merged.activities.slice(3).every((a, i) => (
+      a.safetyNotes === priorValidated.activities[i + 3].safetyNotes
+      && a.outlineId === ids[i + 3]
+    )), "valid other activities remain unchanged");
+
+    const genericRepair = {
+      activities: thinV.activities.map((a, i) => (
+        i < 3 ? { ...a, safetyNotes: "Supervise children closely." } : a
+      )),
+    };
+    const mergedGeneric = staged.coalesceExpansionBatch(
+      thinV.activities,
+      genericRepair,
+      ids,
+      blueprint,
+      brief15,
+      thinV.issues,
+    );
+    ok(mergedGeneric.ok === false
+      && mergedGeneric.issues.some((i) => /safetyNotes/i.test(i)),
+      "repaired generic safetyNotes remains BLOCKED");
+
+    let expandN = 0;
+    let repairN = 0;
+    const blockedSafety = await staged.composeStagedLessonContent(brief15, {
+      forceLive: true,
+      callAi: async (_s, user) => {
+        if (/CREATE_WEEK_BLUEPRINT/.test(user)) return staged.buildStagedFixtureResponse(user);
+        if (/REPAIR_ACTIVITY_BATCH/.test(user)) {
+          repairN += 1;
+          const parsed = JSON.parse(user.slice(user.indexOf("{")));
+          return JSON.stringify({
+            activities: schema.asArray(parsed.previousBatchActivities).map((a) => ({
+              ...a,
+              safetyNotes: "Supervise children closely.",
+            })),
+          });
+        }
+        if (/EXPAND_ACTIVITY_BATCH/.test(user)) {
+          expandN += 1;
+          const full = JSON.parse(staged.buildStagedFixtureResponse(user));
+          full.activities = full.activities.map((a, i) => (
+            i < 3 ? { ...a, safetyNotes: "Supervise children." } : a
+          ));
+          return JSON.stringify(full);
+        }
+        return staged.buildStagedFixtureResponse(user);
+      },
+    });
+    ok(blockedSafety.ok === false && blockedSafety.code === "AI_CREATION_FAILED",
+      "no lesson.create on failed safety repair");
+    ok(repairN === 1 && expandN === 1, "no second quality repair on safety failure");
+    const b1Fail = schema.asArray(blockedSafety.stagedDiagnostics?.batches).find((b) => b.batchNumber === 1);
+    ok(schema.asArray(b1Fail?.initialSafetyFailures).length >= 1, "diagnostics initialSafetyFailures present");
+    ok(schema.asArray(b1Fail?.safetyRepairOutlineIds).length >= 1, "diagnostics safetyRepairOutlineIds present");
+    ok(schema.asArray(b1Fail?.postRepairSafetyFailures).length >= 1, "diagnostics postRepairSafetyFailures present");
+    ok(b1Fail?.finalBatchPass === false, "diagnostics finalBatchPass false after failed safety repair");
+
+    expandN = 0;
+    repairN = 0;
+    const recovered = await staged.composeStagedLessonContent(brief15, {
+      forceLive: true,
+      callAi: async (_s, user) => {
+        if (/CREATE_WEEK_BLUEPRINT/.test(user)) return staged.buildStagedFixtureResponse(user);
+        if (/REPAIR_ACTIVITY_BATCH/.test(user)) {
+          repairN += 1;
+          const parsed = JSON.parse(user.slice(user.indexOf("{")));
+          ok(schema.asArray(parsed.repairTargets).some((t) => (
+            schema.asArray(t.fields).some((f) => f.field === "safetyNotes")
+          )), "live repair targets safetyNotes");
+          return JSON.stringify({
+            activities: schema.asArray(parsed.previousBatchActivities).map((a) => ({
+              ...a,
+              safetyNotes: substantive,
+            })),
+          });
+        }
+        if (/EXPAND_ACTIVITY_BATCH/.test(user)) {
+          expandN += 1;
+          const full = JSON.parse(staged.buildStagedFixtureResponse(user));
+          if (expandN === 1) {
+            full.activities = full.activities.map((a, i) => (
+              i < 3 ? { ...a, safetyNotes: "Supervise children." } : a
+            ));
+          }
+          return JSON.stringify(full);
+        }
+        return staged.buildStagedFixtureResponse(user);
+      },
+    });
+    ok(recovered.ok === true, "valid repaired Batch 1 proceeds to Batch 2");
+    ok(repairN === 1 && expandN === 3, "one safety repair then Batch 2/3 continue");
+    const b1Ok = schema.asArray(recovered.stagedDiagnostics?.batches).find((b) => b.batchNumber === 1);
+    ok(b1Ok?.finalBatchPass === true && b1Ok?.repairUsed === true, "Batch 1 passes after safety repair");
+    ok(schema.asArray(b1Ok?.postRepairSafetyFailures).length === 0, "postRepairSafetyFailures empty on pass");
+    ok(!schema.isPhase2Executable("lesson.publish"), "publish remains disabled after safetyNotes fix");
   }
 
   // Stage 2 issue-code → canonical-field mapping (Live Test 2 residual: insufficient_questions)

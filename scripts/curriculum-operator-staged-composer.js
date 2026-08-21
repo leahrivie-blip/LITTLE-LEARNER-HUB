@@ -671,6 +671,15 @@ function rejectGeneric(field, value) {
     && wordCount(sample) < 45) {
     return `Generic filler in ${field}`;
   }
+  // safetyNotes: reject generic supervision/safe-materials filler that names no concrete hazard/action.
+  // Does not lower the existing ≥8-word minimum — strengthens substance only.
+  if (/\.safetyNotes$/i.test(field) || /(^|\.)safetyNotes$/i.test(field) || field === "safetyNotes") {
+    const genericOnly = /\b(supervise children( closely)?|watch children( during play)?|use safe materials|be careful)\b/i.test(sample)
+      && !/\b(chok(e|ing)?|mouth(ing)?|allerg(y|ies|en)?|sharp|breakable|spill|slip|sensory|small[- ]?part|temperature|hot|cold|handwash|sanit|tool|crack|adult supervision|pathway)\b/i.test(sample);
+    if (genericOnly && wordCount(sample) < 28) {
+      return `Generic filler in ${field}`;
+    }
+  }
   if (typeof value === "string" && wordCount(value) < 8
     && !["vocabulary", "vocabularyWords"].includes(field)) {
     return `Too short: ${field}`;
@@ -914,7 +923,8 @@ function buildExpansionSystemPrompt(ageBand) {
     "Do not leave lower-priority fields blank because objective/setup/steps are present.",
     "teacherTips and observationPrompts MUST be non-empty string arrays with activity-specific substance.",
     "Reject generic filler like \"Children will learn about X\", \"Set out materials\", \"What do you see?\".",
-    "Require activity-specific substance: concrete materials counts/placement, modeled steps, multiple useful questions, observation focus, adaptations, tips, observation prompts.",
+    "Require activity-specific substance: concrete materials counts/placement, modeled steps, multiple useful questions, observation focus, adaptations, tips, observation prompts, and activity-specific safetyNotes.",
+    "safetyNotes must name a concrete hazard or supervision need relevant to the activity and the teacher action that reduces it — not generic \"supervise children\" filler.",
     "Do NOT echo prompt/contract keys (requiredActivityFields, expandExactlyTheseOutlineIds, repairTargets) into activity objects.",
     "Do NOT set status, published, publishedAt, or lessonPlanId on activities.",
     ageBand === "preschool"
@@ -933,6 +943,7 @@ function expansionFieldQualityExpectations() {
     steps: "Multiple actionable steps unless the activity is genuinely tiny.",
     cleanupTips: "May be concise if specific.",
     vocabulary: "May be concise theme words; must include ≥3 usable words.",
+    safetyNotes: "Activity-specific safety guidance (≥8 words). Name a relevant hazard/supervision need (choking, mouthing, allergy, spills, tools, temperature, etc. when applicable) and the teacher action that reduces it. Bad: \"Supervise children.\" / \"Use safe materials.\" Good: large non-chokable pieces + remove cracked tools + supervise mouthing.",
   };
 }
 
@@ -975,6 +986,7 @@ function buildExpansionUserPrompt(brief, blueprint, outlineIds, options = {}) {
       "teacherTips: non-empty array of activity-specific tips.",
       "observationPrompts: non-empty array of concrete observation prompts.",
       "adaptations: practical activity-specific support (canonical field adaptations).",
+      "safetyNotes: activity-specific hazard/supervision guidance with a concrete teacher action — not generic \"supervise children\" filler.",
       "Use week context so Batch activities do not duplicate earlier concepts.",
       "Do not echo requiredActivityFields into activity objects.",
     ],
@@ -1213,6 +1225,12 @@ function buildExpansionRepairUserPrompt(brief, blueprint, outlineIds, previousAc
   const repairedFieldsByOutlineId = Object.fromEntries(
     repairTargets.map((t) => [t.outlineId, t.fields.map((f) => f.field)]),
   );
+  const safetyTargeted = repairTargets.some((t) => (
+    schema.asArray(t.fields).some((f) => f.field === "safetyNotes")
+  ));
+  const safetyOutlineIds = repairTargets
+    .filter((t) => schema.asArray(t.fields).some((f) => f.field === "safetyNotes"))
+    .map((t) => t.outlineId);
   return [
     "Repair ONLY the failed activity fields in this expansion batch.",
     "Preserve valid activities and valid fields. Keep outlineId / title / dayOfWeek / activityCategory aligned to the blueprint.",
@@ -1230,6 +1248,7 @@ function buildExpansionRepairUserPrompt(brief, blueprint, outlineIds, previousAc
       expandExactlyTheseOutlineIds: wanted,
       repairTargets,
       repairedFieldsByOutlineId,
+      safetyRepairOutlineIds: safetyOutlineIds,
       fixOnlyTheseIssues: schema.asArray(issues).slice(0, 40),
       requiredActivityFields: [...REQUIRED_EXPANSION_ACTIVITY_FIELDS],
       fieldQualityExpectations: expansionFieldQualityExpectations(),
@@ -1256,10 +1275,13 @@ function buildExpansionRepairUserPrompt(brief, blueprint, outlineIds, previousAc
         "Preserve outlineId, title, dayOfWeek, and activityCategory unless explicitly targeted.",
         "If teacherLanguage is targeted: return multiple activity-specific prompts (newline-separated), not one generic sentence.",
         "If adaptations is targeted: return a practical, activity-specific support adaptation (not \"Provide support.\").",
+        safetyTargeted
+          ? "If safetyNotes is targeted: rewrite safetyNotes with specific safety guidance tied to this activity. Identify any relevant hazard, material concern, supervision need, allergy/choking/mouthing/tool/temperature concern when it applies, and explain the teacher action that keeps the activity safe. Do not return generic supervision language. Do not fabricate hazards that do not apply."
+          : "",
         "teacherTips and observationPrompts must remain non-empty activity-specific arrays when present/targeted.",
         "Do not echo requiredActivityFields / repairTargets into activity objects.",
         "Do not set status/published/publishedAt.",
-      ],
+      ].filter(Boolean),
     }, null, 2),
   ].join("\n");
 }
@@ -1506,6 +1528,22 @@ function recordBatchDiagnostic(diagnostics, row) {
         schema.asArray(t.fields).map((f) => text(f.field, 60)),
       ]),
     );
+  const initialQualityFailures = schema.asArray(row.initialQualityFailures || row.activityQualityFailures)
+    .map((i) => text(i, 200)).slice(0, 40);
+  const postRepairFailures = schema.asArray(row.postRepairFailures).map((i) => text(i, 200)).slice(0, 40);
+  const mappedRepairTargets = schema.asArray(row.mappedRepairTargets || row.repairTargets).slice(0, 16);
+  const isSafetyIssue = (issue) => /safetyNotes/i.test(String(issue || ""));
+  const initialSafetyFailures = initialQualityFailures.filter(isSafetyIssue);
+  const safetyRepairOutlineIds = mappedRepairTargets
+    .filter((t) => schema.asArray(t.fields).some((f) => text(f.field || f, 60) === "safetyNotes"))
+    .map((t) => text(t.outlineId, 80))
+    .filter(Boolean);
+  const repairedSafetyFields = Object.fromEntries(
+    Object.entries(repairedFieldsByOutlineId || {})
+      .filter(([, fields]) => schema.asArray(fields).includes("safetyNotes"))
+      .map(([id, fields]) => [id, schema.asArray(fields)]),
+  );
+  const postRepairSafetyFailures = postRepairFailures.filter(isSafetyIssue);
   diagnostics.batches.push({
     batchNumber: row.batchNumber || null,
     requestedOutlineIds: schema.asArray(row.requestedOutlineIds).map((id) => text(id, 80)).slice(0, 24),
@@ -1526,15 +1564,18 @@ function recordBatchDiagnostic(diagnostics, row) {
     parsedActivityCount: Number.isFinite(row.parsedActivityCount) ? row.parsedActivityCount : null,
     acceptedActivityCount: Number.isFinite(row.acceptedActivityCount) ? row.acceptedActivityCount : null,
     rejectedActivityCount: Number.isFinite(row.rejectedActivityCount) ? row.rejectedActivityCount : null,
-    initialQualityFailures: schema.asArray(row.initialQualityFailures || row.activityQualityFailures)
-      .map((i) => text(i, 200)).slice(0, 40),
+    initialQualityFailures,
     activityQualityFailures: schema.asArray(row.activityQualityFailures).map((i) => text(i, 200)).slice(0, 40),
-    mappedRepairTargets: schema.asArray(row.mappedRepairTargets || row.repairTargets).slice(0, 16),
+    initialSafetyFailures,
+    safetyRepairOutlineIds,
+    repairedSafetyFields,
+    postRepairSafetyFailures,
+    mappedRepairTargets,
     unmappedQualityIssues: schema.asArray(row.unmappedQualityIssues).map((i) => text(i, 200)).slice(0, 20),
     repairedFieldsByOutlineId,
     repairUsed: row.repairUsed === true,
-    repairTargets: schema.asArray(row.repairTargets || row.mappedRepairTargets).slice(0, 16),
-    postRepairFailures: schema.asArray(row.postRepairFailures).map((i) => text(i, 200)).slice(0, 40),
+    repairTargets: mappedRepairTargets,
+    postRepairFailures,
     finalBatchPass: row.finalBatchPass === true,
   });
 }
