@@ -455,6 +455,501 @@ async function main() {
   });
   ok(soft.ok === false && soft.code === "SCOPE_REVIEW_REQUIRED", "soft printable budget triggers scope review");
 
+  console.log("Printable soft-budget (Phase 6 self-budget)");
+  const softPackMax = printablesApi.SOFT_PRINTABLE_PACKS_PER_LESSON;
+  const softPageMax = printablesApi.softPrintablePageBudget(1);
+  ok(softPackMax === 5, "canonical soft pack budget remains 5 (not raised)");
+  ok(softPageMax === 30, "canonical soft page budget = 5 × 6 = 30");
+  ok(schema.DEFAULT_LIMITS.maxPrintableGenerations === 30, "hard printable max remains 30");
+
+  function makePrintableBudgetAction(id, decision, extra = {}) {
+    const pages = Array.isArray(extra.pages)
+      ? extra.pages
+      : Array.from({ length: Math.max(1, Number(extra.pageCount) || 3) }, (_, i) => ({
+        index: i + 1,
+        label: `page ${i + 1}`,
+        kind: extra.resourceType || "other",
+      }));
+    return {
+      activityId: id,
+      activityTitle: extra.title || id,
+      decision,
+      reason: extra.reason || `${decision} for ${id}`,
+      spec: {
+        decision,
+        title: extra.title || `${id} Pack`,
+        resourceType: extra.resourceType || "other",
+        purpose: extra.purpose || "Teacher-facing instructional support for the activity.",
+        pageCount: pages.length,
+        pages,
+        activityIds: extra.activityIds || [id],
+        reason: extra.reason || `${decision} for ${id}`,
+      },
+      ...extra,
+    };
+  }
+
+  const fifteenPrintActs = [];
+  for (let i = 0; i < 15; i += 1) {
+    fifteenPrintActs.push({
+      id: `cur-act-pb-${String(i).padStart(2, "0")}`,
+      title: `Bakery Act ${i}`,
+      activityCategory: i < 3 ? "Dramatic Play" : "Learning",
+    });
+  }
+
+  // Under soft pack + page budgets → unchanged
+  const underActions = [
+    makePrintableBudgetAction("cur-act-pb-00", "CREATE", {
+      resourceType: "dramatic_play_pack",
+      pageCount: 3,
+      reason: "Dramatic play benefits from props children can use (menus, tickets, food cards).",
+      title: "Bakery Cafe Dramatic Play",
+    }),
+    makePrintableBudgetAction("cur-act-pb-01", "CREATE", {
+      resourceType: "matching_cards",
+      pageCount: 2,
+      reason: "Card/sorting/matching activity needs usable pieces for children.",
+      title: "Cookie Matching Cards",
+    }),
+    makePrintableBudgetAction("cur-act-pb-02", "KEEP", { reason: "Useful printable already linked." }),
+    makePrintableBudgetAction("cur-act-pb-03", "NOT_NEEDED", { reason: "Process art — printable not needed." }),
+  ];
+  const underBudget = printablesApi.applyPrintableGenerationSoftBudget(underActions, {
+    softPackMax,
+    softPageMax,
+    activities: fifteenPrintActs,
+  });
+  ok(underBudget.diagnostics.plannedPackCountBeforeBudget === 2, "under-budget: plannedPackCountBeforeBudget");
+  ok(underBudget.diagnostics.finalPackCount === 2, "plan under soft budgets remains unchanged (packs)");
+  ok(underBudget.diagnostics.finalEstimatedPageCount === 5, "plan under soft budgets remains unchanged (pages)");
+  ok(underBudget.diagnostics.printableBudgetApplied === false, "under-budget does not apply deferral");
+  ok(underBudget.diagnostics.deferredPrintableCandidateIds.length === 0, "under-budget: no deferred");
+
+  // Exactly at soft pack + page budgets → unchanged
+  const exactPackActions = Array.from({ length: 5 }, (_, i) => makePrintableBudgetAction(
+    `cur-act-pb-0${i}`,
+    "CREATE",
+    {
+      resourceType: i === 0 ? "matching_cards" : "dramatic_play_pack",
+      pageCount: 6,
+      reason: i === 0
+        ? "Card/sorting/matching activity needs usable pieces for children."
+        : "Dramatic play benefits from props children can use (menus, tickets, food cards).",
+      title: `Exact Pack ${i}`,
+    },
+  ));
+  const exactBudget = printablesApi.applyPrintableGenerationSoftBudget(exactPackActions, {
+    softPackMax,
+    softPageMax,
+    activities: fifteenPrintActs,
+  });
+  ok(exactBudget.diagnostics.finalPackCount === 5, "plan exactly at soft pack budget remains unchanged");
+  ok(exactBudget.diagnostics.finalEstimatedPageCount === 30, "plan exactly at soft page budget remains unchanged");
+  ok(exactBudget.diagnostics.printableBudgetApplied === false, "exact soft budgets do not defer");
+
+  // Live-shaped: 8 optional/high-value packs / ~23 pages → self-budget
+  const liveShaped = [
+    makePrintableBudgetAction("cur-act-pb-00", "CREATE", {
+      resourceType: "matching_cards",
+      pageCount: 3,
+      reason: "Card/sorting/matching activity needs usable pieces for children.",
+      title: "Cookie Match Cards",
+    }),
+    makePrintableBudgetAction("cur-act-pb-01", "CREATE", {
+      resourceType: "sorting_cards",
+      pageCount: 3,
+      reason: "Card/sorting/matching activity needs usable pieces for children.",
+      title: "Flour Sort Cards",
+    }),
+    makePrintableBudgetAction("cur-act-pb-02", "CREATE", {
+      resourceType: "dramatic_play_pack",
+      pageCount: 3,
+      reason: "Dramatic play benefits from props children can use (menus, tickets, food cards).",
+      title: "Bakery Counter Dramatic Play",
+    }),
+    makePrintableBudgetAction("cur-act-pb-03", "CREATE", {
+      resourceType: "dramatic_play_pack",
+      pageCount: 3,
+      reason: "Dramatic play benefits from props children can use (menus, tickets, food cards).",
+      title: "Bakery Cafe Dramatic Play",
+    }),
+    makePrintableBudgetAction("cur-act-pb-04", "CREATE", {
+      resourceType: "picture_cards",
+      pageCount: 3,
+      reason: "Visual picture supports for teacher-led vocabulary.",
+      title: "Bakery Picture Cards",
+    }),
+    makePrintableBudgetAction("cur-act-pb-05", "CREATE", {
+      resourceType: "other",
+      pageCount: 2,
+      reason: "Optional enhancement recording sheet.",
+      title: "Optional Recording Sheet A",
+    }),
+    makePrintableBudgetAction("cur-act-pb-06", "CREATE", {
+      resourceType: "other",
+      pageCount: 3,
+      reason: "Optional enhancement checklist.",
+      title: "Optional Checklist B",
+    }),
+    makePrintableBudgetAction("cur-act-pb-07", "CREATE", {
+      resourceType: "other",
+      pageCount: 3,
+      reason: "Optional decorative filler label pack.",
+      title: "Optional Labels C",
+    }),
+    makePrintableBudgetAction("cur-act-pb-08", "KEEP", { reason: "Useful printable already linked." }),
+    makePrintableBudgetAction("cur-act-pb-09", "NOT_NEEDED", { reason: "Process art — no printable." }),
+  ];
+  ok(liveShaped.filter((a) => a.decision === "CREATE").length === 8, "fixture has 8 CREATE packs");
+  const livePages = liveShaped
+    .filter((a) => a.decision === "CREATE")
+    .reduce((sum, a) => sum + printablesApi.printableActionPageCount(a), 0);
+  ok(livePages === 23, "fixture estimates ~23 pages like live job");
+
+  const liveBudgetOnce = printablesApi.applyPrintableGenerationSoftBudget(liveShaped, {
+    softPackMax,
+    softPageMax,
+    activities: fifteenPrintActs,
+  });
+  const liveBudgetTwice = printablesApi.applyPrintableGenerationSoftBudget(liveShaped, {
+    softPackMax,
+    softPageMax,
+    activities: fifteenPrintActs,
+  });
+  ok(liveBudgetOnce.diagnostics.plannedPackCountBeforeBudget === 8, "plannedPackCountBeforeBudget=8");
+  ok(liveBudgetOnce.diagnostics.estimatedPageCountBeforeBudget === 23, "estimatedPageCountBeforeBudget=23");
+  ok(liveBudgetOnce.diagnostics.printableSoftPackBudget === 5, "diagnostics printableSoftPackBudget=5");
+  ok(liveBudgetOnce.diagnostics.printableSoftPageBudget === 30, "diagnostics printableSoftPageBudget=30");
+  ok(liveBudgetOnce.diagnostics.finalPackCount <= softPackMax, "final pack count <= soft pack max");
+  ok(liveBudgetOnce.diagnostics.finalEstimatedPageCount <= softPageMax, "final estimated pages <= soft page max");
+  ok(liveBudgetOnce.diagnostics.printableBudgetApplied === true, "printableBudgetApplied for over-budget plan");
+  ok(liveBudgetOnce.diagnostics.requiredOverBudget === false, "optional over-plan is not requiredOverBudget");
+  ok(
+    liveBudgetOnce.diagnostics.requiredPrintableCandidateIds.includes("cur-act-pb-00")
+      && liveBudgetOnce.diagnostics.requiredPrintableCandidateIds.includes("cur-act-pb-01"),
+    "required candidates identified (matching/sorting)",
+  );
+  ok(
+    liveBudgetOnce.diagnostics.selectedPrintableCandidateIds.includes("cur-act-pb-00")
+      && liveBudgetOnce.diagnostics.selectedPrintableCandidateIds.includes("cur-act-pb-01"),
+    "highest-value / required printable candidates retained",
+  );
+  ok(
+    liveBudgetOnce.diagnostics.deferredPrintableCandidateIds.length >= 3,
+    "low-value optional candidates deferred",
+  );
+  ok(
+    liveBudgetOnce.actions.filter((a) => a.budgetDeferred).every((a) => (
+      a.decision === "NOT_NEEDED"
+      && a.reason.includes(printablesApi.PRINTABLE_BUDGET_DEFER_REASON)
+      && a.priorDecision === "CREATE"
+    )),
+    "deferred candidates receive typed printable_budget_priority reason",
+  );
+  ok(
+    JSON.stringify(liveBudgetOnce.diagnostics.selectedPrintableCandidateIds)
+      === JSON.stringify(liveBudgetTwice.diagnostics.selectedPrintableCandidateIds)
+    && JSON.stringify(liveBudgetOnce.diagnostics.deferredPrintableCandidateIds)
+      === JSON.stringify(liveBudgetTwice.diagnostics.deferredPrintableCandidateIds),
+    "printable selection is deterministic across identical inputs",
+  );
+  ok(
+    liveBudgetOnce.actions.filter((a) => a.decision === "KEEP").length === 1,
+    "existing useful KEEP does not consume new-generation budget",
+  );
+  ok(
+    liveBudgetOnce.diagnostics.finalKeepCount === 1
+      && liveBudgetOnce.diagnostics.printableCandidatesTotal === 8,
+    "KEEP is not counted as a printable write candidate",
+  );
+
+  // Required outrank optional
+  const requiredIds = new Set(liveBudgetOnce.diagnostics.requiredPrintableCandidateIds);
+  ok(
+    liveBudgetOnce.diagnostics.selectedPrintableCandidateIds
+      .filter((id) => requiredIds.has(id)).length === requiredIds.size,
+    "required candidates outrank optional and are retained when soft budget allows",
+  );
+
+  // Page-only over-budget (few packs, too many pages)
+  const pageHeavy = [
+    makePrintableBudgetAction("cur-act-pb-00", "CREATE", {
+      resourceType: "matching_cards",
+      pageCount: 12,
+      reason: "Card/sorting/matching activity needs usable pieces for children.",
+      title: "Big Match Pack",
+    }),
+    makePrintableBudgetAction("cur-act-pb-01", "CREATE", {
+      resourceType: "dramatic_play_pack",
+      pageCount: 12,
+      reason: "Dramatic play benefits from props children can use (menus, tickets, food cards).",
+      title: "Big Drama Pack",
+    }),
+    makePrintableBudgetAction("cur-act-pb-02", "CREATE", {
+      resourceType: "other",
+      pageCount: 12,
+      reason: "Optional enhancement worksheet.",
+      title: "Optional Heavy Pack",
+    }),
+  ];
+  const pageBudgeted = printablesApi.applyPrintableGenerationSoftBudget(pageHeavy, {
+    softPackMax,
+    softPageMax,
+    activities: fifteenPrintActs,
+  });
+  ok(pageBudgeted.diagnostics.finalPackCount <= softPackMax, "page-heavy: packs still within soft pack max");
+  ok(pageBudgeted.diagnostics.finalEstimatedPageCount <= softPageMax, "page-heavy: pages within soft page max");
+  ok(pageBudgeted.diagnostics.printableBudgetApplied === true, "page-heavy plan applies soft budget");
+  ok(
+    pageBudgeted.diagnostics.selectedPrintableCandidateIds.includes("cur-act-pb-00"),
+    "page-heavy: required pack retained preferentially",
+  );
+
+  // Required-only plan exceeding soft pack budget → requiredOverBudget
+  const requiredHeavy = Array.from({ length: 6 }, (_, i) => makePrintableBudgetAction(
+    `cur-act-pb-0${i}`,
+    "CREATE",
+    {
+      resourceType: "matching_cards",
+      pageCount: 2,
+      reason: "Card/sorting/matching activity needs usable pieces for children.",
+      title: `Required Cards ${i}`,
+    },
+  ));
+  const requiredOver = printablesApi.applyPrintableGenerationSoftBudget(requiredHeavy, {
+    softPackMax,
+    softPageMax,
+    activities: fifteenPrintActs,
+  });
+  ok(requiredOver.requiredOverBudget === true, "required-only over soft pack budget sets requiredOverBudget");
+  ok(requiredOver.diagnostics.finalPackCount === 6, "required over-budget does not silently drop required packs");
+
+  // Zero-printable lesson remains valid
+  const zeroBudget = printablesApi.applyPrintableGenerationSoftBudget([
+    makePrintableBudgetAction("cur-act-pb-00", "NOT_NEEDED", { reason: "No printable improves this activity." }),
+    makePrintableBudgetAction("cur-act-pb-01", "NOT_NEEDED", { reason: "No printable improves this activity." }),
+  ], { softPackMax, softPageMax, activities: fifteenPrintActs });
+  ok(zeroBudget.diagnostics.finalPackCount === 0, "zero-printable lesson remains valid");
+  ok(zeroBudget.diagnostics.printableBudgetApplied === false, "zero-printable does not apply budget");
+
+  // One printable can support multiple activities (shared activityIds does not force 1:1)
+  const shared = makePrintableBudgetAction("cur-act-pb-00", "CREATE", {
+    resourceType: "picture_cards",
+    pageCount: 2,
+    activityIds: ["cur-act-pb-00", "cur-act-pb-01", "cur-act-pb-02"],
+    reason: "Shared visual supports across related bakery stations.",
+    title: "Shared Bakery Visual Strip",
+  });
+  ok(schema.asArray(shared.spec.activityIds).length === 3, "one printable can list multiple activity IDs");
+  ok(
+    printablesApi.printableWritePriorityScore(shared, fifteenPrintActs[0])
+      < printablesApi.printableWritePriorityScore(
+        makePrintableBudgetAction("cur-act-pb-05", "CREATE", {
+          resourceType: "other",
+          pageCount: 1,
+          reason: "Optional enhancement.",
+          title: "Optional Alone",
+        }),
+        fifteenPrintActs[5],
+      ),
+    "shared multi-activity resource outranks lone optional",
+  );
+
+  // runPrintablePlanForLesson: optional over-plan self-budgets (no SCOPE_REVIEW)
+  const executedIds = [];
+  const livePlanRun = await printablesApi.runPrintablePlanForLesson({
+    plan: {
+      id: LESSON_ID,
+      title: "Bakery Soft Budget",
+      age: "Preschool",
+      enrichmentDraft: { week: {}, activities: {} },
+    },
+    activities: fifteenPrintActs.slice(0, 10).map((a) => ({
+      ...a,
+      lessonPlanId: LESSON_ID,
+      objective: "Children explore bakery play.",
+      materials: "cards trays",
+      setup: "Table ready.",
+      steps: "1. Explore. 2. Sort. 3. Play.",
+    })),
+    audit: {
+      assetPlan: liveShaped.map((a) => ({
+        activityId: a.activityId,
+        activityTitle: a.activityTitle,
+        printable: {
+          decision: a.decision,
+          reason: a.reason,
+          purpose: a.spec?.purpose || a.reason,
+          type: a.spec?.resourceType || null,
+          title: a.spec?.title || "",
+          contents: schema.asArray(a.spec?.pages).map((p) => p.label),
+          existingResourceIds: [],
+        },
+      })),
+    },
+    curriculum: {
+      lessonPlans: [{ id: LESSON_ID, resourceIds: [] }],
+      activities: [],
+      resources: [],
+    },
+    limits: { maxPrintableGenerations: 30 },
+    lessonCount: 1,
+    createPrintableResource: async ({ activityId }) => {
+      executedIds.push(activityId);
+      return {
+        ok: true,
+        resourceId: `cur-res-pb-${executedIds.length}`,
+        resource: { id: `cur-res-pb-${executedIds.length}`, status: "draft" },
+      };
+    },
+    readResourceFile: async () => ({
+      ok: true,
+      previewVerified: true,
+      downloadVerified: true,
+      pageCount: 3,
+      fileName: "pack.pdf",
+      title: "pack",
+    }),
+  });
+  ok(livePlanRun.ok !== false || livePlanRun.code !== "SCOPE_REVIEW_REQUIRED", "optional 8-pack plan does not SCOPE_REVIEW");
+  ok(livePlanRun.code !== "SCOPE_REVIEW_REQUIRED", "runPrintablePlanForLesson self-budgets live-shaped plan");
+  ok(
+    livePlanRun.printableBudgetDiagnostics?.printableBudgetApplied === true,
+    "run diagnostics printableBudgetApplied",
+  );
+  ok(
+    Number(livePlanRun.printableBudgetDiagnostics?.finalPackCount) <= softPackMax,
+    "run finalPackCount <= soft pack max",
+  );
+  ok(
+    Number(livePlanRun.printableBudgetDiagnostics?.finalEstimatedPageCount) <= softPageMax,
+    "run finalEstimatedPageCount <= soft page max",
+  );
+  ok(
+    executedIds.every((id) => livePlanRun.printableBudgetDiagnostics.selectedPrintableCandidateIds.includes(id)),
+    "printable generation receives only selected pack/activity IDs",
+  );
+  ok(
+    schema.asArray(livePlanRun.printableBudgetDiagnostics?.deferredPrintableCandidateIds)
+      .every((id) => !executedIds.includes(id)),
+    "deferred printables are never executed",
+  );
+  ok(
+    !livePlanRun.actions.some((a) => a.decision === "CREATE" && a.budgetDeferred && a.status === "success"),
+    "deferred CREATE never succeeds as a write",
+  );
+
+  // Required-over-budget → SCOPE_REVIEW
+  const requiredScope = await printablesApi.runPrintablePlanForLesson({
+    plan: { id: LESSON_ID, title: "Required Over", enrichmentDraft: { week: {}, activities: {} } },
+    activities: fifteenPrintActs.slice(0, 6),
+    audit: {
+      assetPlan: requiredHeavy.map((a) => ({
+        activityId: a.activityId,
+        activityTitle: a.activityTitle,
+        printable: {
+          decision: "CREATE",
+          reason: a.reason,
+          purpose: "Children need cards to complete the matching activity.",
+          type: "matching_cards",
+          title: a.spec.title,
+          contents: ["card set A", "card set B"],
+          existingResourceIds: [],
+        },
+      })),
+    },
+    curriculum: { lessonPlans: [{ id: LESSON_ID, resourceIds: [] }], activities: [], resources: [] },
+    limits: { maxPrintableGenerations: 30 },
+    lessonCount: 1,
+    createPrintableResource: async () => ({ ok: true, resourceId: "should-not-run" }),
+  });
+  ok(
+    requiredScope.code === "SCOPE_REVIEW_REQUIRED"
+      && requiredScope.printableBudgetDiagnostics?.requiredOverBudget === true,
+    "required-only plan exceeding soft budget still produces scope review",
+  );
+
+  // Explicit owner full-coverage request → SCOPE_REVIEW
+  const explicitScope = await printablesApi.runPrintablePlanForLesson({
+    plan: { id: LESSON_ID, title: "Explicit Full", enrichmentDraft: { week: {}, activities: {} } },
+    activities: fifteenPrintActs.slice(0, 8),
+    audit: {
+      assetPlan: liveShaped.filter((a) => a.decision === "CREATE").map((a) => ({
+        activityId: a.activityId,
+        activityTitle: a.activityTitle,
+        printable: {
+          decision: "CREATE",
+          reason: a.reason,
+          purpose: a.spec.purpose,
+          type: a.spec.resourceType,
+          title: a.spec.title,
+          contents: ["page one", "page two", "page three"],
+          existingResourceIds: [],
+        },
+      })),
+    },
+    curriculum: { lessonPlans: [{ id: LESSON_ID, resourceIds: [] }], activities: [], resources: [] },
+    limits: { maxPrintableGenerations: 30 },
+    lessonCount: 1,
+    command: {
+      rawCommand: "Make a printable pack for every activity in this bakery lesson.",
+    },
+    createPrintableResource: async () => ({ ok: true, resourceId: "should-not-run" }),
+  });
+  ok(
+    explicitScope.code === "SCOPE_REVIEW_REQUIRED"
+      && explicitScope.printableBudgetDiagnostics?.explicitScopeOverride === true,
+    "explicit Owner full-printable request may still produce scope review",
+  );
+
+  // Hard printable max still blocks (after soft budget, if still over hard)
+  const hardBlock = printablesApi.assessPrintableScope({
+    actions: Array.from({ length: 31 }, (_, i) => ({
+      decision: "CREATE",
+      spec: { pageCount: 1 },
+      activityId: `hard-${i}`,
+    })),
+    lessonCount: 1,
+    limits: { maxPrintableGenerations: 30 },
+  });
+  ok(hardBlock.ok === false && /hard max/i.test(hardBlock.reason || ""), "hard printable max still blocks");
+
+  const hardAfterSoft = await printablesApi.runPrintablePlanForLesson({
+    plan: { id: LESSON_ID, title: "Hard Cap", enrichmentDraft: { week: {}, activities: {} } },
+    activities: fifteenPrintActs.slice(0, 8),
+    audit: {
+      assetPlan: liveShaped.filter((a) => a.decision === "CREATE").map((a) => ({
+        activityId: a.activityId,
+        activityTitle: a.activityTitle,
+        printable: {
+          decision: "CREATE",
+          reason: a.reason,
+          purpose: a.spec.purpose,
+          type: a.spec.resourceType,
+          title: a.spec.title,
+          contents: ["a", "b", "c"],
+          existingResourceIds: [],
+        },
+      })),
+    },
+    curriculum: { lessonPlans: [{ id: LESSON_ID, resourceIds: [] }], activities: [], resources: [] },
+    limits: { maxPrintableGenerations: 2 },
+    lessonCount: 1,
+    createPrintableResource: async () => ({ ok: true, resourceId: "nope" }),
+  });
+  ok(
+    hardAfterSoft.code === "SCOPE_REVIEW_REQUIRED"
+      && hardAfterSoft.printableBudgetDiagnostics?.hardLimitExceeded === true,
+    "hard printable max still blocks after soft budgeting when remaining hard cap is too low",
+  );
+
+  // No requirement for one printable per activity (mixed KEEP/NOT_NEEDED/CREATE under budget)
+  ok(
+    liveBudgetOnce.diagnostics.finalPackCount < fifteenPrintActs.length,
+    "no requirement for one printable per activity",
+  );
+
   console.log("Operator job integration");
   let store = {
     siteContent: {

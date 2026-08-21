@@ -429,6 +429,7 @@ function createCurriculumOperatorApi(deps) {
         maxPrintableGenerations: remaining,
       },
       lessonCount,
+      command: job.command || null,
       touchPrintables: true,
       replaceWeakPrintables: true,
       alreadySucceededKeys: collectSucceededPrintableKeys(lr),
@@ -475,6 +476,7 @@ function createCurriculumOperatorApi(deps) {
         printableRun,
         plan,
         error: printableRun.error,
+        printableBudgetDiagnostics: printableRun.printableBudgetDiagnostics || null,
       };
     }
 
@@ -514,6 +516,7 @@ function createCurriculumOperatorApi(deps) {
       afterPlan,
       historyId: null,
       counts,
+      printableBudgetDiagnostics: printableRun.printableBudgetDiagnostics || null,
       error: jobVerification.ok ? null : "Post-save printable verification failed.",
     };
   }
@@ -1355,6 +1358,7 @@ function createCurriculumOperatorApi(deps) {
       // --- Phase 4 printables ---
       let printableActions = schema.asArray(lr.printableActions);
       let printableCounts = lr.printableCounts || null;
+      let printableBudgetDiagnostics = lr.printableBudgetDiagnostics || null;
       let printablesComplete = lr.printablesComplete === true;
       let printableError = null;
       let printablesOk = true;
@@ -1399,6 +1403,9 @@ function createCurriculumOperatorApi(deps) {
             imagesComplete: images ? imagesComplete : undefined,
             printableActions: printableResult.printableRun?.actions || [],
             printableCounts: printableResult.printableRun?.counts || null,
+            printableBudgetDiagnostics: printableResult.printableBudgetDiagnostics
+              || printableResult.printableRun?.printableBudgetDiagnostics
+              || null,
             printablesComplete: false,
             error: schema.text(printableResult.error, 500),
             ownerReviewStatus: "BLOCKED",
@@ -1414,6 +1421,9 @@ function createCurriculumOperatorApi(deps) {
 
         printableActions = printableResult.printableRun.actions;
         printableCounts = printableResult.counts;
+        printableBudgetDiagnostics = printableResult.printableBudgetDiagnostics
+          || printableResult.printableRun?.printableBudgetDiagnostics
+          || null;
         printablesComplete = printableResult.ok || printableResult.partial;
         printablesOk = Boolean(printableResult.ok);
         workingPlan = printableResult.afterPlan;
@@ -1427,6 +1437,14 @@ function createCurriculumOperatorApi(deps) {
           ownerReviewStatus = "READY_FOR_OWNER_REVIEW";
         } else if (ownerReviewStatus === "AUDIT_ONLY") {
           ownerReviewStatus = "READY_FOR_OWNER_REVIEW";
+        }
+        if (printableBudgetDiagnostics?.printableBudgetApplied) {
+          jobApi.appendLog(
+            job,
+            `Printable soft budget applied: ${printableBudgetDiagnostics.plannedPackCountBeforeBudget} packs / ~${printableBudgetDiagnostics.estimatedPageCountBeforeBudget} pages → soft ${printableBudgetDiagnostics.printableSoftPackBudget} packs / ${printableBudgetDiagnostics.printableSoftPageBudget} pages; deferred ${schema.asArray(printableBudgetDiagnostics.deferredPrintableCandidateIds).length}.`,
+            "info",
+            plan.id,
+          );
         }
         jobApi.appendLog(
           job,
@@ -1543,6 +1561,7 @@ function createCurriculumOperatorApi(deps) {
         imagesComplete: images ? imagesComplete : undefined,
         printableActions,
         printableCounts,
+        printableBudgetDiagnostics,
         printablesComplete: printables ? printablesComplete : undefined,
         songActions,
         bookActions,
