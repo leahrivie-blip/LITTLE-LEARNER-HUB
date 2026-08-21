@@ -540,6 +540,7 @@ function createCurriculumOperatorApi(deps) {
         maxImageGenerations: remainingGenerations,
       },
       lessonCount,
+      command: job.command || null,
       replaceBadImages: job.command.actions.replaceBadImages === true,
       touchImages: job.command.actions.touchImages !== false,
       callGenerate: generateOperatorImage,
@@ -557,6 +558,7 @@ function createCurriculumOperatorApi(deps) {
         imageRun,
         plan,
         error: imageRun.error,
+        imageBudgetDiagnostics: imageRun.imageBudgetDiagnostics || null,
       };
     }
 
@@ -650,6 +652,7 @@ function createCurriculumOperatorApi(deps) {
       afterPlan,
       historyId,
       counts,
+      imageBudgetDiagnostics: imageRun.imageBudgetDiagnostics || null,
       error: ok ? null : "Post-save image job verification failed.",
     };
   }
@@ -1252,6 +1255,7 @@ function createCurriculumOperatorApi(deps) {
 
       // --- Phase 3 activity images (optional; uses post-text/post-song stored content) ---
       let imageActions = schema.asArray(lr.imageActions);
+      let imageBudgetDiagnostics = lr.imageBudgetDiagnostics || null;
       let imageCounts = lr.imageCounts || null;
       let imagesComplete = lr.imagesComplete === true;
       let imageError = null;
@@ -1294,6 +1298,9 @@ function createCurriculumOperatorApi(deps) {
             bookCounts,
             imageActions: imageResult.imageRun?.actions || [],
             imageCounts: imageResult.imageRun?.counts || null,
+            imageBudgetDiagnostics: imageResult.imageBudgetDiagnostics
+              || imageResult.imageRun?.imageBudgetDiagnostics
+              || null,
             imagesComplete: false,
             error: schema.text(imageResult.error, 500),
             ownerReviewStatus: "BLOCKED",
@@ -1309,6 +1316,9 @@ function createCurriculumOperatorApi(deps) {
 
         imageActions = imageResult.imageRun.actions;
         imageCounts = imageResult.counts;
+        imageBudgetDiagnostics = imageResult.imageBudgetDiagnostics
+          || imageResult.imageRun?.imageBudgetDiagnostics
+          || null;
         imagesComplete = imageResult.ok || imageResult.partial;
         imagesOk = Boolean(imageResult.ok);
         if (imageResult.historyId) historyId = imageResult.historyId;
@@ -1323,6 +1333,14 @@ function createCurriculumOperatorApi(deps) {
           ownerReviewStatus = "READY_FOR_OWNER_REVIEW";
         } else if (ownerReviewStatus === "AUDIT_ONLY") {
           ownerReviewStatus = "READY_FOR_OWNER_REVIEW";
+        }
+        if (imageBudgetDiagnostics?.imageBudgetApplied) {
+          jobApi.appendLog(
+            job,
+            `Image soft budget applied: ${imageBudgetDiagnostics.imageCandidatesTotal} candidates → budget ${imageBudgetDiagnostics.imageBudget}; deferred ${schema.asArray(imageBudgetDiagnostics.budgetDeferredActivityIds).length}.`,
+            "info",
+            plan.id,
+          );
         }
         jobApi.appendLog(
           job,
@@ -1377,6 +1395,7 @@ function createCurriculumOperatorApi(deps) {
             bookCounts,
             imageActions,
             imageCounts,
+            imageBudgetDiagnostics,
             imagesComplete: images ? imagesComplete : undefined,
             printableActions: printableResult.printableRun?.actions || [],
             printableCounts: printableResult.printableRun?.counts || null,
@@ -1520,6 +1539,7 @@ function createCurriculumOperatorApi(deps) {
         kitScope,
         imageActions,
         imageCounts,
+        imageBudgetDiagnostics,
         imagesComplete: images ? imagesComplete : undefined,
         printableActions,
         printableCounts,

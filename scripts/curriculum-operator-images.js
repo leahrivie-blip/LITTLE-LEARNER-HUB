@@ -12,6 +12,9 @@ const schema = require("./curriculum-operator-schema.js");
 
 const IMAGE_FIELDS = Object.freeze(["setupImageUrl", "exampleImageUrl"]);
 const WRITE_DECISIONS = Object.freeze(["GENERATE", "REPLACE"]);
+/** Soft per-lesson generation budget — ordinary finish must self-budget to this, not SCOPE_REVIEW. */
+const SOFT_IMAGE_GENERATIONS_PER_LESSON = 8;
+const IMAGE_BUDGET_DEFER_REASON = "image_budget_priority";
 const IMAGE_STEP_STATUSES = Object.freeze([
   "pending",
   "inspecting",
@@ -27,6 +30,163 @@ const IMAGE_STEP_STATUSES = Object.freeze([
 
 function text(value, max = 2000) {
   return schema.text(value, max);
+}
+
+function softImageGenerationBudget(lessonCount = 1) {
+  const n = Math.max(1, Number(lessonCount) || 1);
+  return Math.max(SOFT_IMAGE_GENERATIONS_PER_LESSON, n * SOFT_IMAGE_GENERATIONS_PER_LESSON);
+}
+
+/**
+ * True when the owner explicitly asked for more-than-soft-budget full image coverage.
+ * Normal create/finish must NOT set this — those self-budget instead of SCOPE_REVIEW.
+ */
+function commandRequestsFullImageCoverage(command) {
+  const raw = text(command?.rawCommand || command?.command?.rawCommand || "", 2000);
+  if (!raw) return false;
+  return /\b(unique\s+)?image(s)?\s+for\s+(all|every|each)\b/i.test(raw)
+    || /\b(all|every|each)\s+(\d+\s+)?activit(y|ies).{0,40}\bimage/i.test(raw)
+    || /\bgenerate\s+(a\s+)?(unique\s+)?image\s+for\s+all\b/i.test(raw)
+    || /\bimage\s+for\s+all\s+\d*\s*activit/i.test(raw);
+}
+
+/**
+ * Lower number = higher priority. Deterministic; no randomness.
+ * 1–2 REPLACE (broken then theme-art), 3–7 GENERATE by instructional need, 99 other.
+ */
+function imageWritePriorityScore(action, activity = {}) {
+  const decision = normalizeDecision(action?.decision);
+  const reason = text(action?.reason, 600);
+  const title = text(action?.activityTitle || activity?.title, 180);
+  const category = text(activity?.activityCategory || activity?.domain, 80);
+  const materials = text(activity?.materials || action?.materials, 300);
+  const setup = text(activity?.setup || action?.setup, 300);
+  const steps = text(activity?.steps, 400);
+  const blob = `${title} ${category} ${materials} ${setup} ${steps} ${reason}`.toLowerCase();
+
+  if (decision === "REPLACE") {
+    if (/broken|placeholder|missing|about:blank/i.test(reason) || /broken|placeholder/i.test(blob)) {
+      return 1;
+    }
+    return 2;
+  }
+  if (decision !== "GENERATE") return 99;
+
+  if (/difficult|unfamiliar|complicated|invitation to play|sensory bin|stem|lab(oratory)?|multi[- ]?step setup|unusual/i.test(blob)
+    || /invitation to play|sensory|stem|science/i.test(category)) {
+    return 3;
+  }
+  if (/finished|process art|example|mural|collage|craft|construction|visual final/i.test(blob)
+    || /art|creative/i.test(category)) {
+    return 4;
+  }
+  if (/layout|arrangement|tray|station|many materials|complex materials|counted pieces/i.test(blob)
+    || wordCountish(materials) >= 12) {
+    return 5;
+  }
+  if (/dramatic play|role.?play|bakery|cafe|market|classroom implementation|teacher.?value/i.test(blob)) {
+    return 6;
+  }
+  return 7;
+}
+
+function wordCountish(value) {
+  return text(value).split(/\s+/).filter(Boolean).length;
+}
+
+/**
+ * Apply soft generation budget to planned image actions.
+ * KEEP / existing NOT_NEEDED unchanged. Excess GENERATE/REPLACE → NOT_NEEDED
+ * with typed reason image_budget_priority. Deterministic priority + stable tie-break.
+ */
+function applyImageGenerationSoftBudget(actions, options = {}) {
+  const list = schema.asArray(actions).map((a) => ({ ...a }));
+  const softMax = Math.max(0, Number(options.softMax) || softImageGenerationBudget(options.lessonCount || 1));
+  const activityOrder = new Map(
+    schema.asArray(options.activities).map((a, index) => [text(a.id || a.itemId, 160), index]),
+  );
+  const byId = new Map(
+    schema.asArray(options.activities).map((a) => [text(a.id || a.itemId, 160), a]),
+  );
+
+  const writeIndexes = [];
+  list.forEach((action, index) => {
+    if (WRITE_DECISIONS.includes(normalizeDecision(action.decision))) writeIndexes.push(index);
+  });
+
+  const ranked = writeIndexes
+    .map((index) => {
+      const action = list[index];
+      const id = text(action.activityId, 160);
+      const activity = byId.get(id) || {};
+      return {
+        index,
+        activityId: id,
+        priority: imageWritePriorityScore(action, activity),
+        order: activityOrder.has(id) ? activityOrder.get(id) : 9999,
+        idKey: id,
+      };
+    })
+    .sort((a, b) => (
+      a.priority - b.priority
+      || a.order - b.order
+      || String(a.idKey).localeCompare(String(b.idKey))
+      || a.index - b.index
+    ));
+
+  const selected = ranked.slice(0, softMax);
+  const deferred = ranked.slice(softMax);
+  const selectedIds = selected.map((row) => row.activityId);
+  const deferredIds = deferred.map((row) => row.activityId);
+  const reasonByActivityId = {};
+
+  deferred.forEach((row) => {
+    const action = list[row.index];
+    const priorDecision = normalizeDecision(action.decision);
+    list[row.index] = {
+      ...action,
+      decision: "NOT_NEEDED",
+      priorDecision,
+      priorityScore: row.priority,
+      reason: `${IMAGE_BUDGET_DEFER_REASON}: deferred optional ${priorDecision} (priority ${row.priority}) to respect soft image budget ${softMax}.`,
+      budgetDeferred: true,
+    };
+    reasonByActivityId[row.activityId] = IMAGE_BUDGET_DEFER_REASON;
+  });
+  selected.forEach((row) => {
+    list[row.index] = {
+      ...list[row.index],
+      priorityScore: row.priority,
+      budgetSelected: true,
+    };
+    reasonByActivityId[row.activityId] = text(list[row.index].reason, 200) || "selected";
+  });
+
+  const plannedBefore = writeIndexes.length;
+  const finalGenerateCount = list.filter((a) => normalizeDecision(a.decision) === "GENERATE").length;
+  const finalReplaceCount = list.filter((a) => normalizeDecision(a.decision) === "REPLACE").length;
+  const finalNotNeededCount = list.filter((a) => normalizeDecision(a.decision) === "NOT_NEEDED").length;
+  const plannedKeepCount = list.filter((a) => normalizeDecision(a.decision) === "KEEP").length;
+
+  return {
+    actions: list,
+    diagnostics: {
+      imageCandidatesTotal: plannedBefore,
+      imageBudget: softMax,
+      plannedKeepCount,
+      plannedGenerateCountBeforeBudget: schema.asArray(actions)
+        .filter((a) => normalizeDecision(a.decision) === "GENERATE").length,
+      plannedReplaceCountBeforeBudget: schema.asArray(actions)
+        .filter((a) => normalizeDecision(a.decision) === "REPLACE").length,
+      budgetSelectedActivityIds: selectedIds,
+      budgetDeferredActivityIds: deferredIds,
+      finalGenerateCount,
+      finalReplaceCount,
+      finalNotNeededCount,
+      imageBudgetApplied: deferred.length > 0,
+      imageBudgetReasonByActivityId: reasonByActivityId,
+    },
+  };
 }
 
 function loadEnrichment() {
@@ -164,8 +324,7 @@ function plannedGenerationCount(actions) {
 function assessImageScope({ actions, lessonCount = 1, limits = {} }) {
   const planned = plannedGenerationCount(actions);
   const hardMax = Number(limits.maxImageGenerations) || schema.DEFAULT_LIMITS.maxImageGenerations;
-  const softPerLesson = 8;
-  const softMax = Math.max(softPerLesson, Number(lessonCount) * softPerLesson);
+  const softMax = softImageGenerationBudget(lessonCount);
   if (planned > hardMax) {
     return {
       ok: false,
@@ -597,6 +756,8 @@ async function runImagePlanForLesson({
   mockGenerate = false,
   alreadySucceededKeys = new Set(),
   lessonCount = 1,
+  command = null,
+  forceFullImageCoverage = false,
 } = {}) {
   if (touchImages === false) {
     return {
@@ -610,7 +771,81 @@ async function runImagePlanForLesson({
     };
   }
 
-  const actions = buildImageActionsFromAudit(plan, activities, audit, { replaceBadImages });
+  const rawActions = buildImageActionsFromAudit(plan, activities, audit, { replaceBadImages });
+  const softMax = softImageGenerationBudget(lessonCount);
+  const hardMax = Number(limits?.maxImageGenerations) || schema.DEFAULT_LIMITS.maxImageGenerations;
+  const plannedBeforeBudget = plannedGenerationCount(rawActions);
+  const explicitFullCoverage = forceFullImageCoverage === true
+    || commandRequestsFullImageCoverage(command);
+
+  // Explicit owner request for above-soft full coverage still requires scope review.
+  if (explicitFullCoverage && plannedBeforeBudget > softMax) {
+    const scope = assessImageScope({
+      actions: rawActions,
+      lessonCount: Math.max(1, Number(lessonCount) || 1),
+      limits: limits || {},
+    });
+    return {
+      ok: false,
+      code: "SCOPE_REVIEW_REQUIRED",
+      error: scope.reason || `Explicit full-image request planned ${plannedBeforeBudget} generations above soft max ${softMax}.`,
+      actions: rawActions,
+      counts: summarizeImageActions(rawActions),
+      enrichmentDraft: plan?.enrichmentDraft || null,
+      changed: false,
+      generations: 0,
+      scope: { ...scope, explicitFullCoverage: true },
+      imageBudgetDiagnostics: {
+        imageCandidatesTotal: plannedBeforeBudget,
+        imageBudget: softMax,
+        plannedKeepCount: rawActions.filter((a) => normalizeDecision(a.decision) === "KEEP").length,
+        plannedGenerateCountBeforeBudget: rawActions.filter((a) => normalizeDecision(a.decision) === "GENERATE").length,
+        plannedReplaceCountBeforeBudget: rawActions.filter((a) => normalizeDecision(a.decision) === "REPLACE").length,
+        budgetSelectedActivityIds: [],
+        budgetDeferredActivityIds: [],
+        finalGenerateCount: rawActions.filter((a) => normalizeDecision(a.decision) === "GENERATE").length,
+        finalReplaceCount: rawActions.filter((a) => normalizeDecision(a.decision) === "REPLACE").length,
+        finalNotNeededCount: rawActions.filter((a) => normalizeDecision(a.decision) === "NOT_NEEDED").length,
+        imageBudgetApplied: false,
+        explicitFullCoverage: true,
+      },
+    };
+  }
+
+  // Ordinary finish/create: self-budget optional GENERATE/REPLACE down to soft max.
+  const budgeted = applyImageGenerationSoftBudget(rawActions, {
+    softMax,
+    lessonCount,
+    activities,
+  });
+  const actions = budgeted.actions;
+  const imageBudgetDiagnostics = budgeted.diagnostics;
+  const plannedAfterBudget = plannedGenerationCount(actions);
+
+  // Hard max still blocks after budgeting — never silently truncate past hard safety/cost cap.
+  if (plannedAfterBudget > hardMax) {
+    const scope = assessImageScope({
+      actions,
+      lessonCount: Math.max(1, Number(lessonCount) || 1),
+      limits: limits || {},
+    });
+    return {
+      ok: false,
+      code: scope.code || "SCOPE_REVIEW_REQUIRED",
+      error: scope.reason,
+      actions,
+      counts: summarizeImageActions(actions),
+      enrichmentDraft: plan?.enrichmentDraft || null,
+      changed: false,
+      generations: 0,
+      scope,
+      imageBudgetDiagnostics: {
+        ...imageBudgetDiagnostics,
+        blockedByHardMax: true,
+      },
+    };
+  }
+
   const scope = assessImageScope({
     actions,
     lessonCount: Math.max(1, Number(lessonCount) || 1),
@@ -627,6 +862,7 @@ async function runImagePlanForLesson({
       changed: false,
       generations: 0,
       scope,
+      imageBudgetDiagnostics,
     };
   }
 
@@ -636,7 +872,6 @@ async function runImagePlanForLesson({
   if (!draft.activities || typeof draft.activities !== "object") draft.activities = {};
 
   let generations = 0;
-  const hardMax = Number(limits?.maxImageGenerations) || schema.DEFAULT_LIMITS.maxImageGenerations;
   const results = [];
 
   for (const action of actions) {
@@ -782,6 +1017,7 @@ async function runImagePlanForLesson({
     changed: results.some((r) => r.status === "success"),
     generations,
     scope,
+    imageBudgetDiagnostics,
   };
 }
 
@@ -789,12 +1025,18 @@ module.exports = {
   IMAGE_FIELDS,
   WRITE_DECISIONS,
   IMAGE_STEP_STATUSES,
+  SOFT_IMAGE_GENERATIONS_PER_LESSON,
+  IMAGE_BUDGET_DEFER_REASON,
   NON_MEDIA_ACTIVITY_KEYS,
   normalizeDecision,
   refineImageDecision,
   buildImageActionsFromAudit,
   summarizeImageActions,
   plannedGenerationCount,
+  softImageGenerationBudget,
+  commandRequestsFullImageCoverage,
+  imageWritePriorityScore,
+  applyImageGenerationSoftBudget,
   assessImageScope,
   buildActivityImagePrompt,
   generateActivityImageBuffer,
