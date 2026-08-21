@@ -557,6 +557,28 @@
 
         <section id="view-home" class="view active-view landing-home">
 
+          <div class="llh-announce-banner llh-flash-referral-banner" id="llhFlashReferralBanner" data-home-flash-referral-announce="1" role="region" aria-label="Flash referral deal">
+            <div class="llh-announce-banner-inner">
+              <div class="llh-announce-copy llh-flash-referral-copy">
+                <p class="llh-flash-referral-kicker">🔥 FLASH REFERRAL DEAL 🔥</p>
+                <p class="llh-flash-referral-lead">Refer a friend to Little Learner Hub!</p>
+                <p class="llh-flash-referral-promise">Every verified paid referral = 1 free month of Pro.</p>
+                <p class="llh-flash-referral-hint">Send us their name or email so we can verify it.</p>
+                <details class="llh-flash-referral-how">
+                  <summary>How it works</summary>
+                  <div class="llh-flash-referral-how-body">
+                    <p>When someone you refer signs up for a PAID Pro membership, send us their name or email so we can verify the referral.</p>
+                    <p>🎉 Every verified paid referral = 1 FREE month of Pro for you — after owner verification.</p>
+                    <p>Bring in 2 people = 2 months free. Bring in 3 people = 3 months free.</p>
+                    <p>There is no need to stop at one — each verified paid member you refer earns another free month.</p>
+                    <p class="llh-flash-referral-fineprint">Referral credit is applied manually by the owner after the referred member’s first successful paid Pro payment is confirmed. This form does not add an automatic Stripe discount or instant account credit. The new member must be a new paying customer. Duplicate, refunded, canceled-before-payment, fraudulent, or self-referrals do not qualify.</p>
+                  </div>
+                </details>
+              </div>
+              <button class="llh-btn llh-btn-accent" type="button" data-view="contact" data-flash-referral-cta="1">Refer &amp; Save</button>
+            </div>
+          </div>
+
           <div class="llh-announce-banner" id="llhFoundingAnnounceBanner" data-home-early-user-announce="1" role="region" aria-label="Early User pricing">
             <div class="llh-announce-banner-inner">
               <p class="llh-announce-copy">Early User access is $13.99/month for a limited time. <a class="llh-announce-link" href="#homePricing" data-home-nav="pricing">View pricing</a></p>
@@ -1879,6 +1901,7 @@
             <form id="contactSupportForm" class="panel-form support-form" data-ticket-kind="Support Request" data-draft-form="contact-support" data-draft-scope="support">
               <p class="eyebrow">Contact Form</p>
               <h3>Submit Support Request</h3>
+              <p class="form-note" id="flashReferralContactHint" hidden>Send us the name or email of the person you referred so we can verify it. Rewards are applied manually after owner verification.</p>
               <p class="draft-status muted-copy" data-draft-status hidden></p>
               <label>Name<input name="name" required placeholder="Your name" /></label>
               <label>Email<input name="email" type="email" required placeholder="Your email" /></label>

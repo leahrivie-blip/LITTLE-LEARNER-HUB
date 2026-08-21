@@ -21672,6 +21672,7 @@ body.llh-scroll-locked .member-update-banner,
 body.llh-scroll-locked #memberUpdateBanner,
 body.llh-scroll-locked #siteAnnouncementBanner,
 body.llh-scroll-locked #llhFoundingAnnounceBanner,
+body.llh-scroll-locked #llhFlashReferralBanner,
 body.resource-viewer-open .member-update-banner,
 body.resource-viewer-open #siteAnnouncementBanner,
 body.lesson-workspace-open .member-update-banner {
@@ -24391,6 +24392,8 @@ body.auth-modal-open .llh-meta-cookie-notice,
 body.nuo-open .llh-meta-cookie-notice,
 body.auth-modal-open #siteAnnouncementBanner,
 body.nuo-open #siteAnnouncementBanner,
+body.auth-modal-open #llhFlashReferralBanner,
+body.nuo-open #llhFlashReferralBanner,
 body.auth-modal-open #freePlanReminderBar,
 body.nuo-open #freePlanReminderBar {
   display: none !important;

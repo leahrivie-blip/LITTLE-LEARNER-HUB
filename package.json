@@ -259,6 +259,8 @@
     "test:spa-fallback": "NODE_ENV=test node scripts/test-spa-fallback.js",
     "test:stale-auth-reconcile": "NODE_ENV=test node scripts/test-stale-auth-reconcile.js",
     "test:homepage-signup-cta": "node scripts/test-homepage-signup-cta.js",
+    "test:flash-referral-banner": "node scripts/test-flash-referral-banner.js",
+    "test:flash-referral-banner-ux": "node scripts/test-flash-referral-banner-ux.js",
     "test:signup-intent-copy": "NODE_ENV=test node scripts/test-signup-intent-copy.js",
     "test:homepage-shape-feedback": "node scripts/test-homepage-shape-feedback.js",
     "test:admin-feedback-dashboard": "node scripts/test-admin-feedback-dashboard.js",

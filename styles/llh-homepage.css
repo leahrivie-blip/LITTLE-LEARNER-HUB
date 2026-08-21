@@ -366,6 +366,101 @@ body.llh-public-menu-open {
   white-space: nowrap;
 }
 
+/* Temporary Flash Referral Deal — public homepage only, in document flow (does not cover nav). */
+.llh-flash-referral-banner {
+  background: linear-gradient(90deg, #4f4278 0%, #7b6bb5 46%, #c47a5a 100%);
+}
+
+.llh-flash-referral-banner .llh-announce-banner-inner {
+  max-height: none;
+  align-items: center;
+  gap: 16px;
+}
+
+.llh-flash-referral-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.llh-flash-referral-banner .llh-announce-copy p {
+  display: block;
+  -webkit-line-clamp: unset;
+  -webkit-box-orient: unset;
+  overflow: visible;
+}
+
+.llh-flash-referral-kicker {
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.llh-flash-referral-lead,
+.llh-flash-referral-promise {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.llh-flash-referral-promise {
+  font-size: 1rem;
+}
+
+.llh-flash-referral-hint {
+  font-size: 0.86rem !important;
+  font-weight: 600 !important;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.llh-flash-referral-how {
+  margin: 4px 0 0;
+}
+
+.llh-flash-referral-how summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0;
+  cursor: pointer;
+  color: #fff;
+  font-size: 0.86rem;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.llh-flash-referral-how summary:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+.llh-flash-referral-how-body {
+  margin-top: 6px;
+  display: grid;
+  gap: 6px;
+  max-width: 52rem;
+}
+
+.llh-flash-referral-how-body p {
+  font-size: 0.84rem;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.llh-flash-referral-fineprint {
+  font-size: 0.75rem !important;
+  font-weight: 500 !important;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.llh-flash-referral-banner .llh-btn-accent {
+  min-height: 44px;
+  padding: 10px 18px;
+}
+
 /* Sections */
 .llh-section,
 .landing-home .lp-hero,
@@ -1426,6 +1521,20 @@ body.llh-public-menu-open {
     flex: 1 1 100%;
     width: 100%;
     min-height: 44px;
+  }
+
+  .llh-flash-referral-banner .llh-announce-banner-inner {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .llh-flash-referral-lead,
+  .llh-flash-referral-promise {
+    font-size: 0.9rem;
+  }
+
+  .llh-flash-referral-banner .llh-btn-accent {
+    width: 100%;
   }
 
   .llh-coming-grid--categories {
