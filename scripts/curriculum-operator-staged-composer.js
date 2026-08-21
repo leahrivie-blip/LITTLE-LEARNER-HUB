@@ -86,6 +86,74 @@ const STAGE1_CONTRACT_ECHO_KEYS = Object.freeze(new Set([
   "CREATE_WEEK_BLUEPRINT",
 ]));
 
+/** Canonical Stage 2 expansion activity fields (LLH Teaching Kit). */
+const REQUIRED_EXPANSION_ACTIVITY_FIELDS = Object.freeze([
+  "outlineId",
+  "title",
+  "dayOfWeek",
+  "activityCategory",
+  "durationMinutes",
+  "objective",
+  "description",
+  "materials",
+  "preparation",
+  "setup",
+  "steps",
+  "teacherLanguage",
+  "observationOpportunities",
+  "safetyNotes",
+  "cleanupTips",
+  "indoorAlternatives",
+  "outdoorAlternatives",
+  "teacherTips",
+  "substitutions",
+  "adaptations",
+  "extensions",
+  "vocabulary",
+  "observationPrompts",
+  "mixedAgeAdaptations",
+  "preliminaryAssetIntent",
+]);
+
+const STAGE2_CONTRACT_ECHO_KEYS = Object.freeze(new Set([
+  "requiredActivityFields",
+  "expandExactlyTheseOutlineIds",
+  "requestedOutlineIds",
+  "outlinesToExpand",
+  "weeklyBlueprint",
+  "batchNumber",
+  "repairTargets",
+  "fixOnlyTheseIssues",
+  "previousBatchActivities",
+  "mode",
+  "brief",
+  "rules",
+  "fieldQualityExpectations",
+]));
+
+const FORBIDDEN_EXPANSION_ACTIVITY_KEYS = Object.freeze(new Set([
+  "status",
+  "published",
+  "publishedAt",
+  "lessonPlanId",
+  "planId",
+  "accessPlan",
+  "plan",
+  "ownerId",
+  "createdBy",
+]));
+
+const EXPANSION_TEXT_FIELDS = Object.freeze([
+  "objective", "description", "materials", "preparation", "setup", "steps",
+  "teacherLanguage", "observationOpportunities", "safetyNotes", "cleanupTips",
+  "indoorAlternatives", "outdoorAlternatives", "adaptations", "extensions",
+  "vocabulary", "mixedAgeAdaptations",
+]);
+
+const EXPANSION_LIST_FIELDS = Object.freeze([
+  "teacherTips", "observationPrompts", "substitutions",
+]);
+
 function text(value, max = 4000) {
   return schema.text(value, max);
 }
@@ -107,6 +175,7 @@ function emptyUsage() {
 function emptyDiagnostics() {
   return {
     stages: [],
+    batches: [],
     model: null,
     maxOutputTokens: STAGE_MAX_OUTPUT_TOKENS,
     batchSize: DEFAULT_BATCH_SIZE,
@@ -663,29 +732,182 @@ function buildStage1UserPrompt(brief, repairIssues, previousBlueprint) {
   ].join("\n");
 }
 
+function asActivityStringList(value, maxItems = 8, maxLen = 300) {
+  if (Array.isArray(value)) {
+    return value.map((v) => {
+      if (typeof v === "string") return text(v, maxLen);
+      if (v && typeof v === "object") {
+        return text(`${v.need || v.label || ""} → ${v.use || v.value || v.text || ""}`.replace(/^\s*→\s*/, ""), maxLen)
+          || text(v.text || v.prompt || v.tip || "", maxLen);
+      }
+      return text(v, maxLen);
+    }).filter(Boolean).slice(0, maxItems);
+  }
+  const raw = text(value, 2000);
+  if (!raw) return [];
+  const parts = raw.split(/\n+|;\s+(?=[A-Z])/)
+    .map((part) => text(String(part).replace(/^\s*[-*•]\s*/, "").replace(/^\d+[\).:\]]\s*/, ""), maxLen))
+    .filter(Boolean);
+  if (parts.length >= 2) return parts.slice(0, maxItems);
+  return [text(raw, maxLen)];
+}
+
+function listFieldSubstanceOk(values, minItemWords = 6) {
+  const list = schema.asArray(values).map((v) => text(v, 300)).filter(Boolean);
+  if (!list.length) return false;
+  const joined = list.join(" ");
+  if (wordCount(joined) < minItemWords) return false;
+  if (/\b(help (children )?as needed|observe the child|provide support|make it harder|be careful)\b/i.test(joined)
+    && wordCount(joined) < 20) {
+    return false;
+  }
+  return true;
+}
+
 function buildExpansionSystemPrompt(ageBand) {
   return [
     "You are the Little Learner Hub Curriculum Activity Expander.",
     "Expand ONLY the requested outlineIds into full teacher-ready activities.",
     "Return ONLY valid JSON: {\"activities\":[...]} with exactly those outlineIds.",
     "Do not invent extra activities. Do not omit requested outlineIds.",
+    "EVERY returned activity must satisfy the complete requiredActivityFields contract before the batch is complete.",
+    "Do not leave lower-priority fields blank because objective/setup/steps are present.",
+    "teacherTips and observationPrompts MUST be non-empty string arrays with activity-specific substance.",
     "Reject generic filler like \"Children will learn about X\", \"Set out materials\", \"What do you see?\".",
-    "Require activity-specific substance: concrete materials counts/placement, modeled steps, multiple useful questions, observation focus, adaptations.",
+    "Require activity-specific substance: concrete materials counts/placement, modeled steps, multiple useful questions, observation focus, adaptations, tips, observation prompts.",
+    "Do NOT echo prompt/contract keys (requiredActivityFields, expandExactlyTheseOutlineIds, repairTargets) into activity objects.",
+    "Do NOT set status, published, publishedAt, or lessonPlanId on activities.",
     ageBand === "preschool"
       ? "PRESCHOOL: play-based, concrete, collaborative, developmentally appropriate."
       : "Match the requested age band precisely.",
   ].join("\n");
 }
 
-function buildExpansionUserPrompt(brief, blueprint, outlineIds) {
+function expansionFieldQualityExpectations() {
+  return {
+    teacherTips: "Activity-specific implementation help (array). Bad: \"Help children as needed.\" Good: offer limited tools first, then add more once engaged.",
+    observationPrompts: "Concrete teacher noticeables (array). Bad: \"Observe the child.\" Good: notice one-to-one correspondence, quantity language, recounts.",
+    adaptations: "Real support adaptation. Bad: \"Provide support.\" Good: larger manipulatives + one action at a time.",
+    extensions: "Real added challenge. Bad: \"Make it harder.\" Good: compare two groups before counting to check.",
+    teacherLanguage: "Multiple age-appropriate prompts (newline-separated), not one generic question.",
+    steps: "Multiple actionable steps unless the activity is genuinely tiny.",
+    cleanupTips: "May be concise if specific.",
+    vocabulary: "May be concise theme words; must include ≥3 usable words.",
+  };
+}
+
+function buildExpansionUserPrompt(brief, blueprint, outlineIds, options = {}) {
   const wanted = schema.asArray(outlineIds).map((id) => text(id, 80)).filter(Boolean);
   const outlines = schema.asArray(blueprint.activityOutlines)
     .filter((o) => wanted.includes(o.outlineId));
+  const payload = {
+    mode: "EXPAND_ACTIVITY_BATCH",
+    brief: {
+      title: brief.title,
+      theme: brief.theme,
+      ageBand: brief.ageBand,
+      ageLabel: brief.ageLabel,
+      accessPlan: brief.accessPlan,
+    },
+    weeklyBlueprint: {
+      title: blueprint.lesson.title,
+      weeklyOverview: blueprint.lesson.weeklyOverview,
+      objectives: blueprint.lesson.objectives,
+      dailyFocus: blueprint.lesson.dailyFocus,
+      allOutlines: blueprint.activityOutlines.map((o) => ({
+        outlineId: o.outlineId,
+        name: o.name,
+        weekday: o.weekday,
+        domain: o.domain,
+        concept: o.concept,
+      })),
+    },
+    expandExactlyTheseOutlineIds: wanted,
+    outlinesToExpand: outlines,
+    requiredActivityFields: [...REQUIRED_EXPANSION_ACTIVITY_FIELDS],
+    fieldQualityExpectations: expansionFieldQualityExpectations(),
+    rules: [
+      `Return exactly ${wanted.length} activities.`,
+      "Every expandExactlyTheseOutlineIds value must appear exactly once.",
+      "No unrequested outlineId.",
+      "Populate EVERY requiredActivityFields entry — missing/empty/TODO/generic filler fails.",
+      "teacherTips: non-empty array of activity-specific tips.",
+      "observationPrompts: non-empty array of concrete observation prompts.",
+      "Use week context so Batch activities do not duplicate earlier concepts.",
+      "Do not echo requiredActivityFields into activity objects.",
+    ],
+  };
+  if (options.batchNumber) payload.batchNumber = options.batchNumber;
   return [
     "Expand ONLY these activity outlines into full Teaching Kit activities.",
     "Keep outlineId on each returned activity. Keep name/weekday/domain aligned with the outline.",
+    JSON.stringify(payload, null, 2),
+  ].join("\n");
+}
+
+function parseExpansionIssueTarget(issue, activities) {
+  const raw = text(issue, 240);
+  if (!raw) return null;
+  const tooShort = raw.match(/^Too short:\s*(.+)\.([A-Za-z]+)$/);
+  const generic = raw.match(/^Generic filler in\s+(.+)\.([A-Za-z]+)$/i);
+  const placeholder = raw.match(/^Placeholder in\s+(.+)\.([A-Za-z]+)$/i);
+  const missingTips = raw.match(/^(.+)\.missing_tips$/);
+  const missingObs = raw.match(/^(.+)\.missing_observation_prompts$/);
+  const thinVocab = raw.match(/^(.+)\.thin_vocabulary$/);
+  const thinTips = raw.match(/^(.+)\.thin_tips$/);
+  const thinObs = raw.match(/^(.+)\.thin_observation_prompts$/);
+  let title = null;
+  let field = null;
+  let reason = "invalid";
+  if (tooShort) {
+    title = tooShort[1]; field = tooShort[2]; reason = "too_short";
+  } else if (generic) {
+    title = generic[1]; field = generic[2]; reason = "generic_filler";
+  } else if (placeholder) {
+    title = placeholder[1]; field = placeholder[2]; reason = "placeholder";
+  } else if (missingTips) {
+    title = missingTips[1]; field = "teacherTips"; reason = "missing";
+  } else if (missingObs) {
+    title = missingObs[1]; field = "observationPrompts"; reason = "missing";
+  } else if (thinVocab) {
+    title = thinVocab[1]; field = "vocabulary"; reason = "too_short";
+  } else if (thinTips) {
+    title = thinTips[1]; field = "teacherTips"; reason = "too_short";
+  } else if (thinObs) {
+    title = thinObs[1]; field = "observationPrompts"; reason = "too_short";
+  } else {
+    return null;
+  }
+  const act = schema.asArray(activities).find((a) => text(a.title || a.name, 120) === text(title, 120));
+  if (!act?.outlineId) return null;
+  return { outlineId: act.outlineId, field, reason, title: text(title, 120) };
+}
+
+function buildExpansionRepairTargets(issues, activities) {
+  const byId = new Map();
+  schema.asArray(issues).forEach((issue) => {
+    const hit = parseExpansionIssueTarget(issue, activities);
+    if (!hit) return;
+    if (!byId.has(hit.outlineId)) {
+      byId.set(hit.outlineId, { outlineId: hit.outlineId, title: hit.title, fields: [] });
+    }
+    const row = byId.get(hit.outlineId);
+    if (!row.fields.some((f) => f.field === hit.field)) {
+      row.fields.push({ field: hit.field, reason: hit.reason });
+    }
+  });
+  return [...byId.values()];
+}
+
+function buildExpansionRepairUserPrompt(brief, blueprint, outlineIds, previousActivities, issues, options = {}) {
+  const wanted = schema.asArray(outlineIds).map((id) => text(id, 80)).filter(Boolean);
+  const repairTargets = buildExpansionRepairTargets(issues, previousActivities);
+  const failedIds = repairTargets.map((t) => t.outlineId);
+  return [
+    "Repair ONLY the failed activity fields in this expansion batch.",
+    "Preserve valid activities and valid fields. Keep outlineId / title / dayOfWeek / activityCategory aligned to the blueprint.",
     JSON.stringify({
-      mode: "EXPAND_ACTIVITY_BATCH",
+      mode: "REPAIR_ACTIVITY_BATCH",
       brief: {
         title: brief.title,
         theme: brief.theme,
@@ -693,43 +915,155 @@ function buildExpansionUserPrompt(brief, blueprint, outlineIds) {
         ageLabel: brief.ageLabel,
         accessPlan: brief.accessPlan,
       },
+      batchNumber: options.batchNumber || null,
+      expandExactlyTheseOutlineIds: wanted,
+      repairTargets,
+      fixOnlyTheseIssues: schema.asArray(issues).slice(0, 40),
+      requiredActivityFields: [...REQUIRED_EXPANSION_ACTIVITY_FIELDS],
+      fieldQualityExpectations: expansionFieldQualityExpectations(),
       weeklyBlueprint: {
         title: blueprint.lesson.title,
-        weeklyOverview: blueprint.lesson.weeklyOverview,
-        objectives: blueprint.lesson.objectives,
         dailyFocus: blueprint.lesson.dailyFocus,
-        allOutlines: blueprint.activityOutlines.map((o) => ({
-          outlineId: o.outlineId,
-          name: o.name,
-          weekday: o.weekday,
-          domain: o.domain,
-          concept: o.concept,
-        })),
+        outlines: schema.asArray(blueprint.activityOutlines)
+          .filter((o) => wanted.includes(o.outlineId))
+          .map((o) => ({
+            outlineId: o.outlineId,
+            name: o.name,
+            weekday: o.weekday,
+            domain: o.domain,
+            concept: o.concept,
+          })),
       },
-      expandExactlyTheseOutlineIds: wanted,
-      outlinesToExpand: outlines,
-      requiredActivityFields: [
-        "outlineId", "title", "dayOfWeek", "activityCategory", "durationMinutes",
-        "objective", "description", "materials", "preparation", "setup", "steps",
-        "teacherLanguage", "observationOpportunities", "safetyNotes", "cleanupTips",
-        "indoorAlternatives", "outdoorAlternatives", "teacherTips", "substitutions",
-        "adaptations", "extensions", "vocabulary", "observationPrompts", "mixedAgeAdaptations",
-        "preliminaryAssetIntent",
-      ],
+      previousBatchActivities: schema.asArray(previousActivities),
       rules: [
-        `Return exactly ${wanted.length} activities.`,
-        "Every expandExactlyTheseOutlineIds value must appear exactly once.",
-        "No unrequested outlineId.",
-        "Use week context so Batch activities do not duplicate earlier concepts.",
+        `Return exactly ${wanted.length} activities covering every expandExactlyTheseOutlineIds value once.`,
+        failedIds.length
+          ? `Focus repairs on outlineIds: ${failedIds.join(", ")}.`
+          : "Repair listed issues only.",
+        "Preserve strong original fields that already passed validation.",
+        "teacherTips and observationPrompts must be non-empty activity-specific arrays.",
+        "Do not echo requiredActivityFields / repairTargets into activity objects.",
+        "Do not set status/published/publishedAt.",
       ],
     }, null, 2),
   ].join("\n");
 }
 
+function stripExpansionContractEcho(row) {
+  if (!row || typeof row !== "object" || Array.isArray(row)) return { cleaned: row, rejected: [], forbidden: [] };
+  const cleaned = { ...row };
+  const rejected = [];
+  const forbidden = [];
+  Object.keys(cleaned).forEach((key) => {
+    if (STAGE2_CONTRACT_ECHO_KEYS.has(key)) {
+      delete cleaned[key];
+      return;
+    }
+    if (FORBIDDEN_EXPANSION_ACTIVITY_KEYS.has(key)) {
+      forbidden.push(key);
+      delete cleaned[key];
+      return;
+    }
+  });
+  // Unknown curriculum-like keys (not canonical / known aliases)
+  Object.keys(cleaned).forEach((key) => {
+    if (REQUIRED_EXPANSION_ACTIVITY_FIELDS.includes(key)) return;
+    if (["name", "weekday", "domain", "category", "whatChildrenWillDo", "teacherPrep", "teacherQuestions",
+      "observationFocus", "safety", "cleanup", "supportAdaptations", "addedChallenge", "mixedAgeNotes",
+      "tips", "questions", "duration", "id", "outline_id"].includes(key)) {
+      return; // known aliases handled in normalize
+    }
+    if (/^[A-Za-z][A-Za-z0-9_]*$/.test(key) && !["preliminaryAssetIntent", "expectedAssetIntent"].includes(key)) {
+      // Reject unknown content keys that look curriculum-ish
+      if (/tip|prompt|adapt|extend|vocab|material|step|setup|objective|status|publish/i.test(key)) {
+        rejected.push(key);
+        delete cleaned[key];
+      }
+    }
+  });
+  return { cleaned, rejected, forbidden };
+}
+
+function normalizeExpansionActivity(raw, outline, brief, issues) {
+  const { cleaned, rejected, forbidden } = stripExpansionContractEcho(raw);
+  const actTitle = text(cleaned.title || cleaned.name || outline.name, 120);
+  rejected.forEach((key) => issues.push(`${actTitle}.unknown_activity_key:${key}`));
+  forbidden.forEach((key) => issues.push(`${actTitle}.forbidden_activity_key:${key}`));
+
+  const day = normalizeWeekday(cleaned.dayOfWeek || cleaned.weekday || outline.weekday);
+  return {
+    outlineId: text(cleaned.outlineId || cleaned.id || outline.outlineId, 80),
+    title: actTitle,
+    dayOfWeek: day,
+    activityCategory: text(cleaned.activityCategory || cleaned.domain || cleaned.category || outline.domain, 80),
+    objective: text(cleaned.objective, 2000),
+    description: text(cleaned.description || cleaned.whatChildrenWillDo, 2000),
+    materials: text(cleaned.materials, 2000),
+    preparation: text(cleaned.preparation || cleaned.teacherPrep, 2000),
+    setup: text(cleaned.setup, 2000),
+    steps: text(cleaned.steps, 4000),
+    teacherLanguage: text(cleaned.teacherLanguage || cleaned.teacherQuestions || cleaned.questions, 2000),
+    observationOpportunities: text(cleaned.observationOpportunities || cleaned.observationFocus, 2000),
+    safetyNotes: text(cleaned.safetyNotes || cleaned.safety, 2000),
+    cleanupTips: text(cleaned.cleanupTips || cleaned.cleanup, 2000),
+    indoorAlternatives: text(cleaned.indoorAlternatives || cleaned.indoorOutdoorOptions, 2000),
+    outdoorAlternatives: text(cleaned.outdoorAlternatives, 2000),
+    teacherTips: asActivityStringList(cleaned.teacherTips || cleaned.tips),
+    substitutions: asActivityStringList(cleaned.substitutions),
+    adaptations: text(cleaned.adaptations || cleaned.supportAdaptations, 2000),
+    extensions: text(cleaned.extensions || cleaned.addedChallenge, 2000),
+    vocabulary: text(cleaned.vocabulary, 500),
+    observationPrompts: asActivityStringList(
+      cleaned.observationPrompts || cleaned.observationQuestions || cleaned.prompts,
+    ),
+    durationMinutes: schema.clampInt(
+      cleaned.durationMinutes || cleaned.duration,
+      3,
+      60,
+      brief.ageBand === "infant" ? 8 : 15,
+    ),
+    age: brief.ageLabel,
+    mixedAgeAdaptations: text(cleaned.mixedAgeAdaptations || cleaned.mixedAgeNotes, 2000),
+    preliminaryAssetIntent: cleaned.preliminaryAssetIntent && typeof cleaned.preliminaryAssetIntent === "object"
+      ? cleaned.preliminaryAssetIntent
+      : outline.expectedAssetIntent,
+  };
+}
+
+function validateExpansionActivityItem(item, issues) {
+  const actTitle = item.title;
+  const requiredTextFields = [
+    "objective", "description", "materials", "preparation", "setup", "steps",
+    "teacherLanguage", "observationOpportunities", "safetyNotes", "cleanupTips",
+    "adaptations", "extensions",
+  ];
+  requiredTextFields.forEach((field) => {
+    const err = rejectGeneric(`${actTitle}.${field}`, item[field]);
+    if (err) issues.push(err);
+  });
+  // Concise cleanup/vocabulary allowed when specific; vocabulary still needs ≥3 words.
+  if (wordCount(item.vocabulary) < 3) issues.push(`${actTitle}.thin_vocabulary`);
+  if (!item.teacherTips.length) issues.push(`${actTitle}.missing_tips`);
+  else if (!listFieldSubstanceOk(item.teacherTips, 8)) issues.push(`${actTitle}.thin_tips`);
+  if (!item.observationPrompts.length) issues.push(`${actTitle}.missing_observation_prompts`);
+  else if (!listFieldSubstanceOk(item.observationPrompts, 8)) issues.push(`${actTitle}.thin_observation_prompts`);
+  if (!WEEKDAYS.includes(item.dayOfWeek)) issues.push(`bad_weekday:${item.dayOfWeek}`);
+  // teacherLanguage should include multiple prompts when substantial
+  const qLines = text(item.teacherLanguage).split(/\n+/).map((l) => l.trim()).filter(Boolean);
+  if (qLines.length < 2 && wordCount(item.teacherLanguage) < 24) {
+    issues.push(`${actTitle}.insufficient_questions`);
+  }
+}
+
 function validateExpansionBatch(parsed, requestedIds, blueprint, brief) {
   const issues = [];
   const requested = schema.asArray(requestedIds).map((id) => text(id, 80));
-  const activitiesIn = schema.asArray(parsed?.activities);
+  // Strip top-level contract echoes
+  const top = parsed && typeof parsed === "object" && !Array.isArray(parsed) ? { ...parsed } : {};
+  Object.keys(top).forEach((key) => {
+    if (STAGE2_CONTRACT_ECHO_KEYS.has(key) && key !== "activities") delete top[key];
+  });
+  const activitiesIn = schema.asArray(top.activities || parsed?.activities);
   const byId = new Map();
   activitiesIn.forEach((row, index) => {
     const id = text(row?.outlineId || row?.id, 80);
@@ -751,52 +1085,9 @@ function validateExpansionBatch(parsed, requestedIds, blueprint, brief) {
     const raw = byId.get(id);
     const outline = outlineMap.get(id);
     if (!raw || !outline) return;
-    const actTitle = text(raw.title || raw.name || outline.name, 120);
-    const day = normalizeWeekday(raw.dayOfWeek || raw.weekday || outline.weekday);
-    const item = {
-      outlineId: id,
-      title: actTitle,
-      dayOfWeek: day,
-      activityCategory: text(raw.activityCategory || raw.domain || raw.category || outline.domain, 80),
-      objective: text(raw.objective, 2000),
-      description: text(raw.description || raw.whatChildrenWillDo, 2000),
-      materials: text(raw.materials, 2000),
-      preparation: text(raw.preparation || raw.teacherPrep, 2000),
-      setup: text(raw.setup, 2000),
-      steps: text(raw.steps, 4000),
-      teacherLanguage: text(raw.teacherLanguage || raw.teacherQuestions, 2000),
-      observationOpportunities: text(raw.observationOpportunities || raw.observationFocus, 2000),
-      safetyNotes: text(raw.safetyNotes || raw.safety, 2000),
-      cleanupTips: text(raw.cleanupTips || raw.cleanup, 2000),
-      indoorAlternatives: text(raw.indoorAlternatives, 2000),
-      outdoorAlternatives: text(raw.outdoorAlternatives, 2000),
-      teacherTips: schema.asArray(raw.teacherTips || raw.tips).map((v) => text(v, 300)).filter(Boolean).slice(0, 8),
-      substitutions: schema.asArray(raw.substitutions).map((v) => (
-        typeof v === "string" ? text(v, 300) : text(`${v?.need || ""} → ${v?.use || ""}`, 300)
-      )).filter(Boolean).slice(0, 8),
-      adaptations: text(raw.adaptations || raw.supportAdaptations, 2000),
-      extensions: text(raw.extensions || raw.addedChallenge, 2000),
-      vocabulary: text(raw.vocabulary, 500),
-      observationPrompts: schema.asArray(raw.observationPrompts).map((v) => text(v, 300)).filter(Boolean).slice(0, 8),
-      durationMinutes: schema.clampInt(raw.durationMinutes, 3, 60, brief.ageBand === "infant" ? 8 : 15),
-      age: brief.ageLabel,
-      mixedAgeAdaptations: text(raw.mixedAgeAdaptations || raw.mixedAgeNotes, 2000),
-      preliminaryAssetIntent: raw.preliminaryAssetIntent && typeof raw.preliminaryAssetIntent === "object"
-        ? raw.preliminaryAssetIntent
-        : outline.expectedAssetIntent,
-    };
-    [
-      "objective", "description", "materials", "preparation", "setup", "steps",
-      "teacherLanguage", "observationOpportunities", "safetyNotes", "cleanupTips",
-      "adaptations", "extensions",
-    ].forEach((field) => {
-      const err = rejectGeneric(`${actTitle}.${field}`, item[field]);
-      if (err) issues.push(err);
-    });
-    if (wordCount(item.vocabulary) < 3) issues.push(`${actTitle}.thin_vocabulary`);
-    if (!item.teacherTips.length) issues.push(`${actTitle}.missing_tips`);
-    if (!item.observationPrompts.length) issues.push(`${actTitle}.missing_observation_prompts`);
-    if (!WEEKDAYS.includes(item.dayOfWeek)) issues.push(`bad_weekday:${item.dayOfWeek}`);
+    const item = normalizeExpansionActivity(raw, outline, brief, issues);
+    item.outlineId = id;
+    validateExpansionActivityItem(item, issues);
     expanded.push(item);
   });
 
@@ -807,6 +1098,103 @@ function validateExpansionBatch(parsed, requestedIds, blueprint, brief) {
     parsedObjectCount: activitiesIn.length,
     expectedObjectCount: requested.length,
   };
+}
+
+function fieldPassedOnActivity(activity, field, briefTitleIssues) {
+  if (!activity) return false;
+  const title = text(activity.title, 120);
+  const related = schema.asArray(briefTitleIssues).filter((iss) => String(iss).includes(title));
+  if (field === "teacherTips") {
+    return activity.teacherTips?.length > 0
+      && listFieldSubstanceOk(activity.teacherTips, 8)
+      && !related.some((i) => /\.missing_tips$|\.thin_tips$/.test(i));
+  }
+  if (field === "observationPrompts") {
+    return activity.observationPrompts?.length > 0
+      && listFieldSubstanceOk(activity.observationPrompts, 8)
+      && !related.some((i) => /\.missing_observation_prompts$|\.thin_observation_prompts$/.test(i));
+  }
+  if (EXPANSION_TEXT_FIELDS.includes(field)) {
+    return !rejectGeneric(`${title}.${field}`, activity[field])
+      && !(field === "vocabulary" && wordCount(activity.vocabulary) < 3);
+  }
+  if (field === "substitutions") return schema.asArray(activity.substitutions).length > 0;
+  return text(activity[field]) || schema.asArray(activity[field]).length > 0;
+}
+
+function coalesceExpansionBatch(priorActivities, parsed, requestedIds, blueprint, brief, priorIssues) {
+  const requested = schema.asArray(requestedIds).map((id) => text(id, 80));
+  const priorById = new Map(schema.asArray(priorActivities).map((a) => [a.outlineId, a]));
+  const repairValidated = validateExpansionBatch(parsed, requestedIds, blueprint, brief);
+  const repairById = new Map(repairValidated.activities.map((a) => [a.outlineId, a]));
+  const repairTargets = buildExpansionRepairTargets(priorIssues || repairValidated.issues, priorActivities);
+  const targeted = new Map(repairTargets.map((t) => [t.outlineId, new Set(t.fields.map((f) => f.field))]));
+
+  const mergedActivities = [];
+  requested.forEach((id) => {
+    const prior = priorById.get(id);
+    const next = repairById.get(id);
+    if (!prior && next) {
+      mergedActivities.push(next);
+      return;
+    }
+    if (prior && !next) {
+      mergedActivities.push(prior);
+      return;
+    }
+    if (!prior || !next) return;
+    const fieldsToPreferRepair = targeted.get(id) || new Set();
+    const merged = { ...prior };
+    const allFields = [
+      ...EXPANSION_TEXT_FIELDS,
+      ...EXPANSION_LIST_FIELDS,
+      "title", "dayOfWeek", "activityCategory", "durationMinutes", "preliminaryAssetIntent",
+    ];
+    allFields.forEach((field) => {
+      const priorOk = fieldPassedOnActivity(prior, field, priorIssues);
+      const nextEmpty = Array.isArray(next[field])
+        ? next[field].length === 0
+        : !text(next[field]);
+      const nextOk = fieldPassedOnActivity(next, field, repairValidated.issues);
+      if (fieldsToPreferRepair.has(field)) {
+        if (!nextEmpty) merged[field] = next[field];
+        return;
+      }
+      if (priorOk && (nextEmpty || !nextOk)) return; // keep prior
+      if (!nextEmpty) merged[field] = next[field];
+    });
+    // Identity/alignment fields stay on blueprint/prior
+    merged.outlineId = id;
+    merged.title = prior.title || next.title;
+    merged.dayOfWeek = prior.dayOfWeek || next.dayOfWeek;
+    merged.activityCategory = prior.activityCategory || next.activityCategory;
+    mergedActivities.push(merged);
+  });
+
+  // Re-validate merged object shape via validateExpansionBatch wrapper
+  return validateExpansionBatch({ activities: mergedActivities }, requestedIds, blueprint, brief);
+}
+
+function recordBatchDiagnostic(diagnostics, row) {
+  diagnostics.batches = Array.isArray(diagnostics.batches) ? diagnostics.batches : [];
+  diagnostics.batches.push({
+    batchNumber: row.batchNumber || null,
+    requestedOutlineIds: schema.asArray(row.requestedOutlineIds).map((id) => text(id, 80)).slice(0, 24),
+    responseTopLevelKeys: schema.asArray(row.responseTopLevelKeys).map((k) => text(k, 60)).slice(0, 24),
+    detectedWrapper: row.detectedWrapper ? text(row.detectedWrapper, 40) : null,
+    model: row.model ? text(row.model, 80) : null,
+    finishReason: row.finishReason ? text(row.finishReason, 80) : null,
+    outputChars: Number(row.outputChars) || 0,
+    truncationDetected: row.truncationDetected === true,
+    parsedActivityCount: Number.isFinite(row.parsedActivityCount) ? row.parsedActivityCount : null,
+    acceptedActivityCount: Number.isFinite(row.acceptedActivityCount) ? row.acceptedActivityCount : null,
+    rejectedActivityCount: Number.isFinite(row.rejectedActivityCount) ? row.rejectedActivityCount : null,
+    activityQualityFailures: schema.asArray(row.activityQualityFailures).map((i) => text(i, 200)).slice(0, 40),
+    repairUsed: row.repairUsed === true,
+    repairTargets: schema.asArray(row.repairTargets).slice(0, 16),
+    postRepairFailures: schema.asArray(row.postRepairFailures).map((i) => text(i, 200)).slice(0, 40),
+    finalBatchPass: row.finalBatchPass === true,
+  });
 }
 
 function assembleLessonObject(blueprint, expandedActivities) {
@@ -909,17 +1297,24 @@ function buildStagedFixtureResponse(userPrompt) {
   const target = schema.clampInt(brief.activityTarget, 4, 24, createApi.defaultActivityTarget(ageBand));
   const progression = createApi.weekdayProgression(theme, ageBand);
 
-  if (mode === "EXPAND_ACTIVITY_BATCH") {
+  if (mode === "EXPAND_ACTIVITY_BATCH" || mode === "REPAIR_ACTIVITY_BATCH") {
     const ids = schema.asArray(parsed.expandExactlyTheseOutlineIds);
-    const outlines = schema.asArray(parsed.outlinesToExpand);
+    const outlines = schema.asArray(parsed.outlinesToExpand).length
+      ? schema.asArray(parsed.outlinesToExpand)
+      : schema.asArray(parsed.weeklyBlueprint?.outlines);
     const byId = new Map(outlines.map((o) => [text(o.outlineId, 80), o]));
+    // Prefer repairing from previousBatchActivities when present (keep IDs/titles).
+    const priorById = new Map(
+      schema.asArray(parsed.previousBatchActivities).map((a) => [text(a.outlineId, 80), a]),
+    );
     const activities = ids.map((id, index) => {
       const outline = byId.get(text(id, 80)) || {};
-      const name = text(outline.name || `${theme} activity ${index + 1}`, 120);
-      const day = normalizeWeekday(outline.weekday || WEEKDAYS[index % 5]);
-      const domain = text(outline.domain || "Invitation to Play", 80);
+      const prior = priorById.get(text(id, 80)) || {};
+      const name = text(prior.title || outline.name || `${theme} activity ${index + 1}`, 120);
+      const day = normalizeWeekday(prior.dayOfWeek || outline.weekday || WEEKDAYS[index % 5]);
+      const domain = text(prior.activityCategory || outline.domain || "Invitation to Play", 80);
       const focus = progression[day] || day;
-      return {
+      const base = {
         outlineId: text(id, 80),
         title: name,
         dayOfWeek: day,
@@ -948,26 +1343,45 @@ function buildStagedFixtureResponse(userPrompt) {
         indoorAlternatives: `Move “${name}” to a table with the same props and objective.`,
         outdoorAlternatives: `Take the same “${name}” materials outdoors on a shaded mat.`,
         teacherTips: [
-          `Keep “${name}” groups small.`,
-          "Have one backup tray ready if interest spikes.",
+          `Offer only two ${theme.toLowerCase()} tools at first for children who become overwhelmed at “${name}”, then add more once engaged.`,
+          "Keep groups small and stage a backup tray if interest spikes.",
         ],
         substitutions: [
           `Swap one commercial prop for a classroom ${theme.toLowerCase()} alternative of the same size.`,
         ],
         adaptations: "Offer fewer steps, hand-over-hand placement, or a seated version for children who need support.",
-        extensions: `Add a choice card that deepens ${focus} for children ready for more challenge at “${name}”.`,
+        extensions: `Invite children to compare two groups at “${name}” and decide which has more before counting to check.`,
         vocabulary: `${theme}, ${name}, count, place, share, notice, next`,
         observationPrompts: [
-          "What language did the child use with the materials?",
-          "How did they solve a turn-taking or counting moment?",
+          "Notice whether the child uses one-to-one correspondence while placing pieces or adjusts after counting twice.",
+          "How did they solve a turn-taking or counting moment with a peer?",
         ],
         mixedAgeAdaptations: "Younger children use fewer pieces; older children add a second sorting/counting rule.",
-        preliminaryAssetIntent: outline.expectedAssetIntent || {
+        preliminaryAssetIntent: outline.expectedAssetIntent || prior.preliminaryAssetIntent || {
           image: /Sensory|Art|Science|Dramatic/i.test(domain) ? "GENERATE" : "NOT_NEEDED",
           printable: /Math|Literacy|Dramatic/i.test(domain) ? "CREATE" : "NOT_NEEDED",
           reason: "Only when recognition or modeling benefits from a visual.",
         },
       };
+      // Preserve strong prior fields when repairing.
+      EXPANSION_TEXT_FIELDS.forEach((field) => {
+        if (text(prior[field]) && wordCount(prior[field]) >= 8) base[field] = prior[field];
+      });
+      EXPANSION_LIST_FIELDS.forEach((field) => {
+        if (schema.asArray(prior[field]).length) base[field] = prior[field];
+      });
+      // Ensure tips/prompts always meet fixture quality after repair mode.
+      if (!schema.asArray(base.teacherTips).length) {
+        base.teacherTips = [
+          `Offer only two ${theme.toLowerCase()} tools at first for children who become overwhelmed at “${name}”, then add more once engaged.`,
+        ];
+      }
+      if (!schema.asArray(base.observationPrompts).length) {
+        base.observationPrompts = [
+          "Notice whether the child uses one-to-one correspondence while placing pieces or adjusts after counting twice.",
+        ];
+      }
+      return base;
     });
     return JSON.stringify({ activities });
   }
@@ -1283,23 +1697,42 @@ async function composeStagedLessonContent(brief, options = {}) {
 
     let lastIssues = [];
     let success = false;
+    let priorBatchActivities = null;
+    let repairUsed = false;
+    let lastRepairTargets = [];
+    let lastResponseKeys = [];
     for (let attempt = 0; attempt <= MAX_BATCH_RETRIES; attempt += 1) {
       usage.activityExpansionCalls += 1;
+      const isRepair = attempt > 0 && priorBatchActivities;
+      if (isRepair) repairUsed = true;
+      const userPrompt = isRepair
+        ? buildExpansionRepairUserPrompt(
+          brief,
+          blueprint,
+          ids,
+          priorBatchActivities,
+          lastIssues,
+          { batchNumber: batchIndex + 1 },
+        )
+        : buildExpansionUserPrompt(brief, blueprint, ids, { batchNumber: batchIndex + 1 });
       const stage = await callAiStage(
         callAi,
         buildExpansionSystemPrompt(brief.ageBand),
-        buildExpansionUserPrompt(brief, blueprint, ids),
+        userPrompt,
         usage,
         diagnostics,
         {
-          stage: `activity_expansion_${batchKey}${attempt ? `_retry${attempt}` : ""}`,
+          stage: `activity_expansion_${batchKey}${isRepair ? "_repair" : ""}`,
           expectedObjectCount: ids.length,
         },
       );
+      lastResponseKeys = stage.parsed && typeof stage.parsed === "object"
+        ? Object.keys(stage.parsed).slice(0, 24)
+        : [];
       if (!stage.ok) {
         lastIssues = [stage.error || "malformed_json", ...(stage.flags?.reasons || [])];
         pushStageDiag(diagnostics, {
-          stage: `activity_expansion_${batchKey}`,
+          stage: `activity_expansion_${batchKey}${isRepair ? "_repair" : ""}`,
           model: stage.meta?.model,
           finishReason: stage.meta?.finishReason,
           outputChars: stage.rawText?.length || 0,
@@ -1313,9 +1746,23 @@ async function composeStagedLessonContent(brief, options = {}) {
         });
         continue;
       }
-      const validated = validateExpansionBatch(stage.parsed, ids, blueprint, brief);
+      let validated;
+      if (isRepair && priorBatchActivities) {
+        lastRepairTargets = buildExpansionRepairTargets(lastIssues, priorBatchActivities);
+        validated = coalesceExpansionBatch(
+          priorBatchActivities,
+          stage.parsed,
+          ids,
+          blueprint,
+          brief,
+          lastIssues,
+        );
+      } else {
+        validated = validateExpansionBatch(stage.parsed, ids, blueprint, brief);
+      }
+      priorBatchActivities = validated.activities;
       pushStageDiag(diagnostics, {
-        stage: `activity_expansion_${batchKey}`,
+        stage: `activity_expansion_${batchKey}${isRepair ? "_repair" : ""}`,
         model: stage.meta?.model,
         finishReason: stage.meta?.finishReason,
         outputChars: stage.rawText?.length || 0,
@@ -1332,19 +1779,59 @@ async function composeStagedLessonContent(brief, options = {}) {
           status: "SUCCESS",
           outlineIds: ids,
           activities: validated.activities,
+          repairUsed,
         };
         validated.activities.forEach((a) => expandedById.set(a.outlineId, a));
+        recordBatchDiagnostic(diagnostics, {
+          batchNumber: batchIndex + 1,
+          requestedOutlineIds: ids,
+          responseTopLevelKeys: lastResponseKeys,
+          model: stage.meta?.model,
+          finishReason: stage.meta?.finishReason,
+          outputChars: stage.rawText?.length || 0,
+          truncationDetected: stage.flags?.possibleOutputTruncation === true,
+          parsedActivityCount: validated.parsedObjectCount,
+          acceptedActivityCount: validated.activities.length,
+          rejectedActivityCount: 0,
+          activityQualityFailures: [],
+          repairUsed,
+          repairTargets: lastRepairTargets,
+          postRepairFailures: [],
+          finalBatchPass: true,
+        });
         success = true;
         break;
       }
       lastIssues = validated.issues;
-      batchState[batchKey] = { status: "FAILED", outlineIds: ids, issues: lastIssues };
+      batchState[batchKey] = {
+        status: "FAILED",
+        outlineIds: ids,
+        issues: lastIssues,
+        repairUsed,
+      };
     }
 
     if (!success) {
       if (!batchState[batchKey] || batchState[batchKey].status !== "FAILED") {
-        batchState[batchKey] = { status: "FAILED", outlineIds: ids, issues: lastIssues };
+        batchState[batchKey] = { status: "FAILED", outlineIds: ids, issues: lastIssues, repairUsed };
       }
+      recordBatchDiagnostic(diagnostics, {
+        batchNumber: batchIndex + 1,
+        requestedOutlineIds: ids,
+        responseTopLevelKeys: lastResponseKeys,
+        model: diagnostics.model,
+        finishReason: null,
+        outputChars: 0,
+        truncationDetected: false,
+        parsedActivityCount: schema.asArray(priorBatchActivities).length,
+        acceptedActivityCount: 0,
+        rejectedActivityCount: ids.length,
+        activityQualityFailures: lastIssues,
+        repairUsed,
+        repairTargets: lastRepairTargets,
+        postRepairFailures: lastIssues,
+        finalBatchPass: false,
+      });
       return {
         ok: false,
         code: "AI_CREATION_FAILED",
@@ -1484,7 +1971,9 @@ module.exports = {
   MAX_FINAL_REPAIR_CALLS,
   STAGE_MAX_OUTPUT_TOKENS,
   REQUIRED_WEEKLY_FIELDS,
+  REQUIRED_EXPANSION_ACTIVITY_FIELDS,
   STAGE1_CONTRACT_ECHO_KEYS,
+  STAGE2_CONTRACT_ECHO_KEYS,
   composeStagedLessonContent,
   buildStagedFixtureResponse,
   validateBlueprint,
@@ -1495,10 +1984,14 @@ module.exports = {
   buildStage1UserPrompt,
   buildStage1SystemPrompt,
   buildExpansionUserPrompt,
+  buildExpansionRepairUserPrompt,
+  buildExpansionRepairTargets,
+  coalesceExpansionBatch,
   extractStage1LessonBag,
   coalesceStage1Parsed,
   canonicalizeWeeklyFieldName,
   classifyStage1RepairIssues,
   isStage1ContractEchoKey,
+  asActivityStringList,
   truncationFlags,
 };

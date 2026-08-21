@@ -246,6 +246,18 @@ async function main() {
           }));
           return JSON.stringify(good);
         }
+        if (/REPAIR_ACTIVITY_BATCH/.test(user)) {
+          // Stage 2 repair must not “fix” empty indoor/outdoor so Stage 4 can still run.
+          const parsed = JSON.parse(user.slice(user.indexOf("{")));
+          const prior = parsed.previousBatchActivities || [];
+          return JSON.stringify({
+            activities: prior.map((a) => ({
+              ...a,
+              indoorAlternatives: "",
+              outdoorAlternatives: "",
+            })),
+          });
+        }
         if (/REPAIR_TARGETED/.test(user)) {
           return staged.buildStagedFixtureResponse(user);
         }
@@ -277,6 +289,18 @@ async function main() {
             observationPrompts: [],
           }));
           return JSON.stringify(good);
+        }
+        if (/REPAIR_ACTIVITY_BATCH/.test(user)) {
+          // Keep Stage 2 blocked so we never reach create / Stage 4.
+          const parsed = JSON.parse(user.slice(user.indexOf("{")));
+          return JSON.stringify({
+            activities: schema.asArray(parsed.previousBatchActivities).map((a) => ({
+              ...a,
+              teacherTips: [],
+              observationPrompts: [],
+              objective: "Short.",
+            })),
+          });
         }
         // Repair also returns weak content
         if (/REPAIR_TARGETED/.test(user)) {
@@ -528,6 +552,252 @@ async function main() {
       "valid weeklyOverview preserved against filler overwrite");
     ok(v.blueprint.activityOutlines[0].concept === prior.activityOutlines[0].concept,
       "valid outline concept preserved against thin repair overwrite");
+  }
+
+  // ---- Stage 2 expansion quality (Live Test 2 residual) ----
+  {
+    const blueprint = staged.validateBlueprint(
+      JSON.parse(staged.buildStagedFixtureResponse(staged.buildStage1UserPrompt(brief15))),
+      brief15,
+    ).blueprint;
+    const ids = blueprint.activityOutlines.slice(0, 5).map((o) => o.outlineId);
+    const goodBatch = JSON.parse(staged.buildStagedFixtureResponse(
+      staged.buildExpansionUserPrompt(brief15, blueprint, ids),
+    ));
+    ok(staged.validateExpansionBatch(goodBatch, ids, blueprint, brief15).ok === true,
+      "complete 5-activity batch passes");
+
+    const noTips = {
+      activities: goodBatch.activities.map((a, i) => (i === 0 ? { ...a, teacherTips: [] } : a)),
+    };
+    ok(staged.validateExpansionBatch(noTips, ids, blueprint, brief15).ok === false
+      && staged.validateExpansionBatch(noTips, ids, blueprint, brief15).issues.some((x) => /missing_tips/.test(x)),
+      "missing tips fails");
+
+    const noObs = {
+      activities: goodBatch.activities.map((a, i) => (i === 0 ? { ...a, observationPrompts: [] } : a)),
+    };
+    ok(staged.validateExpansionBatch(noObs, ids, blueprint, brief15).ok === false
+      && staged.validateExpansionBatch(noObs, ids, blueprint, brief15).issues.some((x) => /missing_observation_prompts/.test(x)),
+      "missing observationPrompts fails");
+
+    const thinTips = {
+      activities: goodBatch.activities.map((a, i) => (
+        i === 0 ? { ...a, teacherTips: ["Help children as needed."] } : a
+      )),
+    };
+    ok(staged.validateExpansionBatch(thinTips, ids, blueprint, brief15).ok === false
+      && staged.validateExpansionBatch(thinTips, ids, blueprint, brief15).issues.some((x) => /thin_tips/.test(x)),
+      "too-short tips fails");
+
+    const thinObs = {
+      activities: goodBatch.activities.map((a, i) => (
+        i === 0 ? { ...a, observationPrompts: ["Observe the child."] } : a
+      )),
+    };
+    ok(staged.validateExpansionBatch(thinObs, ids, blueprint, brief15).ok === false
+      && staged.validateExpansionBatch(thinObs, ids, blueprint, brief15).issues.some((x) => /thin_observation_prompts/.test(x)),
+      "too-short observationPrompts fails");
+
+    const weakAdapt = {
+      activities: goodBatch.activities.map((a, i) => (
+        i === 0 ? { ...a, adaptations: "Provide support." } : a
+      )),
+    };
+    ok(staged.validateExpansionBatch(weakAdapt, ids, blueprint, brief15).ok === false,
+      "weak supportAdaptations fails");
+
+    const weakExt = {
+      activities: goodBatch.activities.map((a, i) => (
+        i === 0 ? { ...a, extensions: "Make it harder." } : a
+      )),
+    };
+    ok(staged.validateExpansionBatch(weakExt, ids, blueprint, brief15).ok === false,
+      "weak addedChallenge fails");
+
+    const weakQs = {
+      activities: goodBatch.activities.map((a, i) => (
+        i === 0 ? { ...a, teacherLanguage: "What do you see?" } : a
+      )),
+    };
+    ok(staged.validateExpansionBatch(weakQs, ids, blueprint, brief15).ok === false
+      && staged.validateExpansionBatch(weakQs, ids, blueprint, brief15).issues.some((x) => /insufficient_questions|Generic filler|Too short/.test(x)),
+      "insufficient questions fail where required");
+
+    const conciseOk = {
+      activities: goodBatch.activities.map((a, i) => (
+        i === 0
+          ? {
+            ...a,
+            cleanupTips: "Sort props into labeled bins and wipe trays.",
+            vocabulary: "bakery, count, share, place",
+          }
+          : a
+      )),
+    };
+    ok(staged.validateExpansionBatch(conciseOk, ids, blueprint, brief15).ok === true,
+      "valid concise cleanup and vocabulary accepted");
+
+    // string tips/prompts normalize
+    const stringLists = {
+      activities: goodBatch.activities.map((a, i) => (
+        i === 0
+          ? {
+            ...a,
+            tips: "Offer two tools first for overwhelmed children, then add more once engaged.\nStage a backup tray nearby.",
+            observationQuestions: "Notice one-to-one correspondence while placing cookies.\nNotice whether the child recounts after a mismatch.",
+            teacherTips: undefined,
+            observationPrompts: undefined,
+          }
+          : a
+      )),
+    };
+    ok(staged.validateExpansionBatch(stringLists, ids, blueprint, brief15).ok === true,
+      "string tips/observation aliases normalize into arrays");
+
+    // contract echo stripped; unknown/forbidden rejected
+    const echoed = {
+      requiredActivityFields: [...staged.REQUIRED_EXPANSION_ACTIVITY_FIELDS],
+      activities: goodBatch.activities.map((a, i) => (
+        i === 0
+          ? {
+            ...a,
+            requiredActivityFields: ["x"],
+            mysteryTipField: "should reject",
+            status: "published",
+            publishedAt: "2026-01-01",
+          }
+          : a
+      )),
+    };
+    const echoV = staged.validateExpansionBatch(echoed, ids, blueprint, brief15);
+    ok(echoV.ok === false, "unknown/forbidden activity keys rejected");
+    ok(echoV.issues.some((x) => /unknown_activity_key:mysteryTipField/.test(x)),
+      "random unknown key rejected");
+    ok(echoV.issues.some((x) => /forbidden_activity_key:status|forbidden_activity_key:publishedAt/.test(x)),
+      "forbidden status/publishedAt rejected");
+    ok(!Object.prototype.hasOwnProperty.call(echoV.activities[0] || {}, "requiredActivityFields"),
+      "echoed known Stage 2 contract meta-key stripped");
+  }
+
+  // Targeted Stage 2 repair + merge + one-repair bound
+  {
+    const blueprint = staged.validateBlueprint(
+      JSON.parse(staged.buildStagedFixtureResponse(staged.buildStage1UserPrompt(brief15))),
+      brief15,
+    ).blueprint;
+    const ids = blueprint.activityOutlines.slice(0, 5).map((o) => o.outlineId);
+    const goodBatch = JSON.parse(staged.buildStagedFixtureResponse(
+      staged.buildExpansionUserPrompt(brief15, blueprint, ids),
+    ));
+    const priorValidated = staged.validateExpansionBatch(goodBatch, ids, blueprint, brief15);
+    const broken = {
+      activities: priorValidated.activities.map((a, i) => (
+        i === 0
+          ? { ...a, teacherTips: [], observationPrompts: [] }
+          : a
+      )),
+    };
+    const brokenV = staged.validateExpansionBatch(broken, ids, blueprint, brief15);
+    ok(brokenV.ok === false, "broken tips/prompts fail before repair");
+    const targets = staged.buildExpansionRepairTargets(brokenV.issues, brokenV.activities);
+    ok(targets.some((t) => t.outlineId === ids[0] && t.fields.some((f) => f.field === "teacherTips")),
+      "repair targets include failed tips field");
+    const repairPrompt = staged.buildExpansionRepairUserPrompt(
+      brief15,
+      blueprint,
+      ids,
+      brokenV.activities,
+      brokenV.issues,
+      { batchNumber: 1 },
+    );
+    ok(/REPAIR_ACTIVITY_BATCH/.test(repairPrompt) && /repairTargets/.test(repairPrompt),
+      "repair prompt is targeted");
+
+    // Repair returns only fixed tips/prompts for act0; empties a previously valid objective → merge keeps prior objective
+    const repairPayload = {
+      activities: brokenV.activities.map((a, i) => (
+        i === 0
+          ? {
+            ...a,
+            objective: "",
+            teacherTips: [
+              "Offer only two bakery tools at first for children who become overwhelmed, then add more once engaged.",
+            ],
+            observationPrompts: [
+              "Notice whether the child uses one-to-one correspondence while placing pretend cookies.",
+            ],
+          }
+          : { ...a, objective: "" }
+      )),
+    };
+    const merged = staged.coalesceExpansionBatch(
+      priorValidated.activities,
+      repairPayload,
+      ids,
+      blueprint,
+      brief15,
+      brokenV.issues,
+    );
+    ok(merged.ok === true, "targeted repair fixes only failed fields");
+    ok(merged.activities[0].outlineId === ids[0], "repair preserves outline IDs");
+    ok(merged.activities[0].dayOfWeek === priorValidated.activities[0].dayOfWeek
+      && merged.activities[0].activityCategory === priorValidated.activities[0].activityCategory,
+      "repair preserves weekday/domain");
+    ok(merged.activities[0].objective === priorValidated.activities[0].objective,
+      "repair preserves valid original fields");
+    ok(merged.activities[0].teacherTips.length > 0 && merged.activities[0].observationPrompts.length > 0,
+      "repair fills tips and observationPrompts");
+
+    let expandCalls = 0;
+    let repairCalls = 0;
+    const blocked = await staged.composeStagedLessonContent(brief15, {
+      forceLive: true,
+      callAi: async (_s, user) => {
+        if (/CREATE_WEEK_BLUEPRINT/.test(user)) {
+          return staged.buildStagedFixtureResponse(user);
+        }
+        if (/REPAIR_ACTIVITY_BATCH/.test(user)) {
+          repairCalls += 1;
+          const parsed = JSON.parse(user.slice(user.indexOf("{")));
+          return JSON.stringify({
+            activities: schema.asArray(parsed.previousBatchActivities).map((a) => ({
+              ...a,
+              teacherTips: [],
+              observationPrompts: [],
+            })),
+          });
+        }
+        if (/EXPAND_ACTIVITY_BATCH/.test(user)) {
+          expandCalls += 1;
+          const full = JSON.parse(staged.buildStagedFixtureResponse(user));
+          full.activities = full.activities.map((a) => ({ ...a, teacherTips: [], observationPrompts: [] }));
+          return JSON.stringify(full);
+        }
+        return staged.buildStagedFixtureResponse(user);
+      },
+    });
+    ok(blocked.ok === false && blocked.code === "AI_CREATION_FAILED",
+      "repaired batch still invalid → BLOCKED");
+    ok(repairCalls === 1, "no second batch repair");
+    ok(expandCalls === 1, "one expand + one repair only for failed batch");
+    ok(/Stage 2 batch batch1 failed/i.test(String(blocked.error || "")),
+      "failed batch does not trigger lesson.create");
+    ok((blocked.usage?.activityExpansionCalls || 0) === 2, "bounded expansion+repair call count");
+  }
+
+  // Three valid batches → Stage 3 receives exactly 15; diagnostics present; publish blocked
+  {
+    const composed = await staged.composeStagedLessonContent(brief15, { forceFixture: true });
+    ok(composed.ok === true, "fixture compose still succeeds after Stage 2 changes");
+    ok(activityCountFromContent(composed.content) === 15, "all 3 batches valid → Stage 3 receives exactly 15");
+    ok(Array.isArray(composed.stagedDiagnostics?.batches)
+      && composed.stagedDiagnostics.batches.length >= 3,
+      "Stage 2 batch diagnostics recorded");
+    ok(composed.stagedDiagnostics.batches.every((b) => b.finalBatchPass === true),
+      "each batch diagnostic marks finalBatchPass");
+    ok(composed.content.lesson.status === "draft", "assembled content remains draft");
+    ok(!schema.isPhase2Executable("lesson.publish"), "publish remains blocked");
   }
 
   console.log(`\n${passed} assertions passed`);
