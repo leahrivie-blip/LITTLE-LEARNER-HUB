@@ -661,7 +661,8 @@ async function main() {
   });
   ok(!titleBad.ok, "lesson title mutation is detected");
 
-  // Soft budget: stop entirely with zero generations (no partial continue)
+  // Soft budget assessor still flags over-budget raw plans (safety net).
+  // Ordinary runImagePlanForLesson must self-budget instead of SCOPE_REVIEW.
   const softCurriculum = seedCurriculum();
   const softPlan = softCurriculum.lessonPlans[0];
   const softActs = [];
@@ -692,16 +693,15 @@ async function main() {
     friday: { items: [] },
   };
   const softAudit = auditApi.auditLesson(softPlan, softCurriculum);
-  const softPlanned = imagesApi.plannedGenerationCount(
-    imagesApi.buildImageActionsFromAudit(softPlan, softActs, softAudit, {}),
-  );
+  const softRawActions = imagesApi.buildImageActionsFromAudit(softPlan, softActs, softAudit, {});
+  const softPlanned = imagesApi.plannedGenerationCount(softRawActions);
   const softScope = imagesApi.assessImageScope({
-    actions: imagesApi.buildImageActionsFromAudit(softPlan, softActs, softAudit, {}),
+    actions: softRawActions,
     lessonCount: 1,
     limits: { maxImageGenerations: 40 },
   });
   ok(softPlanned > 8, "soft fixture plans more generations than soft per-lesson budget");
-  ok(softScope.ok === false && softScope.code === "SCOPE_REVIEW_REQUIRED", "soft lesson budget requires scope review");
+  ok(softScope.ok === false && softScope.code === "SCOPE_REVIEW_REQUIRED", "raw assessor still flags over soft budget");
   const softGen = { calls: 0, prompts: [] };
   const softRun = await imagesApi.runImagePlanForLesson({
     plan: softPlan,
@@ -709,11 +709,224 @@ async function main() {
     audit: softAudit,
     limits: { maxImageGenerations: 40 },
     lessonCount: 1,
+    command: { rawCommand: "Finish this lesson and leave it ready for review. Do not publish." },
     callGenerate: mockGenerateFactory(softGen),
     uploadFn: mockUploadFactory({ calls: 0 }),
+    mockGenerate: true,
   });
-  ok(softRun.code === "SCOPE_REVIEW_REQUIRED", "run aborts with SCOPE_REVIEW_REQUIRED");
-  ok(softRun.generations === 0 && softGen.calls === 0, "soft scope does not partially generate beyond budget");
+  ok(softRun.code !== "SCOPE_REVIEW_REQUIRED", "ordinary over-soft plan does not SCOPE_REVIEW after budgeting");
+  ok(softRun.ok === true, "budgeted soft run succeeds");
+  ok(softRun.generations <= 8 && softGen.calls <= 8, "soft budget caps actual generations at 8");
+  ok(softRun.imageBudgetDiagnostics?.imageBudgetApplied === true, "imageBudgetApplied when candidates exceed budget");
+  ok(
+    softRun.imageBudgetDiagnostics?.finalGenerateCount + softRun.imageBudgetDiagnostics?.finalReplaceCount <= 8,
+    "final GENERATE+REPLACE <= soft budget",
+  );
+  ok(
+    schema.asArray(softRun.imageBudgetDiagnostics?.budgetDeferredActivityIds).length === softPlanned - 8,
+    "excess candidates deferred, not dropped from plan",
+  );
+  ok(
+    softRun.actions.filter((a) => a.decision === "NOT_NEEDED" && a.budgetDeferred).length === softPlanned - 8,
+    "deferred candidates become typed NOT_NEEDED",
+  );
+  ok(
+    softRun.actions.every((a) => a.decision !== "NOT_NEEDED" || a.reason),
+    "NOT_NEEDED decisions retain reasons",
+  );
+
+  // --- Image soft-budget unit suite (15 / 11 / 8) ---
+  const budgetSoftMax = imagesApi.SOFT_IMAGE_GENERATIONS_PER_LESSON;
+  ok(budgetSoftMax === 8, "central soft max remains 8 (not raised)");
+
+  function makeBudgetAction(id, decision, extra = {}) {
+    return {
+      activityId: id,
+      activityTitle: extra.title || id,
+      field: "setupImageUrl",
+      decision,
+      reason: extra.reason || `${decision} for ${id}`,
+      materials: extra.materials || "",
+      setup: extra.setup || "",
+      ...extra,
+    };
+  }
+
+  // 15 activities, 11 write candidates, budget 8
+  const fifteenActs = [];
+  for (let i = 0; i < 15; i += 1) fifteenActs.push({ id: `cur-act-bud-${String(i).padStart(2, "0")}`, title: `Act ${i}` });
+  const elevenWrites = [
+    makeBudgetAction("cur-act-bud-00", "REPLACE", { reason: "broken placeholder URL", title: "Broken setup" }),
+    makeBudgetAction("cur-act-bud-01", "GENERATE", {
+      title: "Invitation to Play Bakery Sensory Lab",
+      materials: "flour bins trays scoops bowls spoons cups mats labels",
+      setup: "Multi-step unusual sensory lab station layout",
+      reason: "difficult multi-step setup needs visual",
+    }),
+    makeBudgetAction("cur-act-bud-02", "GENERATE", {
+      title: "Process Art Mural Collage",
+      category: "Art",
+      reason: "finished process art example visual",
+    }),
+    makeBudgetAction("cur-act-bud-03", "GENERATE", {
+      title: "Counted Tray Station",
+      materials: "cups bowls spoons tongs mats trays labels cards beads",
+      reason: "complex materials layout",
+    }),
+    makeBudgetAction("cur-act-bud-04", "GENERATE", {
+      title: "Dramatic Play Bakery Counter",
+      reason: "classroom implementation teacher value",
+    }),
+    makeBudgetAction("cur-act-bud-05", "GENERATE", { title: "Paint Mixing Table", reason: "optional art station" }),
+    makeBudgetAction("cur-act-bud-06", "GENERATE", { title: "Dough Rolling Table", reason: "optional dough" }),
+    makeBudgetAction("cur-act-bud-07", "GENERATE", { title: "Cookie Stamp Center", reason: "optional stamp" }),
+    makeBudgetAction("cur-act-bud-08", "GENERATE", { title: "Flour Scoop Bin", reason: "lower priority optional" }),
+    makeBudgetAction("cur-act-bud-09", "GENERATE", { title: "Cupcake Liner Sort", reason: "lower priority optional" }),
+    makeBudgetAction("cur-act-bud-10", "GENERATE", { title: "Pretend Oven Cue", reason: "lower priority optional" }),
+    makeBudgetAction("cur-act-bud-11", "KEEP", { reason: "existing useful image" }),
+    makeBudgetAction("cur-act-bud-12", "NOT_NEEDED", { reason: "simple song" }),
+    makeBudgetAction("cur-act-bud-13", "NOT_NEEDED", { reason: "simple transition" }),
+    makeBudgetAction("cur-act-bud-14", "KEEP", { reason: "existing useful image 2" }),
+  ];
+  ok(elevenWrites.filter((a) => ["GENERATE", "REPLACE"].includes(a.decision)).length === 11, "fixture has 11 image write candidates");
+  ok(fifteenActs.length === 15, "fixture has 15 activities");
+
+  const budgetedOnce = imagesApi.applyImageGenerationSoftBudget(elevenWrites, {
+    softMax: budgetSoftMax,
+    activities: fifteenActs,
+  });
+  const budgetedTwice = imagesApi.applyImageGenerationSoftBudget(elevenWrites, {
+    softMax: budgetSoftMax,
+    activities: fifteenActs,
+  });
+  const writesAfter = budgetedOnce.actions.filter((a) => ["GENERATE", "REPLACE"].includes(a.decision));
+  ok(writesAfter.length <= 8, "15/11/8 → final new generation count <= 8");
+  ok(writesAfter.length === 8, "exactly 8 write decisions retained when 11 candidates");
+  ok(budgetedOnce.diagnostics.imageCandidatesTotal === 11, "diagnostics imageCandidatesTotal=11");
+  ok(budgetedOnce.diagnostics.imageBudget === 8, "diagnostics imageBudget=8");
+  ok(budgetedOnce.diagnostics.plannedKeepCount === 2, "KEEP count unchanged and does not consume budget");
+  ok(budgetedOnce.diagnostics.plannedGenerateCountBeforeBudget === 10, "plannedGenerateCountBeforeBudget");
+  ok(budgetedOnce.diagnostics.plannedReplaceCountBeforeBudget === 1, "plannedReplaceCountBeforeBudget");
+  ok(budgetedOnce.diagnostics.budgetSelectedActivityIds.length === 8, "budgetSelectedActivityIds length 8");
+  ok(budgetedOnce.diagnostics.budgetDeferredActivityIds.length === 3, "budgetDeferredActivityIds length 3");
+  ok(budgetedOnce.diagnostics.imageBudgetApplied === true, "imageBudgetApplied true for over-budget plan");
+  ok(
+    budgetedOnce.diagnostics.budgetSelectedActivityIds.includes("cur-act-bud-00"),
+    "necessary REPLACE retained at top priority",
+  );
+  ok(
+    budgetedOnce.diagnostics.budgetSelectedActivityIds.includes("cur-act-bud-01"),
+    "difficult-setup GENERATE retained",
+  );
+  ok(
+    budgetedOnce.diagnostics.budgetDeferredActivityIds.every((id) => (
+      ["cur-act-bud-08", "cur-act-bud-09", "cur-act-bud-10"].includes(id)
+    )),
+    "lowest-priority optional candidates deferred",
+  );
+  ok(
+    budgetedOnce.actions.filter((a) => a.budgetDeferred).every((a) => (
+      a.decision === "NOT_NEEDED"
+      && /image_budget_priority/.test(a.reason)
+      && a.priorDecision === "GENERATE"
+    )),
+    "deferred become typed NOT_NEEDED with image_budget_priority",
+  );
+  ok(
+    JSON.stringify(budgetedOnce.diagnostics.budgetSelectedActivityIds)
+      === JSON.stringify(budgetedTwice.diagnostics.budgetSelectedActivityIds)
+    && JSON.stringify(budgetedOnce.diagnostics.budgetDeferredActivityIds)
+      === JSON.stringify(budgetedTwice.diagnostics.budgetDeferredActivityIds),
+    "selection is deterministic across identical inputs",
+  );
+  ok(
+    budgetedOnce.actions.filter((a) => a.decision === "KEEP").length === 2,
+    "KEEP images remain KEEP and do not consume generation budget",
+  );
+  ok(
+    new Set(budgetedOnce.diagnostics.budgetSelectedActivityIds).size === 8,
+    "no duplicate generation requests among selected",
+  );
+  ok(
+    budgetedOnce.actions.every((a) => /^cur-act-bud-/.test(a.activityId)),
+    "image activity IDs remain exact activity IDs",
+  );
+
+  // <=8 candidates unchanged
+  const seven = elevenWrites.slice(0, 7);
+  const sevenBudget = imagesApi.applyImageGenerationSoftBudget(seven, { softMax: 8, activities: fifteenActs });
+  ok(sevenBudget.diagnostics.imageBudgetApplied === false, "<=8 candidates remain unchanged (no deferral)");
+  ok(sevenBudget.diagnostics.finalGenerateCount + sevenBudget.diagnostics.finalReplaceCount === 7, "seven writes stay seven");
+
+  // exactly 8 candidates unchanged
+  const eight = elevenWrites.slice(0, 8);
+  const eightBudget = imagesApi.applyImageGenerationSoftBudget(eight, { softMax: 8, activities: fifteenActs });
+  ok(eightBudget.diagnostics.imageBudgetApplied === false, "exactly 8 candidates remain unchanged");
+  ok(eightBudget.diagnostics.finalGenerateCount + eightBudget.diagnostics.finalReplaceCount === 8, "eight writes stay eight");
+
+  // Explicit full-coverage request still SCOPE_REVIEW
+  const fullCoverageRun = await imagesApi.runImagePlanForLesson({
+    plan: softPlan,
+    activities: softActs,
+    audit: softAudit,
+    limits: { maxImageGenerations: 40 },
+    lessonCount: 1,
+    command: {
+      rawCommand: "Generate a unique image for all 15 activities and leave ready for review. Do not publish.",
+    },
+    callGenerate: mockGenerateFactory({ calls: 0, prompts: [] }),
+    uploadFn: mockUploadFactory({ calls: 0 }),
+  });
+  ok(fullCoverageRun.code === "SCOPE_REVIEW_REQUIRED", "explicit full image coverage still requires scope review");
+  ok(fullCoverageRun.generations === 0, "explicit over-soft request does not generate");
+  ok(fullCoverageRun.imageBudgetDiagnostics?.explicitFullCoverage === true, "diagnostics mark explicitFullCoverage");
+
+  // Hard max still blocks (after soft budget, planned still above hard)
+  const hardBlockRun = await imagesApi.runImagePlanForLesson({
+    plan: softPlan,
+    activities: softActs,
+    audit: softAudit,
+    limits: { maxImageGenerations: 5 },
+    lessonCount: 1,
+    command: { rawCommand: "Finish this lesson." },
+    callGenerate: mockGenerateFactory({ calls: 0, prompts: [] }),
+    uploadFn: mockUploadFactory({ calls: 0 }),
+  });
+  // softMax=8, hardMax=5: after soft budget → 8 writes still exceeds hard max 5 → block
+  ok(hardBlockRun.ok === false, "hard max still blocks oversized plans");
+  ok(hardBlockRun.imageBudgetDiagnostics?.blockedByHardMax === true, "diagnostics mark blockedByHardMax");
+  ok(hardBlockRun.generations === 0, "hard max block spends zero generations");
+  ok(
+    (hardBlockRun.imageBudgetDiagnostics?.finalGenerateCount
+      + hardBlockRun.imageBudgetDiagnostics?.finalReplaceCount) <= 8,
+    "hard-max path still applied soft budget first",
+  );
+
+  // No image-per-activity: 15 activities never force 15 writes after budget
+  ok(
+    budgetedOnce.diagnostics.finalGenerateCount + budgetedOnce.diagnostics.finalReplaceCount < 15,
+    "no image-per-activity behavior under soft budget",
+  );
+
+  // Printables independence: deferred image does not invent printable decisions
+  ok(
+    budgetedOnce.actions.every((a) => a.printableDecision == null && a.printable == null),
+    "image budget path does not invent printable decisions",
+  );
+
+  // commandRequestsFullImageCoverage helper
+  ok(
+    imagesApi.commandRequestsFullImageCoverage({
+      rawCommand: "Generate a unique image for all activities",
+    }) === true,
+    "full-coverage detector matches explicit all-activities request",
+  );
+  ok(
+    imagesApi.commandRequestsFullImageCoverage({
+      rawCommand: "Create a Preschool bakery lesson with 15 activities and leave it ready for review. Do not publish.",
+    }) === false,
+    "normal create command is not treated as full image coverage",
+  );
 
   const hardCounter = { calls: 0, prompts: [] };
   const hardRun = await imagesApi.runImagePlanForLesson({
