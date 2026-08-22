@@ -4,6 +4,29 @@ Audit date: 2026-08-22. The final, upload-ready creative pack is in
 `images/google-ads/`. These are standalone PNG files; they are not referenced
 by the website and require no deploy to download or use.
 
+## v2 rebuild: real-product and realistic-activity sources
+
+The original 12 exports were replaced in commit history (the first pack remains
+available in commit `fd957e22`) after a source audit found no checked-in
+photo-real classroom media. The v2 pack now uses these dedicated, no-person
+realistic classroom setup images:
+
+| Exact path | What it shows | Used in |
+| --- | --- | --- |
+| `images/google-ads/source/llh-realistic-sensory-invitation.png` | A no-person toddler sensory table with color scarves, cups, rings, and classroom storage. | Hero support thumbnails; Classroom Activity |
+| `images/google-ads/source/llh-realistic-dramatic-play.png` | A no-person preschool dramatic-play clinic setup with child-height furniture and materials. | Hero support thumbnails |
+| `images/google-ads/source/llh-realistic-art-invitation.png` | A no-person early-childhood art invitation with paint, leaves, paper, and drying rack. | Hero support thumbnails; Start Free |
+
+The realistic activity sources were created only after the audit confirmed that
+the repository had no existing photo-real activity images. They contain no
+children, user data, names, or production data.
+
+V2 also uses count-free crops from
+`mockups/lesson-cover-redesign/screenshots/final-library-desktop.png` so changing
+lesson/activity totals do not appear in the ads. The real, branded weekly
+planner sources are `mockups/teacher-weekly-planner/page-1.png` and
+`mockups/teacher-weekly-planner/page-2.png`.
+
 ## Existing assets worth considering
 
 | Exact path | Dimensions | What it shows | Live on site? | Google Ads assessment | Recommended use |
