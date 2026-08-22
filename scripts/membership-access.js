@@ -98,7 +98,9 @@ function membershipIsBillingReviewRequired(user) {
     || subStatus.includes("payment failed")
     || subStatus.includes("past due")
     || stripeStatus === "unpaid"
-    || stripeStatus === "past_due";
+    || stripeStatus === "past_due"
+    || stripeStatus === "incomplete"
+    || stripeStatus === "incomplete_expired";
 }
 
 function membershipPaymentFailureIsStale(user, nowMs = Date.now()) {
@@ -158,11 +160,7 @@ function membershipHasProAccess(user, nowMs = Date.now()) {
 
   // unpaid/past_due (old or new wording) always remove paid access — but this is an
   // access decision, never a "canceled/ended" conclusion. See membershipIsBillingReviewRequired.
-  if (subStatus.includes("billing review required")
-    || subStatus.includes("payment failed")
-    || subStatus.includes("past due")
-    || stripeStatus === "unpaid"
-    || stripeStatus === "past_due") {
+  if (membershipIsBillingReviewRequired(user)) {
     return false;
   }
 
@@ -691,11 +689,12 @@ function stripeSubscriptionToMembershipUpdates(subscription, user = {}, eventTyp
     };
   }
 
-  // Past due / unpaid: keep historical founding markers but lock Pro/Founding access.
+  // Failed/incomplete payment states: keep historical founding markers but lock
+  // Pro/Founding access.
   // Plan display must not look like an active paid plan while access is denied. Neither
   // status is ever "ended"/"canceled" (see the ended check above) — both surface as the
   // single neutral "Billing Review Required" label, never "Payment Failed"/"Past Due".
-  if (stripeStatus === "past_due" || stripeStatus === "unpaid") {
+  if (["past_due", "unpaid", "incomplete", "incomplete_expired"].includes(stripeStatus)) {
     return {
       ...base,
       plan: "Free",
