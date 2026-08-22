@@ -244,6 +244,168 @@ async function main() {
     ok(plan10.requestedOutlineCount === 10 && plan10.missingOutlineCount === 2, "count repair respects activityTarget=10");
   }
 
+  // Stage 1 weekday_distribution repair (live opjob_7b59b80960e719e0: 17 / 1-4-4-4-4 → 15 / 3-3-3-3-3)
+  {
+    const full = JSON.parse(staged.buildStagedFixtureResponse(staged.buildStage1UserPrompt(brief15)));
+    const balanced15 = full.activityOutlines;
+    ok(staged.validateBlueprint(full, brief15).ok === true, "15 outlines with 3/3/3/3/3 passes");
+
+    const imbalanced17 = (() => {
+      const dayCounts = [1, 4, 4, 4, 4];
+      const days = ["monday", "tuesday", "wednesday", "thursday", "friday"];
+      const nameSuffix = [
+        "Counting Cups", "Dough Press", "Sprinkle Sort", "Tray Carry", "Oven Watch",
+        "Recipe Read", "Pan Wash", "Shape Cut", "Measure Pour", "Timer Listen",
+        "Box Stack", "Label Write", "Taste Safe", "Share Serve", "Cool Rack",
+        "Flour Sift", "Batter Stir",
+      ];
+      const rows = [];
+      let srcIdx = 0;
+      days.forEach((day, di) => {
+        for (let c = 0; c < dayCounts[di]; c += 1) {
+          const src = balanced15[srcIdx % balanced15.length];
+          rows.push({
+            ...src,
+            outlineId: `imbal-${day}-${c}`,
+            weekday: day,
+            name: `Bakery ${nameSuffix[srcIdx] || `${day} ${c}`}`,
+            concept: `Children ${nameSuffix[srcIdx] || day}: scoop flour, stir batter, and name bakery tools aloud at station ${c + 1}.`,
+            developmentalPurpose: `Build distinct ${day} fine-motor and language goals for ${nameSuffix[srcIdx] || c}.`,
+          });
+          srcIdx += 1;
+        }
+      });
+      return rows;
+    })();
+    const v17 = staged.validateBlueprint({ lesson: full.lesson, activityOutlines: imbalanced17 }, brief15);
+    ok(v17.ok === false && v17.issues.some((i) => i === "outline_count_mismatch:17!=15"),
+      "17 outlines with 1/4/4/4/4 fails initially (count mismatch)");
+    ok(v17.parsedOutlineCount === 17, "normalized count reports 17 before repair");
+
+    const countPlan17 = staged.planStage1OutlineCountRepair(
+      v17.issues,
+      v17.blueprint.activityOutlines,
+      brief15,
+    );
+    ok(countPlan17.active === true && countPlan17.excessOutlineCount === 2,
+      "count+distribution repair plans 2 excess outlines");
+    ok(countPlan17.distributionImbalanced === true, "17 / 1-4-4-4-4 flagged imbalanced vs target 3/3/3/3/3");
+    ok(countPlan17.overloadedWeekdays.includes("tuesday"), "tuesday overloaded in repair plan");
+    ok(countPlan17.underfilledWeekdays.includes("monday"), "monday underfilled in repair plan");
+    ok(schema.asArray(countPlan17.weekdayRepairPlan).length === 5, "weekdayRepairPlan has all weekdays");
+
+    const repairPrompt17 = staged.buildStage1UserPrompt(brief15, v17.issues, v17.blueprint);
+    ok(/weekdayDistributionTarget/.test(repairPrompt17), "repair prompt includes weekdayDistributionTarget");
+    ok(/weekdaySlotsExcess/.test(repairPrompt17), "repair prompt includes weekdaySlotsExcess");
+    ok(/weekdayRepairPlan/.test(repairPrompt17), "repair prompt includes weekdayRepairPlan");
+    ok(/exact weekdayDistributionTarget/.test(repairPrompt17),
+      "repair prompt requires exact weekday distribution target");
+    ok(/remove 2 excess/i.test(repairPrompt17), "repair prompt states excess removal count");
+
+    // Deterministic merge: trim overloaded + add underfilled Monday slots from repair pool
+    const mondayAdds = balanced15
+      .filter((o) => o.weekday === "monday")
+      .slice(0, 2)
+      .map((o, i) => ({
+        ...o,
+        outlineId: `mon-add-${i}`,
+        name: `Monday bakery add ${i + 1}`,
+        concept: `Children Monday add ${i + 1}: press dough, count cups, and describe warm bakery smells.`,
+        developmentalPurpose: `Monday motor and sensory language goal ${i + 1}.`,
+      }));
+    const merged17 = staged.mergeStage1OutlinesForCountRepair(imbalanced17, mondayAdds, 15);
+    ok(merged17.length === 15, "merge selects 15 from 17+repair pool");
+    const mergedDist = staged.weekdayCountsFromOutlines(merged17);
+    ok(staged.weekdayDistributionMatches(mergedDist, architect.expectedWeekdayDistribution(15)),
+      "deterministic merge yields 3/3/3/3/3 when repair adds Monday outlines");
+
+    // One repair: 17 imbalanced → balanced 15 → Stage 2
+    let stage1Calls = 0;
+    let expandCalls = 0;
+    const recovered17 = await staged.composeStagedLessonContent(brief15, {
+      forceLive: true,
+      callAi: async (_s, user) => {
+        if (/CREATE_WEEK_BLUEPRINT/.test(user)) {
+          stage1Calls += 1;
+          const parsed = JSON.parse(staged.buildStagedFixtureResponse(user));
+          if (stage1Calls === 1) {
+            return JSON.stringify({ lesson: parsed.lesson, activityOutlines: imbalanced17 });
+          }
+          return staged.buildStagedFixtureResponse(user);
+        }
+        if (/EXPAND_ACTIVITY_BATCH/.test(user)) {
+          expandCalls += 1;
+          return staged.buildStagedFixtureResponse(user);
+        }
+        return staged.buildStagedFixtureResponse(user);
+      },
+    });
+    ok(stage1Calls === 2, "one Stage 1 repair max for 17→15 weekday rebalance");
+    ok(recovered17.stagedDiagnostics?.stage1?.finalStage1Pass === true,
+      "17 / 1-4-4-4-4 → 15 / 3-3-3-3-3 Stage 1 repair succeeds");
+    ok(expandCalls >= 1, "successful balanced repair proceeds to Stage 2");
+    ok(recovered17.stagedDiagnostics?.stage1?.finalStage1Pass === true, "finalStage1Pass after weekday+count repair");
+    ok(recovered17.stagedDiagnostics?.stage1?.postRepairOutlineCount === 15, "postRepairOutlineCount=15");
+    ok(recovered17.stagedDiagnostics?.stage1?.finalDistributionMatchesTarget === true,
+      "finalDistributionMatchesTarget true after repair");
+    ok(Object.values(recovered17.stagedDiagnostics?.stage1?.weekdayDistributionAfter || {})
+      .every((n) => n === 3), "weekdayDistributionAfter is 3/3/3/3/3");
+
+    // Exact count but imbalanced → repair required (live residual 1/4/4/3/3)
+    const imbalanced15Wrong = (() => {
+      const byDay = Object.fromEntries(["monday", "tuesday", "wednesday", "thursday", "friday"].map((d) => [d, []]));
+      imbalanced17.forEach((row) => byDay[row.weekday].push(row));
+      const pick = { monday: 1, tuesday: 4, wednesday: 4, thursday: 3, friday: 3 };
+      return ["monday", "tuesday", "wednesday", "thursday", "friday"].flatMap((day) => byDay[day].slice(0, pick[day]));
+    })();
+    const v15bad = staged.validateBlueprint({ lesson: full.lesson, activityOutlines: imbalanced15Wrong }, brief15);
+    ok(v15bad.parsedOutlineCount === 15
+      && v15bad.issues.some((i) => /^weekday_distribution_imbalanced:/.test(i)),
+      "exact count but imbalanced distribution triggers weekday failure");
+    const plan15bad = staged.planStage1OutlineCountRepair(v15bad.issues, v15bad.blueprint.activityOutlines, brief15);
+    ok(plan15bad.active === true && plan15bad.missingOutlineCount === 0 && plan15bad.excessOutlineCount === 0,
+      "imbalance-only repair plan active without count delta");
+
+    // Still imbalanced after repair blocks Stage 2
+    let badRepairCalls = 0;
+    const stillBad = await staged.composeStagedLessonContent(brief15, {
+      forceLive: true,
+      callAi: async (_s, user) => {
+        if (/CREATE_WEEK_BLUEPRINT/.test(user)) {
+          badRepairCalls += 1;
+          const parsed = JSON.parse(staged.buildStagedFixtureResponse(user));
+          if (badRepairCalls === 1) {
+            return JSON.stringify({ lesson: parsed.lesson, activityOutlines: imbalanced17 });
+          }
+          return JSON.stringify({ lesson: parsed.lesson, activityOutlines: imbalanced15Wrong });
+        }
+        throw new Error("Stage 2 must not run");
+      },
+    });
+    ok(badRepairCalls === 2, "still-imbalanced repair uses exactly one repair call");
+    ok(stillBad.ok === false && /weekday_distribution_imbalanced/.test(String(stillBad.error || "")),
+      "still-imbalanced repair blocks Stage 2 / create");
+    ok((stillBad.usage?.activityExpansionCalls || 0) === 0, "Stage 2 not reached when weekday still imbalanced");
+
+    // Weekday normalization Mon–Fri
+    ok(staged.normalizeWeekday("Mon") === "monday", "weekday normalization preserves Mon→monday");
+    ok(staged.normalizeWeekday("fri") === "friday", "weekday normalization preserves fri→friday");
+
+    // Regressions
+    ok(staged.MAX_ARCHITECTURE_CALLS === 2, "one Stage 1 repair max remains enforced");
+    ok(staged.planStage1OutlineCountRepair(
+      ["outline_count_mismatch:11!=15"],
+      balanced15.slice(0, 11),
+      brief15,
+    ).missingOutlineCount === 4, "#756 count-repair missing path preserved");
+    ok(staged.EXPANSION_ISSUE_CODE_FIELD_MAP.insufficient_questions === "teacherLanguage",
+      "#757 teacherLanguage mapping unchanged");
+    ok(staged.MIN_VOCABULARY_TERMS === 3, "#754 vocabulary threshold unchanged");
+    const imagesApi = require("./curriculum-operator-images.js");
+    ok(imagesApi.SOFT_IMAGE_GENERATIONS_PER_LESSON === 8, "#753 image-budget unchanged");
+    ok(!schema.isPhase2Executable("lesson.publish"), "publish remains disabled");
+  }
+
   // Full staged fixture compose → exactly 15
   {
     const good = await architect.composeNewLessonContent(brief15, { forceFixture: true });

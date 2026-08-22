@@ -380,40 +380,133 @@ function weekdaySlotsNeeded(before, required) {
 }
 
 /**
+ * Per-weekday excess vs required distribution (non-negative remove counts).
+ * @param {Record<string, number>} before
+ * @param {Record<string, number>} required
+ * @returns {Record<string, number>}
+ */
+function weekdaySlotsExcess(before, required) {
+  const excess = {};
+  WEEKDAYS.forEach((day) => {
+    excess[day] = Math.max(0, (Number(before?.[day]) || 0) - (Number(required?.[day]) || 0));
+  });
+  return excess;
+}
+
+function weekdayCountsFromOutlines(outlines) {
+  const counts = Object.fromEntries(WEEKDAYS.map((d) => [d, 0]));
+  schema.asArray(outlines).forEach((row) => {
+    const day = normalizeWeekday(row?.weekday || row?.dayOfWeek);
+    if (WEEKDAYS.includes(day)) counts[day] += 1;
+  });
+  return counts;
+}
+
+function weekdayDistributionMatches(counts, required) {
+  return WEEKDAYS.every((day) => (Number(counts?.[day]) || 0) === (Number(required?.[day]) || 0));
+}
+
+/**
+ * True when outline weekday counts diverge from required targets by more than one slot,
+ * or when max-min spread exceeds 1 for a full Mon–Fri week at target count.
+ */
+function isWeekdayDistributionImbalanced(counts, required, target) {
+  const total = WEEKDAYS.reduce((sum, day) => sum + (Number(counts?.[day]) || 0), 0);
+  if (target >= 5 && WEEKDAYS.some((day) => (Number(counts?.[day]) || 0) !== (Number(required?.[day]) || 0))) {
+    return true;
+  }
+  if (total === target && target >= 5) {
+    const vals = WEEKDAYS.map((d) => Number(counts?.[d]) || 0);
+    if (Math.max(...vals) - Math.min(...vals) > 1) return true;
+  }
+  return false;
+}
+
+/**
+ * Deterministic outline pick: required per weekday from candidate pool (deduped).
+ * Prefers substance-valid rows; does not invent weekdays.
+ */
+function selectStage1OutlinesForWeekdayDistribution(candidates, target, required) {
+  const pool = dedupeStage1OutlineRows(candidates, 0);
+  const byDay = Object.fromEntries(WEEKDAYS.map((d) => [d, []]));
+  pool.forEach((row) => {
+    const day = normalizeWeekday(row?.weekday);
+    if (WEEKDAYS.includes(day)) byDay[day].push(row);
+  });
+  WEEKDAYS.forEach((day) => {
+    byDay[day].sort((a, b) => (
+      (outlineSubstanceOk(b) ? 1 : 0) - (outlineSubstanceOk(a) ? 1 : 0)
+    ));
+  });
+  const selected = [];
+  const usedIds = new Set();
+  WEEKDAYS.forEach((day) => {
+    const need = Number(required?.[day]) || 0;
+    schema.asArray(byDay[day]).forEach((row) => {
+      if (selected.length >= target) return;
+      if (selected.filter((r) => normalizeWeekday(r.weekday) === day).length >= need) return;
+      const id = text(row.outlineId || row.id, 80);
+      if (id && usedIds.has(id)) return;
+      if (id) usedIds.add(id);
+      selected.push(row);
+    });
+  });
+  return selected.length === target ? selected : selected;
+}
+
+/**
  * Count-mismatch repair plan for Stage 1 (bounded; used by repair prompt + diagnostics).
- * Does not weaken the exact-count gate — only structures the existing one-shot repair.
+ * Handles missing/excess counts and weekday imbalance in the single repair call.
  */
 function planStage1OutlineCountRepair(issues, outlines, brief) {
   const mismatchIssue = schema.asArray(issues)
     .map((i) => parseOutlineCountMismatchIssue(i))
     .find(Boolean) || null;
+  const hasImbalanceIssue = schema.asArray(issues)
+    .some((i) => /^weekday_distribution_imbalanced:/.test(text(i, 120)));
   const target = schema.clampInt(brief?.activityTarget, 4, 24, createApi.defaultActivityTarget(brief?.ageBand));
   const list = schema.asArray(outlines);
-  const before = Object.fromEntries(WEEKDAYS.map((d) => [d, 0]));
-  list.forEach((row) => {
-    const day = normalizeWeekday(row?.weekday || row?.dayOfWeek);
-    if (WEEKDAYS.includes(day)) before[day] += 1;
-  });
+  const before = weekdayCountsFromOutlines(list);
   const requested = mismatchIssue ? mismatchIssue.requested : target;
   const current = list.length || (mismatchIssue ? mismatchIssue.current : 0);
   const missing = Math.max(0, requested - current);
+  const excess = Math.max(0, current - requested);
   const required = architect.expectedWeekdayDistribution(requested);
+  const imbalanced = hasImbalanceIssue || isWeekdayDistributionImbalanced(before, required, requested);
+  const overloadedWeekdays = WEEKDAYS.filter((day) => (before[day] || 0) > (required[day] || 0));
+  const underfilledWeekdays = WEEKDAYS.filter((day) => (before[day] || 0) < (required[day] || 0));
+  const weekdayRepairPlan = WEEKDAYS.map((day) => ({
+    weekday: day,
+    current: before[day] || 0,
+    target: required[day] || 0,
+    toRemove: Math.max(0, (before[day] || 0) - (required[day] || 0)),
+    toAdd: Math.max(0, (required[day] || 0) - (before[day] || 0)),
+  }));
   return {
-    active: Boolean(mismatchIssue) && missing > 0,
+    active: missing > 0 || excess > 0 || imbalanced,
     issue: mismatchIssue
       ? `outline_count_mismatch:${mismatchIssue.current}!=${mismatchIssue.requested}`
-      : null,
+      : (hasImbalanceIssue
+        ? schema.asArray(issues).find((i) => /^weekday_distribution_imbalanced:/.test(text(i, 120)))
+        : null),
     requestedOutlineCount: requested,
     currentOutlineCount: current,
     missingOutlineCount: missing,
+    excessOutlineCount: excess,
     existingOutlineIds: list.map((o) => text(o.outlineId || o.id, 80)).filter(Boolean),
     existingOutlineNames: list.map((o) => text(o.name || o.title, 120)).filter(Boolean),
     conceptsAlreadyUsed: list
       .map((o) => text(o.concept || o.summary || o.description, 400))
       .filter((c) => wordCount(c) >= 4),
     weekdayDistributionBefore: before,
+    weekdayDistributionTarget: required,
     requiredWeekdayDistribution: required,
     weekdaySlotsNeeded: weekdaySlotsNeeded(before, required),
+    weekdaySlotsExcess: weekdaySlotsExcess(before, required),
+    overloadedWeekdays,
+    underfilledWeekdays,
+    weekdayRepairPlan,
+    distributionImbalanced: imbalanced,
   };
 }
 
@@ -424,17 +517,46 @@ function planStage1OutlineCountRepair(issues, outlines, brief) {
  */
 function mergeStage1OutlinesForCountRepair(priorOutlines, repairOutlines, target) {
   const max = Math.max(0, Number(target) || 0);
+  const required = architect.expectedWeekdayDistribution(max);
   const prior = schema.asArray(priorOutlines);
   const next = schema.asArray(repairOutlines);
-  if (prior.length === max) return prior;
-  if (!prior.length) return dedupeStage1OutlineRows(next, max);
-  if (!next.length) return prior;
+  const priorCounts = weekdayCountsFromOutlines(prior);
+  if (prior.length === max && weekdayDistributionMatches(priorCounts, required)) return prior;
+  if (!prior.length) {
+    const only = dedupeStage1OutlineRows(next, max);
+    const selected = selectStage1OutlinesForWeekdayDistribution(only, max, required);
+    if (selected.length === max && weekdayDistributionMatches(weekdayCountsFromOutlines(selected), required)) {
+      return selected;
+    }
+    return only;
+  }
+  if (!next.length) {
+    const selected = selectStage1OutlinesForWeekdayDistribution(prior, max, required);
+    if (selected.length === max) return selected;
+    return prior;
+  }
+
+  const combined = dedupeStage1OutlineRows([...prior, ...next], 0);
+  const selectedCombined = selectStage1OutlinesForWeekdayDistribution(combined, max, required);
+  if (selectedCombined.length === max
+    && weekdayDistributionMatches(weekdayCountsFromOutlines(selectedCombined), required)) {
+    return selectedCombined;
+  }
 
   if (next.length === max) {
     const dedupedNext = dedupeStage1OutlineRows(next, max);
+    const selectedNext = selectStage1OutlinesForWeekdayDistribution(dedupedNext, max, required);
+    if (selectedNext.length === max
+      && weekdayDistributionMatches(weekdayCountsFromOutlines(selectedNext), required)) {
+      return selectedNext;
+    }
     if (dedupedNext.length === max) return dedupedNext;
   }
-  return dedupeStage1OutlineRows([...prior, ...next], max);
+
+  const merged = dedupeStage1OutlineRows([...prior, ...next], max);
+  const selectedMerged = selectStage1OutlinesForWeekdayDistribution(merged, max, required);
+  if (selectedMerged.length === max) return selectedMerged;
+  return merged;
 }
 
 function dedupeStage1OutlineRows(rows, max = 0) {
@@ -852,6 +974,10 @@ function classifyStage1RepairIssues(repairIssues, previousBlueprint) {
       outlineCountMismatchIssues.push(issue);
       return;
     }
+    if (/^weekday_distribution_imbalanced:/.test(issue)) {
+      outlineCountMismatchIssues.push(issue);
+      return;
+    }
     const weeklyHit = REQUIRED_WEEKLY_TEXT_FIELDS.find((f) => issue.includes(f))
       || REQUIRED_WEEKLY_LIST_FIELDS.find((f) => issue.toLowerCase().includes(f.toLowerCase()));
     if (weeklyHit || /Empty |Generic filler|Too short:|Placeholder|missing_prep_checklist|missing_observation_focus|missing_daily_focus/i.test(issue)) {
@@ -994,26 +1120,60 @@ function buildStage1UserPrompt(brief, repairIssues, previousBlueprint) {
         requestedOutlineCount: countRepair.requestedOutlineCount,
         currentOutlineCount: countRepair.currentOutlineCount,
         missingOutlineCount: countRepair.missingOutlineCount,
+        excessOutlineCount: countRepair.excessOutlineCount,
         existingOutlineIds: countRepair.existingOutlineIds,
         existingOutlineNames: countRepair.existingOutlineNames,
         conceptsAlreadyUsed: countRepair.conceptsAlreadyUsed,
         weekdayDistributionBefore: countRepair.weekdayDistributionBefore,
+        weekdayDistributionTarget: countRepair.weekdayDistributionTarget,
         requiredWeekdayDistribution: countRepair.requiredWeekdayDistribution,
         weekdaySlotsNeeded: countRepair.weekdaySlotsNeeded,
+        weekdaySlotsExcess: countRepair.weekdaySlotsExcess,
+        overloadedWeekdays: countRepair.overloadedWeekdays,
+        underfilledWeekdays: countRepair.underfilledWeekdays,
+        weekdayRepairPlan: countRepair.weekdayRepairPlan,
       };
-      payload.stage1RepairReason = "outline_count_mismatch";
+      if (countRepair.missingOutlineCount > 0 || countRepair.excessOutlineCount > 0) {
+        payload.stage1RepairReason = "outline_count_mismatch";
+      } else if (countRepair.distributionImbalanced) {
+        payload.stage1RepairReason = "weekday_distribution_imbalanced";
+      }
     }
     payload.revisionDirectives = [
       countRepair.active
-        ? [
-          `outline_count_mismatch: requiredActivityCount=${countRepair.requestedOutlineCount}; received ${countRepair.currentOutlineCount}.`,
-          `Keep all ${countRepair.currentOutlineCount} existing distinct outlines from previousStage1.activityOutlines.`,
-          `Add exactly ${countRepair.missingOutlineCount} NEW distinct activityOutlines so the final array length is ${countRepair.requestedOutlineCount}.`,
-          "Fill weekdaySlotsNeeded so final weekdayDistribution matches requiredWeekdayDistribution.",
-          "Do not duplicate existingOutlineIds, existingOutlineNames, or conceptsAlreadyUsed.",
-          "Do not stop early. Do not summarize remaining activities. Do not use generic filler placeholders.",
-          `You may return either (A) the complete ${countRepair.requestedOutlineCount}-outline array, or (B) only the ${countRepair.missingOutlineCount} missing outlines (they will be merged with the kept prior set).`,
-        ].join(" ")
+        ? (() => {
+          const parts = [
+            `Stage 1 SUCCESS requires BOTH exact outline count (${countRepair.requestedOutlineCount}) AND exact weekdayDistributionTarget (see outlineCountRepair.weekdayDistributionTarget).`,
+            `Current: ${countRepair.currentOutlineCount} outlines; weekdayDistributionBefore=${JSON.stringify(countRepair.weekdayDistributionBefore)}.`,
+          ];
+          if (countRepair.missingOutlineCount > 0) {
+            parts.push(
+              `outline_count_mismatch: add exactly ${countRepair.missingOutlineCount} NEW distinct outlines so final length is ${countRepair.requestedOutlineCount}.`,
+              `Fill weekdaySlotsNeeded: ${JSON.stringify(countRepair.weekdaySlotsNeeded)}.`,
+            );
+          }
+          if (countRepair.excessOutlineCount > 0) {
+            parts.push(
+              `outline_count_mismatch: remove ${countRepair.excessOutlineCount} excess outline(s) from overloaded weekdays (weekdaySlotsExcess: ${JSON.stringify(countRepair.weekdaySlotsExcess)}).`,
+              `Do not keep excess outlines on overloaded weekdays: ${countRepair.overloadedWeekdays.join(", ") || "none"}.`,
+            );
+          }
+          if (countRepair.distributionImbalanced) {
+            parts.push(
+              `weekday_distribution: rebalance to weekdayDistributionTarget ${JSON.stringify(countRepair.weekdayDistributionTarget)}.`,
+              `Underfilled weekdays need outlines: ${countRepair.underfilledWeekdays.join(", ") || "none"}.`,
+              `Follow weekdayRepairPlan per weekday (current/target/toRemove/toAdd).`,
+            );
+          }
+          parts.push(
+            "Do not duplicate existingOutlineIds, existingOutlineNames, or conceptsAlreadyUsed.",
+            "Do not stop early. Do not summarize remaining activities. Do not use generic filler placeholders.",
+            countRepair.missingOutlineCount > 0 && countRepair.excessOutlineCount === 0
+              ? `You may return either (A) the complete ${countRepair.requestedOutlineCount}-outline array, or (B) only the ${countRepair.missingOutlineCount} missing outlines (merged with kept prior set).`
+              : `Return the complete ${countRepair.requestedOutlineCount}-outline activityOutlines array with the exact weekday distribution target.`,
+          );
+          return parts.join(" ");
+        })()
         : outlinesCountOk && classified.thinOutlineNames.length === 0
           ? `PRESERVE ALL ${activityTarget} VALID ACTIVITY OUTLINES unchanged.`
           : outlinesCountOk
@@ -3039,13 +3199,26 @@ function buildStage1CountDiagnostics({
     droppedOutlineReasons,
     outlineCountMismatch: Boolean(mismatch) || normalizedOutlineCount !== target,
     missingOutlineCount: Math.max(0, target - normalizedOutlineCount),
-    stage1RepairReason: countPlan.active
+    stage1RepairReason: countPlan.active && countPlan.missingOutlineCount > 0
       ? "outline_count_mismatch"
-      : (repairCallCount > 0 ? text(extra.stage1RepairReason, 80) || "stage1_quality_repair" : null),
+      : (countPlan.active && countPlan.distributionImbalanced
+        ? (countPlan.excessOutlineCount > 0 ? "outline_count_mismatch" : "weekday_distribution_imbalanced")
+        : (repairCallCount > 0 ? text(extra.stage1RepairReason, 80) || "stage1_quality_repair" : null)),
     stage1RepairCallCount: repairCallCount,
     postRepairOutlineCount: repairCallCount > 0 ? normalizedOutlineCount : null,
     weekdayDistributionBefore: weekdayBefore || countPlan.weekdayDistributionBefore || null,
+    weekdayDistributionTarget: countPlan.weekdayDistributionTarget || architect.expectedWeekdayDistribution(target),
     weekdayDistributionAfter: validated?.weekdayDistribution || null,
+    overloadedWeekdays: countPlan.overloadedWeekdays || [],
+    underfilledWeekdays: countPlan.underfilledWeekdays || [],
+    weekdayRepairPlan: countPlan.weekdayRepairPlan || [],
+    finalDistributionMatchesTarget: validated?.weekdayDistribution
+      ? weekdayDistributionMatches(
+        validated.weekdayDistribution,
+        countPlan.requiredWeekdayDistribution || architect.expectedWeekdayDistribution(target),
+      )
+      : false,
+    postRepairStage1Issues: repairCallCount > 0 ? schema.asArray(validated?.issues || stage1Issues).slice(0, 24) : [],
     truncationDetected: stageFlags?.possibleOutputTruncation === true,
     finalStage1Pass: finalStage1Pass === true,
     ...extra,
@@ -3226,7 +3399,9 @@ async function composeStagedLessonContent(brief, options = {}) {
             stage1RepairReason: attempt > 0
               ? (schema.asArray(stage1Issues).some((i) => parseOutlineCountMismatchIssue(i))
                 ? "outline_count_mismatch"
-                : "stage1_quality_repair")
+                : (schema.asArray(stage1Issues).some((i) => /^weekday_distribution_imbalanced:/.test(text(i, 120)))
+                  ? "weekday_distribution_imbalanced"
+                  : "stage1_quality_repair"))
               : null,
           },
         });
@@ -3274,7 +3449,9 @@ async function composeStagedLessonContent(brief, options = {}) {
             postRepairThinConceptOutlineIds: postRepairThin,
             stage1RepairReason: schema.asArray(stage1Issues).some((i) => parseOutlineCountMismatchIssue(i))
               ? "outline_count_mismatch"
-              : "stage1_quality_repair",
+              : (schema.asArray(stage1Issues).some((i) => /^weekday_distribution_imbalanced:/.test(text(i, 120)))
+                ? "weekday_distribution_imbalanced"
+                : "stage1_quality_repair"),
           },
         });
         return {
@@ -4139,6 +4316,11 @@ module.exports = {
   planStage1OutlineCountRepair,
   parseOutlineCountMismatchIssue,
   mergeStage1OutlinesForCountRepair,
+  selectStage1OutlinesForWeekdayDistribution,
+  weekdayDistributionMatches,
+  isWeekdayDistributionImbalanced,
+  weekdayCountsFromOutlines,
+  normalizeWeekday,
   buildStage1CountDiagnostics,
   STAGE1_OUTLINE_ISSUE_CODE_FIELD_MAP,
   isStage1ContractEchoKey,
