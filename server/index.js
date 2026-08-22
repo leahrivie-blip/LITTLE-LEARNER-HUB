@@ -11968,7 +11968,8 @@ async function handleStripeWebhook(request, response) {
             stripeSubscriptionId: subscription.id,
           }, WEBHOOK_DEFER);
         }
-        if (!membershipAccess.membershipHasProAccess({ ...user, ...updates })) {
+        const billingStatus = membershipAccess.membershipBillingStatusKey(saved);
+        if (billingStatus === "canceled" || billingStatus === "ended") {
           appendBillingEvent(email, "subscription_canceled", planKeyFromStripe(subscription, user), "$0", WEBHOOK_DEFER);
           await emitAdminAlertSafe(readStore(), {
             category: "billing",

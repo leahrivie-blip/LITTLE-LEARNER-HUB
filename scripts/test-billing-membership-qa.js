@@ -849,6 +849,30 @@ async function main() {
       assert(afterFailed.stripeSubscriptionStatus === "past_due", "Payment failure sets stripeSubscriptionStatus=past_due (not unpaid, not canceled/ended)");
       assert(!membershipAccess.membershipHasProAccess(afterFailed), "No Pro access immediately after failure");
 
+      // Stripe follows the failed invoice with a subscription update. This remains a
+      // payment-failure state — it must not write a cancellation billing event.
+      const pastDueEvent = {
+        id: "evt_seq_past_due",
+        created: 150,
+        type: "customer.subscription.updated",
+        data: {
+          object: {
+            id: "sub_seq_recover",
+            customer: "cus_seq_recover",
+            status: "past_due",
+            current_period_end: Math.floor((Date.now() + 25 * 86400000) / 1000),
+            cancel_at_period_end: false,
+          },
+        },
+      };
+      const pastDueRes = await requestJson("POST", "/api/webhooks/stripe", pastDueEvent);
+      assert(pastDueRes.status === 200, "past_due subscription webhook accepted");
+      const afterPastDue = readStore();
+      assert(
+        !afterPastDue.billingEvents?.some((event) => event.email === "sequence-recover@billing.test" && event.type === "subscription_canceled"),
+        "past_due must not create a subscription_canceled billing event",
+      );
+
       // Customer fixes their card; Stripe reports the subscription active again via a
       // newer (higher event.created) customer.subscription.updated event.
       const recoveredEvent = {
@@ -870,6 +894,28 @@ async function main() {
       const afterRecovered = readStore().users["sequence-recover@billing.test"];
       assert(membershipAccess.membershipHasProAccess(afterRecovered), "Pro access is restored after the newer recovery event");
       assert(membershipAccess.membershipStatusDisplay(afterRecovered) !== "Payment Failed", "Status no longer reads Payment Failed after recovery");
+
+      const canceledEvent = {
+        id: "evt_seq_canceled",
+        created: 300,
+        type: "customer.subscription.updated",
+        data: {
+          object: {
+            id: "sub_seq_recover",
+            customer: "cus_seq_recover",
+            status: "canceled",
+            current_period_end: Math.floor((Date.now() - 86400000) / 1000),
+            cancel_at_period_end: false,
+          },
+        },
+      };
+      const canceledRes = await requestJson("POST", "/api/webhooks/stripe", canceledEvent);
+      assert(canceledRes.status === 200, "canceled subscription webhook accepted");
+      const afterCanceled = readStore();
+      assert(
+        afterCanceled.billingEvents?.some((event) => event.email === "sequence-recover@billing.test" && event.type === "subscription_canceled"),
+        "true canceled subscription creates a subscription_canceled billing event",
+      );
     }
 
     console.log("9g) An older, delayed failed event cannot overwrite a newer paid/active event");
