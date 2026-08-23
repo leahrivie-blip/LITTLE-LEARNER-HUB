@@ -7069,6 +7069,78 @@ async function saveOperatorEnrichmentDraft({
 }
 
 /**
+ * Connected existing-lesson upgrade: merge enrichmentDraft into lesson records.
+ * Same trusted path as Apply enrichment — does NOT publish to customers.
+ */
+async function applyOperatorConnectedEnrichment({
+  store,
+  lessonPlanId,
+  adminEmail = "",
+  operatorJobId = "",
+} = {}) {
+  const id = normalizedShortText(lessonPlanId, 160);
+  if (!id) return { ok: false, code: "LESSON_NOT_FOUND", error: "lessonPlanId required" };
+  const siteContent = store.siteContent && typeof store.siteContent === "object"
+    ? store.siteContent
+    : defaultSiteContentStore();
+  const existingCurriculum = siteContent.curriculum || defaultCurriculumStore();
+  const existingPlan = (existingCurriculum.lessonPlans || []).find((item) => item.id === id);
+  if (!existingPlan) return { ok: false, code: "LESSON_NOT_FOUND", error: "Lesson plan not found." };
+  if (!enrichmentDraftHasContent(existingPlan.enrichmentDraft)) {
+    return { ok: false, code: "enrichment_draft_empty", error: "No enrichment draft to apply." };
+  }
+
+  const now = new Date().toISOString();
+  let statusCode = 500;
+  let payload = null;
+  const capture = {
+    writeHead(code) { statusCode = code; },
+    end(chunk) {
+      try { payload = JSON.parse(String(chunk)); } catch (_error) { payload = { raw: String(chunk) }; }
+    },
+  };
+  const fakeRequest = { method: "POST", headers: {} };
+  await handlePublishEnrichment(fakeRequest, capture, {
+    store,
+    siteContent,
+    existingCurriculum,
+    existingPlan,
+    incomingPlan: {
+      id,
+      enrichmentDraft: existingPlan.enrichmentDraft,
+    },
+    id,
+    now,
+    body: {
+      operatorConnectedApply: true,
+      publishedBy: normalizedShortText(adminEmail, 180) || "curriculum-operator-connected",
+      operatorJobId: normalizedShortText(operatorJobId, 80) || "",
+      adminEmail: normalizedShortText(adminEmail, 180) || "",
+      saveMode: "publish_enrichment",
+    },
+    preAuthorizedOwnerSession: { email: adminEmail || "owner" },
+  });
+  if (statusCode >= 400 || !payload?.ok) {
+    return {
+      ok: false,
+      statusCode,
+      code: payload?.code || "apply_enrichment_failed",
+      error: payload?.error || "Connected enrichment apply failed.",
+      blockers: payload?.blockers,
+    };
+  }
+  return {
+    ok: true,
+    code: "apply_enrichment_ok",
+    versionId: payload.versionId || "",
+    duplicate: payload.duplicate === true,
+    published: false,
+    autoPublish: false,
+    customerVisibleUnchanged: true,
+  };
+}
+
+/**
  * Trusted new draft lesson create for AI Curriculum Operator Phase 7.
  * Mirrors admin createNewLesson + syncCurriculumActivitiesForLessonPlan.
  * Always status "draft". Never publishes.
@@ -23114,7 +23186,11 @@ async function handlePublishEnrichment(request, response, ctx) {
   const enrichFlags = normalizedFeatureFlags(siteContent.featureFlags);
   const allowOperatorOwnerPublish = body?.operatorOwnerPublish === true
     && teachingKit.isTeachingKitCurriculumOperatorEnabled(enrichFlags);
-  if (!teachingKit.isTeachingKitEnrichmentEditorEnabled(enrichFlags) && !allowOperatorOwnerPublish) {
+  const allowConnectedAutoApply = body?.operatorConnectedApply === true
+    && teachingKit.isTeachingKitCurriculumOperatorEnabled(enrichFlags);
+  if (!teachingKit.isTeachingKitEnrichmentEditorEnabled(enrichFlags)
+    && !allowOperatorOwnerPublish
+    && !allowConnectedAutoApply) {
     jsonResponse(response, 404, {
       error: "Teaching Kit Enrichment Editor is disabled.",
       code: "enrichment_editor_disabled",
@@ -23274,6 +23350,8 @@ async function handlePublishEnrichment(request, response, ctx) {
     ...merged.plan,
     dailyPlans: surgicalDailyPlans,
   };
+  const connectedUpgradeApi = require("../scripts/curriculum-operator-connected-upgrade.js");
+  const mergedPlanWithCover = connectedUpgradeApi.applyOperatorCoverToMergedPlan(mergedPlan, promotedDraft);
 
   const priorSnapshot = snapshotEnrichmentPublishedState(existingPlan, existingCurriculum.activities || []);
   const versionId = `epub-${crypto.randomBytes(12).toString("hex")}`;
@@ -23321,7 +23399,7 @@ async function handlePublishEnrichment(request, response, ctx) {
   // every dailyPlans item (categories, empty canonical fields, image URLs).
   const nextPlan = {
     ...existingPlan,
-    ...mergedPlan,
+    ...mergedPlanWithCover,
     ownerWorkspace: existingPlan.ownerWorkspace,
     enrichmentDraft: null,
     enrichmentPublishHistory: history,
@@ -23354,7 +23432,9 @@ async function handlePublishEnrichment(request, response, ctx) {
     __llhSurgicalDailyPlans: true,
   };
   // Phase 8 Owner bridge: draft lessons become published only via explicit Owner publish.
-  if (allowOperatorOwnerPublish && String(existingPlan.status || "").toLowerCase() === "draft") {
+  // Connected auto-apply merges enrichment only — never changes customer publish status.
+  if (allowOperatorOwnerPublish && !allowConnectedAutoApply
+    && String(existingPlan.status || "").toLowerCase() === "draft") {
     nextPlan.status = "published";
     nextPlan.publishedAt = existingPlan.publishedAt || now;
   }
@@ -31802,6 +31882,7 @@ const server = http.createServer(async (request, response) => {
           createOperatorPrintableResource,
           readOperatorPrintableFile,
           unlinkOperatorPrintableResource,
+          applyOperatorConnectedEnrichment,
           generateOperatorImage: async ({ prompt, mock }) => {
             const forceMock = mock === true
               || process.env.NODE_ENV === "test"

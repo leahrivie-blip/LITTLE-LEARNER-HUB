@@ -581,3 +581,60 @@ body.tk-enrich-open .admin-create-lesson-overlay {
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 12px;
 }
+
+/* Connected existing-lesson AI upgrade modal */
+#coConnectedUpgradeHost {
+  position: fixed;
+  inset: 0;
+  z-index: 14200;
+  pointer-events: none;
+}
+
+#coConnectedUpgradeHost:not([hidden]) {
+  pointer-events: auto;
+}
+
+.co-connected-modal {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 24px 16px;
+}
+
+.co-connected-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(28, 18, 12, 0.45);
+}
+
+.co-connected-panel {
+  position: relative;
+  width: min(760px, 100%);
+  margin-top: 24px;
+  padding: 20px 22px;
+  border-radius: 16px;
+  background: #fffaf4;
+  box-shadow: 0 16px 40px rgba(28, 18, 12, 0.2);
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+}
+
+.co-connected-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.co-connected-block {
+  margin: 14px 0;
+}
+
+.co-connected-summary {
+  max-height: 180px;
+  overflow: auto;
+  font-size: 12px;
+}

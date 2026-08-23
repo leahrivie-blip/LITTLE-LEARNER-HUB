@@ -319,6 +319,8 @@ function emptyActionsFlags() {
     validate: true,
     saveDraft: false,
     publish: false,
+    connectedUpgrade: false,
+    connectedAutoApply: false,
   };
 }
 
@@ -400,6 +402,8 @@ function normalizeOperatorCommand(raw = {}, options = {}) {
     validate: actionsIn.validate !== false,
     saveDraft: actionsIn.saveDraft === true,
     publish: actionsIn.publish === true,
+    connectedUpgrade: actionsIn.connectedUpgrade === true,
+    connectedAutoApply: actionsIn.connectedAutoApply === true,
   };
 
   // Always block publish. Create only at Phase 7+ when explicitly requested.
