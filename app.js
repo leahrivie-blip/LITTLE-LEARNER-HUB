@@ -13416,7 +13416,10 @@ function curriculumLessonPlanAdminCardHtml(plan) {
       </div>
       <div class="form-actions admin-lesson-card-actions">
         ${(enrichEnabled || (typeof isTeachingKitPrintableOwnerClient === "function" && isTeachingKitPrintableOwnerClient()))
-          ? `<button class="primary-button" type="button" data-curriculum-lesson-enrich="${escapeHtml(plan.id)}" data-upgrade-lesson-cta="1">Upgrade Lesson</button>`
+          ? `<button class="primary-button" type="button" data-curriculum-lesson-ai-upgrade="${escapeHtml(plan.id)}" data-lesson-title="${escapeHtml(plan.title || "")}">AI Upgrade Lesson</button>`
+          : ""}
+        ${(enrichEnabled || (typeof isTeachingKitPrintableOwnerClient === "function" && isTeachingKitPrintableOwnerClient()))
+          ? `<button class="ghost-button" type="button" data-curriculum-lesson-enrich="${escapeHtml(plan.id)}" data-upgrade-lesson-cta="1">Upgrade Lesson</button>`
           : ""}
         <button class="ghost-button" type="button" data-curriculum-lesson-edit="${escapeHtml(plan.id)}">Edit</button>
         <button class="ghost-button" type="button" data-curriculum-quick-cover="${escapeHtml(plan.id)}">Change Cover</button>
