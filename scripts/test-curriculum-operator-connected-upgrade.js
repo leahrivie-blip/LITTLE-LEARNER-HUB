@@ -220,8 +220,11 @@ async function main() {
 
   const ownerView = connected.summarizePlanForOwner(bundle);
   ok(ownerView.autoPublish === false && ownerView.publishes === false, "owner plan shows no auto-publish");
-  ok(Array.isArray(ownerView.imageActions), "owner plan includes image ideas");
-  ok(Array.isArray(ownerView.printableActions), "owner plan includes printable ideas");
+  ok(ownerView.writesOnPlan === false, "owner plan marks no writes during planning");
+  ok(Array.isArray(ownerView.imageActions), "owner plan includes all image actions");
+  ok(Array.isArray(ownerView.activitiesStrong), "owner plan includes strong activities");
+  ok(Array.isArray(ownerView.missingWeeklyFields), "owner plan includes missing weekly fields");
+  ok(ownerView.age, "owner plan includes age");
 
   console.log("Simulated successful run + auto-apply hook");
   const fakeJob = {
@@ -250,6 +253,10 @@ async function main() {
   );
   ok(!blocked.ok, "BLOCKED does not auto-apply");
   ok(blocked.code === "owner_review_not_ready", "blocked reason surfaced");
+
+  console.log("Cover URL validation");
+  ok(!connected.isUsableActivityImageUrl("https://cdn.example.test/printable.pdf"), "PDF URL rejected for cover");
+  ok(connected.isUsableActivityImageUrl(KEEP_IMG), "PNG activity URL accepted");
 
   console.log("Activity IDs stable in selection");
   ok(curriculum.activities.every((a) => a.id === ACT_A || a.id === ACT_B), "seed activity IDs unchanged");

@@ -638,3 +638,8 @@ body.tk-enrich-open .admin-create-lesson-overlay {
   overflow: auto;
   font-size: 12px;
 }
+
+.co-connected-warning {
+  border-left: 3px solid #c45a11;
+  padding-left: 12px;
+}

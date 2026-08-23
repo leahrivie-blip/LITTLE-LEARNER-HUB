@@ -7,6 +7,7 @@
   const state = {
     open: false,
     busy: false,
+    running: false,
     lessonId: "",
     title: "",
     ownerPlan: null,
@@ -81,7 +82,7 @@
   }
 
   function renderPlanList(label, rows, mapRow) {
-    if (!rows?.length) return `<p class="muted-copy">${esc(label)}: none planned.</p>`;
+    if (!rows?.length) return "";
     return `<section class="co-connected-block">
       <h4>${esc(label)}</h4>
       <ul class="co-field-list">${rows.map(mapRow).join("")}</ul>
@@ -102,9 +103,8 @@
     }
     const plan = state.ownerPlan || {};
     const cover = plan.coverPlan || {};
-    const contentRows = (plan.contentChanges || []).slice(0, 24);
-    const imageRows = (plan.imageActions || []).filter((r) => r.decision && r.decision !== "NOT_NEEDED").slice(0, 20);
-    const printableRows = (plan.printableActions || []).filter((r) => r.decision && r.decision !== "NOT_NEEDED").slice(0, 20);
+    const structural = plan.structuralReview || {};
+    const structuralFlags = (structural.flags || []).slice(0, 12);
     host.hidden = false;
     host.innerHTML = `
       <div class="co-connected-modal" role="dialog" aria-modal="true" aria-labelledby="co-connected-title">
@@ -112,36 +112,65 @@
         <div class="co-connected-panel">
           <header class="co-connected-header">
             <h3 id="co-connected-title">AI Upgrade Lesson</h3>
-            <p class="muted-copy">${esc(state.title || plan.title || "Lesson")} · ID ${esc(state.lessonId)}</p>
+            <p class="muted-copy"><strong>${esc(state.title || plan.title || "Lesson")}</strong></p>
+            <p class="muted-copy">Age: ${esc(plan.age || "—")} · ${esc(plan.accessPlan || "Free")} · Lesson ID ${esc(state.lessonId)}</p>
+            ${plan.readiness?.currentStatus ? `<p class="muted-copy">Audit: ${esc(plan.readiness.currentStatus)}</p>` : ""}
           </header>
-          ${state.busy ? `<p class="muted-copy" role="status">Working… audit, upgrade, assets, and apply may take several minutes.</p>` : ""}
+          ${state.busy ? `<p class="muted-copy" role="status">${state.running ? "Running upgrade… text, songs/books, images, printables, then auto-apply. This may take several minutes." : "Loading upgrade plan…"}</p>` : ""}
           ${state.message ? `<p class="form-message ${state.isError ? "is-error" : "is-success"}" role="status">${esc(state.message)}</p>` : ""}
           ${state.ownerPlan ? `
-            <p class="muted-copy">Review the upgrade plan below. Nothing is written until you click <strong>Run Upgrade</strong>. Auto-apply merges into the lesson after a successful run — it does <strong>not</strong> publish to customers.</p>
+            <p class="muted-copy">Review the plan below. <strong>No writes occur until Run Upgrade.</strong> Successful runs auto-apply enrichment into this same lesson. <strong>Publish Lesson</strong> remains manual.</p>
+            ${structuralFlags.length ? `<section class="co-connected-block co-connected-warning">
+              <h4>Owner review recommended</h4>
+              <ul class="co-field-list">${structuralFlags.map((f) => `
+                <li><span class="muted-copy">${esc(f.code || "review")}</span> ${esc(f.message || "")}</li>
+              `).join("")}</ul>
+            </section>` : ""}
+            ${(plan.blockers || []).length ? renderPlanList("Blockers", plan.blockers.slice(0, 8), (row) => `
+              <li><span class="muted-copy">${esc(row.source || "blocker")}</span> ${esc(row.message || "")}</li>
+            `) : ""}
             <section class="co-connected-block">
               <h4>Cover</h4>
               <p>${decisionTag(cover.decision)} ${esc(cover.reason || "")}</p>
               ${cover.proposedCoverImageUrl ? `<p class="muted-copy">Proposed from activity: ${esc(cover.sourceActivityTitle || cover.sourceActivityId || "")}</p>` : ""}
             </section>
-            ${renderPlanList("Content changes", contentRows, (row) => `
-              <li>${decisionTag(row.decision)} <strong>${esc(row.title || row.field || row.activityId || "")}</strong>
+            ${renderPlanList("Activities already strong (KEEP)", (plan.activitiesStrong || []).slice(0, 12), (row) => `
+              <li>${decisionTag("KEEP")} <strong>${esc(row.title || row.activityId || "")}</strong></li>
+            `)}
+            ${renderPlanList("Activities needing enrichment", (plan.activitiesNeedingWork || []).slice(0, 16), (row) => `
+              <li>${decisionTag(row.decision)} <strong>${esc(row.title || row.activityId || "")}</strong>
                 <span class="muted-copy">${esc(row.reason || "")}</span></li>
             `)}
-            ${renderPlanList("Image actions", imageRows, (row) => `
+            ${renderPlanList("Missing / thin weekly fields", (plan.missingWeeklyFields || []).slice(0, 12), (row) => `
+              <li>${decisionTag(row.decision)} <strong>${esc(row.label || row.field || "")}</strong>
+                <span class="muted-copy">${esc(row.reason || "")}</span></li>
+            `)}
+            ${renderPlanList("Image actions", (plan.imageActions || []).slice(0, 20), (row) => `
               <li>${decisionTag(row.decision)} <strong>${esc(row.activityTitle || row.activityId || "")}</strong>
                 <span class="muted-copy">${esc(row.reason || "")}</span></li>
             `)}
-            ${renderPlanList("Printable actions", printableRows, (row) => `
+            ${renderPlanList("Printable actions", (plan.printableActions || []).slice(0, 20), (row) => `
               <li>${decisionTag(row.decision)} <strong>${esc(row.activityTitle || row.activityId || "")}</strong>
                 <span class="muted-copy">${esc(row.reason || "")}</span></li>
             `)}
+            ${renderPlanList("Songs", (plan.songActions || []).filter((r) => r.decision && r.decision !== "KEEP").slice(0, 8), (row) => `
+              <li>${decisionTag(row.decision)} <strong>${esc(row.weekday || row.field || "")}</strong>
+                <span class="muted-copy">${esc(row.reason || "")}</span></li>
+            `)}
+            ${renderPlanList("Books", (plan.bookActions || []).filter((r) => r.decision && r.decision !== "KEEP"), (row) => `
+              <li>${decisionTag(row.decision)} <strong>${esc(row.field || "books")}</strong>
+                <span class="muted-copy">${esc(row.reason || "")}</span></li>
+            `)}
+            ${(plan.completenessSections || []).length ? renderPlanList("Thin / missing sections", plan.completenessSections.slice(0, 10), (row) => `
+              <li><strong>${esc(row.label || row.id || "")}</strong> <span class="muted-copy">${esc(row.status || "")} — ${esc(row.detail || "")}</span></li>
+            `) : ""}
             <pre class="co-log co-connected-summary">${esc(plan.ownerSummary || "")}</pre>
           ` : ""}
           ${state.result?.autoApply ? `
             <section class="co-connected-block">
               <h4>Auto-apply</h4>
               ${state.result.autoApply.applied?.length
-                ? `<p class="form-message is-success">Applied enrichment for ${state.result.autoApply.applied.length} lesson(s). Open the lesson to review, then Publish Lesson when ready.</p>`
+                ? `<p class="form-message is-success">Enrichment applied to this lesson. Open the lesson to review, then Publish Lesson when ready. Customers are not published automatically.</p>`
                 : `<p class="muted-copy">Auto-apply skipped: ${esc((state.result.autoApply.skipped || []).map((s) => s.code || s.message).join("; ") || "not eligible")}</p>`}
             </section>
           ` : ""}
@@ -175,6 +204,7 @@
     }
     state.open = true;
     state.busy = true;
+    state.running = false;
     state.lessonId = String(lessonId || "").trim();
     state.title = String(title || "").trim();
     state.ownerPlan = null;
@@ -198,8 +228,9 @@
   }
 
   async function onRun() {
-    if (state.busy || !state.lessonId) return;
+    if (state.busy || state.running || !state.lessonId) return;
     state.busy = true;
+    state.running = true;
     state.message = "Running full kit upgrade (text, songs/books, images, printables)…";
     state.isError = false;
     renderModal();
@@ -212,7 +243,7 @@
       const applied = data.autoApply?.applied?.length || 0;
       const skipped = data.autoApply?.skipped?.length || 0;
       state.message = applied
-        ? `Upgrade complete. Enrichment applied to this lesson. Review, then Publish Lesson when ready.`
+        ? "Upgrade complete. Enrichment applied to this lesson. Review, then Publish Lesson when ready."
         : `Upgrade finished but auto-apply skipped (${skipped} reason(s)). Open Enrichment Editor to apply manually if needed.`;
       state.isError = !applied && skipped > 0;
       if (typeof renderAdminCurriculumLessonPlanManager === "function") {
@@ -223,6 +254,7 @@
       state.isError = true;
     } finally {
       state.busy = false;
+      state.running = false;
       renderModal();
     }
   }
@@ -230,6 +262,7 @@
   function close() {
     state.open = false;
     state.busy = false;
+    state.running = false;
     state.message = "";
     state.isError = false;
     renderModal();

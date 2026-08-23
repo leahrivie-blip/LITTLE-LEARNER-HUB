@@ -27,13 +27,22 @@ function deriveCoverQuality(plan = {}) {
   return "needs_upgrade";
 }
 
+function isUsableActivityImageUrl(url) {
+  const u = String(url || "").trim();
+  if (!u || /^data:/i.test(u)) return false;
+  if (/\.pdf(\?|#|$)/i.test(u)) return false;
+  if (/application\/pdf/i.test(u)) return false;
+  if (!/^https?:\/\//i.test(u) && !u.startsWith("/")) return false;
+  if (/\/printables?\//i.test(u) && !/\.(png|jpe?g|webp|gif|svg)(\?|#|$)/i.test(u)) return false;
+  return true;
+}
+
 function activityImageUrl(plan, act, draftActs = {}) {
   const key = text(act.id) || text(act.itemId);
   const patch = draftActs[key] || draftActs[text(act.itemId)] || {};
   const setup = text(patch.setupImageUrl || act.setupImageUrl, 600);
   const example = text(patch.exampleImageUrl || act.exampleImageUrl, 600);
-  const url = setup || example;
-  if (!url || /^data:/i.test(url)) return "";
+  const url = isUsableActivityImageUrl(setup) ? setup : (isUsableActivityImageUrl(example) ? example : "");
   return url;
 }
 
@@ -61,8 +70,67 @@ function pickBestActivityImageForCover(plan, curriculum, preferActivityIds = [])
       priority,
     });
   });
-  candidates.sort((a, b) => b.priority - a.priority || String(a.title).localeCompare(String(b.title)));
+  candidates.sort((a, b) => {
+    if (b.priority !== a.priority) return b.priority - a.priority;
+    const aSetup = String(a.url).includes("setup") ? 1 : 0;
+    const bSetup = String(b.url).includes("setup") ? 1 : 0;
+    if (bSetup !== aSetup) return bSetup - aSetup;
+    return String(a.title).localeCompare(String(b.title));
+  });
   return candidates[0] || null;
+}
+
+/**
+ * Surface structural activity issues for Owner review (no silent restructuring).
+ */
+function detectStructuralReviewFlags(audit) {
+  const flags = [];
+  const classifications = schema.asArray(audit?.activityClassifications);
+  const titleCounts = new Map();
+  classifications.forEach((a) => {
+    const key = text(a.title, 180).toLowerCase();
+    if (key) titleCounts.set(key, (titleCounts.get(key) || 0) + 1);
+  });
+  classifications.forEach((a) => {
+    const titleKey = text(a.title, 180).toLowerCase();
+    if (titleKey && titleCounts.get(titleKey) > 1) {
+      flags.push({
+        activityId: a.activityId,
+        title: a.title,
+        code: "duplicate_activity_title",
+        message: `“${text(a.title, 120)}” appears more than once — review activity mix manually.`,
+      });
+    }
+    if (a.decision === "REPLACE") {
+      flags.push({
+        activityId: a.activityId,
+        title: a.title,
+        code: "activity_replace_recommended",
+        message: a.reason || "Activity may need structural Owner review.",
+      });
+    }
+  });
+  schema.asArray(audit?.teachingKitBlockers).forEach((b) => {
+    flags.push({
+      code: "teaching_kit_blocker",
+      source: b.source || "audit",
+      message: text(b.message, 300),
+    });
+  });
+  if (audit?.scores?.blocksPublish) {
+    flags.push({
+      code: "quality_blocks_publish",
+      message: "Quality review reports publish blockers — full publish-ready may require Owner review.",
+    });
+  }
+  const structural = flags.filter((f) => (
+    f.code === "duplicate_activity_title" || f.code === "activity_replace_recommended"
+  ));
+  return {
+    flags,
+    requiresOwnerReview: structural.length > 0 || audit?.scores?.blocksPublish === true,
+    structuralActivityCount: structural.length,
+  };
 }
 
 function buildCoverPlan(plan, curriculum, options = {}) {
@@ -176,18 +244,23 @@ function buildConnectedUpgradePlan(curriculum, lessonId) {
     ok: true,
     lessonId: plan.id,
     title: plan.title,
+    age: text(plan.age, 80),
     accessPlan: plan.plan === "Pro" ? "Pro" : "Free",
+    status: text(plan.status, 40),
+    plan,
     audit,
     coverPlan,
     workPlan,
     command,
     kitScope,
     ownerSummary,
+    structuralReview: detectStructuralReviewFlags(audit),
   };
 }
 
 function summarizePlanForOwner(planBundle) {
   const wp = planBundle?.workPlan || {};
+  const audit = planBundle?.audit || {};
   const contentChanges = [];
   schema.asArray(wp.text).forEach((f) => {
     if (f.decision && f.decision !== "KEEP") {
@@ -211,18 +284,51 @@ function summarizePlanForOwner(planBundle) {
       });
     }
   });
+  const activitiesStrong = schema.asArray(wp.activities).filter((a) => a.decision === "KEEP");
+  const activitiesNeedingWork = schema.asArray(wp.activities).filter((a) => a.decision && a.decision !== "KEEP");
+  const missingWeeklyFields = schema.asArray(audit.weeklyContent).filter((f) => f.decision !== "KEEP");
+  const imageActions = schema.asArray(wp.images);
+  const printableActions = schema.asArray(wp.printables);
+  const preservedImages = imageActions.filter((r) => (
+    String(r.decision || "").toUpperCase() === "KEEP_EXISTING"
+  ));
+  const preservedPrintables = printableActions.filter((r) => (
+    String(r.decision || "").toUpperCase() === "KEEP_EXISTING"
+  ));
+  const structuralReview = planBundle.structuralReview || detectStructuralReviewFlags(audit);
+  const thinSections = schema.asArray(audit.completenessSections).filter((s) => (
+    s.status === "missing" || s.status === "needs_improvement" || s.status === "thin"
+  ));
   return {
     lessonId: planBundle.lessonId,
     title: planBundle.title,
+    age: planBundle.age || audit.age || "",
     accessPlan: planBundle.accessPlan,
+    status: planBundle.status || audit.status || "",
     coverPlan: planBundle.coverPlan,
     contentChanges,
-    imageActions: schema.asArray(wp.images),
-    printableActions: schema.asArray(wp.printables),
+    activitiesStrong,
+    activitiesNeedingWork,
+    missingWeeklyFields,
+    imageActions,
+    printableActions,
+    preservedImages,
+    preservedPrintables,
     songActions: schema.asArray(wp.songs),
     bookActions: schema.asArray(wp.books),
+    completenessSections: thinSections,
+    blockers: schema.asArray(audit.teachingKitBlockers),
+    structuralReview,
+    estimatedScope: audit.estimatedJobScope || null,
+    readiness: {
+      completionPercent: audit.scores?.completionPercent,
+      premiumReadinessPercent: audit.scores?.premiumReadinessPercent,
+      blocksPublish: audit.scores?.blocksPublish,
+      currentStatus: audit.currentStatus,
+    },
     counts: wp.counts || {},
     ownerSummary: planBundle.ownerSummary || "",
+    writesOnPlan: false,
     publishes: false,
     autoPublish: false,
   };
@@ -294,7 +400,7 @@ function applyCoverToEnrichmentDraft(draft, coverPlan) {
 function applyOperatorCoverToMergedPlan(plan, enrichmentDraft) {
   const oc = enrichmentDraft?.operatorCover;
   const url = text(oc?.coverImageUrl, 600);
-  if (!url) return plan;
+  if (!url || !isUsableActivityImageUrl(url)) return plan;
   return {
     ...plan,
     coverImageUrl: url,
@@ -306,8 +412,10 @@ function applyOperatorCoverToMergedPlan(plan, enrichmentDraft) {
 
 module.exports = {
   deriveCoverQuality,
+  isUsableActivityImageUrl,
   buildCoverPlan,
   pickBestActivityImageForCover,
+  detectStructuralReviewFlags,
   buildConnectedUpgradeCommand,
   buildConnectedUpgradePlan,
   summarizePlanForOwner,

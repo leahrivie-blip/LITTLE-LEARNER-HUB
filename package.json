@@ -45,6 +45,7 @@
     "test:curriculum-operator-phase5-live": "node scripts/test-curriculum-operator-phase5-live.js",
     "test:curriculum-operator-phase6": "NODE_ENV=test LLH_OPERATOR_AI_FIXTURE=1 LLH_OPERATOR_SONGS_BOOKS_FIXTURE=1 LLH_OPERATOR_PRINTABLE_FIXTURE=1 VISUAL_PRODUCTION_MOCK_GENERATE=1 LLH_OPERATOR_IMAGE_FIXTURE=1 node scripts/test-curriculum-operator-phase6.js",
     "test:curriculum-operator-connected-upgrade": "NODE_ENV=test node scripts/test-curriculum-operator-connected-upgrade.js",
+    "test:curriculum-operator-connected-persisted": "NODE_ENV=test node scripts/test-curriculum-operator-connected-persisted.js",
     "test:curriculum-operator-phase6-live": "node scripts/test-curriculum-operator-phase6-live.js",
     "test:curriculum-operator-phase7": "NODE_ENV=test LLH_OPERATOR_AI_FIXTURE=1 LLH_OPERATOR_SONGS_BOOKS_FIXTURE=1 LLH_OPERATOR_PRINTABLE_FIXTURE=1 VISUAL_PRODUCTION_MOCK_GENERATE=1 LLH_OPERATOR_IMAGE_FIXTURE=1 node scripts/test-curriculum-operator-phase7.js",
     "test:curriculum-operator-phase7-live": "node scripts/test-curriculum-operator-phase7-live.js",
