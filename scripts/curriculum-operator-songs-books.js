@@ -126,12 +126,71 @@ function findVerifiedBook(title, author = "") {
   )) || null;
 }
 
-function matchVerifiedBooksForLesson(plan, limit = 2) {
-  const theme = `${text(plan?.theme, 80)} ${text(plan?.title, 120)}`.toLowerCase();
+/** Simple alias groups so lesson blobs can match verifiedLibrary theme tags. */
+const VERIFIED_BOOK_THEME_ALIASES = Object.freeze({
+  weather: ["weather", "rain", "science", "sky", "cloud"],
+  rain: ["rain", "weather", "water"],
+  science: ["science", "weather", "investigate", "observe"],
+  apples: ["apple", "apples", "fruit", "harvest", "fall"],
+  apple: ["apple", "apples", "fruit"],
+  fall: ["fall", "autumn", "harvest", "apples"],
+  harvest: ["harvest", "fall", "apples", "farm"],
+  feelings: ["feeling", "feelings", "emotion", "social", "emotional"],
+  "social-emotional": ["social", "emotional", "feelings", "feeling", "emotion"],
+});
+
+function normalizeThemeToken(value) {
+  return text(value, 40).toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
+function lessonThemeBlob(plan, activities = []) {
+  const parts = [
+    text(plan?.theme, 80),
+    text(plan?.title, 120),
+  ];
+  schema.asArray(activities).slice(0, 20).forEach((activity) => {
+    parts.push(text(activity?.title, 120));
+  });
+  return parts.join(" ").toLowerCase();
+}
+
+function themeTokenMatchesLessonBlob(blob, themeToken) {
+  const raw = text(themeToken, 40).toLowerCase();
+  const normalized = normalizeThemeToken(themeToken);
+  if (!normalized) return false;
+  const blobNorm = blob.replace(/[^a-z0-9]+/g, " ");
+  if (raw.length >= 3 && blob.includes(raw)) return true;
+  if (normalized.length >= 3 && blobNorm.includes(normalized)) return true;
+  const aliasKey = Object.keys(VERIFIED_BOOK_THEME_ALIASES).find((key) => (
+    normalizeThemeToken(key) === normalized || key === raw
+  ));
+  const aliases = aliasKey ? VERIFIED_BOOK_THEME_ALIASES[aliasKey] : [raw, normalized];
+  return aliases.some((alias) => {
+    const a = text(alias, 40).toLowerCase();
+    const an = normalizeThemeToken(alias);
+    return (a.length >= 3 && blob.includes(a)) || (an.length >= 3 && blobNorm.includes(an));
+  });
+}
+
+function verifiedBookThematicallyMatchesLesson(plan, libraryEntry, activities = []) {
+  if (!libraryEntry || !schema.asArray(libraryEntry.themes).length) return false;
+  const blob = lessonThemeBlob(plan, activities);
+  return libraryEntry.themes.some((themeTag) => themeTokenMatchesLessonBlob(blob, themeTag));
+}
+
+function buildLibrarySearchBookBase(plan) {
+  return {
+    title: `Search your classroom library for a ${text(plan?.theme || plan?.title, 40)} picture book`,
+    author: "",
+    suggestedWeekday: "tuesday",
+  };
+}
+
+function matchVerifiedBooksForLesson(plan, limit = 2, activities = []) {
   const age = ageKind(plan?.age);
   return VERIFIED_BOOK_LIBRARY
     .filter((b) => b.ageBands.includes(age) || age === "mixed")
-    .filter((b) => b.themes.some((th) => theme.includes(th)) || /weather|apple|feel|friend/i.test(theme))
+    .filter((b) => verifiedBookThematicallyMatchesLesson(plan, b, activities))
     .slice(0, limit);
 }
 
@@ -366,7 +425,7 @@ function validateSongEntry(song) {
   return { ok: errors.length === 0, errors };
 }
 
-function validateBookEntry(book, { allowLibrarySearch = true } = {}) {
+function validateBookEntry(book, { allowLibrarySearch = true, plan = null, activities = [] } = {}) {
   const errors = [];
   const title = text(book?.title, 180);
   if (!title) errors.push("missing_book_title");
@@ -374,6 +433,9 @@ function validateBookEntry(book, { allowLibrarySearch = true } = {}) {
   const librarySearch = isLibrarySearchTitle(title);
   if (!verified && !(allowLibrarySearch && librarySearch)) {
     errors.push("fabricated_or_unverified_book_title");
+  }
+  if (verified && plan && !verifiedBookThematicallyMatchesLesson(plan, verified, activities)) {
+    errors.push("off_theme_verified_book");
   }
   if (verified && text(book?.author, 120) && text(book.author, 120).toLowerCase() !== verified.author.toLowerCase()) {
     // Allow minor author variance only if empty; wrong author rejected
@@ -441,6 +503,7 @@ function buildSongBookPlannerSystemPrompt(ageRaw) {
     "Return ONLY JSON with keys: songs[], books[].",
     "Songs must be ORIGINAL classroom songs (rightsStatus original). Never output copyrighted commercial lyrics.",
     "Books must be either a title from verifiedLibrary OR a 'Search your classroom library for …' prompt.",
+    "Choose a verifiedLibrary book only when its themes meaningfully match the lesson theme; otherwise use a classroom-library search prompt.",
     "Do not invent commercial published book titles.",
     `Age focus: ${kind}. Keep songs short and singable.`,
     "Song fields: title, linkedWeekday, lyrics, motions, teacherDirections, notes, rightsStatus, allowPrintLyrics.",
@@ -537,11 +600,7 @@ function buildOperatorSongBookAiFixtureResponse(userPrompt) {
         verifiedLibraryId: matches[0].id,
       };
     } else {
-      book = {
-        title: `Search your classroom library for a ${text(plan.theme || plan.title, 40)} picture book`,
-        author: "",
-        suggestedWeekday: "tuesday",
-      };
+      book = buildLibrarySearchBookBase(plan);
     }
     const guide = buildBookGuideQuestions(book, plan, plan.age);
     books.push({ ...book, ...guide });
@@ -554,7 +613,7 @@ function buildOperatorSongBookAiFixtureResponse(userPrompt) {
   });
 }
 
-function validateSongBookPlannerOutput(rawText, { plan, songActions, bookActions }) {
+function validateSongBookPlannerOutput(rawText, { plan, activities = [], songActions, bookActions }) {
   let parsed;
   try {
     parsed = JSON.parse(stripJsonFences(rawText));
@@ -609,14 +668,21 @@ function validateSongBookPlannerOutput(rawText, { plan, songActions, bookActions
         suggestedWeekday: text(book.suggestedWeekday || "tuesday", 20).toLowerCase(),
         notes: text(book.notes, 400),
       };
-      const check = validateBookEntry(normalized);
+      const check = validateBookEntry(normalized, { plan, activities });
       if (!check.ok) {
+        const onlyOffTheme = check.errors.length === 1 && check.errors[0] === "off_theme_verified_book";
+        if (onlyOffTheme) continue;
         return { ok: false, code: "invalid_book", error: check.errors.join(", ") };
       }
       books.push(normalized);
     }
     if (!books.length) {
-      return { ok: false, code: "missing_books", error: "Book write requested but no valid books returned." };
+      return {
+        ok: true,
+        songs,
+        books: [],
+        offThemeBookRejected: true,
+      };
     }
   }
 
@@ -696,7 +762,12 @@ async function planSongsAndBooks({
     };
   }
 
-  const validated = validateSongBookPlannerOutput(raw, { plan, songActions: pendingSongs, bookActions: pendingBooks });
+  const validated = validateSongBookPlannerOutput(raw, {
+    plan,
+    activities,
+    songActions: pendingSongs,
+    bookActions: pendingBooks,
+  });
   if (!validated.ok) {
     return {
       ok: false,
@@ -727,14 +798,10 @@ async function planSongsAndBooks({
   }
   let books = validated.books;
   if (pendingBooks.length && (!books || !books.length)) {
-    const match = matchVerifiedBooksForLesson(plan, 1)[0];
+    const match = matchVerifiedBooksForLesson(plan, 1, activities)[0];
     const base = match
       ? { title: match.title, author: match.author, verifiedLibraryId: match.id, suggestedWeekday: "tuesday" }
-      : {
-        title: `Search your classroom library for a ${text(plan?.theme || plan?.title, 40)} picture book`,
-        author: "",
-        suggestedWeekday: "tuesday",
-      };
+      : buildLibrarySearchBookBase(plan);
     books = [{ ...base, ...buildBookGuideQuestions(base, plan, plan?.age) }];
   }
 
@@ -839,7 +906,7 @@ function verifySongBookJobDraft({ beforePlan, afterPlan, songActions = [], bookA
     const found = afterBooks.find((b) => text(b.title, 180) === text(action.title || action.book?.title, 180));
     pass(Boolean(found), "book_present", "Book present after save.");
     if (found) {
-      const check = validateBookEntry(found);
+      const check = validateBookEntry(found, { plan: beforePlan });
       pass(check.ok, "book_verified", "Book title is verified or library-search.");
     }
   });
@@ -862,6 +929,9 @@ module.exports = {
   validateSongEntry,
   validateBookEntry,
   findVerifiedBook,
+  lessonThemeBlob,
+  verifiedBookThematicallyMatchesLesson,
+  buildLibrarySearchBookBase,
   matchVerifiedBooksForLesson,
   isLibrarySearchTitle,
   applySongBookPlanToDraft,

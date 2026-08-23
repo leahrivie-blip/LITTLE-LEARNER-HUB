@@ -271,6 +271,106 @@ async function main() {
     author: "",
   }).ok, "classroom-library search prompt accepted");
 
+  console.log("Book thematic relevance");
+  const bakeryPlan = {
+    id: "cur-lp-operator-bakery-theme",
+    title: "bakery",
+    theme: "bakery",
+    age: "Preschool",
+  };
+  const weatherPlan = emptyPlan;
+  const weatherBook = {
+    title: "What Will the Weather Be?",
+    author: "Lynda DeWitt",
+  };
+  const bakeryOffTheme = songsBooksApi.validateBookEntry(weatherBook, { plan: bakeryPlan });
+  ok(!bakeryOffTheme.ok, "bakery + verified weather book rejected");
+  ok(bakeryOffTheme.errors.includes("off_theme_verified_book"), "bakery weather book → off_theme_verified_book");
+  ok(songsBooksApi.validateBookEntry(weatherBook, { plan: weatherPlan }).ok, "weather + verified weather book passes");
+  ok(songsBooksApi.validateBookEntry({
+    title: "Search your classroom library for a bakery picture book",
+    author: "",
+  }, { plan: bakeryPlan }).ok, "bakery + classroom-library search passes");
+  ok(songsBooksApi.matchVerifiedBooksForLesson(bakeryPlan, 4).length === 0, "matchVerifiedBooksForLesson(bakery) → []");
+  const weatherMatches = songsBooksApi.matchVerifiedBooksForLesson(weatherPlan, 4, emptyCur.activities);
+  ok(weatherMatches.length === 2, "matchVerifiedBooksForLesson(weather) → weather books only");
+  ok(weatherMatches.every((b) => /weather|rain/i.test(b.title)), "weather matches are weather/rain titles only");
+  ok(!weatherMatches.some((b) => b.title === "Apples and Pumpkins"), "weather match excludes apple book");
+  ok(!weatherMatches.some((b) => b.title === "The Way I Feel"), "weather match excludes feelings book");
+
+  const bakeryAudit = {
+    songs: [
+      { field: "song.monday", decision: "MISSING", reason: "No song linked." },
+      { field: "song.tuesday", decision: "MISSING", reason: "No song linked." },
+      { field: "song.wednesday", decision: "MISSING", reason: "No song linked." },
+      { field: "song.thursday", decision: "MISSING", reason: "No song linked." },
+      { field: "song.friday", decision: "MISSING", reason: "No song linked." },
+    ],
+    books: { decision: "FILL", reason: "No books listed." },
+  };
+  const bakeryActivities = [{
+    id: "cur-act-bakery-dough",
+    title: "Dough Texture Exploration",
+    dayOfWeek: "monday",
+  }];
+  const bakeryLessonPlan = {
+    ...bakeryPlan,
+    enrichmentDraft: { week: { songs: [], books: [] }, activities: {} },
+  };
+  const bakeryPlanned = await songsBooksApi.planSongsAndBooks({
+    plan: bakeryLessonPlan,
+    activities: bakeryActivities,
+    audit: bakeryAudit,
+    callAi: async () => JSON.stringify({
+      lessonId: bakeryPlan.id,
+      songs: [
+        {
+          title: "Baking Time",
+          linkedWeekday: "monday",
+          lyrics: "Mix the dough, roll it out,\nBaking time, there's no doubt.",
+          motions: "Mix and roll.",
+          teacherDirections: "Sing during circle.",
+          notes: "Original bakery song.",
+          rightsStatus: "original",
+          allowPrintLyrics: true,
+        },
+        {
+          title: "Measure and Mix",
+          linkedWeekday: "tuesday",
+          lyrics: "Scoop and pour, one, two, three,\nMeasuring ingredients, come and see!",
+          motions: "Scoop and stir.",
+          teacherDirections: "Sing during circle.",
+          notes: "Original bakery song.",
+          rightsStatus: "original",
+          allowPrintLyrics: true,
+        },
+        {
+          title: "Counting Cookies",
+          linkedWeekday: "wednesday",
+          lyrics: "One cookie, two cookies, three cookies, four,\nCount them up, we want more!",
+          motions: "Count fingers.",
+          teacherDirections: "Sing during circle.",
+          notes: "Original bakery song.",
+          rightsStatus: "original",
+          allowPrintLyrics: true,
+        },
+      ],
+      books: [{
+        title: "What Will the Weather Be?",
+        author: "Lynda DeWitt",
+        whyThisBook: "Explores weather changes, which can relate to baking conditions.",
+        beforeReadingQuestions: ["What do you think happens when it rains?"],
+        afterReadingQuestions: ["How does weather affect baking?", "What did you notice?"],
+        suggestedWeekday: "friday",
+      }],
+    }),
+  });
+  ok(bakeryPlanned.ok === true, "bakery off-theme AI book does not fail job");
+  const bakeryBook = schema.asArray(bakeryPlanned.enrichmentDraft?.week?.books)[0];
+  ok(bakeryBook, "bakery fallback still produces a book");
+  ok(songsBooksApi.isLibrarySearchTitle(bakeryBook.title), "bakery fallback uses classroom-library search");
+  ok(!songsBooksApi.findVerifiedBook(bakeryBook.title, bakeryBook.author), "bakery fallback is not verified weather book");
+
   console.log("Planner fixture + apply");
   let aiCalls = 0;
   const planned = await songsBooksApi.planSongsAndBooks({
