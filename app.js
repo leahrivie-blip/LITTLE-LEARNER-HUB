@@ -67571,7 +67571,7 @@ async function cancelSubscription() {
           : `Cancellation scheduled. Access continues until ${endLabel}.`,
         billingPriceLabel(),
       );
-      trackEvent("subscription_canceled", {
+      trackEvent("subscription_cancel_scheduled", {
         email: currentUser,
         previousPlan: account?.plan || "Pro",
         scheduled: true,
@@ -67603,7 +67603,7 @@ async function cancelSubscription() {
     stripeSubscriptionStatus: account.stripeSubscriptionStatus || (inTrial ? "trialing" : "active"),
   });
   addBillingHistory("Subscription Canceled", "Cancellation scheduled at period end. Access continues until the access-end date.", billingPriceLabel());
-  trackEvent("subscription_canceled", { email: currentUser, previousPlan: account?.plan || "Pro", scheduled: true });
+  trackEvent("subscription_cancel_scheduled", { email: currentUser, previousPlan: account?.plan || "Pro", scheduled: true });
   saveCurrentAccountState();
   updateAuthButtons();
   updatePlanLabel();

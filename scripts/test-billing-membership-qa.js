@@ -274,6 +274,8 @@ async function main() {
   assert(appJs.includes("forceRefresh"), "Client forceRefresh subscription sync missing");
   assert(appJs.includes("suppressBootLanding"), "Boot navigation race guard missing");
   assert(appJs.includes("pendingAuthReturnView"), "Post-login return view restore missing");
+  assert(!/trackEvent\("subscription_canceled", \{[\s\S]{0,250}scheduled: true/.test(appJs), "Scheduled cancellation must not be tracked as subscription_canceled");
+  assert(appJs.includes('trackEvent("subscription_cancel_scheduled"'), "Scheduled cancellation analytics event missing");
 
   const serverJs = fs.readFileSync(path.join(ROOT, "server/index.js"), "utf8");
   assert(serverJs.includes("applyCheckoutMembershipUpgrade"), "Shared checkout membership upgrade helper missing");
@@ -872,6 +874,14 @@ async function main() {
         !afterPastDue.billingEvents?.some((event) => event.email === "sequence-recover@billing.test" && event.type === "subscription_canceled"),
         "past_due must not create a subscription_canceled billing event",
       );
+      const pastDueAlerts = await requestJson(
+        "GET",
+        `/api/admin/notifications?adminToken=${encodeURIComponent(adminLogin.json.token)}&category=billing&limit=100`,
+      );
+      assert(
+        !(pastDueAlerts.json?.notifications || []).some((notice) => notice.type === "admin_subscription_canceled"),
+        "past_due must not create an admin_subscription_canceled alert",
+      );
 
       // Customer fixes their card; Stripe reports the subscription active again via a
       // newer (higher event.created) customer.subscription.updated event.
@@ -915,6 +925,14 @@ async function main() {
       assert(
         afterCanceled.billingEvents?.some((event) => event.email === "sequence-recover@billing.test" && event.type === "subscription_canceled"),
         "true canceled subscription creates a subscription_canceled billing event",
+      );
+      const canceledAlerts = await requestJson(
+        "GET",
+        `/api/admin/notifications?adminToken=${encodeURIComponent(adminLogin.json.token)}&category=billing&limit=100`,
+      );
+      assert(
+        (canceledAlerts.json?.notifications || []).some((notice) => notice.type === "admin_subscription_canceled"),
+        "true canceled subscription creates an admin_subscription_canceled alert",
       );
     }
 
