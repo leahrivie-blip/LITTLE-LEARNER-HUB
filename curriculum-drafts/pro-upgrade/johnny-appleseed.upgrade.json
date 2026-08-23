@@ -1,0 +1,1117 @@
+{
+  "batch": "priority-1",
+  "lessonId": "cur-lp-toddler-johnny-appleseed-apple-fun",
+  "title": "Johnny Appleseed & Apple Fun",
+  "age": "Toddler",
+  "masterPasteValidated": true,
+  "draftChannel": "enrichment_draft",
+  "liveReplaceForbiddenWhilePublished": true,
+  "week": {
+    "weeklyOverview": "This week toddlers meet the friendly Johnny Appleseed story through planting play, orchard pretend, seed discovery, and process art—not worksheets or tiny crafts. They dig, plant (with large cups), water with tiny watering cans, build big apple trees from recycled materials, and parade as kind seed-planters. Counting stays playful with large apple props. Life-cycle ideas use oversized picture cards for looking and talking, never paper sequencing quizzes. Soft cooked apple tasting stays optional and allergy-aware. The week is short-turn, sensory, and childcare-realistic.",
+    "objectives": "Social-emotional: Practice gentle care for plants/animals in story play and share orchard tools.\nLanguage: Hear and try words such as seed, plant, water, grow, tree, orchard, harvest, and Johnny.\nCognitive: Notice seed → plant → tree → apple with large picture cards and real props.\nFine motor: Dig, scoop soil, glue large collage pieces, stamp apple prints.\nGross motor: Grow-tall movement, water dance, orchard parade.\nSensory: Soil/dry bean garden bins, apple smell, collage textures.\nCreative: Process tree art, hat decorating, orchard collage—no “right” finished look.",
+    "weeklyMaterials": "Everyday: potting soil or clean play sand, large cups/pots, spoons, watering cans, baskets, smocks, trays, towels\nApple props: plastic/wood apples, large apple pictures, empty seed packets (sealed), real apple seeds ONLY in sealed discovery bags or teacher-supervised large trays (choking watch)\nArt: washable paint, paper, glue sticks, brown paper, tissue, stickers, cardboard tubes, green scrap paper\nSensory: soil/beans/oats garden bin, scoops, artificial leaves/flowers\nDramatic play: baskets, wagons, orchard signs, simple hat bands\nLiteracy: My Little Golden Book About Johnny Appleseed; Little Naturalists: Johnny Appleseed; Johnny Appleseed (Reeve Lindbergh); Ten Red Apples; The Apple Pie Tree\nOptional printables: oversized life-cycle picture cards; orchard zone signs; seed/plant/water choice cards",
+    "teacherPreparation": "Before Monday: allergy survey for apple; decide tasting plan.\nPrep sealed seed discovery bags (real seeds sealed OR large craft “seeds”).\nFill sensory garden bin; pre-portion planting cups.\nPrint/cut oversized life-cycle cards (seed, sprout, tree, apple)—toddler-large, not tiny.\nPre-cut hat bands and tree collage materials.\nStage a reusable Orchard Corner that can stay all week.\nPull 2–3 Johnny/apple books; practice short story language (kindness, planting, walking).",
+    "prepChecklist": [
+      "Complete apple allergy check with families",
+      "Prep sealed seed discovery (choking-safe plan)",
+      "Portion planting cups + soil + spoons",
+      "Stage Orchard Corner with baskets and signs",
+      "Prepare oversized life-cycle picture cards",
+      "Pre-cut hat bands and tree collage scraps",
+      "Sanitize sensory tools; remove tiny pieces",
+      "Select 2–3 Johnny Appleseed / apple books"
+    ],
+    "observationFocus": "Interest in seed/plant talk\nTool sharing at garden bin\nWillingness to dig/plant/water\nLanguage attempts (seed, grow, tree, apple)\nProcess-art engagement without product pressure\nComfort with optional apple smelling/tasting",
+    "familyConnection": "Invite families to notice an apple or tree on a walk and say “seed” or “grow” together. Optional: plant a bean or herb seed at home (easier than apple trees)—no required homework. Share that classroom tasting is always optional.",
+    "adaptations": "Offer watching-first entry, dry sensory alternatives, larger handles, picture cards, and shorter turns. Never force tasting or dirt play. Provide sealed seed bags for children who mouth everything.",
+    "vocabularyWords": "Johnny\napple\nseed\nplant\nwater\ngrow\ntree\norchard\nharvest\nkind\ncare\nsoil\nsprout\nbasket\nwalk\nhat\nleaf\nroot",
+    "books": [
+      {
+        "title": "My Little Golden Book About Johnny Appleseed",
+        "author": "Lori Haskins Houran",
+        "prompts": [
+          "Who is planting seeds?",
+          "What is Johnny carrying?",
+          "Can you find an apple tree?",
+          "How can we be kind like Johnny?"
+        ]
+      },
+      {
+        "title": "Little Naturalists: Johnny Appleseed",
+        "author": "Kate Coombs",
+        "prompts": [
+          "Where does Johnny walk?",
+          "What does he plant?",
+          "Can you point to an apple?",
+          "What living things does he care for?"
+        ]
+      },
+      {
+        "title": "Johnny Appleseed",
+        "author": "Reeve Lindbergh",
+        "prompts": [
+          "What do you see on this page?",
+          "Where are the apple trees?",
+          "Can you clap when you see an apple?",
+          "Would you like to plant a seed?"
+        ]
+      },
+      {
+        "title": "Ten Red Apples",
+        "author": "Pat Hutchins",
+        "prompts": [
+          "How many apples do you see?",
+          "Who takes an apple?",
+          "Can we count together?"
+        ]
+      },
+      {
+        "title": "The Apple Pie Tree",
+        "author": "Zoe Hall",
+        "prompts": [
+          "What happens to the tree?",
+          "When do apples grow?",
+          "What can we do with apples?"
+        ]
+      }
+    ],
+    "songs": [
+      {
+        "title": "Way Up High in the Apple Tree",
+        "notes": "Traditional fingerplay; warm-up before orchard play."
+      },
+      {
+        "title": "Apples and Bananas",
+        "notes": "Traditional vowel play; keep short rounds."
+      },
+      {
+        "title": "The Farmer in the Dell",
+        "notes": "Traditional; can frame orchard helpers without reproducing copyrighted lyric sheets."
+      },
+      {
+        "title": "LLH Johnny Planted Seeds Chant",
+        "notes": "Original: “Plant, plant, plant the seeds—water, wait, and grow!”"
+      }
+    ],
+    "teacherToolkit": {
+      "prepChecklist": [
+        "Allergy + tasting plan",
+        "Sealed seed discovery ready",
+        "Orchard Corner staged",
+        "Life-cycle cards oversized",
+        "Books/songs card pulled"
+      ],
+      "observationFocus": [
+        "Seed/plant language",
+        "Garden tool sharing",
+        "Process art comfort",
+        "Optional tasting comfort"
+      ],
+      "reusableCenters": [
+        "Orchard Corner",
+        "Garden sensory bin",
+        "Planting table",
+        "Life-cycle look-and-talk cards"
+      ]
+    },
+    "printableIdeas": [
+      {
+        "title": "Oversized Apple Life-Cycle Cards",
+        "reason": "Toddler-large seed/sprout/tree/apple cards for talk—not worksheets"
+      },
+      {
+        "title": "Orchard Zone Signs",
+        "reason": "Plant / Water / Harvest labels for dramatic play"
+      },
+      {
+        "title": "Seed–Plant–Water Choice Cards",
+        "reason": "Visual supports for planting sequence without writing"
+      }
+    ],
+    "researchSources": [
+      "NAEYC DAP — play-based nature/gardening experiences for toddlers",
+      "Head Start ECLKC — early science exploration through observation and sensory play",
+      "ZERO TO THREE — language-rich caregiver narration during outdoor/nature play",
+      "Choking-hazard guidance: supervise small seeds; prefer sealed bags or large props for toddlers"
+    ],
+    "coverStatus": "COVER IMAGE PENDING",
+    "proposedCoverActivity": "Plant Your Own Apple Seed"
+  },
+  "activities": [
+    {
+      "ageModifications": "Toddler 12–36 Months",
+      "durationMinutes": 10,
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 Pro upgrade — substantial Teaching Kit rewrite (draft only); toddler-safe Johnny Appleseed/orchard focus",
+      "indoorAlternatives": "Default indoor discovery table.",
+      "outdoorAlternatives": "Same sealed bags on a shaded outdoor tray.",
+      "teacherTips": [
+        "Keep groups small.",
+        "Celebrate looking without needing “correct” answers."
+      ],
+      "substitutions": [
+        {
+          "need": "Real seeds",
+          "use": "Large wooden beads labeled “seed” or laminated seed photos in bags"
+        }
+      ],
+      "adaptations": "Offer hand-over-hand shake; allow watching only; use high-contrast cards.",
+      "extensions": "Compare apple seed bag to a large bean (safer planting later).",
+      "mixedAgeAdaptations": "Older toddlers may help zip bags closed with help; infants observe only from caregiver lap.",
+      "observationPrompts": [
+        "Does the child look at seeds?",
+        "Do they attempt seed/apple words?",
+        "How do they handle bags?"
+      ],
+      "vocabulary": [
+        "seed",
+        "apple",
+        "tiny",
+        "look",
+        "shake",
+        "grow"
+      ],
+      "imageRequirement": "recommended",
+      "imageBriefSetup": "Toddler discovery table with apple half on tray, sealed seed bags, and large picture cards—real childcare setting.",
+      "imageBriefExample": "Close photo of sealed seed bag beside apple half; littlelearnershubbyleah.com footer.",
+      "title": "Apple Seed Discovery",
+      "dayOfWeek": "monday",
+      "activityCategory": "STEM/Discovery",
+      "objective": "Explore apple seeds safely through looking, shaking sealed bags, and naming seed/apple with teacher support.",
+      "description": "Toddlers examine a cut apple (teacher-cut, displayed) and sealed seed discovery bags. They shake, look, and match large seed pictures—no loose tiny seeds for unsupervised play.",
+      "materials": "Teacher-cut apple halves on tray (or clear display)\nSealed clear bags with a few apple seeds OR large craft seed props\nMagnifying glasses (toddler-safe)\nPicture cards: apple / seed\nSmocks optional; wipes",
+      "preparation": "Teacher cuts apple before children arrive. Seal seeds in sturdy bags. Remove any loose small seeds from reach.",
+      "setup": "Low discovery table with apple display, sealed bags, and two picture cards. Soft mat for sitting.",
+      "steps": "1. Gather 2–4 toddlers.\n2. Show apple half; point to seeds—“Seeds live inside.”\n3. Offer sealed bags to shake and look.\n4. Match bag to seed picture card.\n5. Narrate: seed can grow a tree someday.\n6. All done: wash hands; put bags in basket.",
+      "teacherLanguage": "Where are the seeds?\nCan you shake, shake?\nAre the seeds tiny or big?\nSeeds help grow trees.\nCan you find the apple picture?\nWe look with our eyes—gentle hands.",
+      "observationOpportunities": "Visual attention to seeds, vocabulary attempts, gentle handling, and interest in matching pictures.",
+      "safetyNotes": "Choking hazard: no loose small seeds for mouthing children. Teacher-only knife. Sanitize after handling display apple.",
+      "cleanupTips": "Bagreeze or discard display apple per policy; wipe table; store sealed bags."
+    },
+    {
+      "ageModifications": "Toddler 12–36 Months",
+      "durationMinutes": 12,
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 Pro upgrade — substantial Teaching Kit rewrite (draft only); toddler-safe Johnny Appleseed/orchard focus",
+      "indoorAlternatives": "",
+      "outdoorAlternatives": "Stamp on easel outdoors.",
+      "teacherTips": [
+        "Accept one stamp as complete.",
+        "Avoid correcting “wrong” placement."
+      ],
+      "substitutions": [
+        {
+          "need": "Apple stamps",
+          "use": "Sponges cut into circles or apple stickers"
+        }
+      ],
+      "adaptations": "Larger stamps; glue sticks only; seated support.",
+      "extensions": "Add fingerprint “apples” with washable ink pads.",
+      "mixedAgeAdaptations": "Preschoolers may draw their own trunks; toddlers use pre-drawn.",
+      "observationPrompts": [
+        "How does the child hold the stamp?",
+        "Do they try more than one stamp?",
+        "Any color words?"
+      ],
+      "vocabulary": [
+        "tree",
+        "apple",
+        "stamp",
+        "leaf",
+        "paint",
+        "grow"
+      ],
+      "imageRequirement": "recommended",
+      "imageBriefSetup": "Art table mid-activity with paint trays and stamps.",
+      "imageBriefExample": "Finished child art: uneven stamped apples on a simple trunk, imperfect and childcare-real; littlelearnershubbyleah.com footer.",
+      "title": "Johnny's Apple Tree",
+      "dayOfWeek": "monday",
+      "activityCategory": "Art",
+      "objective": "Create open-ended apple tree process art using stamps, collage, or paint—no required finished look.",
+      "description": "Toddlers paint or stamp apple shapes onto paper trees or brown trunks. Emphasize process: dipping, stamping, sticking leaves. Finished art looks child-made and uneven.",
+      "materials": "Paper; brown crayon/marker trunks (pre-drawn optional)\nWashable red/green/yellow paint\nApple halves or potato “apple” stamps (teacher-cut)\nTissue paper leaves; glue sticks\nSmocks; trays",
+      "preparation": "Prep stamps; pour paint on trays; pre-draw simple trunks if helpful; cover table.",
+      "setup": "Art table with smocks, one tray per child, stamps and collage bits in reach.",
+      "steps": "1. Put on smocks.\n2. Show: “Johnny planted trees—we make tree pictures.”\n3. Model one stamp or glue one leaf.\n4. Invite free stamping/collage.\n5. Name colors and actions.\n6. Dry flat; wash hands.",
+      "teacherLanguage": "Dip and stamp!\nWhere will your apple go?\nRed apple, green leaf.\nYour tree is growing!\nMore or all done?\nBeautiful Johnny tree.",
+      "observationOpportunities": "Grip on stamp, color naming, persistence, and pride in process.",
+      "safetyNotes": "Non-toxic paint; supervise stamps; wipe mouths if paint is mouthed.",
+      "cleanupTips": "Soak stamps; wipe trays; hang art to dry."
+    },
+    {
+      "ageModifications": "Toddler 12–36 Months",
+      "durationMinutes": 8,
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 Pro upgrade — substantial Teaching Kit rewrite (draft only); toddler-safe Johnny Appleseed/orchard focus",
+      "indoorAlternatives": "",
+      "outdoorAlternatives": "",
+      "teacherTips": [
+        "Stop at child’s interest.",
+        "Counting is modeling, not testing."
+      ],
+      "substitutions": [
+        {
+          "need": "Seed props",
+          "use": "Large pom-poms called “seeds”"
+        }
+      ],
+      "adaptations": "Hand-over-hand; start with one cup only.",
+      "extensions": "Match cups to 1–3 dot cards.",
+      "mixedAgeAdaptations": "Older toddlers may try 4–5; younger stay at 1–2.",
+      "observationPrompts": [
+        "Does child drop one at a time?",
+        "Do they join counting words?"
+      ],
+      "vocabulary": [
+        "one",
+        "two",
+        "three",
+        "seed",
+        "count",
+        "more"
+      ],
+      "imageRequirement": "recommended",
+      "imageBriefSetup": "Muffin tin with large seed props and 1–3 cards.",
+      "imageBriefExample": "Setup photo of toddler-sized counting invitation; littlelearnershubbyleah.com footer.",
+      "title": "Count the Apple Seeds",
+      "dayOfWeek": "monday",
+      "activityCategory": "STEM/Discovery",
+      "objective": "Practice playful 1–3 counting with large seed props or sealed bags—not worksheets or tiny loose seeds.",
+      "description": "Toddlers place large seed props into muffin cups while teacher models counting to 1, 2, or 3. Keep it game-like and brief.",
+      "materials": "Large craft seeds / wooden discs / laminated seed pictures\nMuffin tin or 3 bowls\nNumber cards 1–3 with dots\nBasket",
+      "preparation": "Set out only large props. Post 1–3 cards.",
+      "setup": "Floor or low table with muffin tin and seed basket.",
+      "steps": "1. Show one seed—“One.”\n2. Invite child to drop seeds into cups.\n3. Count together aloud to 3 max.\n4. Cheer and reset.\n5. Offer another turn or all done.",
+      "teacherLanguage": "One seed!\nCan you put two?\nThree seeds in the cup.\nShall we count again?\nYou did it!",
+      "observationOpportunities": "One-to-one dropping, attention to counting chant, turn-taking.",
+      "safetyNotes": "No small chokeable seeds. Supervise mouthing.",
+      "cleanupTips": "Return props to labeled bin."
+    },
+    {
+      "ageModifications": "Toddler 12–36 Months",
+      "durationMinutes": 8,
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 Pro upgrade — substantial Teaching Kit rewrite (draft only); toddler-safe Johnny Appleseed/orchard focus",
+      "indoorAlternatives": "",
+      "outdoorAlternatives": "Same sequence on grass.",
+      "teacherTips": [
+        "Model exaggerated slowly.",
+        "Offer seated arm motions for mobility needs."
+      ],
+      "substitutions": [
+        {
+          "need": "Cards",
+          "use": "Verbal cues only"
+        }
+      ],
+      "adaptations": "Seated version; peer buddy; shorter one-stage turns.",
+      "extensions": "Add scarf “leaves” to wave.",
+      "mixedAgeAdaptations": "Infants: caregiver-assisted gentle stretch; preschool: add freeze game.",
+      "observationPrompts": [
+        "Does child imitate stretch?",
+        "Do they anticipate next pose?"
+      ],
+      "vocabulary": [
+        "seed",
+        "sprout",
+        "tree",
+        "tall",
+        "shake",
+        "grow"
+      ],
+      "imageRequirement": "not_needed",
+      "imageBriefSetup": "",
+      "imageBriefExample": "",
+      "title": "Growing Apple Trees",
+      "dayOfWeek": "monday",
+      "activityCategory": "Music & Movement",
+      "objective": "Use whole-body movement to act out seed → sprout → tree → apple shake.",
+      "description": "Short movement story: curl as seeds, stretch as sprouts, stand tall as trees, gently “shake apples” down. Repeat 2–3 times.",
+      "materials": "Open floor space; optional soft music; picture cards for each stage",
+      "preparation": "Clear hazards; practice simple cues.",
+      "setup": "Circle or free space with cards visible on wall/floor.",
+      "steps": "1. Show seed card—curl small.\n2. Sprout—kneel and stretch arms.\n3. Tree—stand tall, arms up.\n4. Apples—gentle shake, then “pick” to basket.\n5. Rest and repeat once.",
+      "teacherLanguage": "Tiny seed… curl up!\nSprout up, up!\nTall apple tree!\nShake, shake the apples.\nPick an apple—yum!\nReady to grow again?",
+      "observationOpportunities": "Imitation of poses, balance, enjoyment, following sequence cues.",
+      "safetyNotes": "Space for movement; no climbing furniture; gentle shaking only.",
+      "cleanupTips": "Collect cards; reset space."
+    },
+    {
+      "ageModifications": "Toddler 12–36 Months",
+      "durationMinutes": 12,
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 Pro upgrade — substantial Teaching Kit rewrite (draft only); toddler-safe Johnny Appleseed/orchard focus",
+      "indoorAlternatives": "",
+      "outdoorAlternatives": "Plant in outdoor garden boxes with same steps.",
+      "teacherTips": [
+        "Expect messy joy.",
+        "Label clearly for family pickup later."
+      ],
+      "substitutions": [
+        {
+          "need": "Soil",
+          "use": "Kinetic sand or dry oats in cups for full pretend planting"
+        }
+      ],
+      "adaptations": "Pre-filled cups; hand-over-hand scoop; water with sponge squeeze.",
+      "extensions": "Daily water check job chart with pictures.",
+      "mixedAgeAdaptations": "Older toddlers dig holes; younger drop seed into prepared hole.",
+      "observationPrompts": [
+        "Can child scoop?",
+        "Do they try cover step?",
+        "Interest in watering?"
+      ],
+      "vocabulary": [
+        "plant",
+        "soil",
+        "seed",
+        "cover",
+        "water",
+        "grow"
+      ],
+      "imageRequirement": "recommended",
+      "imageBriefSetup": "Planting table with cups, soil, spoons, tiny watering cans.",
+      "imageBriefExample": "Realistic childcare planting setup mid-scoop; littlelearnershubbyleah.com footer. Strong cover candidate.",
+      "title": "Plant Your Own Apple Seed",
+      "dayOfWeek": "tuesday",
+      "activityCategory": "STEM/Discovery",
+      "objective": "Practice simple planting: scoop soil, place a seed prop or large bean, cover, and water with a tiny can.",
+      "description": "Toddlers plant in large cups. Use large beans or sealed “practice seeds” for safety unless closely supervising real apple seeds. Focus on care routine, not growing a real orchard overnight.",
+      "materials": "Large cups/pots; potting soil or clean play sand\nSpoons; large beans or supervised seeds\nTiny watering cans with little water\nTrays; smocks; name stickers",
+      "preparation": "Pre-fill cups halfway; portion soil; prepare watering cans with minimal water.",
+      "setup": "Planting table with trays, cups, spoons, and a “Plant → Cover → Water” picture strip.",
+      "steps": "1. Smocks on; show picture strip.\n2. Scoop soil into cup.\n3. Place seed/bean; cover gently.\n4. Tiny water—model “just a little.”\n5. Add name sticker; place on sunny shelf.\n6. Wash hands.",
+      "teacherLanguage": "Scoop the soil.\nHere’s your seed.\nCover it up—night-night seed.\nLittle water—drip drip.\nWe will watch it grow.\nYou are a planter like Johnny!",
+      "observationOpportunities": "Scooping control, following 2–3 steps, excitement, handwashing follow-through.",
+      "safetyNotes": "Choking watch for seeds/beans. No standing water. Soil not for eating—redirect. Outdoor soil policies per center.",
+      "cleanupTips": "Sweep soil; wipe trays; store cans empty."
+    },
+    {
+      "ageModifications": "Toddler 12–36 Months",
+      "durationMinutes": 12,
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 Pro upgrade — substantial Teaching Kit rewrite (draft only); toddler-safe Johnny Appleseed/orchard focus",
+      "indoorAlternatives": "",
+      "outdoorAlternatives": "Sand table garden play outdoors.",
+      "teacherTips": [
+        "Rotate fillers if mouthed heavily.",
+        "Keep turns short."
+      ],
+      "substitutions": [
+        {
+          "need": "Beans",
+          "use": "Shredded paper “soil”"
+        }
+      ],
+      "adaptations": "Dry-only options; tray portioning for children who overwhelm in big bins.",
+      "extensions": "Add watering can for pretend water.",
+      "mixedAgeAdaptations": "Infants: sealed bag of oats to pat; toddlers: full bin.",
+      "observationPrompts": [
+        "Approach/avoid texture?",
+        "Any garden words?",
+        "Sharing scoops?"
+      ],
+      "vocabulary": [
+        "dig",
+        "scoop",
+        "bury",
+        "find",
+        "soil",
+        "garden"
+      ],
+      "imageRequirement": "recommended",
+      "imageBriefSetup": "Garden sensory bin staged with scoops and plastic apples.",
+      "imageBriefExample": "Realistic setup photo of invitation-to-play bin; littlelearnershubbyleah.com footer.",
+      "title": "Garden Sensory Bin",
+      "dayOfWeek": "tuesday",
+      "activityCategory": "Sensory Play",
+      "objective": "Explore garden textures through scooping, burying, and finding large apple/leaf props in a sensory bin.",
+      "description": "A shallow bin of soil alternative (beans, oats, or clean sand) with scoops, pots, and large plastic apples/leaves for burying and discovering.",
+      "materials": "Sensory bin; dried beans/oats/sand\nScoops, cups, small pots\nPlastic apples, leaves, large “seeds”\nSmocks; broom; handwashing",
+      "preparation": "Fill bin; remove tiny pieces; set limits for 2–3 children.",
+      "setup": "Bin on low table or floor tarp with smocks nearby and a “scoop gently” visual.",
+      "steps": "1. Smocks; wash-later reminder.\n2. Invite scoop and bury apple.\n3. Narrate dig/find/plant.\n4. Offer pot filling.\n5. All done: hands wash; sweep.",
+      "teacherLanguage": "Scoop, scoop.\nWhere did the apple go?\nCan you find a leaf?\nPlant it in the pot.\nGentle digs.\nAll done—wash hands.",
+      "observationOpportunities": "Sensory tolerance, scooping, pretend planting language, peer space sharing.",
+      "safetyNotes": "Allergy to bin filler; choking; no throwing; supervise constantly.",
+      "cleanupTips": "Lid bin; sweep floor; wash tools."
+    },
+    {
+      "ageModifications": "Toddler 12–36 Months",
+      "durationMinutes": 12,
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 Pro upgrade — substantial Teaching Kit rewrite (draft only); toddler-safe Johnny Appleseed/orchard focus",
+      "indoorAlternatives": "",
+      "outdoorAlternatives": "",
+      "teacherTips": [
+        "Do not reorder child’s pieces to “fix” sequence."
+      ],
+      "substitutions": [
+        {
+          "need": "Cut shapes",
+          "use": "Torn paper pieces"
+        }
+      ],
+      "adaptations": "Pre-glued seed; child only adds leaves.",
+      "extensions": "Dictate a one-line story on the back.",
+      "mixedAgeAdaptations": "Preschool may draw sequence; toddlers collage freely.",
+      "observationPrompts": [
+        "Does child press glue?",
+        "Interest in apple pieces?"
+      ],
+      "vocabulary": [
+        "seed",
+        "tree",
+        "glue",
+        "leaf",
+        "apple",
+        "grow"
+      ],
+      "imageRequirement": "recommended",
+      "imageBriefSetup": "Collage materials in bowls on art table.",
+      "imageBriefExample": "Finished imperfect collage with seed and uneven apples; child-made look; littlelearnershubbyleah.com footer.",
+      "title": "Seed to Tree Craft",
+      "dayOfWeek": "tuesday",
+      "activityCategory": "Art",
+      "objective": "Build a simple seed-to-tree collage with large pieces that tell a mini growth story.",
+      "description": "Toddlers glue a large “seed,” then add trunk/leaf/apple pieces in any order they choose. Teacher narrates growth without requiring correct sequence.",
+      "materials": "Paper; large brown seed shapes; trunk strips; green leaves; red apple circles\nGlue sticks; stickers optional\nSmocks",
+      "preparation": "Pre-cut large shapes; set glue sticks.",
+      "setup": "Art seats with paper and sorted bowls of shapes.",
+      "steps": "1. Show seed shape—“starts as a seed.”\n2. Invite glue seed anywhere.\n3. Add trunk/leaves/apples freely.\n4. Narrate child’s choices.\n5. Write name; dry.",
+      "teacherLanguage": "Here’s a seed.\nWhere does your tree grow?\nSticky glue—press!\nLeaf on the tree.\nApple for Johnny.\nYou made a growing picture!",
+      "observationOpportunities": "Glue skill, choice-making, listening to growth language.",
+      "safetyNotes": "Glue sticks preferred over liquid glue; supervise small stickers.",
+      "cleanupTips": "Cap glue; sort leftover shapes."
+    },
+    {
+      "ageModifications": "Toddler 12–36 Months",
+      "durationMinutes": 8,
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 Pro upgrade — substantial Teaching Kit rewrite (draft only); toddler-safe Johnny Appleseed/orchard focus",
+      "indoorAlternatives": "",
+      "outdoorAlternatives": "Real tiny water on outdoor plants with close supervision.",
+      "teacherTips": [
+        "Keep music segments under 30–45 seconds."
+      ],
+      "substitutions": [
+        {
+          "need": "Cans",
+          "use": "Fists as pretend cans"
+        }
+      ],
+      "adaptations": "Seated pour motions; visual stop sign.",
+      "extensions": "Add scarf rain.",
+      "mixedAgeAdaptations": "Older toddlers help “water” real outdoor planter last.",
+      "observationPrompts": [
+        "Stops on cue?",
+        "Tries pour motion?"
+      ],
+      "vocabulary": [
+        "water",
+        "pour",
+        "garden",
+        "stop",
+        "go",
+        "grow"
+      ],
+      "imageRequirement": "not_needed",
+      "imageBriefSetup": "",
+      "imageBriefExample": "",
+      "title": "Water the Garden Dance",
+      "dayOfWeek": "tuesday",
+      "activityCategory": "Music & Movement",
+      "objective": "Move with pretend watering cans to music, practicing gentle pour motions and stop/go listening.",
+      "description": "Toddlers dance with empty or barely damp sponges/cans, practicing tip-pour motions and freeze when music stops.",
+      "materials": "Empty plastic watering cans or cups; optional sponges; music player; open space",
+      "preparation": "Clear space; check cans have no sharp edges.",
+      "setup": "Circle with cans in center; music ready.",
+      "steps": "1. Give each child a can.\n2. Model tip-pour “water the seeds.”\n3. Dance/walk watering imaginary garden.\n4. Freeze on pause.\n5. Collect cans; rest.",
+      "teacherLanguage": "Water the seeds—tip tip!\nWalk to the trees.\nFreeze—stop!\nGentle water.\nGrow, grow, grow!\nAll done watering.",
+      "observationOpportunities": "Listening for stop/go, coordination of pour motion, joy in movement.",
+      "safetyNotes": "No full water indoors unless planned; prevent running with cans.",
+      "cleanupTips": "Stack cans; wipe drips if any."
+    },
+    {
+      "ageModifications": "Toddler 12–36 Months",
+      "durationMinutes": 10,
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 Pro upgrade — substantial Teaching Kit rewrite (draft only); toddler-safe Johnny Appleseed/orchard focus",
+      "indoorAlternatives": "",
+      "outdoorAlternatives": "",
+      "teacherTips": [
+        "If cards are “out of order,” narrate playfully rather than correcting harshly."
+      ],
+      "substitutions": [
+        {
+          "need": "Cards",
+          "use": "Photos taped to paper plates"
+        }
+      ],
+      "adaptations": "Two-card version only (seed/apple); hand-over-hand holding.",
+      "extensions": "Match each card to a classroom prop.",
+      "mixedAgeAdaptations": "Preschool may try left-to-right order; toddlers point and name.",
+      "observationPrompts": [
+        "Points to cards?",
+        "Attempts grow/seed words?"
+      ],
+      "vocabulary": [
+        "seed",
+        "sprout",
+        "tree",
+        "apple",
+        "first",
+        "then"
+      ],
+      "imageRequirement": "recommended",
+      "imageBriefSetup": "Four oversized life-cycle cards on a childcare rug.",
+      "imageBriefExample": "Setup photo of cards in a simple row; littlelearnershubbyleah.com footer.",
+      "title": "Apple Tree Life Cycle Sequencing",
+      "dayOfWeek": "wednesday",
+      "activityCategory": "STEM/Discovery",
+      "objective": "Look at oversized seed → sprout → tree → apple cards and talk about growing—playful order, not a test.",
+      "description": "Teacher models a simple growth story with large cards. Toddlers may move cards, match, or just point. No worksheets or forced correct sequences.",
+      "materials": "4 oversized laminated cards: seed, sprout, tree, apple\nFloor mat or pocket chart\nOptional real props matching each stage",
+      "preparation": "Print/laminate large cards; practice short story script.",
+      "setup": "Circle time mat with cards face up in a row or pile.",
+      "steps": "1. Show seed card.\n2. Add sprout—“It grows.”\n3. Tree—“Tall.”\n4. Apple—“Ready to pick.”\n5. Invite children to hold/move a card.\n6. Retell once with child help.",
+      "teacherLanguage": "First a seed.\nThen a little sprout.\nThen a tree.\nThen an apple!\nWhich one do you want to hold?\nTrees need water and sun.",
+      "observationOpportunities": "Attention to story, card interest, vocabulary echo, willingness to hold cards.",
+      "safetyNotes": "Laminated corners smooth; no small pieces.",
+      "cleanupTips": "Store cards in labeled envelope."
+    },
+    {
+      "ageModifications": "Toddler 12–36 Months",
+      "durationMinutes": 12,
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 Pro upgrade — substantial Teaching Kit rewrite (draft only); toddler-safe Johnny Appleseed/orchard focus",
+      "indoorAlternatives": "",
+      "outdoorAlternatives": "",
+      "teacherTips": [
+        "Teacher may pre-secure trunks for youngest."
+      ],
+      "substitutions": [
+        {
+          "need": "Tubes",
+          "use": "Rolled brown paper trunks"
+        }
+      ],
+      "adaptations": "Pre-built trunk; child only adds apples.",
+      "extensions": "Group mural orchard of all trees.",
+      "mixedAgeAdaptations": "Older toddlers help peers tape.",
+      "observationPrompts": [
+        "Persists with tape?",
+        "Adds multiple apples?"
+      ],
+      "vocabulary": [
+        "trunk",
+        "leaves",
+        "apple",
+        "build",
+        "tall",
+        "orchard"
+      ],
+      "imageRequirement": "recommended",
+      "imageBriefSetup": "Build station with tubes and green tissue.",
+      "imageBriefExample": "Child-built tube tree with uneven apples on a plate; realistic; littlelearnershubbyleah.com footer.",
+      "title": "Build an Apple Tree",
+      "dayOfWeek": "wednesday",
+      "activityCategory": "Art",
+      "objective": "Construct a 3D or collage apple tree from recycled tubes, paper, and loose parts.",
+      "description": "Toddlers tape/glue cardboard tube trunks and add crumpled canopy and apple stickers/pom-poms (large). Process building over product perfection.",
+      "materials": "Cardboard tubes; green tissue; tape; glue\nLarge pom-poms or sticker apples\nBases (paper plates)\nSmocks",
+      "preparation": "Pre-cut slits or tape starters; portion canopy bits.",
+      "setup": "Build table with tubes standing on plates and materials in bowls.",
+      "steps": "1. Choose a tube trunk.\n2. Tape trunk to plate with help.\n3. Add crumpled green top.\n4. Stick/glue apples.\n5. Name parts; display orchard shelf.",
+      "teacherLanguage": "Here’s the trunk.\nSticky tape—press.\nLeaves on top.\nApples on the tree!\nYour tree stands tall.\nOur orchard is growing.",
+      "observationOpportunities": "Problem-solving with tape, fine motor, pretend orchard talk.",
+      "safetyNotes": "Supervise tape; large pom-poms only; no tiny beads.",
+      "cleanupTips": "Save spare tubes; wipe glue."
+    },
+    {
+      "ageModifications": "Toddler 12–36 Months",
+      "durationMinutes": 8,
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 Pro upgrade — substantial Teaching Kit rewrite (draft only); toddler-safe Johnny Appleseed/orchard focus",
+      "indoorAlternatives": "",
+      "outdoorAlternatives": "",
+      "teacherTips": [
+        "Keep under five.",
+        "Counting is joyful, not assessed."
+      ],
+      "substitutions": [
+        {
+          "need": "Felt board",
+          "use": "Tape apples on mural paper tree"
+        }
+      ],
+      "adaptations": "Larger apples; teacher holds board steady.",
+      "extensions": "Sort red/green apples.",
+      "mixedAgeAdaptations": "Older try five; younger one–two.",
+      "observationPrompts": [
+        "Places apple on tree?",
+        "Joins counting?"
+      ],
+      "vocabulary": [
+        "apple",
+        "tree",
+        "hang",
+        "pick",
+        "count",
+        "basket"
+      ],
+      "imageRequirement": "recommended",
+      "imageBriefSetup": "Toddler-height tree board with large apples and basket.",
+      "imageBriefExample": "Setup invitation photo; littlelearnershubbyleah.com footer.",
+      "title": "Count the Apples on the Tree",
+      "dayOfWeek": "wednesday",
+      "activityCategory": "STEM/Discovery",
+      "objective": "Count 1–5 large apples on a felt/paper tree during playful hanging and picking.",
+      "description": "Toddlers hang large felt/paper apples on a tree board then pick into a basket while counting together.",
+      "materials": "Felt/paper tree board; large apple cutouts with Velcro or clothespins\nBasket; number cards 1–5 optional",
+      "preparation": "Mount tree at toddler height; prep apples.",
+      "setup": "Tree board against wall/easel; basket below.",
+      "steps": "1. Hang 1–3 apples together.\n2. Count aloud.\n3. Pick into basket.\n4. Repeat with different amounts.\n5. Cheer and reset.",
+      "teacherLanguage": "Hang the apple.\nOne, two, three!\nPick the apples.\nHow many in the basket?\nMore apples?\nGreat picking!",
+      "observationOpportunities": "Pinching/placing, counting participation, turn-taking.",
+      "safetyNotes": "Secure board; large pieces only; supervise clothespins.",
+      "cleanupTips": "Store apples in bag on board."
+    },
+    {
+      "ageModifications": "Toddler 12–36 Months",
+      "durationMinutes": 8,
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 Pro upgrade — substantial Teaching Kit rewrite (draft only); toddler-safe Johnny Appleseed/orchard focus",
+      "indoorAlternatives": "",
+      "outdoorAlternatives": "Same dance outdoors.",
+      "teacherTips": [
+        "One word + motion is enough."
+      ],
+      "substitutions": [
+        {
+          "need": "Scarves",
+          "use": "Tissue paper leaves"
+        }
+      ],
+      "adaptations": "Seated scarf waves; visual cards only.",
+      "extensions": "Match scarf color to season card.",
+      "mixedAgeAdaptations": "Preschool name seasons; toddlers move only.",
+      "observationPrompts": [
+        "Follows season cues?",
+        "Enjoys scarf drop?"
+      ],
+      "vocabulary": [
+        "spring",
+        "summer",
+        "fall",
+        "winter",
+        "leaf",
+        "rest"
+      ],
+      "imageRequirement": "not_needed",
+      "imageBriefSetup": "",
+      "imageBriefExample": "",
+      "title": "Growing Through the Seasons",
+      "dayOfWeek": "wednesday",
+      "activityCategory": "Music & Movement",
+      "objective": "Act out simple seasonal tree changes with scarves and body movement.",
+      "description": "Short season dance: spring buds (curl), summer leaves (wave), fall apples (shake/drop scarves), winter rest (still). Keep toddler-simple—no complex science lecture.",
+      "materials": "Scarves or ribbons; optional season picture cards; music",
+      "preparation": "Clear space; choose calm music tracks.",
+      "setup": "Circle with scarves in basket.",
+      "steps": "1. Spring—curl then peek.\n2. Summer—wave scarves high.\n3. Fall—shake and let scarves float down.\n4. Winter—hug self and rest.\n5. Repeat once.",
+      "teacherLanguage": "Spring buds… peek!\nSummer leaves wave.\nFall apples drop.\nWinter trees rest.\nWhich season do you like?\nGrow again!",
+      "observationOpportunities": "Imitation, scarf control, listening to cues.",
+      "safetyNotes": "Scarves away from necks; supervise.",
+      "cleanupTips": "Collect scarves."
+    },
+    {
+      "ageModifications": "Toddler 12–36 Months",
+      "durationMinutes": 15,
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 Pro upgrade — substantial Teaching Kit rewrite (draft only); toddler-safe Johnny Appleseed/orchard focus",
+      "indoorAlternatives": "",
+      "outdoorAlternatives": "Outdoor harvest with baskets on playground.",
+      "teacherTips": [
+        "Coach sharing language.",
+        "Keep “prices” as pictures not math drills."
+      ],
+      "substitutions": [
+        {
+          "need": "Plastic apples",
+          "use": "Crumbled red paper balls"
+        }
+      ],
+      "adaptations": "Assigned simple role; visual turn cards.",
+      "extensions": "Add weighing with bathroom scale for fun.",
+      "mixedAgeAdaptations": "Older toddlers run stand; younger pick only.",
+      "observationPrompts": [
+        "Tries a role?",
+        "Uses orchard words?",
+        "Shares basket?"
+      ],
+      "vocabulary": [
+        "harvest",
+        "pick",
+        "basket",
+        "orchard",
+        "share",
+        "stand"
+      ],
+      "imageRequirement": "recommended",
+      "imageBriefSetup": "Dramatic play orchard with baskets, hanging apples, and stand.",
+      "imageBriefExample": "Realistic classroom orchard center setup; littlelearnershubbyleah.com footer.",
+      "title": "Harvest the Apples",
+      "dayOfWeek": "thursday",
+      "activityCategory": "Dramatic Play",
+      "objective": "Engage in orchard dramatic play: pick, fill baskets, deliver apples to a stand.",
+      "description": "Orchard Corner becomes a harvest stand. Toddlers pick plastic apples, fill baskets, push wagons, and “sell/share” at a simple stand with picture price cards.",
+      "materials": "Plastic apples; baskets; wagon/cart\nTable stand; play money optional (large)\nAprons; orchard signs\nCash register optional",
+      "preparation": "Stage trees (cardboard) with hanging apples; set stand.",
+      "setup": "Clear path from trees to stand; limit 3–4 players.",
+      "steps": "1. Tour roles: picker, wagon helper, stand helper.\n2. Pick apples into baskets.\n3. Deliver to stand.\n4. Pretend share/sell with picture cards.\n5. Restock and repeat.\n6. Clean-up song.",
+      "teacherLanguage": "Pick the ripe apples!\nFill your basket.\nWagon ride to the stand.\nWould you like a red apple?\nThank you, orchard helper.\nTime to restock.",
+      "observationOpportunities": "Role taking, peer language, carrying/coordination, cleanup participation.",
+      "safetyNotes": "No climbing cardboard trees; clear pathways; large props only.",
+      "cleanupTips": "Return apples to bins; fold aprons."
+    },
+    {
+      "ageModifications": "Toddler 12–36 Months",
+      "durationMinutes": 10,
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 Pro upgrade — substantial Teaching Kit rewrite (draft only); toddler-safe Johnny Appleseed/orchard focus",
+      "indoorAlternatives": "",
+      "outdoorAlternatives": "",
+      "teacherTips": [
+        "Keep abstract needs concrete with props."
+      ],
+      "substitutions": [
+        {
+          "need": "Flashlight",
+          "use": "Yellow paper sun"
+        }
+      ],
+      "adaptations": "One need per day; hand-over-hand matching.",
+      "extensions": "Water classroom plant as a job.",
+      "mixedAgeAdaptations": "Preschool discuss “healthy”; toddlers match props.",
+      "observationPrompts": [
+        "Matches card to prop?",
+        "Gentle with plant prop?"
+      ],
+      "vocabulary": [
+        "sun",
+        "water",
+        "soil",
+        "care",
+        "healthy",
+        "gentle"
+      ],
+      "imageRequirement": "recommended",
+      "imageBriefSetup": "Care props and cards around a tree picture.",
+      "imageBriefExample": "Setup photo of healthy-tree invitation; littlelearnershubbyleah.com footer.",
+      "title": "Healthy Apple Trees",
+      "dayOfWeek": "thursday",
+      "activityCategory": "STEM/Discovery",
+      "objective": "Explore what trees need (sun, water, soil, care) using picture cards and real props—simple and concrete.",
+      "description": "Toddlers match care cards to props: watering can, sun picture, soil cup, gentle hands. Talk about kind care like Johnny.",
+      "materials": "Cards: sun, water, soil, gentle hands\nProps: watering can, flashlight “sun,” soil cup, soft cloth\nSmall plant or tree picture",
+      "preparation": "Print care cards; gather props.",
+      "setup": "Discovery rug with plant picture in center and props around.",
+      "steps": "1. Show tree—“Trees need care.”\n2. Match water card to can.\n3. Match sun to flashlight glow (brief).\n4. Touch soil cup.\n5. Practice gentle pat on stuffed animal/tree prop.\n6. Retell needs together.",
+      "teacherLanguage": "Trees need water.\nTrees need sun.\nTrees need soil.\nGentle hands care.\nWe can help trees.\nJohnny was kind to trees.",
+      "observationOpportunities": "Matching interest, gentle touch, care vocabulary.",
+      "safetyNotes": "Flashlight not in eyes; soil not eaten; supervise.",
+      "cleanupTips": "Store cards/props kit."
+    },
+    {
+      "ageModifications": "Toddler 12–36 Months",
+      "durationMinutes": 12,
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 Pro upgrade — substantial Teaching Kit rewrite (draft only); toddler-safe Johnny Appleseed/orchard focus",
+      "indoorAlternatives": "",
+      "outdoorAlternatives": "",
+      "teacherTips": [
+        "Group mural builds belonging."
+      ],
+      "substitutions": [
+        {
+          "need": "Mural",
+          "use": "Individual papers only"
+        }
+      ],
+      "adaptations": "Pre-glued grass; child adds apples only.",
+      "extensions": "Add photo of each child as orchard helper.",
+      "mixedAgeAdaptations": "Older place more detailed trees; younger stick apples.",
+      "observationPrompts": [
+        "Participates near group?",
+        "Adds multiple pieces?"
+      ],
+      "vocabulary": [
+        "orchard",
+        "glue",
+        "tree",
+        "apple",
+        "tear",
+        "together"
+      ],
+      "imageRequirement": "recommended",
+      "imageBriefSetup": "Collage scraps staged for mural.",
+      "imageBriefExample": "Finished imperfect orchard collage with uneven apples; littlelearnershubbyleah.com footer.",
+      "title": "Apple Orchard Collage",
+      "dayOfWeek": "thursday",
+      "activityCategory": "Art",
+      "objective": "Create a group or individual orchard collage with textured papers and apple shapes.",
+      "description": "Toddlers glue torn paper, fabric scraps, and apple cutouts onto mural or individual papers to build a busy orchard scene.",
+      "materials": "Large mural paper or individual sheets\nTorn green/brown/red papers; fabric scraps\nGlue sticks; apple stickers\nSmocks",
+      "preparation": "Tear papers; hang mural at toddler height if group.",
+      "setup": "Collage station with bowls of scraps.",
+      "steps": "1. Show empty orchard paper.\n2. Glue “grass” and “trees.”\n3. Add apples freely.\n4. Stand back and name friends’ trees.\n5. Dry and display.",
+      "teacherLanguage": "Tear the paper—rip rip!\nGlue a tree.\nAdd apples.\nOur orchard is full!\nWhose tree is this?\nBeautiful work together.",
+      "observationOpportunities": "Tearing/gluing, collaboration near peers, color choices.",
+      "safetyNotes": "Non-toxic glue; supervise small stickers.",
+      "cleanupTips": "Cap glue; recycle scraps."
+    },
+    {
+      "ageModifications": "Toddler 12–36 Months",
+      "durationMinutes": 8,
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 Pro upgrade — substantial Teaching Kit rewrite (draft only); toddler-safe Johnny Appleseed/orchard focus",
+      "indoorAlternatives": "",
+      "outdoorAlternatives": "",
+      "teacherTips": [
+        "Keep chant under 4 lines."
+      ],
+      "substitutions": [
+        {
+          "need": "Baskets",
+          "use": "Hands as baskets"
+        }
+      ],
+      "adaptations": "Seated motions; picture cue cards for each action.",
+      "extensions": "Children choose next action card.",
+      "mixedAgeAdaptations": "Infants bounce to rhythm; toddlers do motions.",
+      "observationPrompts": [
+        "Tries motions?",
+        "Smiles/engages?"
+      ],
+      "vocabulary": [
+        "pick",
+        "carry",
+        "wash",
+        "rest",
+        "worker",
+        "orchard"
+      ],
+      "imageRequirement": "not_needed",
+      "imageBriefSetup": "",
+      "imageBriefExample": "",
+      "title": "Orchard Workers Song",
+      "dayOfWeek": "thursday",
+      "activityCategory": "Music & Movement",
+      "objective": "Sing/chant orchard worker actions with motions: pick, carry, wash, rest.",
+      "description": "Simple original/traditional-style chant with motions. Do not reproduce copyrighted lyrics; use LLH chant and public-domain frames.",
+      "materials": "Optional baskets; music optional; lyric card for teacher (original chant)",
+      "preparation": "Learn LLH chant; clear space.",
+      "setup": "Standing circle with baskets in center optional.",
+      "steps": "1. Teach motions: pick, carry, wash, rest.\n2. Chant once with teacher lead.\n3. Children join motions.\n4. Add basket pass.\n5. Bow and done.",
+      "teacherLanguage": "Pick, pick apples.\nCarry the basket.\nWash, wash apples.\nOrchard workers rest.\nAgain?\nGreat teamwork!",
+      "observationOpportunities": "Motion imitation, rhythm, peer awareness.",
+      "safetyNotes": "No running with baskets; safe spacing.",
+      "cleanupTips": "Stack baskets."
+    },
+    {
+      "ageModifications": "Toddler 12–36 Months",
+      "durationMinutes": 10,
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 Pro upgrade — substantial Teaching Kit rewrite (draft only); toddler-safe Johnny Appleseed/orchard focus",
+      "indoorAlternatives": "",
+      "outdoorAlternatives": "",
+      "teacherTips": [
+        "Honor “I don’t know” with props support."
+      ],
+      "substitutions": [
+        {
+          "need": "Planted cups",
+          "use": "Photos of planting day"
+        }
+      ],
+      "adaptations": "Yes/no choice boards for favorite activity.",
+      "extensions": "Dictate favorite moment for family note.",
+      "mixedAgeAdaptations": "Older narrate; younger hold props.",
+      "observationPrompts": [
+        "Shows preference?",
+        "Uses grow/seed words?"
+      ],
+      "vocabulary": [
+        "review",
+        "grow",
+        "seed",
+        "tree",
+        "apple",
+        "care"
+      ],
+      "imageRequirement": "not_needed",
+      "imageBriefSetup": "",
+      "imageBriefExample": "",
+      "title": "Apple Tree Life Cycle Review",
+      "dayOfWeek": "friday",
+      "activityCategory": "STEM/Discovery",
+      "objective": "Retell the week’s growth story with cards and classroom props as a joyful review—not a quiz.",
+      "description": "Revisit seed → sprout → tree → apple using cards plus real classroom planting cups and orchard props. Children help tell the story.",
+      "materials": "Life-cycle cards; children’s planted cups; plastic apple; watering can",
+      "preparation": "Gather week props into a review basket.",
+      "setup": "Circle with props displayed.",
+      "steps": "1. Show planted cups—“We planted.”\n2. Move through cards with child helpers.\n3. Water pretend/real carefully.\n4. End with apple pick cheer.\n5. Optional: one book page peek.",
+      "teacherLanguage": "What did we plant?\nWhat do seeds need?\nOur trees are growing.\nWho can find the apple card?\nWe cared like Johnny.\nWhat was your favorite?",
+      "observationOpportunities": "Recall interest, prop use, preference sharing.",
+      "safetyNotes": "Same as earlier planting/card safety.",
+      "cleanupTips": "Return review basket."
+    },
+    {
+      "ageModifications": "Toddler 12–36 Months",
+      "durationMinutes": 12,
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 Pro upgrade — substantial Teaching Kit rewrite (draft only); toddler-safe Johnny Appleseed/orchard focus",
+      "indoorAlternatives": "",
+      "outdoorAlternatives": "",
+      "teacherTips": [
+        "Offer headband alternative if hats bother children."
+      ],
+      "substitutions": [
+        {
+          "need": "Hat band",
+          "use": "Apple necklace of large beads on yarn (supervised) or sticker badge"
+        }
+      ],
+      "adaptations": "Pre-decorated band; child adds one sticker.",
+      "extensions": "Photo for family with planted cup.",
+      "mixedAgeAdaptations": "Older design more; younger one sticker.",
+      "observationPrompts": [
+        "Engages in decorating?",
+        "Tolerates wearing?"
+      ],
+      "vocabulary": [
+        "hat",
+        "Johnny",
+        "sticker",
+        "wear",
+        "parade",
+        "decorate"
+      ],
+      "imageRequirement": "recommended",
+      "imageBriefSetup": "Hat band decorating station.",
+      "imageBriefExample": "Finished child-decorated hat band with uneven stickers; littlelearnershubbyleah.com footer.",
+      "title": "Johnny Appleseed Hat",
+      "dayOfWeek": "friday",
+      "activityCategory": "Art",
+      "objective": "Decorate a simple wearable hat band for the parade—process decorating, not a perfect craft replica.",
+      "description": "Toddlers sticker, stamp, or color a pre-cut hat band / paper crown. Optional tin-pot pretend prop for teacher storytelling only if safe and not forced as costume.",
+      "materials": "Pre-cut paper hat bands; tape/stapler (teacher)\nStickers, dot markers, apple stamps\nSmocks optional",
+      "preparation": "Pre-cut bands to size; portion decorations.",
+      "setup": "Art table with bands labeled; decorations in bowls.",
+      "steps": "1. Choose a band.\n2. Decorate freely.\n3. Teacher fit/tape to size.\n4. Try on briefly.\n5. Store for parade.",
+      "teacherLanguage": "Decorate your Johnny hat!\nSticker here?\nDot dot dot.\nReady to try it on?\nYou look ready to plant seeds.\nHats rest until parade.",
+      "observationOpportunities": "Decorating choices, tolerance for wearing, pride.",
+      "safetyNotes": "Teacher-only stapler; watch for mouthing stickers; optional wear—never force.",
+      "cleanupTips": "Cap markers; save extra stickers."
+    },
+    {
+      "ageModifications": "Toddler 12–36 Months",
+      "durationMinutes": 10,
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 Pro upgrade — substantial Teaching Kit rewrite (draft only); toddler-safe Johnny Appleseed/orchard focus",
+      "indoorAlternatives": "",
+      "outdoorAlternatives": "",
+      "teacherTips": [
+        "Match challenge to attention span."
+      ],
+      "substitutions": [
+        {
+          "need": "Apples",
+          "use": "Beanbags"
+        }
+      ],
+      "adaptations": "Collect any apples without number demand; then count together.",
+      "extensions": "Color sort after counting.",
+      "mixedAgeAdaptations": "Older match numeral; younger use dots only.",
+      "observationPrompts": [
+        "Finds requested amount?",
+        "Counts with adult?"
+      ],
+      "vocabulary": [
+        "find",
+        "basket",
+        "count",
+        "apple",
+        "challenge",
+        "more"
+      ],
+      "imageRequirement": "not_needed",
+      "imageBriefSetup": "",
+      "imageBriefExample": "",
+      "title": "Apple Orchard Counting Challenge",
+      "dayOfWeek": "friday",
+      "activityCategory": "STEM/Discovery",
+      "objective": "Play a brief orchard counting game collecting large apples into baskets up to 3–5.",
+      "description": "Scatter large apples in play orchard. Toddlers collect a requested small number into baskets. Keep playful—no timed tests.",
+      "materials": "Large plastic/paper apples; baskets; 1–5 cards\nOpen floor orchard area",
+      "preparation": "Scatter apples; set cards.",
+      "setup": "Defined orchard zone with baskets at start line.",
+      "steps": "1. Show card “2.”\n2. Collect two apples.\n3. Count into basket together.\n4. Return apples and try new number.\n5. Cheer effort.",
+      "teacherLanguage": "Can you find two apples?\nPut them in the basket.\nLet’s count—1, 2!\nTry three?\nFast walking feet—safe.\nYou did the challenge!",
+      "observationOpportunities": "Number response, searching, returning materials.",
+      "safetyNotes": "Walking feet; large apples only; clear floor.",
+      "cleanupTips": "Bin apples; stack baskets."
+    },
+    {
+      "ageModifications": "Toddler 12–36 Months",
+      "durationMinutes": 10,
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 Pro upgrade — substantial Teaching Kit rewrite (draft only); toddler-safe Johnny Appleseed/orchard focus",
+      "indoorAlternatives": "",
+      "outdoorAlternatives": "Outdoor loop on playground path.",
+      "teacherTips": [
+        "Keep parade under 3 minutes of walking.",
+        "Offer wagon rides for children who fatigue."
+      ],
+      "substitutions": [
+        {
+          "need": "Hats",
+          "use": "Apple sticker badges"
+        }
+      ],
+      "adaptations": "Seated parade with arm marching; shorter route.",
+      "extensions": "Family hallway parade at pickup (optional).",
+      "mixedAgeAdaptations": "Infants strolled along; toddlers march; preschool carry signs.",
+      "observationPrompts": [
+        "Joins parade?",
+        "Shows pride?",
+        "Attends to closing cheer?"
+      ],
+      "vocabulary": [
+        "parade",
+        "march",
+        "plant",
+        "kind",
+        "Johnny",
+        "celebrate"
+      ],
+      "imageRequirement": "recommended",
+      "imageBriefSetup": "Children lined for parade with hats and baskets in a real classroom hallway/yard.",
+      "imageBriefExample": "Realistic parade moment (faces optional/obscured per policy); littlelearnershubbyleah.com footer.",
+      "title": "Johnny Appleseed Parade",
+      "dayOfWeek": "friday",
+      "activityCategory": "Music & Movement",
+      "objective": "Celebrate the week with a short indoor/outdoor parade as kind seed planters—music, hats, and gentle marching.",
+      "description": "Toddlers wear optional hats, carry seed packets (empty/sealed) or baskets, and parade to a simple march chant. End with a kindness cheer and book peek.",
+      "materials": "Hats from art; baskets/empty seed envelopes\nMusic or drum; parade route markers\nJohnny book for closing",
+      "preparation": "Clear route; gather hats; choose music.",
+      "setup": "Line-up spots with picture feet; end at story rug.",
+      "steps": "1. Put on optional hats.\n2. Give baskets/seed envelopes.\n3. March slowly on route.\n4. Pause to “plant” pretend seeds once.\n5. End on rug for cheer + book cover look.\n6. Photos optional for families.",
+      "teacherLanguage": "March, march, planters!\nGentle feet.\nPlant a seed—pat pat.\nWe are kind like Johnny.\nHooray for our orchard week!\nHats off—rest time.",
+      "observationOpportunities": "Group following, pride, stamina, closing attention.",
+      "safetyNotes": "Slow march; no running; outdoor sun/safety checks; optional costumes.",
+      "cleanupTips": "Collect hats/props; reset room."
+    }
+  ]
+}
