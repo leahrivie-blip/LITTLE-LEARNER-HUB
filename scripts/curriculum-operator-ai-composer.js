@@ -785,6 +785,131 @@ function rejectGenericValue(field, value) {
   return null;
 }
 
+/** Thin prose/list gates that may be recovered with one bounded repair call (not hard schema failures). */
+function isRepairableThinValidationError(message) {
+  const m = text(message, 300);
+  if (!m) return false;
+  return /^Value too short for /i.test(m) || /^Generic filler rejected for /i.test(m);
+}
+
+function buildRepairOnlyWork(work, repairTargets) {
+  const weekFields = new Set(
+    schema.asArray(repairTargets).filter((t) => t.scope === "week").map((t) => t.field),
+  );
+  const actFieldMap = new Map();
+  schema.asArray(repairTargets).filter((t) => t.scope === "activity").forEach((t) => {
+    if (!actFieldMap.has(t.activityId)) actFieldMap.set(t.activityId, new Set());
+    actFieldMap.get(t.activityId).add(t.field);
+  });
+  const activityRequests = schema.asArray(work.activityRequests)
+    .map((row) => {
+      const fields = actFieldMap.get(row.activityId);
+      if (!fields) return null;
+      return {
+        ...row,
+        fields: schema.asArray(row.fields).filter((f) => fields.has(f.field)),
+      };
+    })
+    .filter((row) => row && row.fields.length);
+  return {
+    ...work,
+    weekRequests: schema.asArray(work.weekRequests).filter((r) => weekFields.has(r.field)),
+    weekKeep: schema.asArray(work.weekKeep).filter((k) => !weekFields.has(k.field)),
+    activityRequests,
+    activityKeep: schema.asArray(work.activityKeep).filter((k) => !actFieldMap.has(k.activityId)),
+    songRequests: [],
+    bookRequest: null,
+    hasWork: weekFields.size > 0 || activityRequests.length > 0,
+  };
+}
+
+function mergeComposerValidatedPlans(base, patch) {
+  const weeklyChanges = { ...(base?.weeklyChanges || {}) };
+  Object.assign(weeklyChanges, patch?.weeklyChanges || {});
+  const actMap = new Map();
+  schema.asArray(base?.activities).forEach((row) => {
+    actMap.set(row.activityId, {
+      activityId: row.activityId,
+      changes: { ...(row.changes || {}) },
+    });
+  });
+  schema.asArray(patch?.activities).forEach((row) => {
+    const id = text(row.activityId, 160);
+    if (!id) return;
+    if (!actMap.has(id)) actMap.set(id, { activityId: id, changes: {} });
+    Object.assign(actMap.get(id).changes, row.changes || {});
+  });
+  const songs = schema.asArray(patch?.songs).length
+    ? patch.songs
+    : schema.asArray(base?.songs);
+  const books = patch?.books != null ? patch.books : base?.books;
+  return {
+    lessonId: text(base?.lessonId || patch?.lessonId, 160),
+    weeklyChanges,
+    activities: [...actMap.values()],
+    songs,
+    books,
+  };
+}
+
+function composerPlanToRawJson(plan) {
+  return JSON.stringify({
+    lessonId: text(plan?.lessonId, 160),
+    weeklyChanges: plan?.weeklyChanges || {},
+    activities: schema.asArray(plan?.activities).map((row) => ({
+      activityId: row.activityId,
+      changes: row.changes || {},
+    })),
+    songs: schema.asArray(plan?.songs),
+    books: plan?.books != null ? plan.books : undefined,
+  });
+}
+
+function summarizePartialComposerPlan(plan) {
+  const week = Object.keys(plan?.weeklyChanges || {});
+  const acts = schema.asArray(plan?.activities).map((row) => ({
+    activityId: row.activityId,
+    fields: Object.keys(row.changes || {}),
+  }));
+  return { weeklyFields: week, activities: acts };
+}
+
+function buildThinRepairUserPrompt(context, repairTargets, partialPlan) {
+  const targets = schema.asArray(repairTargets).map((t) => {
+    if (t.scope === "week") {
+      return {
+        scope: "week",
+        field: t.field,
+        action: t.action,
+        reason: t.error,
+      };
+    }
+    const act = schema.asArray(context.requestedActivities)
+      .find((row) => text(row.activityId, 160) === t.activityId);
+    return {
+      scope: "activity",
+      activityId: t.activityId,
+      title: act?.title || "",
+      field: t.field,
+      action: t.action,
+      reason: t.error,
+    };
+  });
+  return [
+    "REPAIR_THIN_FIELDS_ONLY",
+    "Repair ONLY the listed thin/weak fields below.",
+    "Already-accepted fields must NOT be returned — they are preserved separately.",
+    "Each repaired value must be substantial and teacher-usable (≥8 words for prose; useful item lists for arrays).",
+    "Name concrete classroom materials sized for the age group and tied to the activity title.",
+    "",
+    JSON.stringify({
+      lesson: context.lesson,
+      repairTargets: targets,
+      alreadyAccepted: summarizePartialComposerPlan(partialPlan),
+    }, null, 2),
+  ].join("\n");
+}
+
 function normalizeChangeEntry(field, raw) {
   if (!raw || typeof raw !== "object") return { ok: false, error: `Malformed change for ${field}` };
   const action = text(raw.action, 20).toUpperCase();
@@ -818,7 +943,9 @@ function normalizeChangeEntry(field, raw) {
  * Validate model JSON against the work request. Rejects identity / unknown fields / bad IDs.
  * Normalizes known wrappers / aliases so large valid AI payloads are not discarded as empty_changes.
  */
-function validateComposerOutput(rawText, work, plan) {
+function validateComposerOutput(rawText, work, plan, options = {}) {
+  const collectThin = options.collectRepairableThinFailures === true;
+  const repairTargets = [];
   let parsed;
   try {
     parsed = JSON.parse(stripJsonFences(rawText));
@@ -944,6 +1071,15 @@ function validateComposerOutput(rawText, work, plan) {
     const requestedAction = allowedWeek.get(field)?.action || allowedWeek.get(field)?.decision;
     const norm = coerceChangeEntry(field, extracted.weeklyIn[field], requestedAction);
     if (!norm.ok) {
+      if (collectThin && isRepairableThinValidationError(norm.error)) {
+        repairTargets.push({
+          scope: "week",
+          field,
+          action: requestedAction,
+          error: norm.error,
+        });
+        continue;
+      }
       return {
         ok: false,
         code: "invalid_change",
@@ -1010,6 +1146,16 @@ function validateComposerOutput(rawText, work, plan) {
       const requestedAction = allowedFields.get(field)?.action || allowedFields.get(field)?.decision;
       const norm = coerceChangeEntry(field, fieldSource[field], requestedAction);
       if (!norm.ok) {
+        if (collectThin && isRepairableThinValidationError(norm.error)) {
+          repairTargets.push({
+            scope: "activity",
+            activityId,
+            field,
+            action: requestedAction,
+            error: norm.error,
+          });
+          continue;
+        }
         return {
           ok: false,
           code: "invalid_change",
@@ -1081,6 +1227,26 @@ function validateComposerOutput(rawText, work, plan) {
     + (books && books.length ? books.length : 0);
 
   const diagnostics = shapeDiagnostics([], mutationCount);
+
+  if (collectThin && repairTargets.length) {
+    return {
+      ok: false,
+      thinRepairRequired: true,
+      code: "thin_repair_required",
+      error: repairTargets.map((t) => (
+        t.scope === "activity" ? `${t.activityId}.${t.error}` : t.error
+      )).join("; "),
+      partialPlan: {
+        lessonId: work.lessonId,
+        weeklyChanges,
+        activities: activitiesOut,
+        songs,
+        books,
+      },
+      repairTargets,
+      diagnostics,
+    };
+  }
 
   if (!mutationCount) {
     // Distinguish: work was requested but nothing usable survived normalization/validation.
@@ -1249,13 +1415,80 @@ async function composeUpgradeContent({
     };
   }
 
-  const validated = validateComposerOutput(raw, work, plan);
+  const validated = validateComposerOutput(raw, work, plan, { collectRepairableThinFailures: true });
   const usage = {
     calls: 1,
     inputChars: systemPrompt.length + userPrompt.length,
     outputChars: String(raw || "").length,
+    repairCalls: 0,
   };
-  if (!validated.ok) {
+  let validatedPlan = null;
+  let repairUsed = false;
+  let diagnostics = validated.diagnostics || null;
+
+  if (!validated.ok && validated.thinRepairRequired) {
+    const repairUserPrompt = buildThinRepairUserPrompt(
+      context,
+      validated.repairTargets,
+      validated.partialPlan,
+    );
+    repairUsed = true;
+    usage.repairCalls = 1;
+    let repairRaw;
+    try {
+      repairRaw = await callAi(systemPrompt, repairUserPrompt);
+    } catch (error) {
+      return {
+        ok: false,
+        code: "thin_repair_call_failed",
+        error: text(error?.message || "Thin field repair AI call failed", 500),
+        work,
+        usage: {
+          ...usage,
+          calls: usage.calls + 1,
+          inputChars: usage.inputChars + repairUserPrompt.length,
+        },
+        repairUsed: true,
+        repairTargets: validated.repairTargets,
+      };
+    }
+    usage.calls += 1;
+    usage.inputChars += repairUserPrompt.length;
+    usage.outputChars += String(repairRaw || "").length;
+
+    const repairWork = buildRepairOnlyWork(work, validated.repairTargets);
+    const repairValidated = validateComposerOutput(repairRaw, repairWork, plan);
+    if (!repairValidated.ok) {
+      return {
+        ok: false,
+        code: repairValidated.code || "thin_repair_failed",
+        error: repairValidated.error || "Thin field repair output rejected.",
+        work,
+        usage,
+        diagnostics: repairValidated.diagnostics || null,
+        repairUsed: true,
+        repairTargets: validated.repairTargets,
+        rawPreview: text(repairRaw, 400),
+      };
+    }
+
+    const merged = mergeComposerValidatedPlans(validated.partialPlan, repairValidated.plan);
+    const strict = validateComposerOutput(composerPlanToRawJson(merged), work, plan);
+    if (!strict.ok) {
+      return {
+        ok: false,
+        code: strict.code || "thin_repair_merge_failed",
+        error: strict.error || "Merged composer plan failed final validation.",
+        work,
+        usage,
+        diagnostics: strict.diagnostics || null,
+        repairUsed: true,
+        repairTargets: validated.repairTargets,
+      };
+    }
+    validatedPlan = strict.plan;
+    diagnostics = strict.diagnostics || null;
+  } else if (!validated.ok) {
     return {
       ok: false,
       code: validated.code || "ai_validation_failed",
@@ -1265,14 +1498,18 @@ async function composeUpgradeContent({
       diagnostics: validated.diagnostics || null,
       rawPreview: text(raw, 400),
     };
+  } else {
+    validatedPlan = validated.plan;
   }
+
   return {
     ok: true,
     skipped: false,
     work,
     usage,
-    validatedPlan: validated.plan,
-    diagnostics: validated.diagnostics || null,
+    validatedPlan,
+    diagnostics,
+    repairUsed,
   };
 }
 
@@ -1282,6 +1519,107 @@ async function composeUpgradeContent({
  * lesson-specific (not generic) mock content. Never used as a silent production fallback.
  */
 function buildOperatorAiFixtureResponse(userPrompt) {
+  const promptText = String(userPrompt || "");
+  if (promptText.includes("REPAIR_THIN_FIELDS_ONLY")) {
+    let payload = {};
+    try {
+      const jsonStart = promptText.indexOf("{");
+      payload = JSON.parse(promptText.slice(jsonStart));
+    } catch (_e) {
+      payload = {};
+    }
+    const lesson = payload.lesson || {};
+    const theme = text(lesson.theme || "theme", 80);
+    const age = text(lesson.age || "preschool", 80);
+    const weeklyChanges = {};
+    const activities = [];
+    schema.asArray(payload.repairTargets).forEach((target) => {
+      if (target.scope === "week") {
+        const field = text(target.field, 80);
+        weeklyChanges[field] = {
+          action: target.action || "IMPROVE",
+          value: [
+            `This ${age} week centers on ${theme} with concrete classroom materials teachers can gather quickly.`,
+            `Children explore ${theme} through hands-on invitations while teachers narrate actions and coach turn-taking.`,
+            "Each day adds a new material or role so the theme stays coherent without repeating the same task.",
+          ].join(" "),
+        };
+        return;
+      }
+      const activityId = text(target.activityId, 160);
+      const title = text(target.title || activityId, 120);
+      const field = text(target.field, 80);
+      let row = activities.find((a) => a.activityId === activityId);
+      if (!row) {
+        row = { activityId, changes: {} };
+        activities.push(row);
+      }
+      if (field === "teacherTips" || field === "vocabulary" || field === "observationPrompts") {
+        row.changes[field] = {
+          action: target.action || "FILL",
+          value: field === "vocabulary"
+            ? [theme.toLowerCase(), "press", "roll", "stick", "notice"]
+            : [
+              `Stay nearby during ${title} and name what children try with the ${theme} materials.`,
+              `Offer a simpler grasp or motion so younger toddlers can join ${title} successfully.`,
+            ],
+        };
+        return;
+      }
+      if (field === "teacherLanguage") {
+        row.changes[field] = {
+          action: target.action || "IMPROVE",
+          value: [
+            `What happens when you try ${title} with these ${theme} materials?`,
+            "How does it feel or move when you change your action?",
+            "What mark, track, or change did you notice?",
+            "How can we share so everyone gets a turn?",
+          ].join("\n"),
+        };
+        return;
+      }
+      if (field === "steps") {
+        row.changes[field] = {
+          action: target.action || "FILL",
+          value: [
+            `1. Invite 2–4 children to the ${title} space and name the ${theme} materials.`,
+            "2. Model one simple action, then hand materials to children.",
+            "3. Coach language, turn-taking, and safe tool use nearby.",
+            "4. Ask children what changed and what they want to try next.",
+            "5. Give a calm 2-minute warning, then clean up together.",
+          ].join("\n"),
+        };
+        return;
+      }
+      if (field === "materials") {
+        row.changes[field] = {
+          action: target.action || "FILL",
+          value: [
+            `Washable dot markers and thick paper sized for ${age}`,
+            `Tray or mat for ${title} so markers stay contained`,
+            "Baby wipes or damp cloths for quick cleanup",
+            "Smock or open-back bib for children who need it",
+            `Optional visual cue card labeled ${title}`,
+          ].join(" · "),
+        };
+        return;
+      }
+      row.changes[field] = {
+        action: target.action || "FILL",
+        value: [
+          `For ${title}, prepare ${theme}-related materials sized for ${age} with enough pieces for small groups.`,
+          "Keep the invitation concrete, short, and play-based so a teacher can run it from this plan without rewriting.",
+          `Focus on what children actually do during ${title}: noticing, trying, talking, and repeating.`,
+        ].join(" "),
+      };
+    });
+    return JSON.stringify({
+      lessonId: text(lesson.id, 160),
+      weeklyChanges,
+      activities,
+    });
+  }
+
   let context = {};
   try {
     const jsonStart = String(userPrompt).indexOf("{");
@@ -1421,4 +1759,8 @@ module.exports = {
   buildComposerShapeDiagnostics,
   weeklyChangesFromArray,
   normalizeActivitiesInput,
+  isRepairableThinValidationError,
+  buildRepairOnlyWork,
+  mergeComposerValidatedPlans,
+  buildThinRepairUserPrompt,
 };
