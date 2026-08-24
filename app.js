@@ -3537,14 +3537,17 @@ function accountRequiresPasswordChange(account = currentAccount()) {
 function openForcePasswordModal() {
   const modal = document.querySelector("#forcePasswordModal");
   if (!modal) return;
+  const alreadyOpen = modal.classList.contains("open");
   modal.classList.add("open");
   modal.setAttribute("aria-hidden", "false");
   document.body.classList.add("force-password-required");
   const message = document.querySelector("#forcePasswordMessage");
-  if (message) message.textContent = "";
+  if (message && !alreadyOpen) message.textContent = "";
   const form = document.querySelector("#forcePasswordForm");
-  if (form) form.reset();
-  document.querySelector("#forceNewPasswordInput")?.focus();
+  if (form && !alreadyOpen) form.reset();
+  if (!alreadyOpen || !(form && formHasLiveUserEdits(form))) {
+    document.querySelector("#forceNewPasswordInput")?.focus();
+  }
 }
 
 function closeForcePasswordModal() {
