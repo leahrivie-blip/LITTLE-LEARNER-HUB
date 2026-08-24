@@ -1,0 +1,1376 @@
+{
+  "batch": "priority-1",
+  "lessonId": "cur-lp-toddler-pirate-adventure",
+  "title": "Pirate Adventure",
+  "age": "Toddler",
+  "masterPasteValidated": true,
+  "draftChannel": "enrichment_draft",
+  "liveReplaceForbiddenWhilePublished": true,
+  "week": {
+    "weeklyOverview": "This week toddlers sail into gentle pirate play—no eye patches, no weapons. They explore soft crew props, cardboard ships, treasure hunts with large coins, ocean sensory bins, and floor-level planks. Days stay short and sensory: maps with real classroom photos, cardboard telescopes, island rescues, and a Friday sailor celebration. Teachers should expect parallel play, brief attention bursts, and lots of repetition with ship, treasure, ocean, and captain words.",
+    "objectives": "Social-emotional: Practice turn-taking, gentle helping, and cooperative crew roles.\nLanguage: Hear and try pirate/ocean words such as ship, sail, treasure, map, ocean, captain, and ahoy.\nCognitive: Follow simple hunt and map sequences; notice near/far with telescopes.\nFine motor: Stick, stamp, scoop, and drop large coins into chests.\nGross motor: March, balance on floor planks, crawl tunnels, and parade.\nSensory: Explore ocean water/dry bins and island sand textures with safe tools.\nCreative: Process pirate hats, treasure maps, and chest crafts.",
+    "weeklyMaterials": "Everyday: cardboard boxes, blocks, baskets, cushions, painter’s tape, smocks, towels, scarves/bandanas\nPirate props: soft hats (no eye patches), stuffed parrot, toy ships, treasure chest, LARGE foam coins\nArt: washable paint, paper hats/maps, large stickers, stampers, glue sticks, small boxes for chests\nSensory: shallow tubs, blue water or crinkle paper, sand/kinetic sand (optional), scoops\nDiscovery: cardboard tube telescopes, photo maps of classroom landmarks\nLiteracy: Ten Little Pirates; Bubble Bath Pirates; How I Became a Pirate (shortened); Pirates Love Underpants\nOptional printables: ship/island/zone picture signs; treasure map photo templates",
+    "teacherPreparation": "Before Monday: remove eye patches, plastic swords, and choking-size coins from prop bins.\nBuild/reinforce a cardboard ship; prep floor plank (not elevated).\nCut cardboard telescopes; prep large photo maps.\nChoose 2–3 pirate/ocean board books.\nSanitize soft props; allergy-check sensory fillers.\nPlan Friday as a celebration circle (not a formal exam-style graduation).",
+    "prepChecklist": [
+      "Remove eye patches and toy weapons from all bins",
+      "Cull coins to large-only sizes",
+      "Stage cardboard ship and blue ocean fabric",
+      "Prep floor-level plank path",
+      "Cut/sanitize cardboard telescopes",
+      "Select 2–3 pirate/ocean books",
+      "Prep sailor celebration stickers for Friday"
+    ],
+    "observationFocus": "Gentle prop handling\nPirate/ocean vocabulary attempts\nTurn-taking at ship and sensory bins\nBalance comfort on floor plank\nSensory preferences (wet ocean vs dry filler)\nEngagement in celebration circle",
+    "familyConnection": "Invite families to make a blanket fort “ship” at home or look for boats in books/signs and say one pirate word together (ship, treasure, ocean). Optional: send a photo of a homemade paper hat—no required homework.",
+    "adaptations": "Offer watching-first entry to ship/plank, dry alternatives to water play, shorter hunts, and picture supports. Never force costume pieces or enclosed boxes.",
+    "vocabularyWords": "pirate\nship\nsail\ntreasure\nmap\nocean\nisland\ncaptain\ncrew\ngold\nplank\ntelescope\nahoy\nrescue\ncelebrate",
+    "books": [
+      {
+        "title": "Ten Little Pirates",
+        "author": "Mike Brownlow",
+        "prompts": [
+          "Where are the pirates?",
+          "Can you count with pointing?",
+          "What happens on the ship?"
+        ]
+      },
+      {
+        "title": "Bubble Bath Pirates",
+        "author": "Glen McCoy",
+        "prompts": [
+          "Where is the pirate?",
+          "Is the water splashy?",
+          "What do they wash?"
+        ]
+      },
+      {
+        "title": "How I Became a Pirate",
+        "author": "Melinda Long",
+        "prompts": [
+          "What do you see on the ship?",
+          "Where is the treasure?",
+          "How do the pirates look?"
+        ]
+      },
+      {
+        "title": "Pirates Love Underpants",
+        "author": "Claire Freedman",
+        "prompts": [
+          "What are the pirates looking for?",
+          "Can you find the underpants?",
+          "Is that silly or serious?"
+        ]
+      }
+    ],
+    "songs": [
+      {
+        "title": "Row, Row, Row Your Boat",
+        "notes": "Traditional; gentle rocking; ocean tie-in."
+      },
+      {
+        "title": "A Sailor Went to Sea",
+        "notes": "Title/clapping game suggestion; keep verses short for toddlers."
+      },
+      {
+        "title": "The Waves on the Ocean",
+        "notes": "Sung to The Wheels on the Bus pattern; traditional-style adaptation—do not require copyrighted lyrics."
+      },
+      {
+        "title": "LLH Pirate Crew Chant",
+        "notes": "Original chant: “Ahoy, ahoy, we sail and help; treasure friends for everyone.”"
+      }
+    ],
+    "teacherToolkit": {
+      "prepChecklist": [
+        "Remove unsafe pirate props",
+        "Stage ship + ocean path",
+        "Prep art/sensory rotations",
+        "Pull books/songs card"
+      ],
+      "observationFocus": [
+        "Gentle hands",
+        "Ocean words",
+        "Plank balance",
+        "Sensory tolerance"
+      ],
+      "reusableCenters": [
+        "Cardboard pirate ship",
+        "Treasure chest sensory bin",
+        "Telescope lookout caddy"
+      ]
+    },
+    "printableIdeas": [
+      {
+        "title": "Ship / Island Zone Signs",
+        "reason": "Picture labels for dramatic-play clarity"
+      },
+      {
+        "title": "Photo Treasure Map Template",
+        "reason": "Insert classroom landmark photos for toddler map hunts"
+      }
+    ],
+    "researchSources": [
+      "NAEYC Developmentally Appropriate Practice — play-based dramatic play and gross motor",
+      "Choking-hazard guidance favoring large loose parts for under-2s",
+      "Toddler balance practice using floor-level beams rather than elevated planks"
+    ],
+    "coverStatus": "COVER IMAGE PENDING",
+    "proposedCoverActivity": "Ocean Adventure Pretend Play"
+  },
+  "activities": [
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "teacherTips": [
+        "Start with fewer props for younger toddlers.",
+        "If a child only watches, narrate what peers are doing without pressure."
+      ],
+      "substitutions": [
+        {
+          "need": "Pirate hats",
+          "use": "Soft bandanas or paper crowns with no small decorations"
+        }
+      ],
+      "observationPrompts": [
+        "Did the child choose a prop independently?",
+        "Did they attempt a pirate word?",
+        "Was touch gentle with support?"
+      ],
+      "vocabulary": [
+        "pirate",
+        "crew",
+        "hat",
+        "ship",
+        "friend",
+        "gentle",
+        "hello"
+      ],
+      "imageBriefExample": "",
+      "imageBriefSetup": "Realistic daycare rug with basket of soft pirate hats, bandana, stuffed parrot, toy ship. No eye patches or weapons. Hands/props focus. Footer: littlelearnershubbyleah.com",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "indoorAlternatives": "Use a quiet corner rug if the room is busy.",
+      "outdoorAlternatives": "Bring the crew basket outdoors on a blanket for shade play.",
+      "adaptations": "Offer watching-first entry. Hand-under-hand support for gentle touch. Provide a second identical prop if sharing is hard.",
+      "extensions": "Invite toddlers to wave “hello” to each crew prop before putting it away.",
+      "mixedAgeAdaptations": "Older toddlers can help name props for younger friends with one-word labels.",
+      "title": "Meet the Pirate Crew",
+      "dayOfWeek": "monday",
+      "activityCategory": "Open-Ended Exploration",
+      "durationMinutes": 10,
+      "objective": "Warmly introduce soft pirate crew props so toddlers can look, touch, name, and choose a favorite companion for the week.",
+      "description": "Toddlers explore a small basket of soft pirate props—felt hats, bandanas, stuffed parrot, and a soft toy ship—on a rug. They may hold, wear a hat with help, point, or carry items while the teacher models gentle hands and simple pirate words.",
+      "materials": "4–6 large soft pirate props (felt hats, bandanas, stuffed parrot/octopus, soft toy ship)\nLow rug or mat\nBasket for props\nOptional: large crew photo cards",
+      "preparation": "Sanitize props\nRemove any eye patches with small ties or choking-size pieces\nPlace only 4–6 items out (avoid clutter)",
+      "setup": "Arrange props in an open basket on a rug with space for 2–3 toddlers to sit or kneel. Keep walkways clear.",
+      "steps": "1. Sit at toddler level and greet one prop by name (“Hello, parrot!”).\n2. Invite each child to choose something to hold or look at.\n3. Model gentle petting/holding with an open palm.\n4. Offer simple words: pirate, hat, ship, friend, crew.\n5. Allow free exploration; rotate props if needed.\n6. End by helping the crew “rest” in the basket.",
+      "teacherLanguage": "Who is on our pirate crew?\nIs your hat soft?\nCan you say ship?\nGentle hands with our friends.\nWhere should the parrot rest?",
+      "observationOpportunities": "Notice approaching/avoiding, naming attempts, gentle vs rough touch, and willingness to try a hat with support.",
+      "safetyNotes": "No eye patches (choking/strangulation hazard). Hats soft and oversized only. No plastic swords or real weapons. Use props too large to choke on. Sanitize after mouthing. Supervise closely.",
+      "cleanupTips": "Return props to the basket. Spot-clean any mouthed toys before the next group.",
+      "imageRequirement": "setup_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "teacherTips": [
+        "Keep sail turns under 1 minute.",
+        "Join as co-sailor briefly, then step back."
+      ],
+      "substitutions": [
+        {
+          "need": "Cardboard box",
+          "use": "Laundry basket ship with soft cushions"
+        }
+      ],
+      "observationPrompts": [
+        "Did the child enter the ship with support?",
+        "Did they attempt turn-taking?",
+        "Any sailing words or sounds?"
+      ],
+      "vocabulary": [
+        "ship",
+        "sail",
+        "captain",
+        "wheel",
+        "wave",
+        "dock",
+        "aboard"
+      ],
+      "imageBriefExample": "",
+      "imageBriefSetup": "Toddler cardboard-box pirate ship on blue fabric with soft steering wheel. Realistic daycare photo, no weapons. Footer: littlelearnershubbyleah.com",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite; strong dramatic-play center",
+      "indoorAlternatives": "Fits a dramatic-play corner for the week.",
+      "outdoorAlternatives": "Use a wagon as the ship on a flat shaded outdoor path.",
+      "adaptations": "Offer sitting beside the ship first. Provide a wider entry cutout. Allow watching from the dock.",
+      "extensions": "Add a stuffed parrot “lookout” for children to place on the bow.",
+      "mixedAgeAdaptations": "Older toddlers can push the ship slowly while younger sit with a teacher.",
+      "title": "Pirate Ship Exploration",
+      "dayOfWeek": "monday",
+      "activityCategory": "Dramatic Play",
+      "durationMinutes": 15,
+      "objective": "Explore a simple cardboard pirate ship so toddlers can climb in carefully, sit as sailors, and practice short pretend sailing turns.",
+      "description": "Toddlers take turns stepping into a large cardboard box “ship,” holding a soft steering wheel or ribbon, and pretending to sail across a blue fabric ocean with teacher narration and gentle spotting.",
+      "materials": "Large sturdy cardboard box (open top)\nPainter’s tape “waves” or blue fabric\nSoft steering wheel or paper plate wheel\n2–3 soft sailor props\nOptional: short rope with taped ends for a dock line",
+      "preparation": "Reinforce box edges; remove staples\nTape blue fabric path as ocean\nStage wheel inside ship\nSpot-check entry cutout height",
+      "setup": "Place ship on open floor with a clear entry side. Mark a short “dock” with tape. Limit 2 toddlers in the ship at a time.",
+      "steps": "1. Show the ship and model a careful step-in.\n2. Invite 1–2 sailors aboard.\n3. Turn the wheel together: “Whoosh—waves!”\n4. Offer a short sail across the blue path (push box gently or walk beside).\n5. Rotate sailors; others wave from the dock.\n6. Dock the ship and rest the crew.",
+      "teacherLanguage": "May I come aboard?\nHold on—big waves!\nTurn the wheel, sailor.\nWho is captain now?\nAll ashore—careful feet.",
+      "observationOpportunities": "Observe balance stepping in/out, turn-taking, pretend language, and comfort with enclosed spaces.",
+      "safetyNotes": "Box edges padded/taped. No stacking boxes. Teacher spots entry/exit. No rope loops around necks. Floor clear of trip hazards. No toy weapons aboard.",
+      "cleanupTips": "Collapse or store box upright; fold fabric; return props to a Ship bin.",
+      "imageRequirement": "setup_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "teacherTips": [
+        "Keep rounds short.",
+        "Offer seated sway for children who prefer less locomotion."
+      ],
+      "substitutions": [
+        {
+          "need": "Scarves",
+          "use": "Paper streamers or short ribbon wands (supervised)"
+        }
+      ],
+      "observationPrompts": [
+        "Did the child freeze on pause?",
+        "Did they imitate at least one movement?"
+      ],
+      "vocabulary": [
+        "dance",
+        "march",
+        "sway",
+        "freeze",
+        "music",
+        "sail",
+        "rest"
+      ],
+      "imageBriefExample": "",
+      "imageBriefSetup": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "indoorAlternatives": "Hallway tip-toe parade with walking feet only.",
+      "outdoorAlternatives": "Use a playground loop; add arm “sail” flaps outdoors.",
+      "adaptations": "Offer hand-holding. Allow stroller users to shake a bell as the beat.",
+      "extensions": "Let a child choose the next move: march, sway, or tip-toe.",
+      "mixedAgeAdaptations": "Infants bounce on a caregiver’s lap; older toddlers lead the line.",
+      "title": "Pirate Dance Party",
+      "dayOfWeek": "monday",
+      "activityCategory": "Music & Movement",
+      "durationMinutes": 8,
+      "objective": "Move to short pirate-themed music with freeze-and-go listening, building body awareness and joyful group rhythm.",
+      "description": "Toddlers march, sway, and tip-toe like sailors on a clear dance path. When the music pauses, they freeze like statues on the ship deck, then restart with scarf waves.",
+      "materials": "Open floor space\nMusic player (soft volume)\nOptional scarves or soft bandanas to wave\nTape start spots",
+      "preparation": "Clear trip hazards\nChoose 2–3 short songs or instrumental tracks\nPlace scarves in a basket",
+      "setup": "Mark a simple oval path. Give each child space to move without bumping.",
+      "steps": "1. Model a sailor march in place.\n2. Start music; invite marching and scarf waves.\n3. Pause music—freeze like a statue.\n4. Restart with swaying side to side.\n5. End with a gentle “dock and rest” sit on the rug.",
+      "teacherLanguage": "March, march, sailors!\nWave your scarf high.\nFreeze—quiet statues!\nSway with the waves.\nRest on the dock.",
+      "observationOpportunities": "Watch imitation, stopping on cue, balance, and enjoyment of group music.",
+      "safetyNotes": "Space children out. No running indoors. Scarves short; never around necks. Soft volume only.",
+      "cleanupTips": "Collect scarves; turn music off.",
+      "imageRequirement": "not_needed"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "teacherTips": [
+        "Offer 3 sticker choices max at first.",
+        "Celebrate any placement—upside-down is fine."
+      ],
+      "substitutions": [
+        {
+          "need": "Pre-cut hats",
+          "use": "Paper plates folded into hat shapes"
+        }
+      ],
+      "observationPrompts": [
+        "Did the child place materials independently?",
+        "Did they show the hat to a peer or teacher?"
+      ],
+      "vocabulary": [
+        "hat",
+        "sticker",
+        "stamp",
+        "glue",
+        "press",
+        "pirate",
+        "decorate"
+      ],
+      "imageBriefExample": "Process-art paper pirate hat with large stickers and sponge stamps on a daycare art tray. No eye patch. Footer: littlelearnershubbyleah.com",
+      "imageBriefSetup": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "indoorAlternatives": "Default art table.",
+      "outdoorAlternatives": "Stamp outdoors on a tarp for easier cleanup.",
+      "adaptations": "Pre-apply one sticker for children who need a start. Offer hand-under-hand pressing.",
+      "extensions": "Add a large foam “gem” sticker as treasure on the brim.",
+      "mixedAgeAdaptations": "Older toddlers can cut scrap paper with scissors (if ready); toddlers stick only.",
+      "title": "Decorate a Pirate Hat",
+      "dayOfWeek": "monday",
+      "activityCategory": "Art",
+      "durationMinutes": 12,
+      "objective": "Create a process-art pirate hat using large stickers, stamps, and glue sticks—focusing on choosing and sticking, not a perfect product.",
+      "description": "Toddlers decorate pre-cut paper pirate hats with oversized stickers, sponge stamps, and glue-stick collage shapes. Teachers help fit hats loosely for a brief wear-and-show if the child wants.",
+      "materials": "Pre-cut paper pirate hats (large)\nWashable glue sticks\nLarge stickers (stars, fish, circles)\nSponge stamps + washable paint (optional)\nSmocks, wipeable tray\nPrefer no chin ties for under-2s",
+      "preparation": "Pre-cut hats\nPortion stickers on trays\nSet stamp station with limited paint\nAllergy/smock check",
+      "setup": "Art table for 2–3 toddlers. One hat per child. Keep paint optional and contained on trays.",
+      "steps": "1. Show a blank hat and name it.\n2. Invite choosing stickers or stamps.\n3. Stick, stamp, and press—process over product.\n4. Teacher writes name on the inside brim.\n5. Optional brief wear for a photo or parade moment.\n6. Hang to dry if painted.",
+      "teacherLanguage": "Which sticker goes on your hat?\nPress, press!\nMore or all done?\nYour pirate hat looks bold!\nShall we try it on gently?",
+      "observationOpportunities": "Fine-motor pressing, choice-making, attention to process, and willingness to wear vs display.",
+      "safetyNotes": "No small gems/beads. Prefer hats without chin ties for under-2s. Paint washable; supervise mouthing. No eye patches attached to hats.",
+      "cleanupTips": "Wipe trays; dry hats flat; recycle scraps.",
+      "imageRequirement": "example_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "teacherTips": [
+        "Stop early if attention drops.",
+        "Let toddlers “read” by turning pages after."
+      ],
+      "substitutions": [
+        {
+          "need": "Pirate book",
+          "use": "Any short ocean/boat board book from your library"
+        }
+      ],
+      "observationPrompts": [
+        "Did the child point to a picture?",
+        "Did they stay for at least part of the story?"
+      ],
+      "vocabulary": [
+        "pirate",
+        "book",
+        "ship",
+        "treasure",
+        "ocean",
+        "look",
+        "page"
+      ],
+      "imageBriefExample": "",
+      "imageBriefSetup": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "indoorAlternatives": "Default cozy corner.",
+      "outdoorAlternatives": "Blanket read-aloud in shade.",
+      "adaptations": "Offer standing or lap options. Use a single picture card sequence if books overwhelm.",
+      "extensions": "Retell with two props acting out a page.",
+      "mixedAgeAdaptations": "Older toddlers can hold the book for a page turn; younger point.",
+      "title": "Pirate Story Corner",
+      "dayOfWeek": "monday",
+      "activityCategory": "Literacy",
+      "durationMinutes": 8,
+      "objective": "Share a short pirate board book and invite toddlers to point, name, and connect story ships and treasures to classroom props.",
+      "description": "Small-group read-aloud with lots of pointing and short questions. Toddlers may hold a soft pirate prop while listening to a brief ocean adventure.",
+      "materials": "Age-appropriate pirate board/picture book (e.g., Ten Little Pirates; Bubble Bath Pirates; How I Became a Pirate—shortened pages)\n1–2 soft props\nCushions",
+      "preparation": "Preview book length; plan 2–3 stop-and-talk pages\nPlace props by the reading spot",
+      "setup": "Cozy cushion circle for 3–4 toddlers.",
+      "steps": "1. Show the cover and name a pirate or ship.\n2. Read briefly, pausing to point at pictures.\n3. Invite toddlers to show their prop when a ship appears.\n4. Ask one simple question (Where is the treasure?).\n5. Picture-walk two favorite pages again.",
+      "teacherLanguage": "Where is the pirate?\nCan you find the ship?\nIs the ocean big or little?\nWhat do you see in the chest?\nShall we turn the page?",
+      "observationOpportunities": "Attention span, pointing, vocabulary echoes, and emotional responses to adventure pages.",
+      "safetyNotes": "Board books preferred. Keep group small. No forcing lap sitting.",
+      "cleanupTips": "Return book to shelf; props to basket.",
+      "imageRequirement": "not_needed"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "teacherTips": [
+        "Hide in the open for younger toddlers.",
+        "Pair a watcher with a finder buddy."
+      ],
+      "substitutions": [
+        {
+          "need": "Foam coins",
+          "use": "Large yellow paper circles or plastic lids"
+        }
+      ],
+      "observationPrompts": [
+        "Did the child search actively?",
+        "Did they bring treasure to the chest?"
+      ],
+      "vocabulary": [
+        "treasure",
+        "hide",
+        "find",
+        "look",
+        "chest",
+        "gold",
+        "search"
+      ],
+      "imageBriefExample": "",
+      "imageBriefSetup": "Daycare room with large foam coins partially visible and a treasure chest basket. Toddler-height hides. Footer: littlelearnershubbyleah.com",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "indoorAlternatives": "Limit hunt to one rug area.",
+      "outdoorAlternatives": "Hide treasures in a small playground zone with soft ground.",
+      "adaptations": "Offer a picture of the hide spot. Hand a treasure to carry for children who need success first.",
+      "extensions": "Add a simple map picture showing one hide zone.",
+      "mixedAgeAdaptations": "Older toddlers hide one treasure for a younger friend (teacher-guided).",
+      "title": "Hidden Treasure Search",
+      "dayOfWeek": "tuesday",
+      "activityCategory": "Open-Ended Exploration",
+      "durationMinutes": 12,
+      "objective": "Search for large “treasure” items hidden in plain sight around the room to practice looking, pointing, and carrying finds to a chest.",
+      "description": "Toddlers hunt for oversized foam coins, soft gems, and laminated treasure pictures placed at toddler height. Each find goes into a shared treasure chest basket with a cheerful teacher narration.",
+      "materials": "Large foam coins / soft gem toys (choking-safe size)\nTreasure chest basket or box\n3–6 hide spots at toddler height\nOptional picture clue cards",
+      "preparation": "Hide 6–8 large treasures in easy, obvious spots\nStage empty chest in a central spot\nWalk the route for safety hazards",
+      "setup": "Clear floors. Show children the chest. Keep hides obvious for 12–24 months.",
+      "steps": "1. Show one treasure and the chest.\n2. Model looking under a cloth or behind a chair.\n3. Invite toddlers to search and bring finds to the chest.\n4. Celebrate each find with a cheer word: “Treasure!”\n5. Open the chest together and count with pointing (not worksheets).\n6. Hide again for a second short round if interest remains.",
+      "teacherLanguage": "Where could treasure hide?\nLook down low!\nYou found it!\nInto the chest—clunk!\nShall we hunt again?",
+      "observationOpportunities": "Visual searching, persistence, carrying, and peer awareness in shared space.",
+      "safetyNotes": "Treasures larger than a choke tube. No magnets/batteries. Hide spots without climb hazards. Supervise closely.",
+      "cleanupTips": "Collect all treasures into the chest; count-check against the start number.",
+      "imageRequirement": "setup_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "teacherTips": [
+        "Model one scoop at a time.",
+        "Keep water out unless a separate water day."
+      ],
+      "substitutions": [
+        {
+          "need": "Rice/oats",
+          "use": "Torn paper or dry kinetic sand with large tools—prefer dry paper for under-2"
+        }
+      ],
+      "observationPrompts": [
+        "Did scooping improve with practice?",
+        "How did the child respond to texture?"
+      ],
+      "vocabulary": [
+        "scoop",
+        "dig",
+        "gold",
+        "chest",
+        "soft",
+        "crunchy",
+        "full",
+        "empty"
+      ],
+      "imageBriefExample": "",
+      "imageBriefSetup": "Shallow sensory tub with large foam coins, scoops, and crinkle paper or oats. Realistic daycare. Footer: littlelearnershubbyleah.com",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "indoorAlternatives": "Use crinkle paper only for easier cleanup.",
+      "outdoorAlternatives": "Sand table dig with large coins (shade, wash hands).",
+      "adaptations": "Offer pre-buried coins near the surface. Provide larger scoops.",
+      "extensions": "Sort shiny vs matte treasures into two cups by feel.",
+      "mixedAgeAdaptations": "Younger children dump cups; older bury coins for friends.",
+      "title": "Treasure Chest Sensory Bin",
+      "dayOfWeek": "tuesday",
+      "activityCategory": "Sensory Play",
+      "durationMinutes": 12,
+      "objective": "Explore a treasure-themed sensory bin with scoops and large coins to practice filling, dumping, and noticing textures.",
+      "description": "Toddlers dig in a shallow bin of dried oats, rice, or crinkle paper to uncover large foam coins and soft gems using cups and scoops, then drop finds into a mini chest.",
+      "materials": "Shallow sensory tub\nDry filler (oats, rice, or crinkle paper—allergy-aware)\nLarge foam coins / soft gems\nScoops, cups, small chest scoop bucket\nSmocks, broom/dustpan",
+      "preparation": "Allergy check\nPortion filler; bury large treasures\nSet smocks and sweep station",
+      "setup": "Table or floor tub for 2 toddlers. Limit tools to 2 scoops each to reduce crowding.",
+      "steps": "1. Show scooping into a cup.\n2. Invite digging for gold coins.\n3. Drop finds into the mini chest.\n4. Narrate textures: crunchy, soft, shiny.\n5. Offer dump-and-refill play.\n6. Close with “treasure all done” sweep help.",
+      "teacherLanguage": "Scoop, scoop—find the gold!\nIs it crunchy?\nMore digging?\nClink into the chest.\nHelp sweep the treasure mess?",
+      "observationOpportunities": "Scoop control, sensory tolerance, persistence, and cleanup willingness.",
+      "safetyNotes": "Supervise mouthing; use paper filler for heavy mouthers. Coins large only. No tiny beads. Floor dry after spills.",
+      "cleanupTips": "Sieve treasures out; store filler sealed; wipe tub.",
+      "imageRequirement": "setup_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "teacherTips": [
+        "Celebrate any attempt, including side-shuffling.",
+        "Keep lines to 2 waiters max."
+      ],
+      "substitutions": [
+        {
+          "need": "Plank",
+          "use": "Yoga mat strip or taped towel path"
+        }
+      ],
+      "observationPrompts": [
+        "Did the child attempt the plank?",
+        "Did they accept or refuse hand support?"
+      ],
+      "vocabulary": [
+        "plank",
+        "balance",
+        "step",
+        "island",
+        "careful",
+        "brave",
+        "walk"
+      ],
+      "imageBriefExample": "",
+      "imageBriefSetup": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "indoorAlternatives": "Tape path only if space is tight.",
+      "outdoorAlternatives": "Use a chalk plank on flat pavement; same floor-level rule.",
+      "adaptations": "Allow crawling along the plank. Offer walking beside the plank first.",
+      "extensions": "Carry a large foam coin across the plank to the island.",
+      "mixedAgeAdaptations": "Older toddlers walk independently; younger hold hands or crawl.",
+      "title": "Walk the Pirate Plank",
+      "dayOfWeek": "tuesday",
+      "activityCategory": "Gross Motor",
+      "durationMinutes": 10,
+      "objective": "Practice balance and careful stepping on a short floor plank path—celebrating brave sailor feet without any jump-off pressure.",
+      "description": "Toddlers walk heel-to-toe or with side steps along a low board or tape plank that stays on the floor, holding a teacher’s hand as needed, then step onto a soft “island” cushion.",
+      "materials": "Short wooden plank or foam balance beam ON THE FLOOR (not elevated)\nOR painter’s tape plank path\nSoft cushion “island” at the end\nOptional soft pirate hat for the walker",
+      "preparation": "Place plank flat on non-slip floor\nSpot-check stability\nClear sides of trip hazards",
+      "setup": "One plank path with a teacher spotter. Waiting spots marked with tape Xs.",
+      "steps": "1. Model slow steps on the plank.\n2. Invite one toddler at a time.\n3. Offer a hand or two-finger hold.\n4. Cheer arrival on the island cushion.\n5. Return along a side path (not the plank) to the wait line.\n6. Repeat short turns.",
+      "teacherLanguage": "Careful sailor feet!\nStep, step—you’ve got this.\nHold my hand if you want.\nIsland ho!\nBrave walking!",
+      "observationOpportunities": "Balance, willingness to try, use of supports, and waiting behavior.",
+      "safetyNotes": "Plank stays on the floor—never raised for toddlers. Non-slip surface. Spot every walker. No pushing. Soft landing only.",
+      "cleanupTips": "Store plank flat against wall; collect cushions.",
+      "imageRequirement": "not_needed"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "teacherTips": [
+        "Keep it playful—dumping is valid learning.",
+        "Avoid correcting “wrong” bowls."
+      ],
+      "substitutions": [
+        {
+          "need": "Foam coins",
+          "use": "Large lids painted gold or yellow paper circles"
+        }
+      ],
+      "observationPrompts": [
+        "Did the child attempt a match?",
+        "Was grasp secure on large coins?"
+      ],
+      "vocabulary": [
+        "gold",
+        "coin",
+        "big",
+        "little",
+        "same",
+        "drop",
+        "bowl"
+      ],
+      "imageBriefExample": "",
+      "imageBriefSetup": "Large foam gold coins and two picture-labeled bowls on a toddler table. No worksheets. Footer: littlelearnershubbyleah.com",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "indoorAlternatives": "Floor sorting on a tray if chairs are hard.",
+      "outdoorAlternatives": "Sort coins into sand buckets outdoors.",
+      "adaptations": "Offer one bowl for simple dropping. Hand-over-hand release practice.",
+      "extensions": "Add a third bowl for “shiny” vs “matte” if children are ready.",
+      "mixedAgeAdaptations": "Older toddlers can make a simple pattern; toddlers drop freely.",
+      "title": "Gold Coin Sorting",
+      "dayOfWeek": "tuesday",
+      "activityCategory": "Fine Motor",
+      "durationMinutes": 10,
+      "objective": "Play with large gold coins by color or size using bowls—simple sensory/math play without worksheets or tracing.",
+      "description": "Toddlers drop oversized foam or cardboard coins into two bowls labeled with pictures for big/little or two colors. Play stays open-ended—filling, dumping, and matching by look and feel.",
+      "materials": "12+ LARGE foam/cardboard coins (bigger than choke tube)\n2 bowls or trays with big picture labels (big/little or two colors)\nOptional muffin tin for dropping\nTable mat",
+      "preparation": "Cull any small coins—large only\nLabel bowls with pictures (not text worksheets)\nStage coins in a basket",
+      "setup": "Low table for 2 toddlers. Bowls in easy reach. No pencils or worksheets on the table.",
+      "steps": "1. Show a big coin and a little coin (still large-safe).\n2. Model drop into matching bowl.\n3. Invite free sorting or dumping play.\n4. Narrate color/size words.\n5. Celebrate any intentional placement.\n6. Dump and repeat if interested.",
+      "teacherLanguage": "Big coin or little coin?\nDrop—clink!\nSame or different?\nYellow gold goes here.\nAll done dumping?",
+      "observationOpportunities": "Pinch/release grasp, visual matching, persistence, and language for size/color.",
+      "safetyNotes": "Large coins only—no chocolate coins with foil for under-2 mouthers. Supervise. No worksheet printouts required.",
+      "cleanupTips": "Count coins back into the basket; wipe bowls.",
+      "imageRequirement": "setup_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "teacherTips": [
+        "One treasure at a time prevents overload.",
+        "Narrate teamwork more than competition."
+      ],
+      "substitutions": [
+        {
+          "need": "Captain hat",
+          "use": "Bandana clipped at shoulders (not around the neck)"
+        }
+      ],
+      "observationPrompts": [
+        "Did the child complete a delivery?",
+        "How did they handle waiting for the hat?"
+      ],
+      "vocabulary": [
+        "captain",
+        "mission",
+        "carry",
+        "deliver",
+        "treasure",
+        "team",
+        "done"
+      ],
+      "imageBriefExample": "",
+      "imageBriefSetup": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "indoorAlternatives": "Shorten path to across one rug.",
+      "outdoorAlternatives": "Island/ship chalk zones outdoors.",
+      "adaptations": "Offer a wagon to push treasures. Picture sequence of two steps only.",
+      "extensions": "Add a “thank you, sailor” handshake at delivery.",
+      "mixedAgeAdaptations": "Older toddlers can be lookouts naming finds; younger carry.",
+      "title": "Captain's Treasure Mission",
+      "dayOfWeek": "tuesday",
+      "activityCategory": "Dramatic Play",
+      "durationMinutes": 12,
+      "objective": "Take a short captain’s mission: gather treasure, deliver it to the ship chest, and celebrate teamwork with simple pretend roles.",
+      "description": "Toddlers become captains and sailors. They collect large treasures from a rug “island,” carry them to the ship chest, and take turns wearing a soft captain hat—no eye patch, no weapons.",
+      "materials": "Soft captain hat (no eye patch)\nTreasure chest\nLarge foam treasures\nShip box or tape ship outline\nOptional picture mission card (chest icon)",
+      "preparation": "Stage island pile and empty ship chest\nPrep one mission card with a chest picture\nRemove any weapon props from the area",
+      "setup": "Island rug at one end, ship at the other. Clear carry path. Limit 3 players.",
+      "steps": "1. Show the mission card: treasure → chest.\n2. Model carry one treasure to the ship.\n3. Invite captains to complete 1–2 deliveries.\n4. Rotate the soft captain hat.\n5. Cheer “Mission done!” when the chest is fuller.\n6. Rest treasures and hats.",
+      "teacherLanguage": "Captain, what’s the mission?\nCarry carefully!\nTreasure for the ship!\nYour turn for the hat.\nMission done—high five!",
+      "observationOpportunities": "Role-taking, carrying control, turn-taking with the hat, and mission persistence.",
+      "safetyNotes": "No weapons. Hat soft only. Path clear. Treasures large. No running with props.",
+      "cleanupTips": "All treasure into chest; hats in prop bin.",
+      "imageRequirement": "not_needed"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "teacherTips": [
+        "Model looking at floors/walls, not into eyes.",
+        "Keep sessions short—novelty fades fast."
+      ],
+      "substitutions": [
+        {
+          "need": "Cardboard tubes",
+          "use": "Rolled sturdy paper taped into tubes"
+        }
+      ],
+      "observationPrompts": [
+        "Did the child hold the tube to look?",
+        "Did they notice near vs far with support?"
+      ],
+      "vocabulary": [
+        "telescope",
+        "look",
+        "near",
+        "far",
+        "see",
+        "eye",
+        "find"
+      ],
+      "imageBriefExample": "",
+      "imageBriefSetup": "Cardboard-tube telescopes and large ocean photo cards on a discovery table. No glass lenses. Footer: littlelearnershubbyleah.com",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "indoorAlternatives": "Default indoor lookout.",
+      "outdoorAlternatives": "Look at clouds/trees through tubes outdoors (never at the sun).",
+      "adaptations": "Offer two-handed holding. Allow looking beside the tube first.",
+      "extensions": "Teacher marks a simple “I see” sticker on a card the child viewed.",
+      "mixedAgeAdaptations": "Older toddlers can hide a card for younger friends to spot.",
+      "title": "Pirate Telescope Investigation",
+      "dayOfWeek": "wednesday",
+      "activityCategory": "STEM/Discovery",
+      "durationMinutes": 10,
+      "objective": "Investigate near and far views using cardboard tube telescopes, noticing what becomes clearer when toddlers look through.",
+      "description": "Toddlers look through short cardboard tubes at classroom objects, pictures of ocean animals, and peers across the room, describing what they see with teacher help. Tubes only—no glass lenses.",
+      "materials": "Cardboard tubes (paper towel, cut short)\nOptional colored cellophane taped securely over one end\nOcean animal photo cards (large)\nWindow or far wall target",
+      "preparation": "Cut tubes short; sand rough edges\nTape cellophane fully (no loose film)\nStage photo cards at different distances",
+      "setup": "Investigation table plus a clear lookout spot toward a window or wall. One tube per child.",
+      "steps": "1. Show how to hold the tube to one eye (other eye can stay open).\n2. Look at a near card together.\n3. Look at something farther away.\n4. Invite toddlers to find a friend or toy through the tube.\n5. Trade tubes if using colored lenses.\n6. Rest telescopes in a “lookout caddy.”",
+      "teacherLanguage": "What do you see?\nNear or far?\nCan you find the fish card?\nBig eye look!\nTelescope down—rest time.",
+      "observationOpportunities": "Curiosity, eye-hand positioning, attention to near/far, and descriptive language attempts.",
+      "safetyNotes": "Cardboard only—no glass lenses or sharp spyglass parts. Tubes short. Cellophane securely taped. Never look at the sun. Sanitize tubes between groups; no sharing mouths on tubes.",
+      "cleanupTips": "Sanitize tube ends; store in caddy.",
+      "imageRequirement": "setup_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "teacherTips": [
+        "Keep fill level low.",
+        "Offer dry option beside wet for choice."
+      ],
+      "substitutions": [
+        {
+          "need": "Sea animals",
+          "use": "Blue cups and a toy boat only"
+        }
+      ],
+      "observationPrompts": [
+        "Did the child pour or scoop?",
+        "Wet vs dry preference?"
+      ],
+      "vocabulary": [
+        "ocean",
+        "water",
+        "float",
+        "scoop",
+        "wet",
+        "dry",
+        "boat",
+        "wave"
+      ],
+      "imageBriefExample": "",
+      "imageBriefSetup": "Shallow blue ocean sensory tub with large sea animals, boat, and scoops. Towels nearby. Footer: littlelearnershubbyleah.com",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "indoorAlternatives": "Dry blue filler if water play is unavailable.",
+      "outdoorAlternatives": "Water table outdoors in warm weather.",
+      "adaptations": "Offer spoon dipping instead of whole-hand dunk. Watching-first OK.",
+      "extensions": "Try sink vs float with two large safe objects.",
+      "mixedAgeAdaptations": "Older pour between cups; younger splash with open hands.",
+      "title": "Ocean Sensory Discovery",
+      "dayOfWeek": "wednesday",
+      "activityCategory": "Sensory Play",
+      "durationMinutes": 12,
+      "objective": "Explore ocean textures—water or dry blue filler—with scoops, cups, and large sea creatures to notice wet/dry, splash, and float play.",
+      "description": "Toddlers scoop and pour in a shallow ocean tub with blue water (or dry blue paper/fabric filler) and oversized sea animals, boats, and shells too large to choke on.",
+      "materials": "Shallow tub\nBlue water OR dry blue crinkle/fabric filler\nLarge plastic sea animals / boats\nCups, scoops, funnels\nSmocks, towels",
+      "preparation": "Allergy/water-play policy check\nFill shallow; stage towels\nRemove tiny shells",
+      "setup": "Floor or table tub for 2 toddlers. Towels under. Limit splash zone.",
+      "steps": "1. Dip hands and describe wet/cool or soft/dry.\n2. Scoop water/filler into cups.\n3. Float a boat; push gently.\n4. Dive a large whale/fish with help.\n5. Pour and splash carefully.\n6. Dry hands and help wipe.",
+      "teacherLanguage": "Is the ocean wet?\nScoop the waves!\nDoes the boat float?\nSplash—gentle!\nDry hands, sailors.",
+      "observationOpportunities": "Sensory comfort, pouring control, pretend ocean language, and cleanup help.",
+      "safetyNotes": "Constant supervision near water. Shallow only. Large props. Floor dry to prevent slips. No small shells.",
+      "cleanupTips": "Dump water; sanitize animals; hang towels.",
+      "imageRequirement": "setup_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "teacherTips": [
+        "Keep under 3 cues for 12–18 months.",
+        "Celebrate incomplete sequences."
+      ],
+      "substitutions": [
+        {
+          "need": "Scarf tunnel",
+          "use": "Tablecloth over a low table"
+        }
+      ],
+      "observationPrompts": [
+        "Did the child attempt the crawl?",
+        "Could they freeze on cue?"
+      ],
+      "vocabulary": [
+        "sailor",
+        "march",
+        "sway",
+        "crawl",
+        "freeze",
+        "sail",
+        "go"
+      ],
+      "imageBriefExample": "",
+      "imageBriefSetup": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "indoorAlternatives": "Skip tunnel; use tape path only.",
+      "outdoorAlternatives": "Use a play tunnel outdoors.",
+      "adaptations": "Offer walking around the tunnel. Hand-held march.",
+      "extensions": "Let a child choose the next sailor move.",
+      "mixedAgeAdaptations": "Older add a hop; younger march only.",
+      "title": "Sailor Movement Challenge",
+      "dayOfWeek": "wednesday",
+      "activityCategory": "Gross Motor",
+      "durationMinutes": 8,
+      "objective": "Complete a short sailor movement sequence—march, sway, crawl, and freeze—to build listening and whole-body coordination.",
+      "description": "Toddlers follow 3–4 sailor moves on a clear path: march on deck, sway with waves, crawl under a scarf “sail” tunnel, and freeze for land ho.",
+      "materials": "Open path\nChairs + scarf “sail” tunnel (low)\nPicture move cards optional\nSoft music optional",
+      "preparation": "Build low tunnel (scarf between chairs)\nClear hazards\nChoose 3 moves max for younger toddlers",
+      "setup": "Line start → march zone → sway zone → tunnel → freeze mat.",
+      "steps": "1. Show each move with a picture or model.\n2. March together to the sway spot.\n3. Sway side to side.\n4. Crawl under the sail.\n5. Freeze on the mat—land ho!\n6. Cheer and walk back for another round.",
+      "teacherLanguage": "March on deck!\nSway, sway—waves!\nCrawl under the sail.\nFreeze—land ho!\nReady for another voyage?",
+      "observationOpportunities": "Listening to sequence cues, crawling comfort, balance, and group pacing.",
+      "safetyNotes": "Tunnel tall enough not to trap. Spot crawlers. No racing. Soft flooring.",
+      "cleanupTips": "Remove scarf tunnel; return chairs.",
+      "imageRequirement": "not_needed"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "teacherTips": [
+        "Value process over seaworthy results.",
+        "Offer parallel demos, not takeovers."
+      ],
+      "substitutions": [
+        {
+          "need": "Blocks",
+          "use": "Plastic food containers as hulls"
+        }
+      ],
+      "observationPrompts": [
+        "Did the child stack at least two parts?",
+        "How did they respond to tipping?"
+      ],
+      "vocabulary": [
+        "build",
+        "boat",
+        "stack",
+        "sail",
+        "balance",
+        "push",
+        "ocean"
+      ],
+      "imageBriefExample": "",
+      "imageBriefSetup": "Block and box pirate boats on a blue fabric ocean mat at toddler height. Footer: littlelearnershubbyleah.com",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "indoorAlternatives": "Default block area.",
+      "outdoorAlternatives": "Build boats to float in a shallow outdoor water table (supervised).",
+      "adaptations": "Start with a pre-built hull to decorate. Hand-under-hand stacking.",
+      "extensions": "Try which boat slides farther with a gentle push.",
+      "mixedAgeAdaptations": "Older attach sails with tape; toddlers push boats.",
+      "title": "Build a Pirate Boat",
+      "dayOfWeek": "wednesday",
+      "activityCategory": "STEM/Discovery",
+      "durationMinutes": 12,
+      "objective": "Build simple pirate boats from blocks, boxes, and recycled materials, exploring balance, stacking, and pretend floating on a blue mat.",
+      "description": "Toddlers stack and arrange blocks, cups, and box lids to make boats, then “sail” them across a blue fabric ocean. Adults narrate building words without requiring a finished model.",
+      "materials": "Unit blocks / Duplo-size bricks\nSmall boxes, lids, paper cups\nBlue fabric or paper ocean\nOptional craft stick mast with paper sail (teacher-preassembled options)\nTape",
+      "preparation": "Sort large loose parts (no tiny pieces)\nLay ocean mat\nOffer 1–2 pre-made mast options",
+      "setup": "Build table beside ocean mat. Limit 3 builders. Keep parts in trays.",
+      "steps": "1. Show a simple 3-block boat.\n2. Invite stacking a bottom and a cabin.\n3. Add a paper sail if desired.\n4. Move the boat onto the blue ocean.\n5. Push gently—whoosh!\n6. Rebuild after tip-overs (cheer persistence).",
+      "teacherLanguage": "What is the bottom of your boat?\nStack carefully.\nNeed a sail?\nSail across the ocean!\nIt tipped—try again?",
+      "observationOpportunities": "Stacking attempts, frustration recovery, pretend sailing, and tool use.",
+      "safetyNotes": "Large parts only. Tape down tippy masts. No sharp recycled edges. Supervise mouthing.",
+      "cleanupTips": "Sort blocks; recycle scrap; fold ocean mat.",
+      "imageRequirement": "setup_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "teacherTips": [
+        "Less is best: 3 prop types max.",
+        "Join as co-player, then fade."
+      ],
+      "substitutions": [
+        {
+          "need": "Ship box",
+          "use": "Tape outline ship on the floor"
+        }
+      ],
+      "observationPrompts": [
+        "Did the child attempt more than one voyage step?",
+        "Did they use any ocean words?"
+      ],
+      "vocabulary": [
+        "ocean",
+        "adventure",
+        "sail",
+        "lookout",
+        "island",
+        "deliver",
+        "role"
+      ],
+      "imageBriefExample": "",
+      "imageBriefSetup": "Dramatic-play ocean voyage: cardboard ship, blue path, island cushion, treasure chest, cardboard telescope. Realistic daycare. Footer: littlelearnershubbyleah.com",
+      "decision": "rewrite",
+      "decisionNote": "Primary cover candidate activity",
+      "indoorAlternatives": "Fits dramatic-play corner all week.",
+      "outdoorAlternatives": "Chalk ocean path outdoors with a wagon ship.",
+      "adaptations": "Offer one-step jobs (“put coin on island”). Picture sequence cards.",
+      "extensions": "Add a stuffed parrot messenger between ship and island.",
+      "mixedAgeAdaptations": "Preschool visitors can be dock helpers; toddlers stay hands-on sailors.",
+      "title": "Ocean Adventure Pretend Play",
+      "dayOfWeek": "wednesday",
+      "activityCategory": "Dramatic Play",
+      "durationMinutes": 15,
+      "objective": "Act out a simple ocean voyage with ship, telescope, and treasure roles using a few clear props and short turns.",
+      "description": "Toddlers pretend to sail, spot land through cardboard telescopes, and deliver treasure to an island cushion. Roles stay flexible: sailor, lookout, or treasure helper.",
+      "materials": "Ship box\nCardboard telescopes\nIsland cushion\nTreasure chest + large coins\nSoft hats/bandanas\nBlue fabric ocean path",
+      "preparation": "Stage ship → ocean path → island\nLimit props to essentials\nRemove any weapon-like toys",
+      "setup": "Three zones: Ship, Ocean path, Island. Picture signs optional.",
+      "steps": "1. Tour the three zones.\n2. Model: board ship → look through telescope → sail → deliver treasure.\n3. Invite 2–3 toddlers into roles.\n4. Narrate lightly while children lead.\n5. Rotate roles.\n6. Dock and rest the crew.",
+      "teacherLanguage": "All aboard!\nWhat do you see, lookout?\nIsland ahead!\nDeliver the treasure.\nWho wants to sail next?",
+      "observationOpportunities": "Multi-step pretend sequences, role flexibility, peer awareness, and language of adventure.",
+      "safetyNotes": "No eye patches or weapons. Spot ship entry. Telescopes cardboard only. Clear path.",
+      "cleanupTips": "Props to zone bins: Ship / Lookout / Island.",
+      "imageRequirement": "setup_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "teacherTips": [
+        "Use real photos of YOUR room for recognition.",
+        "Don’t require left/right language."
+      ],
+      "substitutions": [
+        {
+          "need": "Printed map",
+          "use": "Hand-drawn landmark sketches on cardboard"
+        }
+      ],
+      "observationPrompts": [
+        "Did the child match at least one landmark?",
+        "Did they stay with the route?"
+      ],
+      "vocabulary": [
+        "map",
+        "follow",
+        "find",
+        "next",
+        "here",
+        "treasure",
+        "look"
+      ],
+      "imageBriefExample": "",
+      "imageBriefSetup": "Large photo treasure map and classroom landmarks with a small treasure basket. Footer: littlelearnershubbyleah.com",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "indoorAlternatives": "Two-landmark map only.",
+      "outdoorAlternatives": "Playground landmarks with a chalk map.",
+      "adaptations": "Point-only participation. Teacher carries map while child leads body.",
+      "extensions": "Let a toddler place the treasure for the next friend (teacher-guided).",
+      "mixedAgeAdaptations": "Older toddlers can hold the map; younger follow the line.",
+      "title": "Follow the Treasure Map",
+      "dayOfWeek": "thursday",
+      "activityCategory": "STEM/Discovery",
+      "durationMinutes": 12,
+      "objective": "Follow a simple picture treasure map with 2–3 landmarks to practice looking, matching pictures to places, and finding a prize chest.",
+      "description": "Toddlers carry a large picture map showing familiar classroom spots (rug → chair → plant) and walk the route with a teacher to find a small treasure basket at the end.",
+      "materials": "Large picture maps (photos of real classroom spots)\nLandmark tags matching photos\nTreasure basket at the final stop\nOptional sticky arrows on floor",
+      "preparation": "Photograph 2–3 landmarks\nPrint large maps\nPlace treasure at final landmark",
+      "setup": "Start at the rug with maps. Keep route short and familiar.",
+      "steps": "1. Point to the first picture on the map.\n2. Walk together to match the real spot.\n3. Check the next picture.\n4. Arrive at the treasure basket.\n5. Each child takes one large coin or sticker prize.\n6. Celebrate map success.",
+      "teacherLanguage": "What do you see on the map?\nCan you find this chair?\nNext picture!\nTreasure—you did it!\nShall we follow again?",
+      "observationOpportunities": "Picture-to-place matching, persistence on a route, and excitement at discovery.",
+      "safetyNotes": "Route free of climb hazards. Prizes large/safe. Supervise outdoor routes.",
+      "cleanupTips": "Collect maps; restock treasure for next group.",
+      "imageRequirement": "setup_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "teacherTips": [
+        "Limit prop count to reduce dumping overwhelm.",
+        "Keep water separate unless planned."
+      ],
+      "substitutions": [
+        {
+          "need": "Sand",
+          "use": "Cloud dough or brown paper shreds"
+        }
+      ],
+      "observationPrompts": [
+        "Did the child dig or scoop?",
+        "Any island pretend language?"
+      ],
+      "vocabulary": [
+        "island",
+        "sand",
+        "dig",
+        "shell",
+        "rock",
+        "palm",
+        "bury"
+      ],
+      "imageBriefExample": "",
+      "imageBriefSetup": "Island sensory tray with sand, large shells, silk leaves, and foam coins. Footer: littlelearnershubbyleah.com",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "indoorAlternatives": "Oat “sand” if play sand unavailable.",
+      "outdoorAlternatives": "Sandbox island zone outdoors.",
+      "adaptations": "Offer a pre-formed hill. Tools with chunky handles.",
+      "extensions": "Add a toy boat landing on the island shore.",
+      "mixedAgeAdaptations": "Older bury coins; younger dig them up.",
+      "title": "Island Exploration Sensory Tray",
+      "dayOfWeek": "thursday",
+      "activityCategory": "Sensory Play",
+      "durationMinutes": 12,
+      "objective": "Explore an island-themed sensory tray with sand or kinetic sand, large shells, rocks, and greenery to notice textures and pretend island discoveries.",
+      "description": "Toddlers dig, scoop, and arrange large island props in a shallow tray—making hills, burying treasures, and planting pretend palm leaves with teacher narration.",
+      "materials": "Shallow tray\nPlay sand or kinetic sand (or brown sugar/oat “sand” if allowed)\nLarge shells, smooth rocks (too big to choke)\nSilk leaves / large plastic plants\nScoops, cups\nLarge buried coins",
+      "preparation": "Allergy check\nWash rocks/shells\nBury a few large coins\nSmocks ready",
+      "setup": "Tray for 2 toddlers. Keep props large and limited.",
+      "steps": "1. Feel the sand—dry or cool?\n2. Scoop a hill for the island.\n3. Plant a leaf “palm.”\n4. Dig for buried treasure.\n5. Arrange rocks along the shore.\n6. Pat the island smooth to finish.",
+      "teacherLanguage": "Feel the island sand.\nCan you make a hill?\nWhere does the palm go?\nDig gently—treasure?\nShore rocks here.",
+      "observationOpportunities": "Texture response, scooping, pretend island building, and sharing tray space.",
+      "safetyNotes": "Rocks/shells larger than choke tube. Supervise sand mouthing. Kinetic sand per age policy. Hand washing after.",
+      "cleanupTips": "Sieve treasures; cover sand; wipe edges.",
+      "imageRequirement": "setup_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "teacherTips": [
+        "Demonstrate slowly.",
+        "Offer a “skip this part” choice."
+      ],
+      "substitutions": [
+        {
+          "need": "Tunnel",
+          "use": "Table crawl-under"
+        }
+      ],
+      "observationPrompts": [
+        "Which obstacles did the child attempt?",
+        "Did they need physical support?"
+      ],
+      "vocabulary": [
+        "obstacle",
+        "crawl",
+        "step",
+        "jump",
+        "course",
+        "go",
+        "finish"
+      ],
+      "imageBriefExample": "",
+      "imageBriefSetup": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "indoorAlternatives": "Two-obstacle mini course.",
+      "outdoorAlternatives": "Use playground features that stay low and spotted.",
+      "adaptations": "Hand-held support throughout. Allow walking beside obstacles.",
+      "extensions": "Carry a treasure to the finish chest.",
+      "mixedAgeAdaptations": "Older add a hoop step-through; younger crawl only.",
+      "title": "Pirate Obstacle Course",
+      "dayOfWeek": "thursday",
+      "activityCategory": "Gross Motor",
+      "durationMinutes": 10,
+      "objective": "Move through a short pirate obstacle course—crawl, step, and balance—to build coordination and confidence with playful sailor challenges.",
+      "description": "Toddlers complete 3–4 low obstacles: crawl through a tunnel, step over a soft pool noodle, walk a floor plank, and jump onto an island cushion.",
+      "materials": "Play tunnel or chair tunnel\nPool noodles / soft blocks to step over\nFloor plank or tape path\nIsland cushions\nStart/finish signs",
+      "preparation": "Build low course; test stability\nSpot-check spacing\nRemove climb-high elements",
+      "setup": "One-way course with a teacher at the plank. Waiting spots marked.",
+      "steps": "1. Walk the course as a model.\n2. Invite one toddler at a time.\n3. Spot the plank segment.\n4. Cheer at the island finish.\n5. Return along a safe side path.\n6. Repeat while interest lasts.",
+      "teacherLanguage": "Crawl through!\nStep over the noodle.\nCareful plank feet.\nIsland jump—soft landing!\nYou finished the course!",
+      "observationOpportunities": "Motor planning, willingness to try new moves, waiting, and recovery after wobbles.",
+      "safetyNotes": "All elements floor-level or very low. Spot continuously. No racing. Soft landings. Plank not elevated.",
+      "cleanupTips": "Disassemble tunnel; store noodles and plank.",
+      "imageRequirement": "not_needed"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "teacherTips": [
+        "Scribbles are perfect maps for toddlers.",
+        "Avoid requiring neat paths."
+      ],
+      "substitutions": [
+        {
+          "need": "X stickers",
+          "use": "Teacher draws X where child points"
+        }
+      ],
+      "observationPrompts": [
+        "Did the child place an X or stamp?",
+        "Did they narrate any map idea?"
+      ],
+      "vocabulary": [
+        "map",
+        "path",
+        "island",
+        "stamp",
+        "draw",
+        "X",
+        "treasure"
+      ],
+      "imageBriefExample": "Toddler process-art treasure map with stamps, crayon path, and X sticker. Footer: littlelearnershubbyleah.com",
+      "imageBriefSetup": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "indoorAlternatives": "Default art table.",
+      "outdoorAlternatives": "Sidewalk chalk treasure maps outdoors.",
+      "adaptations": "Offer pre-stamped islands. Hand-under-hand crayon paths.",
+      "extensions": "Use the child’s map on a mini classroom treasure hunt.",
+      "mixedAgeAdaptations": "Older add landmark stickers; toddlers stamp freely.",
+      "title": "Create a Treasure Map",
+      "dayOfWeek": "thursday",
+      "activityCategory": "Art",
+      "durationMinutes": 12,
+      "objective": "Make process-art treasure maps with stamps, stickers, and crayon paths—open-ended mark-making, not accurate map skills.",
+      "description": "Toddlers decorate paper maps with island stamps, path crayons, and X-stickers. Teachers may add a simple start dot; children lead the marks and scribbles.",
+      "materials": "Paper map sheets (light tan/cream)\nCrayons / chunky markers\nIsland stamps + washable ink\nLarge X stickers or stampers\nOptional coffee-stain teacher-prepped edges (dry)",
+      "preparation": "Prep paper\nPortion stamps\nPlace X stickers on trays",
+      "setup": "Art table for 2–3. One map each. Smocks if inking.",
+      "steps": "1. Show a sample map with a path and X.\n2. Invite stamping islands.\n3. Draw or scribble a path.\n4. Place an X sticker for treasure.\n5. Name one thing on the map together.\n6. Display maps to dry.",
+      "teacherLanguage": "Where is your island?\nStamp, stamp!\nDraw the path.\nX marks the spot!\nWhat’s on your map?",
+      "observationOpportunities": "Mark-making, sticker fine motor, storytelling about maps, and engagement time.",
+      "safetyNotes": "Washable ink only. Large stickers. Supervise mouthing. No small beads for decoration.",
+      "cleanupTips": "Cap markers; wash stamps; dry maps flat.",
+      "imageRequirement": "example_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "teacherTips": [
+        "Frame as helping, not danger/fear.",
+        "Keep emotional tone warm and light."
+      ],
+      "substitutions": [
+        {
+          "need": "Stuffed animals",
+          "use": "Soft dolls or sock pets"
+        }
+      ],
+      "observationPrompts": [
+        "Was touch gentle?",
+        "Did the child complete a rescue delivery?"
+      ],
+      "vocabulary": [
+        "rescue",
+        "help",
+        "gentle",
+        "safe",
+        "carry",
+        "friend",
+        "boat"
+      ],
+      "imageBriefExample": "",
+      "imageBriefSetup": "Island cushions with stuffed animals and a cardboard rescue boat. Caregiving focus. Footer: littlelearnershubbyleah.com",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "indoorAlternatives": "Fewer islands if space is tight.",
+      "outdoorAlternatives": "Playground island spots with a wagon rescue boat.",
+      "adaptations": "Offer a wagon for transport. One animal only for simpler play.",
+      "extensions": "Give each rescued friend a drink of pretend water.",
+      "mixedAgeAdaptations": "Older toddlers spot animals; younger carry.",
+      "title": "Island Rescue Mission",
+      "dayOfWeek": "thursday",
+      "activityCategory": "Dramatic Play",
+      "durationMinutes": 12,
+      "objective": "Rescue stuffed island animals with gentle carrying and delivery to a safe boat, practicing caregiving and teamwork.",
+      "description": "Toddlers find soft animals “stranded” on island cushions and carefully carry them to a rescue boat box, wrapping with a soft cloth if desired. Tone stays warm—helping, not danger.",
+      "materials": "3–4 stuffed animals\nIsland cushions\nRescue boat box\nSoft cloths/blankets\nOptional helper badges",
+      "preparation": "Place animals on islands\nStage boat with open entry\nSanitize animals",
+      "setup": "Scattered islands + central rescue boat. Clear carry paths.",
+      "steps": "1. Notice an animal on an island—“Oh no, needs help!”\n2. Model gentle pick-up and cloth wrap.\n3. Carry to the rescue boat.\n4. Settle animal safely.\n5. Repeat with remaining animals.\n6. Celebrate: “All friends safe!”",
+      "teacherLanguage": "Who needs help?\nGentle hands.\nWrap the friend.\nTo the rescue boat!\nAll safe—great helpers!",
+      "observationOpportunities": "Gentle touch, carrying, empathy language, and cooperative helping.",
+      "safetyNotes": "Animals large/soft. No rough tossing. Paths clear. Boat box stable.",
+      "cleanupTips": "Animals to basket; fold cloths; store boat.",
+      "imageRequirement": "setup_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "teacherTips": [
+        "Let children do the pushing work.",
+        "Keep sail attachment adult-only."
+      ],
+      "substitutions": [
+        {
+          "need": "Large boxes",
+          "use": "Couch cushions + tape outline"
+        }
+      ],
+      "observationPrompts": [
+        "Did the child help move a box or block?",
+        "Did they board for pretend play?"
+      ],
+      "vocabulary": [
+        "giant",
+        "build",
+        "ship",
+        "push",
+        "together",
+        "sail",
+        "crew"
+      ],
+      "imageBriefExample": "",
+      "imageBriefSetup": "Giant cardboard pirate ship build with blue fabric waves and soft wheel. Realistic classroom. Footer: littlelearnershubbyleah.com",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "indoorAlternatives": "One-box ship if space is limited.",
+      "outdoorAlternatives": "Build with outdoor blocks/wagon under shade.",
+      "adaptations": "Offer sitting beside to place one block. Watching counts as participation.",
+      "extensions": "Add cardboard portholes children can peek through.",
+      "mixedAgeAdaptations": "Older help tape; toddlers push and board.",
+      "title": "Build a Giant Pirate Ship",
+      "dayOfWeek": "friday",
+      "activityCategory": "STEM/Discovery",
+      "durationMinutes": 15,
+      "objective": "Collaborate on a giant floor pirate ship using boxes, blocks, and fabric so toddlers can climb aboard and pretend sail together.",
+      "description": "Toddlers help push boxes together, drape blue fabric waves, and add a paper sail to create a large ship zone. Then they take short group turns aboard with a soft steering wheel.",
+      "materials": "2–3 large boxes\nBlocks for railings\nBlue fabric\nPaper/cardboard sail on a taped mast (teacher-secured)\nSoft steering wheel\nPainter’s tape",
+      "preparation": "Plan ship footprint\nSecure mast so it cannot tip onto children\nRemove staples from boxes",
+      "setup": "Open floor. Teacher frames the hull; children add pieces. Spot entry.",
+      "steps": "1. Push boxes into a ship shape together.\n2. Add block railings along edges.\n3. Spread blue waves around the ship.\n4. Attach/check the sail (teacher).\n5. Board for a short group sail.\n6. Photo/memory moment, then dock.",
+      "teacherLanguage": "Can you push the box?\nWhere do railings go?\nWaves all around!\nAll aboard our giant ship!\nWhat a crew!",
+      "observationOpportunities": "Cooperation, heavy-work pushing, pride in group build, and pretend play aboard.",
+      "safetyNotes": "Teacher secures tall parts. No climbing on unstable stacks. Spot boarding. Soft edges taped.",
+      "cleanupTips": "Break down boxes for storage or recycle; fold fabric.",
+      "imageRequirement": "setup_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "teacherTips": [
+        "Participation is optional for costume pieces.",
+        "Keep under 2 loops."
+      ],
+      "substitutions": [
+        {
+          "need": "Hats",
+          "use": "Bandanas or bare heads with scarves only"
+        }
+      ],
+      "observationPrompts": [
+        "Did the child march or wave?",
+        "Hat comfort level?"
+      ],
+      "vocabulary": [
+        "parade",
+        "march",
+        "wave",
+        "ahoy",
+        "music",
+        "together",
+        "cheer"
+      ],
+      "imageBriefExample": "",
+      "imageBriefSetup": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "indoorAlternatives": "Standing scarf dance in place.",
+      "outdoorAlternatives": "Sidewalk parade loop.",
+      "adaptations": "Wagon riders shake bells. Seated marching feet.",
+      "extensions": "Stop to show a treasure coin mid-parade.",
+      "mixedAgeAdaptations": "Older lead; infants watch and bounce.",
+      "title": "Pirate Parade",
+      "dayOfWeek": "friday",
+      "activityCategory": "Music & Movement",
+      "durationMinutes": 10,
+      "objective": "Parade with pirate hats and scarves to music, practicing marching, waving, and joyful group celebration.",
+      "description": "Toddlers wear decorated hats (optional) and wave scarves while marching a clear loop, pausing to cheer “Ahoy!” together before a final rest.",
+      "materials": "Decorated pirate hats from Monday (optional)\nScarves\nMusic player\nParade loop markers",
+      "preparation": "Clear loop path\nStage hats/scarves\nChoose upbeat short track",
+      "setup": "Start line on the rug. Space marchers. Teacher leads.",
+      "steps": "1. Put on hats with help if desired.\n2. Start music; march the loop.\n3. Wave scarves on the beat.\n4. Pause for a group “Ahoy!”\n5. March once more.\n6. End with a bow and rest.",
+      "teacherLanguage": "Hats on if you like!\nMarch, pirates!\nWave your scarf!\nAhoy!\nWhat a parade!",
+      "observationOpportunities": "Group movement joy, scarf motor control, and participation choice (hat or not).",
+      "safetyNotes": "Space out. No running. Scarves not around necks. Soft volume.",
+      "cleanupTips": "Hats to cubbies; scarves to bin.",
+      "imageRequirement": "not_needed"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "teacherTips": [
+        "Lid opening may need help—that’s fine.",
+        "Less paint = faster dry."
+      ],
+      "substitutions": [
+        {
+          "need": "Boxes",
+          "use": "Paper bags folded into pouches"
+        }
+      ],
+      "observationPrompts": [
+        "Did the child place the coin inside?",
+        "How long did they engage?"
+      ],
+      "vocabulary": [
+        "chest",
+        "decorate",
+        "gold",
+        "gem",
+        "coin",
+        "open",
+        "close"
+      ],
+      "imageBriefExample": "Toddler-decorated small treasure chest craft with large stickers and a foam coin inside. Footer: littlelearnershubbyleah.com",
+      "imageBriefSetup": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "indoorAlternatives": "Default art table.",
+      "outdoorAlternatives": "Paint chests outdoors on a tarp.",
+      "adaptations": "Pre-open chests. Offer stickers-only version.",
+      "extensions": "Add a name label sticker on the bottom.",
+      "mixedAgeAdaptations": "Older glue more collage layers; toddlers daub/stick.",
+      "title": "Treasure Chest Craft",
+      "dayOfWeek": "friday",
+      "activityCategory": "Art",
+      "durationMinutes": 12,
+      "objective": "Decorate a simple treasure chest box with stickers, paint daubs, and collage—process art celebrating the week’s treasures.",
+      "description": "Toddlers personalize small cardboard boxes or paper chest templates with gold paint daubers, large stickers, and paper “gems,” then place one foam coin inside.",
+      "materials": "Small cardboard boxes or folded paper chests\nGold/yellow washable paint + daubers\nLarge stickers\nPaper gem shapes\nGlue sticks\nOne large foam coin per child\nSmocks",
+      "preparation": "Prep boxes\nPortion paint thinly\nPre-cut gem shapes",
+      "setup": "Art trays for 2–3. One chest each. Coin ready at the end.",
+      "steps": "1. Show a plain chest and open lid.\n2. Daub paint or stick gems.\n3. Add stickers freely.\n4. Place one coin inside.\n5. Close and shake gently—listen!\n6. Set aside to dry / take home.",
+      "teacherLanguage": "Decorate your chest!\nDab the gold.\nWhere do gems go?\nCoin inside—shake!\nYour treasure chest!",
+      "observationOpportunities": "Process engagement, bilateral hand use opening lids, and pride in take-home craft.",
+      "safetyNotes": "Paint washable. Large stickers/gems only. Supervise small boxes as mouthing hazards if broken down.",
+      "cleanupTips": "Dry open; wipe trays; store extra coins.",
+      "imageRequirement": "example_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "teacherTips": [
+        "Keep energy festive without chaos—limit tools.",
+        "End before overstimulation."
+      ],
+      "substitutions": [
+        {
+          "need": "Crinkle paper",
+          "use": "Shredded paper from recycling"
+        }
+      ],
+      "observationPrompts": [
+        "Did the child share the tray space?",
+        "Sensory comfort today?"
+      ],
+      "vocabulary": [
+        "bury",
+        "dig",
+        "find",
+        "share",
+        "shiny",
+        "celebrate",
+        "more"
+      ],
+      "imageBriefExample": "",
+      "imageBriefSetup": "Celebration sensory dig bin with crinkle paper and large gold coins. Footer: littlelearnershubbyleah.com",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "indoorAlternatives": "Paper filler only.",
+      "outdoorAlternatives": "Sandbox dig celebration.",
+      "adaptations": "Surface-level treasures for easy success.",
+      "extensions": "Count finds with pointing cheers.",
+      "mixedAgeAdaptations": "Older hide; younger find.",
+      "title": "Buried Treasure Sensory Dig",
+      "dayOfWeek": "friday",
+      "activityCategory": "Sensory Play",
+      "durationMinutes": 10,
+      "objective": "Dig for buried treasure in a celebratory sensory bin, practicing scooping, uncovering, and sharing finds with friends.",
+      "description": "Toddlers dig through crinkle paper, kinetic sand, or clean paper shreds to uncover large coins and gems, cheering each discovery in a calm festive tone.",
+      "materials": "Sensory tub\nFiller (crinkle paper preferred for celebration cleanup)\nBuried large treasures\nScoops\nShared find tray\nSmocks",
+      "preparation": "Bury treasures\nAllergy check\nSet find tray",
+      "setup": "Tub for 2–3. Celebration mood—upbeat but calm voices.",
+      "steps": "1. Announce the dig celebration.\n2. Scoop and dig.\n3. Place finds on the shared tray.\n4. Notice colors and textures.\n5. Re-bury for friends if time.\n6. Wave goodbye to the bin.",
+      "teacherLanguage": "Dig for treasure!\nYou found gold!\nOn the tray—share the shiny.\nOne more dig?\nWhat a treasure day!",
+      "observationOpportunities": "Persistence, sharing space, sensory joy, and peer noticing.",
+      "safetyNotes": "Large treasures. Supervise mouthing. Floor cleanup for slips. No tiny beads.",
+      "cleanupTips": "Collect treasures; bag filler; wipe tub.",
+      "imageRequirement": "setup_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "teacherTips": [
+        "Call it a celebration, not a test or ceremony with pressure.",
+        "Skip formal diplomas that require sitting still too long."
+      ],
+      "substitutions": [
+        {
+          "need": "Stickers",
+          "use": "A high-five and a stamp on the hand"
+        }
+      ],
+      "observationPrompts": [
+        "Did the child accept a sticker?",
+        "Any word about a favorite activity?"
+      ],
+      "vocabulary": [
+        "celebrate",
+        "sailor",
+        "week",
+        "friend",
+        "sticker",
+        "ahoy",
+        "together"
+      ],
+      "imageBriefExample": "",
+      "imageBriefSetup": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 rewrite; reframed as celebration not formal graduation",
+      "indoorAlternatives": "Default circle area.",
+      "outdoorAlternatives": "Blanket celebration outdoors.",
+      "adaptations": "Allow sitting in a teacher’s lap or standing at edge. Watching is participating.",
+      "extensions": "Family photo with the giant ship if families arrive.",
+      "mixedAgeAdaptations": "Older help hand stickers; toddlers receive and wave.",
+      "title": "Pirate Graduation Adventure",
+      "dayOfWeek": "friday",
+      "activityCategory": "Circle Time",
+      "durationMinutes": 10,
+      "objective": "Celebrate the week’s pirate adventures with songs, sharing a favorite memory, and awarding simple sailor stickers—framed as a joyful celebration, not a formal graduation test.",
+      "description": "Toddlers gather for a short celebration circle: sing a pirate chant, optionally show a favorite prop or craft, and receive a “Sailor Celebration” sticker. Keep it warm, brief, and pressure-free.",
+      "materials": "Cushions\nCrew props basket\nSailor celebration stickers\nOptional certificate photo prop (no writing required from children)\nSong card",
+      "preparation": "Prep stickers\nChoose 1 song\nGather sample crafts/props",
+      "setup": "Circle for whole group or half-group if large. Keep under 10 minutes.",
+      "steps": "1. Welcome sailors with a wave.\n2. Sing one short chant together.\n3. Invite 1–2 toddlers to show a hat/craft/prop (optional).\n4. Name something the class did this week (ship, map, ocean).\n5. Give each child a celebration sticker.\n6. Cheer “Ahoy, sailors!” and dismiss to play.",
+      "teacherLanguage": "Welcome, sailors!\nWhat was fun this week?\nYou built ships and found treasure.\nCelebration sticker for you!\nAhoy—friends forever!",
+      "observationOpportunities": "Comfort in group circle, willingness to show work, and response to celebration language.",
+      "safetyNotes": "Stickers large. No forcing sharing/showing. Keep circle short to prevent overwhelm.",
+      "cleanupTips": "Sticker backs in trash; props away.",
+      "imageRequirement": "not_needed"
+    }
+  ]
+}

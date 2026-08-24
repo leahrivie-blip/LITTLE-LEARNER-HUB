@@ -1,0 +1,162 @@
+{
+  "before": {
+    "id": "cur-lp-toddler-johnny-appleseed-apple-fun",
+    "title": "Johnny Appleseed & Apple Fun",
+    "plan": "Pro",
+    "status": "published",
+    "activityCount": 20,
+    "hasEnrichmentDraft": false,
+    "enrichmentPublished": false,
+    "resourceIds": [],
+    "coverImageUrl": "/api/media/lesson-covers/lesson-cover-21bd76c9b5a0ceef264299e1afd31b66"
+  },
+  "result": {
+    "phase": "complete",
+    "lessonId": "cur-lp-toddler-johnny-appleseed-apple-fun",
+    "title": "Johnny Appleseed & Apple Fun",
+    "preserved": {
+      "idUnchanged": true,
+      "planStillPro": true,
+      "statusStillPublished": true,
+      "resourceIdsPreserved": true,
+      "coverPreserved": true,
+      "activityCountUnchanged": true
+    },
+    "draft": {
+      "saved": true,
+      "activityPatchCount": 20,
+      "publishedUnchanged": true,
+      "enrichmentPublished": false,
+      "coverStatus": "COVER IMAGE PENDING"
+    },
+    "mapping": {
+      "matched": 20,
+      "unmatched": 0
+    },
+    "publishStatus": "NOT PUBLISHED / REVIEW NEEDED",
+    "saveStatus": 200
+  },
+  "matched": [
+    {
+      "id": "cur-act-02c6cfd30dbcca87",
+      "itemId": "item-toddler-johnny-appleseed-apple-fun-monday-1",
+      "title": "Apple Seed Discovery",
+      "day": "monday"
+    },
+    {
+      "id": "cur-act-5b2b18d9506a75e5",
+      "itemId": "item-toddler-johnny-appleseed-apple-fun-monday-2",
+      "title": "Johnny's Apple Tree",
+      "day": "monday"
+    },
+    {
+      "id": "cur-act-8085c21a54df03fd",
+      "itemId": "item-toddler-johnny-appleseed-apple-fun-monday-3",
+      "title": "Count the Apple Seeds",
+      "day": "monday"
+    },
+    {
+      "id": "cur-act-d98f626576a4b396",
+      "itemId": "item-toddler-johnny-appleseed-apple-fun-monday-4",
+      "title": "Growing Apple Trees",
+      "day": "monday"
+    },
+    {
+      "id": "cur-act-3b644433afdd9764",
+      "itemId": "item-toddler-johnny-appleseed-apple-fun-tuesday-1",
+      "title": "Plant Your Own Apple Seed",
+      "day": "tuesday"
+    },
+    {
+      "id": "cur-act-44785fdb677f3d4f",
+      "itemId": "item-toddler-johnny-appleseed-apple-fun-tuesday-2",
+      "title": "Garden Sensory Bin",
+      "day": "tuesday"
+    },
+    {
+      "id": "cur-act-e20e0c7658554ce6",
+      "itemId": "item-toddler-johnny-appleseed-apple-fun-tuesday-3",
+      "title": "Seed to Tree Craft",
+      "day": "tuesday"
+    },
+    {
+      "id": "cur-act-6c2ddbe0b14c8dbf",
+      "itemId": "item-toddler-johnny-appleseed-apple-fun-tuesday-4",
+      "title": "Water the Garden Dance",
+      "day": "tuesday"
+    },
+    {
+      "id": "cur-act-b7cd54b3a4b68934",
+      "itemId": "item-toddler-johnny-appleseed-apple-fun-wednesday-1",
+      "title": "Apple Tree Life Cycle Sequencing",
+      "day": "wednesday"
+    },
+    {
+      "id": "cur-act-da3e1fa1367fd600",
+      "itemId": "item-toddler-johnny-appleseed-apple-fun-wednesday-2",
+      "title": "Build an Apple Tree",
+      "day": "wednesday"
+    },
+    {
+      "id": "cur-act-98e9c60035ff0725",
+      "itemId": "item-toddler-johnny-appleseed-apple-fun-wednesday-3",
+      "title": "Count the Apples on the Tree",
+      "day": "wednesday"
+    },
+    {
+      "id": "cur-act-71b35e99e82af1d3",
+      "itemId": "item-toddler-johnny-appleseed-apple-fun-wednesday-4",
+      "title": "Growing Through the Seasons",
+      "day": "wednesday"
+    },
+    {
+      "id": "cur-act-7267a921f2c52eb5",
+      "itemId": "item-toddler-johnny-appleseed-apple-fun-thursday-1",
+      "title": "Harvest the Apples",
+      "day": "thursday"
+    },
+    {
+      "id": "cur-act-78c2ace3620fbdf6",
+      "itemId": "item-toddler-johnny-appleseed-apple-fun-thursday-2",
+      "title": "Healthy Apple Trees",
+      "day": "thursday"
+    },
+    {
+      "id": "cur-act-60622f111a5427e6",
+      "itemId": "item-toddler-johnny-appleseed-apple-fun-thursday-3",
+      "title": "Apple Orchard Collage",
+      "day": "thursday"
+    },
+    {
+      "id": "cur-act-e4e43515a313110f",
+      "itemId": "item-toddler-johnny-appleseed-apple-fun-thursday-4",
+      "title": "Orchard Workers Song",
+      "day": "thursday"
+    },
+    {
+      "id": "cur-act-9ec32666482d3bd4",
+      "itemId": "item-toddler-johnny-appleseed-apple-fun-friday-1",
+      "title": "Apple Tree Life Cycle Review",
+      "day": "friday"
+    },
+    {
+      "id": "cur-act-793b03148f5c8374",
+      "itemId": "item-toddler-johnny-appleseed-apple-fun-friday-2",
+      "title": "Johnny Appleseed Hat",
+      "day": "friday"
+    },
+    {
+      "id": "cur-act-3d583dbf586494f9",
+      "itemId": "item-toddler-johnny-appleseed-apple-fun-friday-3",
+      "title": "Apple Orchard Counting Challenge",
+      "day": "friday"
+    },
+    {
+      "id": "cur-act-1203683f653baf24",
+      "itemId": "item-toddler-johnny-appleseed-apple-fun-friday-4",
+      "title": "Johnny Appleseed Parade",
+      "day": "friday"
+    }
+  ],
+  "unmatched": []
+}

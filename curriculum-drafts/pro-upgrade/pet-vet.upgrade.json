@@ -1,0 +1,1324 @@
+{
+  "batch": "priority-1",
+  "lessonId": "cur-lp-toddler-pet-vet-clinic",
+  "title": "Pet Vet Clinic",
+  "age": "Toddler",
+  "masterPasteValidated": true,
+  "draftChannel": "enrichment_draft",
+  "liveReplaceForbiddenWhilePublished": true,
+  "week": {
+    "weeklyOverview": "This week toddlers become gentle pet helpers. They explore stuffed pets, practice simple caregiving (wash, brush, feed, rest), and try a toddler-friendly vet clinic with only a few clear props. The week stays play-based and short-turn focused—no worksheets, no tiny medical pieces, and no pressure for perfect crafts. Teachers should expect parallel play, brief attention bursts, and lots of repetition with the same pets and care words.",
+    "objectives": "Social-emotional: Practice gentle touch, turn-taking, and caregiving roles with peers and pets.\nLanguage: Hear and try pet-care words such as gentle, wash, brush, listen, bandage, and rest.\nCognitive: Follow simple care sequences and notice pet body parts in pictures and play.\nFine motor: Scoop, brush, stamp, and sticker with large toddler tools.\nGross motor: Crawl, march, carry, and freeze during pet movement games.\nSensory: Explore wet/dry wash play and soft/bumpy pet textures with safe materials.\nCreative: Make process paw-print charts and open-ended pet collars/collages.",
+    "weeklyMaterials": "Everyday: stuffed/plastic pets, baskets, bowls, spoons, cloths, blankets, blocks, boxes, painter’s tape, smocks, towels\nArt: washable paint, paper, large stickers, stampers, glue sticks, pre-cut shapes, yarn scraps\nSensory: shallow tub, mild soap, shredded paper or kinetic sand (optional), scoops\nDramatic play: toy stethoscope, large fabric bandages, helper badges, short ribbon leashes, waiting cushions\nLiteracy: Biscuit Visits the Doctor; Harry the Dirty Dog; Doctor Maisy; optional Sally Goes to the Vet\nOptional printables: clinic zone signs; pet care choice cards",
+    "teacherPreparation": "Before Monday: sanitize pets/tools; remove tiny vet-kit pieces; pre-cut collar strips and collage shapes.\nSet up reusable clinic zones (Waiting / Exam / Resting) that can stay all week.\nPrep one art tray and one sensory tub plan; alternate wet days to manage cleanup.\nChoose 2–3 books and place them in the reading basket.\nPrint clinic signs if using; laminate for reuse.",
+    "prepChecklist": [
+      "Sanitize pets and dramatic-play tools",
+      "Remove choking-size medical kit pieces",
+      "Stage Waiting / Exam / Resting zones",
+      "Pre-cut collar strips and large collage shapes",
+      "Allergy check for oats/sensory fillers",
+      "Select 2–3 pet/vet books",
+      "Prepare helper badges"
+    ],
+    "observationFocus": "Gentle vs rough touch with support\nCare vocabulary attempts\nTurn-taking at popular centers\nPersistence in pretend sequences\nSensory preferences during wash/texture play\nGross-motor listening (start/stop)",
+    "familyConnection": "Invite families to notice a pet or animal helper on the way home, or cuddle a stuffed animal and practice one gentle care word together (wash, brush, rest). Optional: send a photo of a family pet if they wish—no required homework.",
+    "adaptations": "Offer watching-first entry, fewer props, dry-bath alternatives, shorter paths, and picture sequence supports. Never force holding pets.",
+    "vocabularyWords": "pet\ndog\ncat\nvet\nhelper\ngentle\nwash\nbrush\nfeed\nlisten\nbandage\nsoft\nhome\nrest",
+    "books": [
+      {
+        "title": "Biscuit Visits the Doctor",
+        "author": "Alyssa Satin Capucilli",
+        "prompts": [
+          "Where is Biscuit going?",
+          "Who helps Biscuit?",
+          "What do you see on the table?"
+        ]
+      },
+      {
+        "title": "Harry the Dirty Dog",
+        "author": "Gene Zion",
+        "prompts": [
+          "What happened to Harry?",
+          "How does he get clean?",
+          "Can you find the scrub brush?"
+        ]
+      },
+      {
+        "title": "Doctor Maisy",
+        "author": "Lucy Cousins",
+        "prompts": [
+          "Who is the doctor?",
+          "How does Maisy help?",
+          "What makes the friend feel better?"
+        ]
+      },
+      {
+        "title": "Clifford the Big Red Dog",
+        "author": "Norman Bridwell",
+        "prompts": [
+          "What kind of pet is Clifford?",
+          "How do friends care for him?"
+        ]
+      }
+    ],
+    "songs": [
+      {
+        "title": "B-I-N-G-O",
+        "notes": "Use as a dog-themed clap/bark game; traditional."
+      },
+      {
+        "title": "How Much Is That Doggie in the Window?",
+        "notes": "Title/use suggestion only; do not reproduce copyrighted lyrics."
+      },
+      {
+        "title": "Old MacDonald Had a Farm",
+        "notes": "Focus on dog/cat verses; traditional."
+      },
+      {
+        "title": "LLH Pet Helper Chant",
+        "notes": "Original chant: “Gentle hands, gentle pet, we can help our animals.”"
+      }
+    ],
+    "teacherToolkit": {
+      "prepChecklist": [
+        "Sanitize pets/tools",
+        "Stage clinic zones",
+        "Prep art/sensory rotations",
+        "Pull books/songs card"
+      ],
+      "observationFocus": [
+        "Gentle touch",
+        "Care words",
+        "Turn-taking",
+        "Sensory tolerance"
+      ],
+      "reusableCenters": [
+        "Vet clinic zones",
+        "Pet basket",
+        "Grooming caddy"
+      ]
+    },
+    "printableIdeas": [
+      {
+        "title": "Clinic Zone Signs",
+        "reason": "Labels Waiting / Exam / Resting for dramatic play clarity"
+      },
+      {
+        "title": "Pet Care Choice Cards",
+        "reason": "Visual supports for wash/brush/feed/rest choices"
+      }
+    ],
+    "researchSources": [
+      "NAEYC Developmentally Appropriate Practice — play-based caregiving and dramatic play",
+      "Practical toddler vet clinic setups emphasizing fewer props for younger toddlers",
+      "ZERO TO THREE / early toddler caregiving language inspiration (not copied)"
+    ],
+    "coverStatus": "COVER IMAGE PENDING",
+    "proposedCoverActivity": "Veterinarian Dramatic Play Center"
+  },
+  "activities": [
+    {
+      "title": "Meet the Pets",
+      "dayOfWeek": "monday",
+      "activityCategory": "Open-Ended Exploration",
+      "ageModifications": "Toddler 12–24 Months",
+      "durationMinutes": 10,
+      "objective": "Warmly introduce stuffed and toy pets so toddlers can look, touch, name, and choose a favorite animal companion for the week.",
+      "description": "Toddlers explore a small collection of soft pets on a low table or rug. They may hold, hug, point, or carry a pet while the teacher models gentle touch and simple pet words.",
+      "materials": "4–6 large stuffed or soft plastic pets (dog, cat, bunny, bird)\nLow table or floor mat\nBasket for pets\nOptional: pet photo cards (large)",
+      "preparation": "Sanitize pets and basket\nPlace only 4–6 pets out (avoid clutter)\nSet photo cards nearby if using",
+      "setup": "Arrange pets in an open basket on a rug with space for 2–3 toddlers to sit or kneel. Keep walkways clear.",
+      "steps": "1. Sit at toddler level and greet one pet by name.\n2. Invite each child to choose a pet to hold or look at.\n3. Model gentle petting with an open palm.\n4. Offer simple words: soft, dog, cat, gentle.\n5. Allow free exploration; rotate pets if needed.\n6. End by helping pets “rest” in the basket.",
+      "teacherLanguage": "Who is this pet?\nCan you give a gentle pet?\nIs your pet soft?\nWhere should the dog rest?\nYou are being so careful.",
+      "observationOpportunities": "Notice approaching/avoiding, naming attempts, gentle vs rough touch, and whether children share space with peers.",
+      "safetyNotes": "Use pets too large to choke on. Remove loose eyes/buttons. Sanitize after mouthing. Supervise closely.",
+      "cleanupTips": "Return pets to the basket. Spot-clean any mouthed toys before the next group.",
+      "indoorAlternatives": "Use a quiet corner rug if the room is busy.",
+      "outdoorAlternatives": "Bring a small pet basket outdoors on a blanket for shade play.",
+      "teacherTips": [
+        "Start with fewer pets for younger toddlers.",
+        "If a child only watches, narrate what peers are doing without pressure."
+      ],
+      "substitutions": [
+        {
+          "need": "Stuffed pets",
+          "use": "Clean socks with faces drawn on + soft fabric “blankets”"
+        }
+      ],
+      "adaptations": "Offer hand-under-hand support for gentle touch. Allow watching first. Provide a second identical pet if sharing is hard.",
+      "extensions": "Invite toddlers to “feed” a pet with pretend bowls after choosing.",
+      "mixedAgeAdaptations": "Older toddlers can help “introduce” pets to younger friends with one word labels.",
+      "observationPrompts": [
+        "Did the child choose a pet independently?",
+        "Did they attempt a pet name or animal sound?",
+        "Was touch gentle with support?"
+      ],
+      "vocabulary": [
+        "pet",
+        "dog",
+        "cat",
+        "soft",
+        "gentle",
+        "hold",
+        "friend"
+      ],
+      "imageRequirement": "setup_only",
+      "imageBriefSetup": "Realistic daycare rug setup with a basket of large stuffed pets and toddler-sized space. Hands/props focus preferred. Footer: littlelearnershubbyleah.com",
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite"
+    },
+    {
+      "title": "Veterinarian Dramatic Play Center",
+      "dayOfWeek": "monday",
+      "activityCategory": "Dramatic Play",
+      "ageModifications": "Toddler 12–24 Months",
+      "durationMinutes": 15,
+      "objective": "Practice caregiving pretend play in a simple toddler vet clinic using a few clear props and short role turns.",
+      "description": "Toddlers pretend to be pet helpers: bring a stuffed pet to the “exam table,” listen with a toy stethoscope, wrap a large bandage, and rest the pet in a waiting spot.",
+      "materials": "Low table as exam table (paper cover optional)\n2–3 stuffed pets\n1–2 toy stethoscopes\nLarge soft bandage strips (fabric)\nWaiting chairs or cushions\nOptional: play doctor kit with SMALL pieces removed",
+      "preparation": "Remove tiny kit pieces (syringes with needles, pills, etc.)\nTape paper on exam table if desired\nStage waiting cushions + 2 pets ready",
+      "setup": "Create three clear zones: Waiting cushions, Exam table, Resting basket. Keep props limited so the story stays simple.",
+      "steps": "1. Show the three zones with short labels or picture signs.\n2. Model: pet waits → helper listens → gentle bandage → rest.\n3. Invite 1–2 toddlers at a time to the exam table.\n4. Narrate caregiving language while children lead.\n5. Rotate roles: helper and pet owner.\n6. Close clinic by resting pets together.",
+      "teacherLanguage": "Is your pet waiting?\nCan you listen to the heartbeat?\nDoes the paw need a bandage?\nAll better?\nWho is the helper now?\nLet’s put the pet in the resting basket.",
+      "observationOpportunities": "Observe role-taking, turn-taking, caregiving language, and persistence with multi-step pretend sequences.",
+      "safetyNotes": "No small parts. Bandages large only. Keep stethoscope cords short/supervised. No real medicines.",
+      "cleanupTips": "Sort props into Waiting / Exam / Resting bins. Wipe exam table.",
+      "indoorAlternatives": "Clinic fits a dramatic-play corner all week.",
+      "outdoorAlternatives": "Move exam table under shade with the same three zones.",
+      "teacherTips": [
+        "Less is best: 2 tools max at first.",
+        "Join as a co-player briefly, then step back."
+      ],
+      "substitutions": [
+        {
+          "need": "Toy stethoscope",
+          "use": "Paper cup “listener” on a short yarn loop (supervised)"
+        }
+      ],
+      "adaptations": "Offer a one-step job (“put pet on table”). Allow parallel play. Picture sequence cards for the three steps.",
+      "extensions": "Add a “check-in” clipboard with a large pet photo to point to (no writing required).",
+      "mixedAgeAdaptations": "Preschool visitors can be receptionists; toddlers stay on hands-on pet care.",
+      "observationPrompts": [
+        "Did the child attempt more than one clinic step?",
+        "Did they use any care words?",
+        "How did they handle waiting?"
+      ],
+      "vocabulary": [
+        "vet",
+        "helper",
+        "listen",
+        "bandage",
+        "wait",
+        "gentle",
+        "better",
+        "clinic"
+      ],
+      "imageRequirement": "setup_only",
+      "imageBriefSetup": "Realistic toddler vet dramatic-play setup: low exam table, stuffed dog, toy stethoscope, large bandage, waiting cushions. No cartoon look. Footer: littlelearnershubbyleah.com",
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Primary cover candidate activity"
+    },
+    {
+      "title": "Pet Movement Parade",
+      "dayOfWeek": "monday",
+      "activityCategory": "Gross Motor",
+      "ageModifications": "Toddler 12–24 Months",
+      "durationMinutes": 8,
+      "objective": "Move like familiar pets to build body awareness, listening, and joyful gross-motor play.",
+      "description": "Toddlers parade around a clear path pretending to be dogs, cats, bunnies, or birds using simple movements: crawl, tip-toe, hop, or flap.",
+      "materials": "Open floor path or outdoor sidewalk loop\nOptional animal picture cards\nMusic player (optional, soft volume)",
+      "preparation": "Clear trip hazards\nChoose 3 movements max\nPlace start/finish markers (tape or cones)",
+      "setup": "Mark a simple oval path. Hold up one animal card at a time.",
+      "steps": "1. Show the dog card and crawl like a puppy.\n2. Invite toddlers to follow the path.\n3. Switch to cat tip-toe, then bunny hop.\n4. Pause for resting pets.\n5. End with a gentle pet parade back to the rug.",
+      "teacherLanguage": "Can you crawl like a puppy?\nTip-toe, quiet cats!\nHop, hop, bunny!\nFreeze — resting pets.\nWhere is your tail?",
+      "observationOpportunities": "Watch balance, imitation, stopping/starting on cue, and enjoyment of group movement.",
+      "safetyNotes": "Space children out. No running indoors. Soft landings for hops. Outdoor surfaces dry/clear.",
+      "cleanupTips": "Collect cards and markers.",
+      "indoorAlternatives": "Use hallway laps with walking feet only.",
+      "outdoorAlternatives": "Use a playground loop; add “bird wings” arm flaps.",
+      "teacherTips": [
+        "Keep rounds short.",
+        "Offer a wagon push option for children who prefer wheeled movement."
+      ],
+      "substitutions": [
+        {
+          "need": "Picture cards",
+          "use": "Hold up stuffed pets as movement cues"
+        }
+      ],
+      "adaptations": "Offer hand-holding for balance. Allow stroller/walker users to shake a bell as the parade sound.",
+      "extensions": "Let a child choose the next animal movement.",
+      "mixedAgeAdaptations": "Infants can watch and bounce on a caregiver’s lap; older toddlers lead the line.",
+      "observationPrompts": [
+        "Did the child imitate at least one animal move?",
+        "Could they stop on “freeze”?"
+      ],
+      "vocabulary": [
+        "crawl",
+        "hop",
+        "tiptoe",
+        "parade",
+        "fast",
+        "slow",
+        "stop"
+      ],
+      "imageRequirement": "not_needed",
+      "imageBriefSetup": "",
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite"
+    },
+    {
+      "title": "Feed the Pets",
+      "dayOfWeek": "monday",
+      "activityCategory": "Dramatic Play",
+      "ageModifications": "Toddler 12–24 Months",
+      "durationMinutes": 10,
+      "objective": "Practice caregiving routines by pretending to prepare and offer food/water to stuffed pets.",
+      "description": "Toddlers scoop dry oats or crumpled paper “kibble” into bowls and offer pretend water cups to their pets, then wipe mouths with cloths.",
+      "materials": "Stuffed pets\nSmall bowls\nSpoons/scoops\nDry oats OR crumpled brown paper “kibble”\nCups for pretend water\nCloths for wiping",
+      "preparation": "Portion filler into a shallow bin\nSet bowls on a wipeable tray\nAllergy check for oats; use paper if needed",
+      "setup": "Tray table with pets seated on a towel “placemat.” Limit 2–3 children.",
+      "steps": "1. Choose a pet to feed.\n2. Scoop food into a bowl.\n3. Offer pretend water.\n4. Wipe the pet’s mouth.\n5. Say “all done” and rest the pet.",
+      "teacherLanguage": "Is your pet hungry?\nScoop, scoop.\nMore or all done?\nWipe, wipe — clean face.\nThank you, helper.",
+      "observationOpportunities": "Observe scooping control, sequencing, pretend feeding language, and cleanup willingness.",
+      "safetyNotes": "No choking-size pieces. Supervise oats (mouthing). Paper kibble for under-2 mouthers if needed. Allergy awareness.",
+      "cleanupTips": "Sweep oats; recycle paper kibble; wash bowls.",
+      "indoorAlternatives": "Use paper kibble only for easier cleanup.",
+      "outdoorAlternatives": "Do scooping at an outdoor sensory table.",
+      "teacherTips": [
+        "Demonstrate one scoop at a time.",
+        "Keep water pretend-only unless doing a separate water-play day."
+      ],
+      "substitutions": [
+        {
+          "need": "Oats",
+          "use": "Torn paper, pom-pom LARGE only for older toddlers, or dry pasta wheels if safe for age"
+        }
+      ],
+      "adaptations": "Pre-fill bowls for children who need simpler roles. Offer larger scoops.",
+      "extensions": "Sort “dog food” vs “cat food” bowls by pet picture.",
+      "mixedAgeAdaptations": "Younger children hand a pre-filled bowl; older scoop independently.",
+      "observationPrompts": [
+        "Did scooping improve with practice?",
+        "Did the child narrate feeding?"
+      ],
+      "vocabulary": [
+        "feed",
+        "hungry",
+        "scoop",
+        "bowl",
+        "water",
+        "all done",
+        "wipe"
+      ],
+      "imageRequirement": "setup_only",
+      "imageBriefSetup": "Toddler table with stuffed pets, bowls, and scoops of oats or paper kibble on a tray. Realistic daycare photo. Footer: littlelearnershubbyleah.com",
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite"
+    },
+    {
+      "title": "Pet Story Exploration",
+      "dayOfWeek": "monday",
+      "activityCategory": "Literacy",
+      "ageModifications": "Toddler 12–24 Months",
+      "durationMinutes": 8,
+      "objective": "Share a short pet/vet picture book and invite toddlers to point, name, and connect story pets to classroom pets.",
+      "description": "Small-group read-aloud with lots of pointing and short questions. Toddlers may hold a stuffed pet while listening.",
+      "materials": "Age-appropriate pet/vet book (e.g., Biscuit Visits the Doctor or Harry the Dirty Dog)\n1–2 stuffed pets\nCushions",
+      "preparation": "Preview book length; plan 2–3 stop-and-talk pages\nPlace pets by the reading spot",
+      "setup": "Cozy cushion circle for 3–4 toddlers.",
+      "steps": "1. Show the cover and name the pet.\n2. Read briefly, pausing to point.\n3. Invite toddlers to show their stuffed pet when the story pet appears.\n4. Ask one feeling or care question.\n5. Retell with two picture walk pages.",
+      "teacherLanguage": "Where is the dog?\nWhat does the helper do?\nIs the pet scared or brave?\nCan your pet listen too?\nWhat happened next?",
+      "observationOpportunities": "Attention span, pointing, vocabulary echoes, emotional responses to story events.",
+      "safetyNotes": "Board books preferred. Keep group small. No forcing lap sitting.",
+      "cleanupTips": "Return book to shelf; pets to basket.",
+      "indoorAlternatives": "Default indoor cozy corner.",
+      "outdoorAlternatives": "Blanket read-aloud in shade.",
+      "teacherTips": [
+        "Stop early if attention drops.",
+        "Let toddlers “read” by turning pages after."
+      ],
+      "substitutions": [
+        {
+          "need": "Target book",
+          "use": "Any short pet board book from your library"
+        }
+      ],
+      "adaptations": "Offer standing listening. Provide a fidget pet to hold.",
+      "extensions": "Act out one page at the vet clinic center later.",
+      "mixedAgeAdaptations": "Infants hear voice + look at large pictures; toddlers answer point questions.",
+      "observationPrompts": [
+        "Did the child point to a named pet?",
+        "Did they stay for most of the short reading?"
+      ],
+      "vocabulary": [
+        "book",
+        "dog",
+        "vet",
+        "listen",
+        "brave",
+        "soft",
+        "page"
+      ],
+      "imageRequirement": "not_needed",
+      "imageBriefSetup": "",
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite"
+    },
+    {
+      "title": "Pet Care Discovery Table",
+      "dayOfWeek": "tuesday",
+      "activityCategory": "Open-Ended Exploration",
+      "ageModifications": "Toddler 12–24 Months",
+      "durationMinutes": 12,
+      "objective": "Explore pet-care tools and textures through open-ended handling and matching tools to pets.",
+      "description": "Toddlers investigate brushes, cloths, bowls, and collars (large) on a discovery tray and try them with stuffed pets.",
+      "materials": "Soft brushes\nWashcloths\nBowls\nLarge ribbon collars\nStuffed pets\nTray",
+      "preparation": "Sanitize tools; remove small collar buckles if unsafe.",
+      "setup": "Low table tray with 3–4 tool types and 2 pets.",
+      "steps": "1. Name each tool.\n2. Invite children to try a brush on a pet.\n3. Match bowl to pet.\n4. Pack tools back on the tray.",
+      "teacherLanguage": "What is this?\nBrush, brush.\nWhich pet needs water?\nCan you put it back?",
+      "observationOpportunities": "Tool use, matching, vocabulary, persistence.",
+      "safetyNotes": "Large tools only; supervise ribbons.",
+      "cleanupTips": "Sort tools into a caddy.",
+      "indoorAlternatives": "Floor tray works if table is busy.",
+      "outdoorAlternatives": "Outdoor table with same tools.",
+      "teacherTips": [
+        "Rotate only two tools at first."
+      ],
+      "substitutions": [
+        {
+          "need": "Pet brush",
+          "use": "Soft clean paintbrush"
+        }
+      ],
+      "adaptations": "Hand-over-hand brushing; fewer choices.",
+      "extensions": "Make a “dirty/clean” pet pretend contrast with a damp cloth.",
+      "mixedAgeAdaptations": "Older toddlers label tools for younger peers.",
+      "observationPrompts": [
+        "Did the child try more than one tool?"
+      ],
+      "vocabulary": [
+        "brush",
+        "cloth",
+        "bowl",
+        "collar",
+        "care",
+        "clean"
+      ],
+      "imageRequirement": "setup_only",
+      "imageBriefSetup": "Discovery tray with pet-care tools and stuffed pets on a daycare table. Footer: littlelearnershubbyleah.com",
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite"
+    },
+    {
+      "title": "Pet Bath Sensory Station",
+      "dayOfWeek": "tuesday",
+      "activityCategory": "Sensory Play",
+      "ageModifications": "Toddler 12–24 Months",
+      "durationMinutes": 12,
+      "objective": "Wash washable pets in shallow soapy water to practice pouring, scrubbing, and caregiving sensory play.",
+      "description": "Toddlers bathe plastic/washable pets in a shallow tub using cloths and cups, then towel-dry them.",
+      "materials": "Shallow sensory tub\nWarm soapy water (mild)\nWashable plastic pets\nWashcloths\nCups\nTowels\nSmocks",
+      "preparation": "Fill shallow water (low level)\nSet drying towels beside tub\nAllergy/skin sensitivity check",
+      "setup": "Sensory table or floor tub on a towel with 2–3 children max.",
+      "steps": "1. Put on smocks.\n2. Dip cloth and gently wash pet.\n3. Pour a little rinse water.\n4. Towel dry.\n5. Rest clean pets on a towel “bed.”",
+      "teacherLanguage": "Wash the paws.\nIs the water wet?\nPour slowly.\nDry, dry.\nSo clean!",
+      "observationOpportunities": "Sensory tolerance, pouring control, caregiving talk, turn-taking at the tub.",
+      "safetyNotes": "Shallow water only; constant supervision; no standing water unattended; slip hazards; keep soap mild.",
+      "cleanupTips": "Dump water; sanitize tub; hang towels.",
+      "indoorAlternatives": "Use damp cloths only (no open water) on a tray for a “dry bath.”",
+      "outdoorAlternatives": "Ideal outdoors for splash control.",
+      "teacherTips": [
+        "Limit to plastic pets.",
+        "Have a dry-only station for water-avoidant children."
+      ],
+      "substitutions": [
+        {
+          "need": "Plastic pets",
+          "use": "Washable rubber animals"
+        }
+      ],
+      "adaptations": "Offer sealed water bag to press instead of open water. Short turns.",
+      "extensions": "Compare dirty vs clean cloths.",
+      "mixedAgeAdaptations": "Infants: caregiver-led cloth wipe on a large toy; toddlers scoop/pour.",
+      "observationPrompts": [
+        "Did the child tolerate wet textures?",
+        "Did pouring stay controlled with support?"
+      ],
+      "vocabulary": [
+        "wash",
+        "wet",
+        "dry",
+        "soap",
+        "pour",
+        "clean",
+        "towel"
+      ],
+      "imageRequirement": "setup_only",
+      "imageBriefSetup": "Shallow daycare sensory tub with soapy water, plastic pets, cloths, and towels. Realistic photo. Footer: littlelearnershubbyleah.com",
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite"
+    },
+    {
+      "title": "Puppy Obstacle Course",
+      "dayOfWeek": "tuesday",
+      "activityCategory": "Gross Motor",
+      "ageModifications": "Toddler 12–24 Months",
+      "durationMinutes": 10,
+      "objective": "Crawl, climb, and balance on a simple “puppy path” to build coordination and confidence.",
+      "description": "Toddlers move through a short obstacle path: tunnel crawl, cushion climb, and tape balance line while pretending to be puppies.",
+      "materials": "Play tunnel or chair tunnel with blanket\nFloor cushions\nPainter’s tape line\nOptional cones",
+      "preparation": "Build a short 3-station path; test stability.",
+      "setup": "Clear open path with start and finish stuffed-pet markers.",
+      "steps": "1. Show the puppy path.\n2. Crawl through the tunnel.\n3. Climb over two cushions.\n4. Walk the tape line.\n5. Celebrate at the finish pet.",
+      "teacherLanguage": "Crawl, puppy!\nOver the pillows.\nBalance on the line.\nYou did it!\nWant to go again?",
+      "observationOpportunities": "Crawling strength, climbing safety awareness, balance, persistence.",
+      "safetyNotes": "Spot climbers; soft landings; no stacking unstable furniture; one-way traffic.",
+      "cleanupTips": "Collapse tunnel; stack cushions.",
+      "indoorAlternatives": "Classroom path.",
+      "outdoorAlternatives": "Use playground tunnel/equipment with same sequence.",
+      "teacherTips": [
+        "Keep only three stations.",
+        "Offer a bypass for children who dislike tunnels."
+      ],
+      "substitutions": [
+        {
+          "need": "Tunnel",
+          "use": "Table covered with a sheet"
+        }
+      ],
+      "adaptations": "Wider tape line; hand support; skip crawl if needed.",
+      "extensions": "Carry a lightweight stuffed pet through the path.",
+      "mixedAgeAdaptations": "Younger toddlers do one station; older complete all three.",
+      "observationPrompts": [
+        "Which station needed the most support?"
+      ],
+      "vocabulary": [
+        "crawl",
+        "over",
+        "balance",
+        "path",
+        "go",
+        "stop"
+      ],
+      "imageRequirement": "not_needed",
+      "imageBriefSetup": "",
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite"
+    },
+    {
+      "title": "Brush and Groom Station",
+      "dayOfWeek": "tuesday",
+      "activityCategory": "Fine Motor",
+      "ageModifications": "Toddler 12–24 Months",
+      "durationMinutes": 10,
+      "objective": "Strengthen hand muscles and caregiving focus by brushing stuffed pets with soft brushes.",
+      "description": "Toddlers brush fur, “clean ears” with cloths, and comb with wide-tooth toddler combs on stuffed pets.",
+      "materials": "Soft brushes\nWide combs\nWashcloths\nStuffed pets\nMirror (optional)",
+      "preparation": "Sanitize brushes; set grooming caddy.",
+      "setup": "Small table with pets on towels.",
+      "steps": "1. Choose a pet.\n2. Brush from head toward tail.\n3. Wipe face gently.\n4. Look in mirror with pet (optional).\n5. Put tools away.",
+      "teacherLanguage": "Brush gently.\nLong strokes.\nClean face.\nDoes your pet like brushing?",
+      "observationOpportunities": "Grasp, stroke direction, gentleness, tool cleanup.",
+      "safetyNotes": "Soft tools only; no sharp combs; supervise mirrors.",
+      "cleanupTips": "Return tools to caddy; lint-roll pets if needed.",
+      "indoorAlternatives": "Default.",
+      "outdoorAlternatives": "Groom on a picnic blanket.",
+      "teacherTips": [
+        "Model slow strokes.",
+        "Offer two brush sizes."
+      ],
+      "substitutions": [
+        {
+          "need": "Comb",
+          "use": "Fingers as “rake” through fur"
+        }
+      ],
+      "adaptations": "Hand-over-hand; larger brush handles.",
+      "extensions": "Count “five brushes” together.",
+      "mixedAgeAdaptations": "Infants feel a soft brush on their own hand with caregiver consent/cue.",
+      "observationPrompts": [
+        "Did grip strengthen across the turn?"
+      ],
+      "vocabulary": [
+        "brush",
+        "gentle",
+        "fur",
+        "clean",
+        "soft"
+      ],
+      "imageRequirement": "setup_only",
+      "imageBriefSetup": "Grooming station with soft brushes and stuffed pets on towels. Footer: littlelearnershubbyleah.com",
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite"
+    },
+    {
+      "title": "Pet Owner Pretend Play",
+      "dayOfWeek": "tuesday",
+      "activityCategory": "Dramatic Play",
+      "ageModifications": "Toddler 12–24 Months",
+      "durationMinutes": 12,
+      "objective": "Role-play being a pet owner who cares for, walks, and rests a stuffed pet.",
+      "description": "Toddlers put on a simple helper badge, attach a large ribbon leash to a stuffed pet, walk a short indoor path, then settle the pet for a nap.",
+      "materials": "Stuffed pets\nLarge ribbon leashes (short)\nPaper helper badges\nBlanket beds\nOptional shopping bag for “pet store”",
+      "preparation": "Tie short leashes; make big badges; clear walk path.",
+      "setup": "Home corner with beds + short walking loop.",
+      "steps": "1. Put on a helper badge.\n2. Choose a pet and leash.\n3. Walk slowly on the path.\n4. Return for water/food pretend.\n5. Nap time on blankets.",
+      "teacherLanguage": "Hold the leash.\nWalking feet.\nHome time.\nNight-night, pet.",
+      "observationOpportunities": "Role persistence, leash control, nurturing behaviors.",
+      "safetyNotes": "Short leashes only; no wrapping around necks; supervise ribbons.",
+      "cleanupTips": "Untangle leashes; fold blankets.",
+      "indoorAlternatives": "Classroom loop.",
+      "outdoorAlternatives": "Outdoor walking path.",
+      "teacherTips": [
+        "Practice stopping.",
+        "No yanking."
+      ],
+      "substitutions": [
+        {
+          "need": "Leash",
+          "use": "Hold pet’s paw/hand instead"
+        }
+      ],
+      "adaptations": "Carry pet without leash; shorter path.",
+      "extensions": "Visit the vet clinic center with the pet.",
+      "mixedAgeAdaptations": "Older toddlers help younger clip badges.",
+      "observationPrompts": [
+        "Did the child complete walk + rest sequence?"
+      ],
+      "vocabulary": [
+        "owner",
+        "walk",
+        "leash",
+        "home",
+        "nap",
+        "care"
+      ],
+      "imageRequirement": "not_needed",
+      "imageBriefSetup": "",
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite"
+    },
+    {
+      "title": "Vet Examination Station",
+      "dayOfWeek": "wednesday",
+      "activityCategory": "Dramatic Play",
+      "ageModifications": "Toddler 12–24 Months",
+      "durationMinutes": 12,
+      "objective": "Practice a simple check-up sequence: look, listen, bandage, and comfort.",
+      "description": "Toddlers examine stuffed pets using a light-up or toy otoscope stand-in, stethoscope, and stickers as “health spots.”",
+      "materials": "Exam table\nStuffed pets\nToy stethoscope\nFlashlight (eyes down)\nLarge bandage fabric\nDot stickers",
+      "preparation": "Remove unsafe kit pieces; test flashlight.",
+      "setup": "One exam table for two children with a waiting pet.",
+      "steps": "1. Place pet on the table.\n2. Look at eyes/ears gently.\n3. Listen to chest.\n4. Add a bandage or sticker.\n5. Comfort with a hug and rest.",
+      "teacherLanguage": "Looking… looking.\nI hear a heartbeat.\nBandage on.\nAll better?\nHug your pet.",
+      "observationOpportunities": "Sequencing, gentleness, symbolic tool use.",
+      "safetyNotes": "Flashlight never in eyes; no small stickers for heavy mouthers (use fabric bandage instead).",
+      "cleanupTips": "Collect stickers; sanitize tools.",
+      "indoorAlternatives": "Default.",
+      "outdoorAlternatives": "Shade table clinic.",
+      "teacherTips": [
+        "Keep sequence to 3 steps if needed."
+      ],
+      "substitutions": [
+        {
+          "need": "Stickers",
+          "use": "Washable stamp on paper “chart” only"
+        }
+      ],
+      "adaptations": "One-step exam only; adult models first.",
+      "extensions": "Mark a paper chart with a big stamp.",
+      "mixedAgeAdaptations": "Preschoolers can be scribes; toddlers do hands-on care.",
+      "observationPrompts": [
+        "How many exam steps did they attempt?"
+      ],
+      "vocabulary": [
+        "look",
+        "listen",
+        "bandage",
+        "heartbeat",
+        "gentle",
+        "better"
+      ],
+      "imageRequirement": "setup_only",
+      "imageBriefSetup": "Exam table with stuffed pet, stethoscope, and bandage strips in a real classroom. Footer: littlelearnershubbyleah.com",
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite"
+    },
+    {
+      "title": "Animal Rescue Sensory Bin",
+      "dayOfWeek": "wednesday",
+      "activityCategory": "Sensory Play",
+      "ageModifications": "Toddler 12–24 Months",
+      "durationMinutes": 12,
+      "objective": "Rescue buried plastic pets from a safe sensory filler using hands and scoops, building persistence and fine-motor strength.",
+      "description": "Toddlers dig in shredded paper or kinetic sand to find hidden pets and place them in a “rescue basket.”",
+      "materials": "Sensory bin\nShredded paper OR kinetic sand\nPlastic pets\nScoops\nRescue basket",
+      "preparation": "Hide 4–6 pets; set rescue basket.",
+      "setup": "Bin on a towel with scoop caddy.",
+      "steps": "1. Dig to find a pet.\n2. Name the pet.\n3. Place in rescue basket.\n4. Cover and hide again for another turn.",
+      "teacherLanguage": "Where is the cat?\nDig, dig.\nYou found it!\nTo the basket.\nWho is missing?",
+      "observationOpportunities": "Persistence, scooping, labeling, sharing space.",
+      "safetyNotes": "Choose filler safe for mouthers; kinetic sand supervised; no small gravel.",
+      "cleanupTips": "Shake pets; return filler to sealed bin.",
+      "indoorAlternatives": "Shredded paper for easier cleanup.",
+      "outdoorAlternatives": "Sand table outdoors.",
+      "teacherTips": [
+        "Hide only a few at a time.",
+        "Celebrate each find."
+      ],
+      "substitutions": [
+        {
+          "need": "Kinetic sand",
+          "use": "Shredded paper or water beads ONLY if age policy allows; prefer paper for toddlers"
+        }
+      ],
+      "adaptations": "Partially visible pets for easier success.",
+      "extensions": "Rescue by color of pet.",
+      "mixedAgeAdaptations": "Infants watch finds; toddlers dig.",
+      "observationPrompts": [
+        "Did the child persist after a miss?"
+      ],
+      "vocabulary": [
+        "dig",
+        "find",
+        "rescue",
+        "hidden",
+        "basket"
+      ],
+      "imageRequirement": "setup_only",
+      "imageBriefSetup": "Sensory bin with shredded paper, plastic pets partially visible, rescue basket beside it. Footer: littlelearnershubbyleah.com",
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite"
+    },
+    {
+      "title": "Carry the Pet Challenge",
+      "dayOfWeek": "wednesday",
+      "activityCategory": "Gross Motor",
+      "ageModifications": "Toddler 12–24 Months",
+      "durationMinutes": 8,
+      "objective": "Carry a stuffed pet carefully from one basket to another to practice balance, spatial awareness, and gentle transport.",
+      "description": "Toddlers walk a short path carrying a pet with two hands, stepping over a soft pool noodle, then place the pet in a bed basket.",
+      "materials": "Stuffed pets\nStart basket\nBed basket\nPool noodle or tape line",
+      "preparation": "Clear path; demonstrate two-hand carry.",
+      "setup": "Start basket → path → bed basket.",
+      "steps": "1. Pick up pet with two hands.\n2. Walk slowly.\n3. Step over the noodle.\n4. Place pet in bed.\n5. Return for another if desired.",
+      "teacherLanguage": "Two hands.\nSlow walking feet.\nOver.\nPet is safe in bed.",
+      "observationOpportunities": "Carry control, pace, following path.",
+      "safetyNotes": "No running; light pets only; spot step-over.",
+      "cleanupTips": "Stack baskets.",
+      "indoorAlternatives": "Classroom path.",
+      "outdoorAlternatives": "Sidewalk path.",
+      "teacherTips": [
+        "Cheer careful carries more than speed."
+      ],
+      "substitutions": [
+        {
+          "need": "Pool noodle",
+          "use": "Tape line to walk along"
+        }
+      ],
+      "adaptations": "Shorter distance; adult spotter.",
+      "extensions": "Carry pet + a blanket.",
+      "mixedAgeAdaptations": "Younger toddlers carry short distance only.",
+      "observationPrompts": [
+        "Did they keep two-hand carry?"
+      ],
+      "vocabulary": [
+        "carry",
+        "slow",
+        "over",
+        "bed",
+        "careful"
+      ],
+      "imageRequirement": "not_needed",
+      "imageBriefSetup": "",
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite"
+    },
+    {
+      "title": "Pet Health Chart Art",
+      "dayOfWeek": "wednesday",
+      "activityCategory": "Art",
+      "ageModifications": "Toddler 12–24 Months",
+      "durationMinutes": 12,
+      "objective": "Create process art paw prints to celebrate pet care, focusing on stamping and color exploration rather than a perfect product.",
+      "description": "Toddlers stamp toy-animal paws or sponge “paws” into washable paint and onto paper charts labeled with their pet’s name by the teacher.",
+      "materials": "Paper\nWashable paint (2 colors)\nShallow trays\nPlastic animal paws or sponges cut as paws\nSmocks\nWipes",
+      "preparation": "Write child’s name + “My Pet” on paper\nPour thin paint layers\nTape paper to table",
+      "setup": "Art table with two stamp choices and a drying rack.",
+      "steps": "1. Put on a smock.\n2. Dip paw stamp in paint.\n3. Press onto paper.\n4. Repeat with a second color if wanted.\n5. Set chart to dry.",
+      "teacherLanguage": "Dip.\nPress.\nWhat color is that paw?\nAnother one?\nYour pet chart is drying.",
+      "observationOpportunities": "Stamp pressure, color choice, engagement length, name recognition when teacher writes.",
+      "safetyNotes": "Non-toxic paint; smocks; wipe hands; no tasting.",
+      "cleanupTips": "Wash stamps; hang charts.",
+      "indoorAlternatives": "Default.",
+      "outdoorAlternatives": "Fence easel paw painting.",
+      "teacherTips": [
+        "Accept messy overlapping prints.",
+        "Do not correct for “perfect paws.”"
+      ],
+      "substitutions": [
+        {
+          "need": "Animal stamp",
+          "use": "Child’s fist as a “paw” with adult help"
+        }
+      ],
+      "adaptations": "Hand-over-hand stamping; larger paper.",
+      "extensions": "Add sticker hearts after dry (large stickers).",
+      "mixedAgeAdaptations": "Infants: caregiver-assisted footprint keepsake if family permits; toddlers stamp.",
+      "observationPrompts": [
+        "Did the child try more than one stamp?"
+      ],
+      "vocabulary": [
+        "paw",
+        "stamp",
+        "press",
+        "paint",
+        "chart",
+        "dry"
+      ],
+      "imageRequirement": "example_only",
+      "imageBriefSetup": "",
+      "imageBriefExample": "Finished toddler paw-print chart on paper: uneven stamped paw prints in 1–2 washable paint colors, child’s name written by teacher, slight smudges, photographed on a classroom table. Looks child-made, not perfect. Footer: littlelearnershubbyleah.com",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite"
+    },
+    {
+      "title": "Animal Investigation Center",
+      "dayOfWeek": "wednesday",
+      "activityCategory": "STEM/Discovery",
+      "ageModifications": "Toddler 12–24 Months",
+      "durationMinutes": 10,
+      "objective": "Look closely at large pet photos and simple body-part cards to notice eyes, ears, tails, and fur.",
+      "description": "Toddlers use magnifying glasses (plastic) to examine large pet photos and match a soft pet to a picture.",
+      "materials": "Large pet photos\nPlastic magnifiers\nStuffed pets\nSimple body-part cards (ear, tail, paw)",
+      "preparation": "Print/laminate large photos; remove tiny cards.",
+      "setup": "Science table with 3 photos and matching pets.",
+      "steps": "1. Look at a photo with a magnifier.\n2. Find eyes/ears/tail.\n3. Match a stuffed pet to the photo.\n4. Trace a tail with a finger.",
+      "teacherLanguage": "What do you see?\nWhere are the ears?\nSame or different?\nSoft fur.",
+      "observationOpportunities": "Attention to detail, matching, vocabulary for body parts.",
+      "safetyNotes": "Large photos; magnifiers supervised; no glass.",
+      "cleanupTips": "Stack cards in a photo box.",
+      "indoorAlternatives": "Default.",
+      "outdoorAlternatives": "Observe a classroom fish/pet if present, or outdoor birds from a window.",
+      "teacherTips": [
+        "Keep language observational, not quiz-heavy."
+      ],
+      "substitutions": [
+        {
+          "need": "Magnifier",
+          "use": "Empty picture frame as a “look window”"
+        }
+      ],
+      "adaptations": "Fewer photos; point-only responses.",
+      "extensions": "Sort pets into “fur” vs “feathers” with two baskets.",
+      "mixedAgeAdaptations": "Preschoolers can count legs; toddlers match wholes.",
+      "observationPrompts": [
+        "Did matching happen with support or independently?"
+      ],
+      "vocabulary": [
+        "look",
+        "eyes",
+        "ears",
+        "tail",
+        "fur",
+        "same",
+        "different"
+      ],
+      "imageRequirement": "setup_only",
+      "imageBriefSetup": "Science table with large pet photos, plastic magnifier, and stuffed pets. Footer: littlelearnershubbyleah.com",
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite"
+    },
+    {
+      "title": "Build a Pet Home",
+      "dayOfWeek": "thursday",
+      "activityCategory": "STEM/Discovery",
+      "ageModifications": "Toddler 12–24 Months",
+      "durationMinutes": 12,
+      "objective": "Build a simple bed, box house, or block enclosure that can hold a stuffed pet.",
+      "description": "Toddlers use blocks, boxes, and blankets to create a home and test whether their pet fits inside.",
+      "materials": "Blocks\nShoeboxes\nBlankets/towels\nStuffed pets\nTape (teacher use)",
+      "preparation": "Collect boxes; open block area.",
+      "setup": "Floor building space with pets nearby.",
+      "steps": "1. Choose a pet.\n2. Build walls or place a blanket bed.\n3. Try fitting the pet.\n4. Adjust if needed.\n5. “Good night” routine.",
+      "teacherLanguage": "Does it fit?\nMake it bigger.\nWall or bed?\nYour pet has a home.",
+      "observationOpportunities": "Problem solving, spatial awareness, persistence after failed fit.",
+      "safetyNotes": "Stable structures only; no heavy blocks overhead; supervise boxes.",
+      "cleanupTips": "Blocks to shelf; flatten boxes if storing.",
+      "indoorAlternatives": "Default.",
+      "outdoorAlternatives": "Build with outdoor blocks under shade.",
+      "teacherTips": [
+        "Celebrate redesigns.",
+        "Avoid requiring symmetrical houses."
+      ],
+      "substitutions": [
+        {
+          "need": "Boxes",
+          "use": "Cushions + blankets"
+        }
+      ],
+      "adaptations": "Pre-build a three-block bed to personalize.",
+      "extensions": "Add a paper door sign with pet photo.",
+      "mixedAgeAdaptations": "Older toddlers add roofs; younger make blanket nests.",
+      "observationPrompts": [
+        "Did they revise after a pet did not fit?"
+      ],
+      "vocabulary": [
+        "build",
+        "home",
+        "bed",
+        "fit",
+        "big",
+        "small",
+        "wall"
+      ],
+      "imageRequirement": "setup_only",
+      "imageBriefSetup": "Block/box pet homes with stuffed pets tucked in, on a classroom rug. Footer: littlelearnershubbyleah.com",
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite"
+    },
+    {
+      "title": "Rescue Mission Adventure",
+      "dayOfWeek": "thursday",
+      "activityCategory": "Gross Motor",
+      "ageModifications": "Toddler 12–24 Months",
+      "durationMinutes": 10,
+      "objective": "Complete a pretend rescue path to bring pets to safety, combining movement and caregiving.",
+      "description": "Toddlers follow a path of mats to collect pets from “trees” (chairs) and deliver them to the clinic basket.",
+      "materials": "Floor mats\nChairs as trees\nStuffed pets\nClinic basket\nOptional siren sound (soft)",
+      "preparation": "Place pets on chairs; map path.",
+      "setup": "One-way rescue path ending at clinic.",
+      "steps": "1. Hear the soft helper call.\n2. Walk the mats.\n3. Gently take a pet from a chair.\n4. Deliver to clinic basket.\n5. Cheer the rescue.",
+      "teacherLanguage": "Helper coming!\nCareful carry.\nTo the clinic.\nPet is safe.",
+      "observationOpportunities": "Path following, gentle retrieval, teamwork.",
+      "safetyNotes": "Pets at safe heights; no climbing chairs; walking feet.",
+      "cleanupTips": "Return mats; stack pets.",
+      "indoorAlternatives": "Default.",
+      "outdoorAlternatives": "Use playground path and bench “trees.”",
+      "teacherTips": [
+        "Keep drama calm, not scary."
+      ],
+      "substitutions": [
+        {
+          "need": "Mats",
+          "use": "Tape arrows on floor"
+        }
+      ],
+      "adaptations": "Shorter path; adult carries with child.",
+      "extensions": "Two-pet rescue for older toddlers.",
+      "mixedAgeAdaptations": "Infants receive a rescued pet for cuddle time.",
+      "observationPrompts": [
+        "Was retrieval gentle?"
+      ],
+      "vocabulary": [
+        "rescue",
+        "safe",
+        "helper",
+        "path",
+        "clinic"
+      ],
+      "imageRequirement": "not_needed",
+      "imageBriefSetup": "",
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite"
+    },
+    {
+      "title": "Walk the Pet Movement Game",
+      "dayOfWeek": "thursday",
+      "activityCategory": "Music & Movement",
+      "ageModifications": "Toddler 12–24 Months",
+      "durationMinutes": 8,
+      "objective": "Move start/stop with music while “walking” a pet to practice listening and body control.",
+      "description": "Toddlers hold a pet or leash and walk when music plays, freezing when it stops.",
+      "materials": "Music player\nStuffed pets or short leashes\nOpen space",
+      "preparation": "Choose calm walking song; clear space.",
+      "setup": "Circle or line with pets ready.",
+      "steps": "1. Hold your pet.\n2. Music on — walking feet.\n3. Music off — freeze hug.\n4. Repeat 4–5 rounds.\n5. Sit and rest pets.",
+      "teacherLanguage": "Walking…\nFreeze!\nHug your pet.\nReady again?",
+      "observationOpportunities": "Auditory listening, impulse control, coordinated walking.",
+      "safetyNotes": "No running; space children; short leashes.",
+      "cleanupTips": "Stop music; pets to basket.",
+      "indoorAlternatives": "Default.",
+      "outdoorAlternatives": "Outdoor walking game.",
+      "teacherTips": [
+        "Keep freezes playful.",
+        "Offer seated rocking for children who need less locomotion."
+      ],
+      "substitutions": [
+        {
+          "need": "Music",
+          "use": "Teacher clap patterns"
+        }
+      ],
+      "adaptations": "Visual stop/go cards; seated version.",
+      "extensions": "Add tip-toe vs stomp pet walks.",
+      "mixedAgeAdaptations": "Infants sway with caregiver; toddlers walk/freeze.",
+      "observationPrompts": [
+        "Did freeze happen with fewer prompts over time?"
+      ],
+      "vocabulary": [
+        "walk",
+        "stop",
+        "freeze",
+        "listen",
+        "music"
+      ],
+      "imageRequirement": "not_needed",
+      "imageBriefSetup": "",
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite"
+    },
+    {
+      "title": "Collar Decorating",
+      "dayOfWeek": "thursday",
+      "activityCategory": "Art",
+      "ageModifications": "Toddler 12–24 Months",
+      "durationMinutes": 12,
+      "objective": "Decorate a large paper collar strip with stickers and stamps as an open-ended fine-motor art experience.",
+      "description": "Toddlers press stickers and stamps onto a wide paper collar, then tape it loosely around a stuffed pet (teacher assists sizing).",
+      "materials": "Wide paper strips\nLarge stickers\nStampers + washable ink\nTape\nStuffed pets\nSmocks",
+      "preparation": "Pre-cut large strips; sort big stickers only.",
+      "setup": "Art table with strips taped down lightly.",
+      "steps": "1. Decorate the strip.\n2. Choose stickers/stamps freely.\n3. Teacher helps fit collar on pet.\n4. Show pet to friends.",
+      "teacherLanguage": "Where will this sticker go?\nStamp!\nYour pet looks fancy.\nAll done?",
+      "observationOpportunities": "Pincer grasp, planning sticker placement, pride in sharing.",
+      "safetyNotes": "Large stickers only; monitor mouthing; ink non-toxic.",
+      "cleanupTips": "Close sticker sheets; wipe stamps.",
+      "indoorAlternatives": "Default.",
+      "outdoorAlternatives": "Clipboard art outdoors.",
+      "teacherTips": [
+        "Do not require pattern accuracy."
+      ],
+      "substitutions": [
+        {
+          "need": "Stickers",
+          "use": "Dot markers"
+        }
+      ],
+      "adaptations": "Pre-sticky strip; larger stickers.",
+      "extensions": "Add a paper name tag dictated by child.",
+      "mixedAgeAdaptations": "Younger toddlers place 2–3 stickers; older fill the strip.",
+      "observationPrompts": [
+        "Did fine-motor grasp look secure?"
+      ],
+      "vocabulary": [
+        "collar",
+        "sticker",
+        "stamp",
+        "decorate",
+        "pet"
+      ],
+      "imageRequirement": "example_only",
+      "imageBriefSetup": "",
+      "imageBriefExample": "Finished toddler-decorated paper pet collar on a stuffed dog: uneven stickers, simple stamps, slightly crooked tape, real classroom table. Footer: littlelearnershubbyleah.com",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite"
+    },
+    {
+      "title": "Pet Adoption Center",
+      "dayOfWeek": "thursday",
+      "activityCategory": "Dramatic Play",
+      "ageModifications": "Toddler 12–24 Months",
+      "durationMinutes": 12,
+      "objective": "Pretend to choose, name, and “adopt” a classroom pet for the day, practicing decision-making and gentle care.",
+      "description": "Toddlers visit an adoption shelf of pets, choose one, dictate a name for a teacher tag, and promise gentle care.",
+      "materials": "Shelf of stuffed pets\nPaper name tags\nMarker\nAdoption basket\nPicture signs",
+      "preparation": "Set shelf; prepare blank tags.",
+      "setup": "Adoption center next to clinic with a waiting line of tape marks.",
+      "steps": "1. Look at available pets.\n2. Choose one.\n3. Tell a name (or sound).\n4. Teacher writes tag.\n5. Take pet to a home bed.",
+      "teacherLanguage": "Which pet will you choose?\nWhat is the name?\nGentle care.\nWelcome home.",
+      "observationOpportunities": "Choice-making, language for names, caregiving follow-through.",
+      "safetyNotes": "Supervise tags (no pin backs); large pets.",
+      "cleanupTips": "Return unadopted pets; save tags if reusing.",
+      "indoorAlternatives": "Default.",
+      "outdoorAlternatives": "Blanket adoption fair outdoors.",
+      "teacherTips": [
+        "Accept any name including animal sounds.",
+        "Limit to one pet per child if needed."
+      ],
+      "substitutions": [
+        {
+          "need": "Name tags",
+          "use": "Masking tape labels"
+        }
+      ],
+      "adaptations": "Offer two choices only; point to choose.",
+      "extensions": "Visit vet clinic for a first check-up after adoption.",
+      "mixedAgeAdaptations": "Older toddlers help younger pick.",
+      "observationPrompts": [
+        "Did the child follow through with care after choosing?"
+      ],
+      "vocabulary": [
+        "adopt",
+        "choose",
+        "name",
+        "home",
+        "gentle",
+        "mine"
+      ],
+      "imageRequirement": "setup_only",
+      "imageBriefSetup": "Classroom adoption shelf with stuffed pets, name tags, and a welcome sign. Footer: littlelearnershubbyleah.com",
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite"
+    },
+    {
+      "title": "Pet Parade",
+      "dayOfWeek": "friday",
+      "activityCategory": "Music & Movement",
+      "ageModifications": "Toddler 12–24 Months",
+      "durationMinutes": 10,
+      "objective": "Celebrate the week with a joyful pet parade that reviews gentle walking and pet words.",
+      "description": "Toddlers parade with their adopted or favorite pets to a simple rhythm instrument beat, then bow and rest.",
+      "materials": "Stuffed pets\nDrum or shaker\nPath markers\nOptional helper badges",
+      "preparation": "Clear parade path; choose a steady beat.",
+      "setup": "Line up at start cone; audience cushions for peers waiting turns.",
+      "steps": "1. Line up with pets.\n2. March to the beat.\n3. Wave to friends.\n4. Bow at the finish.\n5. Rest pets in a circle.",
+      "teacherLanguage": "Pets ready?\nMarch, march.\nWave!\nTake a bow.\nRest time.",
+      "observationOpportunities": "Group participation, rhythm matching, pride/sharing.",
+      "safetyNotes": "Walking feet; spaced line; no running with leashes.",
+      "cleanupTips": "Collect instruments; pets to basket.",
+      "indoorAlternatives": "Classroom loop.",
+      "outdoorAlternatives": "Playground parade.",
+      "teacherTips": [
+        "Keep parade short and repeatable."
+      ],
+      "substitutions": [
+        {
+          "need": "Drum",
+          "use": "Clapping beat"
+        }
+      ],
+      "adaptations": "Seated parade with pet waves; shorter route.",
+      "extensions": "Each child names their pet for the group.",
+      "mixedAgeAdaptations": "Infants watch and bounce; toddlers march.",
+      "observationPrompts": [
+        "Did the child stay with the group beat?"
+      ],
+      "vocabulary": [
+        "parade",
+        "march",
+        "wave",
+        "bow",
+        "friend",
+        "pet"
+      ],
+      "imageRequirement": "not_needed",
+      "imageBriefSetup": "",
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite"
+    },
+    {
+      "title": "Create a Favorite Pet Craft",
+      "dayOfWeek": "friday",
+      "activityCategory": "Art",
+      "ageModifications": "Toddler 12–24 Months",
+      "durationMinutes": 12,
+      "objective": "Make an open-ended collage or paint portrait of a favorite pet using large paper and simple collage pieces.",
+      "description": "Toddlers glue large paper shapes and yarn bits onto a pet outline or free collage, focusing on process.",
+      "materials": "Large paper\nPre-cut large shapes (ears, circles)\nGlue sticks\nYarn pieces (short)\nCrayons\nSmocks",
+      "preparation": "Pre-cut shapes; portion glue; optional light pet outline.",
+      "setup": "Art table with shared shape trays.",
+      "steps": "1. Choose paper.\n2. Glue shapes anywhere.\n3. Add crayon marks.\n4. Add yarn if wanted.\n5. Dry flat.",
+      "teacherLanguage": "Where should the ear go?\nSticky glue.\nTell me about your pet.\nYou worked hard.",
+      "observationOpportunities": "Glue control, creative choices, language about the pet.",
+      "safetyNotes": "Short yarn only; glue sticks preferred; supervise.",
+      "cleanupTips": "Close glue; recycle scraps.",
+      "indoorAlternatives": "Default.",
+      "outdoorAlternatives": "Contact-paper collage outdoors (sticky side out).",
+      "teacherTips": [
+        "No correcting placement.",
+        "Offer free collage without outline."
+      ],
+      "substitutions": [
+        {
+          "need": "Yarn",
+          "use": "Torn paper strips"
+        }
+      ],
+      "adaptations": "Contact paper sticky collage for easier success.",
+      "extensions": "Dictate a sentence about the pet for the back of the paper.",
+      "mixedAgeAdaptations": "Younger toddlers stick 2–3 shapes; older add details.",
+      "observationPrompts": [
+        "Did the child describe their pet?"
+      ],
+      "vocabulary": [
+        "glue",
+        "ear",
+        "eye",
+        "pet",
+        "sticky",
+        "picture"
+      ],
+      "imageRequirement": "example_only",
+      "imageBriefSetup": "",
+      "imageBriefExample": "Finished toddler pet collage: uneven glued ears/shapes, crayon scribbles, short yarn, imperfect placement on classroom paper. Footer: littlelearnershubbyleah.com",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite"
+    },
+    {
+      "title": "Pet Sensory Exploration",
+      "dayOfWeek": "friday",
+      "activityCategory": "Sensory Play",
+      "ageModifications": "Toddler 12–24 Months",
+      "durationMinutes": 10,
+      "objective": "Compare soft, smooth, and bumpy pet-related textures using large safe samples.",
+      "description": "Toddlers feel fabric fur squares, smooth bowls, and bumpy rubber pet toys, sorting into soft/not soft baskets if interested.",
+      "materials": "Fur fabric squares\nSmooth plastic bowls\nBumpy rubber pet toys\nTwo baskets (soft / not soft)",
+      "preparation": "Sanitize textures; avoid shedding fur that mouths easily.",
+      "setup": "Sensory tray with two sort baskets.",
+      "steps": "1. Feel a texture.\n2. Name soft/smooth/bumpy.\n3. Optional sort into baskets.\n4. Revisit favorites.",
+      "teacherLanguage": "Soft?\nBumpy!\nWhere does it go?\nYou like that one.",
+      "observationOpportunities": "Sensory preferences, sorting interest, descriptive language.",
+      "safetyNotes": "Large pieces; watch mouthing of fabric; sanitize.",
+      "cleanupTips": "Bag textures; wipe toys.",
+      "indoorAlternatives": "Default.",
+      "outdoorAlternatives": "Add natural smooth stones only if too large to choke and supervised.",
+      "teacherTips": [
+        "Sorting is optional."
+      ],
+      "substitutions": [
+        {
+          "need": "Fur fabric",
+          "use": "Fleece scraps"
+        }
+      ],
+      "adaptations": "One texture at a time for sensitive children.",
+      "extensions": "Blindfold feel game for older toddlers (optional).",
+      "mixedAgeAdaptations": "Infants: caregiver-guided one soft square.",
+      "observationPrompts": [
+        "Which textures were preferred or avoided?"
+      ],
+      "vocabulary": [
+        "soft",
+        "smooth",
+        "bumpy",
+        "feel",
+        "same",
+        "different"
+      ],
+      "imageRequirement": "setup_only",
+      "imageBriefSetup": "Texture tray with fur squares, bowls, bumpy toys, and two sort baskets. Footer: littlelearnershubbyleah.com",
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite"
+    },
+    {
+      "title": "Build a Pet Playground",
+      "dayOfWeek": "friday",
+      "activityCategory": "STEM/Discovery",
+      "ageModifications": "Toddler 12–24 Months",
+      "durationMinutes": 12,
+      "objective": "Design a playful playground for stuffed pets using blocks, ramps, and tunnels.",
+      "description": "Toddlers build slides/ramps and tunnels then test whether a pet can go through or slide down.",
+      "materials": "Blocks\nCardboard ramps\nTunnels\nStuffed/plastic pets",
+      "preparation": "Stage ramp pieces; clear build zone.",
+      "setup": "Block center with pets waiting on a tray.",
+      "steps": "1. Build a ramp or tunnel.\n2. Send a pet through/down.\n3. Fix if it falls.\n4. Add a second feature.\n5. Tour the playground.",
+      "teacherLanguage": "Will it slide?\nTry again.\nUp or down?\nYour playground is ready.",
+      "observationOpportunities": "Cause/effect testing, collaboration, redesign after failure.",
+      "safetyNotes": "Stable builds; no high towers near walking paths.",
+      "cleanupTips": "Blocks away; flatten ramps.",
+      "indoorAlternatives": "Default.",
+      "outdoorAlternatives": "Outdoor block cart.",
+      "teacherTips": [
+        "Ask prediction questions sparingly."
+      ],
+      "substitutions": [
+        {
+          "need": "Ramp",
+          "use": "Hardcover book as slide"
+        }
+      ],
+      "adaptations": "Provide a starter ramp.",
+      "extensions": "Race two pets down ramps.",
+      "mixedAgeAdaptations": "Older build; younger test pets.",
+      "observationPrompts": [
+        "Did they redesign after a tumble?"
+      ],
+      "vocabulary": [
+        "ramp",
+        "slide",
+        "tunnel",
+        "build",
+        "down",
+        "up",
+        "try"
+      ],
+      "imageRequirement": "setup_only",
+      "imageBriefSetup": "Block pet playground with ramp and tunnel and stuffed pets. Footer: littlelearnershubbyleah.com",
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite"
+    },
+    {
+      "title": "Junior Veterinarian Graduation",
+      "dayOfWeek": "friday",
+      "activityCategory": "Circle Time",
+      "ageModifications": "Toddler 12–24 Months",
+      "durationMinutes": 10,
+      "objective": "Close the week with a simple Pet Helper Celebration that reviews gentle care words—not a formal academic graduation.",
+      "description": "Toddlers wear helper badges, show a favorite pet, share one care word or action, and receive a sticker high-five.",
+      "materials": "Helper badges\nStuffed pets\nLarge celebration sign “Pet Helpers”\nStickers\nSong",
+      "preparation": "Make badges; post celebration sign; choose a short song.",
+      "setup": "Circle cushions with pets on laps.",
+      "steps": "1. Sing a short pet song.\n2. Each child shows a pet (optional).\n3. Teacher names one gentle thing they did this week.\n4. Sticker high-five.\n5. Group cheer: “Gentle helpers!”",
+      "teacherLanguage": "You were a gentle helper.\nWhat did your pet need?\nHigh five!\nWe care for pets.",
+      "observationOpportunities": "Pride, recall of care routines, willingness to share in a group.",
+      "safetyNotes": "Keep celebration short; no pressure to speak; large stickers.",
+      "cleanupTips": "Collect badges if reusing.",
+      "indoorAlternatives": "Default.",
+      "outdoorAlternatives": "Blanket celebration outdoors.",
+      "teacherTips": [
+        "Rename away from “graduation” pressure if families prefer.",
+        "Spotlight actions, not perfection."
+      ],
+      "substitutions": [
+        {
+          "need": "Stickers",
+          "use": "Stamp on hand"
+        }
+      ],
+      "adaptations": "Allow nonverbal show-and-share; adult speaks for child if invited.",
+      "extensions": "Family note: “Ask what pet we cared for today.”",
+      "mixedAgeAdaptations": "Infants get a soft song + cuddle pet; toddlers share.",
+      "observationPrompts": [
+        "Did the child show recognition of a care routine?"
+      ],
+      "vocabulary": [
+        "helper",
+        "gentle",
+        "proud",
+        "care",
+        "friend",
+        "pet"
+      ],
+      "imageRequirement": "not_needed",
+      "imageBriefSetup": "",
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Reframed as Pet Helper Celebration; avoid academic graduation tone"
+    }
+  ]
+}

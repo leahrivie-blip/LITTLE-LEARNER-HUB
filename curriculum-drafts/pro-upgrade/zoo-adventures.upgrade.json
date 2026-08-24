@@ -1,0 +1,1382 @@
+{
+  "batch": "priority-1",
+  "lessonId": "cur-lp-toddler-zoo-adventures",
+  "title": "Zoo Adventures",
+  "age": "Toddler",
+  "masterPasteValidated": true,
+  "draftChannel": "enrichment_draft",
+  "liveReplaceForbiddenWhilePublished": true,
+  "week": {
+    "weeklyOverview": "This week toddlers explore the zoo as gentle zookeepers and habitat helpers—not clinic vets. They discover large animal props, practice animal sounds and movements, build simple habitats with boxes and blankets, and care for stuffed zoo friends with feeding and soft check-ins. Days stay short, play-based, and sensory-rich: process art (spots, stripes), water trunk play, jungle bins, and dramatic zookeeper roles. Teachers expect parallel play, brief attention, and joyful repetition of roar, swing, tall, and stripes.",
+    "objectives": "Social-emotional: Practice gentle care, turn-taking, and zookeeper helper roles with peers.\nLanguage: Hear and try zoo words such as zoo, keeper, habitat, roar, trunk, stripes, tall, and swing.\nCognitive: Notice animal features and match animals to simple homes.\nFine motor: Scoop feed, stamp tracks, peel large stickers, and paint with chunky tools.\nGross motor: Crawl, stretch tall, swing arms, and follow short obstacle paths like zoo animals.\nSensory: Explore jungle textures, water play, and safe sensory fillers with scooping.\nCreative: Make process spot/stripe art and open-ended animal masks with large materials.",
+    "weeklyMaterials": "Everyday: stuffed zoo animals, plastic figurines, baskets, bowls, scoops, blankets, cardboard boxes, blocks, painter’s tape, smocks, towels\nArt: washable paint, paper, large stickers, stampers, glue sticks, pre-cut shapes, paper plates, yarn scraps\nSensory: shallow tubs, water, leaves/grass scraps or paper shreds, scoops, cups\nDramatic play: zookeeper badges, toy binoculars, large fabric bandages (care only), feeding bowls, habitat signs\nLiteracy: Dear Zoo; Giraffes Can’t Dance; Brown Bear, Brown Bear, What Do You See?; From Head to Toe; Put Me in the Zoo\nOptional printables: habitat zone signs; animal choice cards",
+    "teacherPreparation": "Before Monday: sanitize animals/tools; remove tiny pieces; stage reusable Zoo / Habitat / Keeper Care zones.\nPrep one art tray and one sensory tub plan; alternate wet days.\nPre-cut large giraffe spots and zebra stripe strips.\nChoose 2–3 books for the reading basket.\nPrint habitat/keeper signs if using; laminate for reuse.\nThursday care play = zookeeper care (feed, rest, gentle check)—not a medical clinic.",
+    "prepChecklist": [
+      "Sanitize zoo animals and tools",
+      "Remove choking-size pieces from kits",
+      "Stage Zoo / Habitat / Keeper Care zones",
+      "Pre-cut large spots and stripe strips",
+      "Allergy check for sensory fillers",
+      "Select 2–3 zoo animal books",
+      "Prepare zookeeper badges"
+    ],
+    "observationFocus": "Gentle vs rough touch with animals\nZoo vocabulary attempts (roar, trunk, tall)\nTurn-taking at popular centers\nImitation of animal movements\nSensory preferences in jungle/water play\nPersistence in simple habitat building",
+    "familyConnection": "Invite families to name a favorite zoo or picture-book animal and practice one sound or movement together (roar, stretch tall, swing). Optional: send a photo of a stuffed animal at home—no required homework.",
+    "adaptations": "Offer watching-first entry, fewer props, dry alternatives to water play, shorter paths, and picture supports. Never force holding animals or loud roaring.",
+    "vocabularyWords": "zoo\nhabitat\nkeeper\nlion\nelephant\nzebra\nmonkey\ngiraffe\ntrunk\nroar\nswing\ntall\nstripes\nfeed\ngentle\nhome",
+    "books": [
+      {
+        "title": "Dear Zoo",
+        "author": "Rod Campbell",
+        "prompts": [
+          "What animal is in the box?",
+          "Was that animal too big or too tall?",
+          "Can you lift the flap with me?"
+        ]
+      },
+      {
+        "title": "Giraffes Can't Dance",
+        "author": "Giles Andreae",
+        "prompts": [
+          "Who is tall?",
+          "How does the giraffe move?",
+          "Can you dance gently like Gerald?"
+        ]
+      },
+      {
+        "title": "Brown Bear, Brown Bear, What Do You See?",
+        "author": "Bill Martin Jr. and Eric Carle",
+        "prompts": [
+          "What do you see?",
+          "What color is the animal?",
+          "Whose turn is next?"
+        ]
+      },
+      {
+        "title": "From Head to Toe",
+        "author": "Eric Carle",
+        "prompts": [
+          "Can you do it too?",
+          "Where is your head? Your toes?",
+          "Which animal are we moving like?"
+        ]
+      },
+      {
+        "title": "Put Me in the Zoo",
+        "author": "Robert Lopshire",
+        "prompts": [
+          "Where does he want to go?",
+          "What can he do with his spots?",
+          "Would you put him in the zoo?"
+        ]
+      }
+    ],
+    "songs": [
+      {
+        "title": "Going to the Zoo",
+        "notes": "Traditional/known children’s song; clap the rhythm; do not reproduce copyrighted lyrics."
+      },
+      {
+        "title": "Walking Through the Jungle",
+        "notes": "Movement chant with tip-toe and freeze; traditional playground style."
+      },
+      {
+        "title": "Five Little Monkeys",
+        "notes": "Traditional fingerplay; keep jumps gentle on mats."
+      },
+      {
+        "title": "LLH Zookeeper Chant",
+        "notes": "Original chant: “Gentle hands, zoo friends, keepers care today.”"
+      }
+    ],
+    "teacherToolkit": {
+      "prepChecklist": [
+        "Sanitize animals/tools",
+        "Stage habitat and keeper zones",
+        "Prep art/sensory rotations",
+        "Pull books/songs card"
+      ],
+      "observationFocus": [
+        "Gentle touch",
+        "Zoo words",
+        "Animal movement imitation",
+        "Sensory tolerance"
+      ],
+      "reusableCenters": [
+        "Animal discovery table",
+        "Habitat building corner",
+        "Keeper care station"
+      ]
+    },
+    "printableIdeas": [
+      {
+        "title": "Habitat Zone Signs",
+        "reason": "Labels Jungle / Savanna / Water for habitat play clarity"
+      },
+      {
+        "title": "Animal Choice Cards",
+        "reason": "Large pictures for choosing roar, stretch, or swing movements"
+      }
+    ],
+    "researchSources": [
+      "NAEYC Developmentally Appropriate Practice — play-based science and dramatic play",
+      "ZERO TO THREE guidance on toddler sensory exploration and short activity bursts",
+      "Practical toddler zoo/habitat setups emphasizing large props and zookeeper caregiving (not medical clinic)"
+    ],
+    "coverStatus": "COVER IMAGE PENDING",
+    "proposedCoverActivity": "Zoo Keeper Dramatic Play"
+  },
+  "activities": [
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "imageBriefExample": "",
+      "imageBriefSetup": "Realistic daycare rug with basket of large stuffed zoo animals and toddler space. Hands/props focus. Footer: littlelearnershubbyleah.com",
+      "title": "Animal Discovery Table",
+      "dayOfWeek": "monday",
+      "activityCategory": "Open-Ended Exploration",
+      "durationMinutes": 10,
+      "objective": "Invite toddlers to look, touch, and name large zoo animals so they can choose a favorite friend for the week.",
+      "description": "Toddlers explore a low table of stuffed and plastic zoo animals. They may hold, point, carry, or line animals up while the teacher models gentle touch and simple zoo words.",
+      "materials": "4–6 large stuffed or soft plastic zoo animals (lion, elephant, zebra, monkey, giraffe)\nLow table or floor mat\nBasket for animals\nOptional: large animal photo cards",
+      "preparation": "Sanitize animals and basket\nLimit to 4–6 animals (avoid clutter)\nPlace photo cards nearby if using",
+      "setup": "Arrange animals in an open basket on a rug with space for 2–3 toddlers to kneel. Keep walkways clear.",
+      "steps": "1. Sit at toddler level and greet one animal by name.\n2. Invite each child to choose an animal to hold or look at.\n3. Model gentle petting with an open palm.\n4. Offer words: soft, lion, tall, zoo.\n5. Allow free exploration; rotate animals if needed.\n6. End by helping animals “rest” in the zoo basket.",
+      "teacherLanguage": "Who is this animal?\nCan you give a gentle touch?\nIs the giraffe tall?\nWhere should the lion rest?\nYou are a careful zoo friend.",
+      "observationOpportunities": "Notice approaching/avoiding, naming attempts, gentle vs rough touch, and sharing of space.",
+      "safetyNotes": "Use animals too large to choke on. Remove loose eyes/buttons. Sanitize after mouthing. Supervise closely.",
+      "cleanupTips": "Return animals to the basket. Spot-clean mouthed toys before the next group.",
+      "indoorAlternatives": "Use a quiet corner rug if the room is busy.",
+      "outdoorAlternatives": "Bring a small animal basket outdoors on a blanket in the shade.",
+      "teacherTips": [
+        "Start with fewer animals for younger toddlers.",
+        "If a child only watches, narrate peers without pressure."
+      ],
+      "substitutions": [
+        {
+          "need": "Stuffed zoo animals",
+          "use": "Large printed animal photos laminated + soft blankets to wrap"
+        }
+      ],
+      "adaptations": "Offer hand-under-hand for gentle touch. Allow watching first. Provide a second identical animal if sharing is hard.",
+      "extensions": "Invite toddlers to “feed” their animal with pretend bowls after choosing.",
+      "mixedAgeAdaptations": "Older toddlers can introduce one animal word to younger friends.",
+      "observationPrompts": [
+        "Did the child choose an animal independently?",
+        "Did they attempt a name or animal sound?",
+        "Was touch gentle with support?"
+      ],
+      "vocabulary": [
+        "zoo",
+        "animal",
+        "lion",
+        "soft",
+        "gentle",
+        "hold",
+        "friend"
+      ],
+      "imageRequirement": "setup_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "imageBriefExample": "",
+      "imageBriefSetup": "",
+      "title": "Roar Like A Lion",
+      "dayOfWeek": "monday",
+      "activityCategory": "Music & Movement",
+      "durationMinutes": 8,
+      "objective": "Practice loud/soft voice play and body awareness by roaring and stretching like lions in short, joyful rounds.",
+      "description": "Toddlers roar softly then loudly, shake manes (scarves), and freeze when the “keeper” holds up a stop picture—keeping volume and movement toddler-safe.",
+      "materials": "Open rug space\nScarves or fabric “manes”\nOptional lion picture card\nSoft music optional",
+      "preparation": "Clear trip hazards\nPractice a soft roar model\nSet a freeze cue (picture or hand signal)",
+      "setup": "Children sit or stand in a circle with space between bodies. Scarves in a basket center.",
+      "steps": "1. Show the lion and model a soft roar.\n2. Invite toddlers to roar soft, then a little louder.\n3. Shake scarf manes.\n4. Freeze when the keeper cue appears.\n5. Repeat 2–3 short rounds.\n6. End with quiet resting lions.",
+      "teacherLanguage": "Can you roar soft like a sleepy lion?\nShake your mane!\nFreeze — quiet paws.\nLoud roar? Soft roar?\nLions rest now.",
+      "observationOpportunities": "Watch volume control with support, imitation, freeze listening, and enjoyment of group movement.",
+      "safetyNotes": "No screaming in faces. Space children out. Sitting option for children who prefer less intensity.",
+      "cleanupTips": "Collect scarves; wipe handles if shared.",
+      "indoorAlternatives": "Seated roar-and-shake if energy is high.",
+      "outdoorAlternatives": "Do lion roars on the grass with more space.",
+      "teacherTips": [
+        "Model soft first.",
+        "Offer a whisper roar for sensitive ears."
+      ],
+      "substitutions": [
+        {
+          "need": "Scarves",
+          "use": "Paper plate “manes” on yarn loops (supervised) or shirt hoods as pretend manes"
+        }
+      ],
+      "adaptations": "Allow silent mouth shapes. Offer noise-reducing headphones for sensitive children nearby.",
+      "extensions": "Let a child hold the freeze card for one round.",
+      "mixedAgeAdaptations": "Infants can watch and bounce; older toddlers lead the roar volume.",
+      "observationPrompts": [
+        "Did the child attempt a roar or mane shake?",
+        "Could they freeze with support?"
+      ],
+      "vocabulary": [
+        "lion",
+        "roar",
+        "soft",
+        "loud",
+        "mane",
+        "freeze",
+        "rest"
+      ],
+      "imageRequirement": "not_needed"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "imageBriefExample": "",
+      "imageBriefSetup": "Toddler tray with stuffed elephant, bowl, large scoop, and paper leaf feed. Realistic classroom. Footer: littlelearnershubbyleah.com",
+      "title": "Feed The Zoo Animals",
+      "dayOfWeek": "monday",
+      "activityCategory": "Fine Motor",
+      "durationMinutes": 10,
+      "objective": "Strengthen scooping and releasing by feeding stuffed zoo animals with large scoops and toddler-safe “food.”",
+      "description": "Toddlers scoop crumpled paper leaves, large pom-poms, or dry oats into bowls for zoo animals, then wipe mouths and say “all done.”",
+      "materials": "Stuffed zoo animals\nBowls\nLarge scoops/spoons\nCrumpled green paper “leaves” OR dry oats (allergy check)\nCloths",
+      "preparation": "Portion filler into a shallow bin\nSet bowls on a wipeable tray\nAllergy check; prefer paper for mouthers",
+      "setup": "Tray table with 2–3 animals seated on towel placemats. Limit 2–3 children.",
+      "steps": "1. Choose an animal to feed.\n2. Scoop food into a bowl.\n3. Offer the bowl to the animal.\n4. Wipe the mouth gently.\n5. Say “all done” and rest the animal.",
+      "teacherLanguage": "Is the elephant hungry?\nScoop, scoop.\nMore or all done?\nGentle wipe.\nThank you, zookeeper.",
+      "observationOpportunities": "Observe scooping control, sequencing, pretend feeding language, and cleanup willingness.",
+      "safetyNotes": "No choking-size pieces. Supervise fillers. Paper leaves for under-2 mouthers if needed.",
+      "cleanupTips": "Sweep oats or collect paper; wash bowls.",
+      "indoorAlternatives": "Paper leaves only for easier cleanup.",
+      "outdoorAlternatives": "Scoop at an outdoor sensory table.",
+      "teacherTips": [
+        "One scoop demonstration at a time.",
+        "Keep water pretend-only unless a separate water day."
+      ],
+      "substitutions": [
+        {
+          "need": "Oats",
+          "use": "Torn paper, large pom-poms for older toddlers, or cooked pasta shapes if safe"
+        }
+      ],
+      "adaptations": "Offer hand-under-hand scooping. Pre-fill bowls for children who prefer delivering only.",
+      "extensions": "Match food color to animal choice cards.",
+      "mixedAgeAdaptations": "Preschoolers can portion bins; toddlers scoop and deliver.",
+      "observationPrompts": [
+        "Did the child scoop and release into a bowl?",
+        "Did they use feed/hungry words?"
+      ],
+      "vocabulary": [
+        "feed",
+        "scoop",
+        "bowl",
+        "hungry",
+        "elephant",
+        "done",
+        "keeper"
+      ],
+      "imageRequirement": "setup_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "imageBriefExample": "",
+      "imageBriefSetup": "Toddler zookeeper dramatic play: badge, stuffed lion, bowl, blanket nest. Not a vet clinic. Footer: littlelearnershubbyleah.com",
+      "title": "Zoo Keeper Dramatic Play",
+      "dayOfWeek": "monday",
+      "activityCategory": "Dramatic Play",
+      "durationMinutes": 15,
+      "objective": "Practice zookeeper caregiving roles—feed, rest, and gentle check—using a few clear props and short turns.",
+      "description": "Toddlers wear simple keeper badges, carry animals to a feeding spot, offer a bowl, listen gently with a toy listener (optional), and rest animals in a habitat basket. Keep the story about zoo care, not a medical clinic.",
+      "materials": "Keeper badges (large paper/felt)\n2–3 stuffed zoo animals\nFeeding bowls\nBlanket habitat nest\nOptional: toy binoculars, short fabric care wraps\nLow table",
+      "preparation": "Remove tiny medical kit pieces if any props are borrowed\nStage Feed / Rest zones\nPrep 2 badges",
+      "setup": "Create two clear zones: Feeding table and Resting habitat nest. Limit props so the story stays simple.",
+      "steps": "1. Show Feed and Rest zones.\n2. Model: animal waits → keeper feeds → gentle check → rest.\n3. Invite 1–2 toddlers at a time.\n4. Narrate keeper language while children lead.\n5. Rotate helper roles.\n6. Close by resting animals together.",
+      "teacherLanguage": "Are you the zookeeper today?\nIs your animal hungry?\nGentle check — all okay?\nWhere is the habitat nest?\nThank you, keeper.",
+      "observationOpportunities": "Observe role-taking, turn-taking, caregiving language, and multi-step pretend sequences.",
+      "safetyNotes": "No small parts. No real medicines. Keep care wraps large. Supervise cords on binoculars.",
+      "cleanupTips": "Sort props into Feed / Rest bins. Wipe table.",
+      "indoorAlternatives": "Fits a dramatic-play corner all week.",
+      "outdoorAlternatives": "Move feeding table under shade with the same zones.",
+      "teacherTips": [
+        "Less is best: 2 tools max at first.",
+        "Keep language on keeper/habitat care, not doctor/clinic."
+      ],
+      "substitutions": [
+        {
+          "need": "Keeper badges",
+          "use": "Stickers on shirts or a special hat"
+        }
+      ],
+      "adaptations": "Offer a one-step job (“put animal in nest”). Picture sequence cards for two steps.",
+      "extensions": "Add a clipboard with a large animal photo to point to (no writing).",
+      "mixedAgeAdaptations": "Older children can be ticket-takers; toddlers stay on hands-on animal care.",
+      "observationPrompts": [
+        "Did the child attempt more than one keeper step?",
+        "Did they use keeper/feed/rest words?"
+      ],
+      "vocabulary": [
+        "keeper",
+        "zoo",
+        "feed",
+        "rest",
+        "habitat",
+        "gentle",
+        "help"
+      ],
+      "imageRequirement": "setup_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "imageBriefExample": "",
+      "imageBriefSetup": "",
+      "title": "Animal Picture Book Exploration",
+      "dayOfWeek": "monday",
+      "activityCategory": "Literacy",
+      "durationMinutes": 10,
+      "objective": "Build animal vocabulary and book-handling interest through a short, interactive zoo picture-book share.",
+      "description": "Teacher reads Dear Zoo or Brown Bear with flaps/pages held at toddler level. Children point, roar, and help turn sturdy pages.",
+      "materials": "Dear Zoo (Rod Campbell) and/or Brown Bear, Brown Bear\nCushions\n1–2 stuffed animals matching the book",
+      "preparation": "Preview flaps/pages\nPlace matching stuffed animal nearby\nPlan 2–3 prompts only",
+      "setup": "Small group on cushions; book facing children; stuffed animal for pointing.",
+      "steps": "1. Show the cover and animal friend.\n2. Read slowly, pausing for pointing.\n3. Invite a roar or animal name.\n4. Let a child help turn a page or lift a flap.\n5. Retell one favorite animal at the end.",
+      "teacherLanguage": "What do you see?\nWas that animal too big?\nCan you roar?\nYour turn to turn the page.\nWhich animal is your favorite?",
+      "observationOpportunities": "Watch pointing, page interest, sound imitation, and joint attention.",
+      "safetyNotes": "Board books preferred. Supervise flaps. No small book accessories.",
+      "cleanupTips": "Return books to basket; wipe covers if mouthed.",
+      "indoorAlternatives": "One-on-one lap reading for sensitive children.",
+      "outdoorAlternatives": "Shade blanket story time with the same book.",
+      "teacherTips": [
+        "Keep reading under 5–7 minutes.",
+        "Follow the child’s pointing more than finishing every page."
+      ],
+      "substitutions": [
+        {
+          "need": "Dear Zoo",
+          "use": "Any sturdy zoo animal board book with clear pictures"
+        }
+      ],
+      "adaptations": "Offer lap seating. Use photo cards if book sharing is too stimulating.",
+      "extensions": "Match the book animal to a stuffed animal on the discovery table.",
+      "mixedAgeAdaptations": "Older toddlers lift flaps; younger children point and listen.",
+      "observationPrompts": [
+        "Did the child point to a picture?",
+        "Did they attempt an animal sound or word?"
+      ],
+      "vocabulary": [
+        "book",
+        "zoo",
+        "see",
+        "big",
+        "page",
+        "animal",
+        "favorite"
+      ],
+      "imageRequirement": "not_needed"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "imageBriefExample": "",
+      "imageBriefSetup": "Floor habitat play with open box, blanket nest, blocks, and stuffed zoo animals. Footer: littlelearnershubbyleah.com",
+      "title": "Build Animal Habitats",
+      "dayOfWeek": "tuesday",
+      "activityCategory": "STEM/Discovery",
+      "durationMinutes": 12,
+      "objective": "Explore simple animal homes by arranging boxes, blankets, and blocks into toddler-sized habitats.",
+      "description": "Toddlers place animals into box “caves,” blanket “nests,” and block “fences,” noticing that animals need a place to rest.",
+      "materials": "Cardboard boxes (open, no staples)\nBlankets/towels\nLarge blocks\n2–4 stuffed/plastic animals\nOptional habitat picture cards (jungle/water/grass)",
+      "preparation": "Tape box edges smooth\nRemove small packing bits\nStage 2 habitat options only",
+      "setup": "Floor space with boxes and blankets open. Animals in a basket nearby.",
+      "steps": "1. Show a picture: “This animal needs a home.”\n2. Model placing an animal in a box nest.\n3. Invite toddlers to build or choose a home.\n4. Visit each habitat with binoculars (optional).\n5. Rest animals and take a photo walk with eyes only.",
+      "teacherLanguage": "Where does your animal live?\nIs it a soft nest?\nCan the lion go in the cave?\nHome time.\nYou built a habitat!",
+      "observationOpportunities": "Notice spatial play, matching animal to home, persistence, and vocabulary (home/habitat).",
+      "safetyNotes": "No heavy lids that can fall. Boxes stable. Supervise climbing—sitting in boxes only if large and supervised.",
+      "cleanupTips": "Collapse soft blankets; stack blocks; return animals.",
+      "indoorAlternatives": "Use laundry baskets as habitats.",
+      "outdoorAlternatives": "Build habitats under a tree with blankets and crates.",
+      "teacherTips": [
+        "Two habitat choices beat six.",
+        "Narrate location words: in, on, under."
+      ],
+      "substitutions": [
+        {
+          "need": "Cardboard boxes",
+          "use": "Laundry baskets, tunnels, or draped chairs"
+        }
+      ],
+      "adaptations": "Offer a ready-made nest for children who prefer placing only. Hand-under-hand for draping blankets.",
+      "extensions": "Add blue fabric “water” for elephants.",
+      "mixedAgeAdaptations": "Preschoolers can label habitats; toddlers place animals.",
+      "observationPrompts": [
+        "Did the child place an animal in a home?",
+        "Did they use in/on/under or home words?"
+      ],
+      "vocabulary": [
+        "habitat",
+        "home",
+        "nest",
+        "cave",
+        "in",
+        "under",
+        "build"
+      ],
+      "imageRequirement": "setup_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "imageBriefExample": "",
+      "imageBriefSetup": "Shallow jungle sensory tub with green shreds, scoops, and large animal figurines. Footer: littlelearnershubbyleah.com",
+      "title": "Jungle Sensory Bin",
+      "dayOfWeek": "tuesday",
+      "activityCategory": "Sensory Play",
+      "durationMinutes": 12,
+      "objective": "Explore jungle textures with scooping, pouring, and finding hidden large animals in a shallow sensory bin.",
+      "description": "Toddlers dig through shredded green paper, large leaves, or kinetic sand (optional) to find animals and scoop “jungle food.”",
+      "materials": "Shallow tub\nGreen paper shreds or large faux leaves\n2–3 large animal figurines\nScoops and cups\nSmocks\nTowel under tub",
+      "preparation": "Allergy/texture check\nHide only large animals\nSet wipe station nearby",
+      "setup": "Tub on low table or floor with towel. Limit 2 children. Smocks on.",
+      "steps": "1. Show how to scoop gently.\n2. Invite children to find an animal.\n3. Scoop jungle “leaves” into cups.\n4. Name textures: soft, crunchy, green.\n5. Wash/wipe hands when finished.",
+      "teacherLanguage": "What do you feel?\nCan you find the monkey?\nScoop the leaves.\nSoft or crunchy?\nAll done — wipe hands.",
+      "observationOpportunities": "Sensory tolerance, scooping, searching persistence, and texture words.",
+      "safetyNotes": "No tiny pieces. Supervise mouthing. Wipe floor spills to prevent slips.",
+      "cleanupTips": "Collect shreds; sanitize animals; mop spills.",
+      "indoorAlternatives": "Dry paper shreds only for easier cleanup.",
+      "outdoorAlternatives": "Use a water table with floating large leaves and animals.",
+      "teacherTips": [
+        "Keep filler shallow.",
+        "Offer a dry tray alternative beside the bin."
+      ],
+      "substitutions": [
+        {
+          "need": "Paper shreds",
+          "use": "Strips of fabric, large pom-poms, or clean grass clippings outdoors"
+        }
+      ],
+      "adaptations": "Offer tools-only exploration (no hands in) for tactile-sensitive children.",
+      "extensions": "Sort found animals into a “jungle basket.”",
+      "mixedAgeAdaptations": "Older toddlers hide animals for friends; younger find.",
+      "observationPrompts": [
+        "Did the child scoop or dig willingly?",
+        "Did they notice a texture or find an animal?"
+      ],
+      "vocabulary": [
+        "jungle",
+        "soft",
+        "scoop",
+        "find",
+        "green",
+        "monkey",
+        "feel"
+      ],
+      "imageRequirement": "setup_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "imageBriefExample": "",
+      "imageBriefSetup": "",
+      "title": "Monkey Swing Obstacle Course",
+      "dayOfWeek": "tuesday",
+      "activityCategory": "Gross Motor",
+      "durationMinutes": 10,
+      "objective": "Move like monkeys through a short obstacle path to build balance, climbing-over, and listening skills.",
+      "description": "Toddlers crawl under a scarf “vine,” step over blocks, and swing arms while walking a taped path—then freeze for banana rest.",
+      "materials": "Painter’s tape path\nScarves or pool noodle “vines” (low)\nLarge cushions/blocks to step over\nBanana picture or soft toy banana\nOpen space",
+      "preparation": "Clear hazards\nKeep obstacles very low\nMark start/finish",
+      "setup": "Simple 3-station loop: crawl under, step over, arm-swing walk.",
+      "steps": "1. Demonstrate the monkey path slowly.\n2. Invite one toddler at a time (or spaced pairs).\n3. Cue arm swings: “Swing, swing.”\n4. Pause at banana rest.\n5. Repeat once if interest remains.",
+      "teacherLanguage": "Can you crawl under the vine?\nSwing your monkey arms!\nStep over — careful feet.\nBanana rest!\nYou did the monkey course!",
+      "observationOpportunities": "Balance, imitation, waiting for turns, and stop/start listening.",
+      "safetyNotes": "No climbing high. Spot children. Indoor walking feet. Soft landings only.",
+      "cleanupTips": "Collect scarves and blocks; remove tape if needed.",
+      "indoorAlternatives": "Hallway crawl-and-swing path.",
+      "outdoorAlternatives": "Use playground tunnel as the vine crawl.",
+      "teacherTips": [
+        "Three stations max.",
+        "Offer a hand for balance without lifting children onto equipment."
+      ],
+      "substitutions": [
+        {
+          "need": "Scarves",
+          "use": "Chairs with a blanket draped low to crawl under"
+        }
+      ],
+      "adaptations": "Allow walking around obstacles. Stroller users can shake a scarf as the “swing.”",
+      "extensions": "Let a child place the banana rest spot.",
+      "mixedAgeAdaptations": "Infants watch; older toddlers add a gentle hop at the end.",
+      "observationPrompts": [
+        "Did the child attempt at least one station?",
+        "Could they wait or take a turn?"
+      ],
+      "vocabulary": [
+        "monkey",
+        "swing",
+        "crawl",
+        "over",
+        "under",
+        "rest",
+        "go"
+      ],
+      "imageRequirement": "not_needed"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "imageBriefExample": "",
+      "imageBriefSetup": "Three large habitat mats with toddler placing a monkey on trees. Footer: littlelearnershubbyleah.com",
+      "title": "Habitat Matching Game",
+      "dayOfWeek": "tuesday",
+      "activityCategory": "Fine Motor",
+      "durationMinutes": 10,
+      "objective": "Match animals to simple habitat pictures using large cards and chunky placement practice.",
+      "description": "Toddlers place an animal figurine or photo on a matching habitat mat (water, grass, trees) with teacher modeling.",
+      "materials": "3 large habitat mats (blue water, green grass, brown trees)\n3–6 large animal photos or figurines\nBasket",
+      "preparation": "Print/laminate large mats\nChoose obvious matches (fish/water optional; elephant/water, lion/grass, monkey/trees)",
+      "setup": "Mats on floor in a row; animals in basket.",
+      "steps": "1. Name each habitat with a pointing gesture.\n2. Model: “Monkey goes to trees.”\n3. Invite a child to place one animal.\n4. Celebrate any thoughtful placement.\n5. Gather animals home to the basket.",
+      "teacherLanguage": "Where does the monkey live?\nWater or grass?\nPut it on the habitat.\nYou matched it!\nAnimals go home now.",
+      "observationOpportunities": "Matching attempts, pointing, vocabulary, and fine-motor placing.",
+      "safetyNotes": "Large cards only. No paper clips. Supervise laminated corners if peeling.",
+      "cleanupTips": "Stack mats; return animals.",
+      "indoorAlternatives": "Tabletop matching with velcro dots (large).",
+      "outdoorAlternatives": "Chalk habitat circles on sidewalk.",
+      "teacherTips": [
+        "Accept approximate matches.",
+        "Use real objects when cards are too abstract."
+      ],
+      "substitutions": [
+        {
+          "need": "Habitat mats",
+          "use": "Three colored towels as habitat zones"
+        }
+      ],
+      "adaptations": "Offer two choices only. Hand-under-hand placement.",
+      "extensions": "Add a second identical set for parallel matching.",
+      "mixedAgeAdaptations": "Older toddlers explain the match; younger place with cues.",
+      "observationPrompts": [
+        "Did the child place an animal on a mat?",
+        "Did they respond to habitat words?"
+      ],
+      "vocabulary": [
+        "habitat",
+        "match",
+        "water",
+        "grass",
+        "trees",
+        "where",
+        "put"
+      ],
+      "imageRequirement": "setup_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "imageBriefExample": "",
+      "imageBriefSetup": "",
+      "title": "Animal Home Story Time",
+      "dayOfWeek": "tuesday",
+      "activityCategory": "Literacy",
+      "durationMinutes": 10,
+      "objective": "Connect story animals to homes through a short read-aloud and pointing to habitat props.",
+      "description": "Read a zoo/habitat story and pause to place the story animal into a box nest or blanket home as a concrete retell.",
+      "materials": "Giraffes Can’t Dance or Put Me in the Zoo\nBox nest / blanket home props\nMatching stuffed animal",
+      "preparation": "Choose stopping points\nStage one habitat prop\nKeep group small",
+      "setup": "Cushions + one habitat prop beside the teacher.",
+      "steps": "1. Introduce the animal and its possible home.\n2. Read a short portion.\n3. Pause to place the animal in the nest.\n4. Invite toddlers to pat the home gently.\n5. Close with “animals need homes.”",
+      "teacherLanguage": "Where can the giraffe rest?\nSoft home.\nPat the nest.\nThe animal feels safe.\nGoodnight, zoo friend.",
+      "observationOpportunities": "Listening, pointing, gentle care during story props, and home vocabulary.",
+      "safetyNotes": "Stable seating. Supervise props near faces.",
+      "cleanupTips": "Return book and props.",
+      "indoorAlternatives": "Lap story with one child and one prop.",
+      "outdoorAlternatives": "Blanket story under a tree with the nest prop.",
+      "teacherTips": [
+        "Props beat long lectures.",
+        "Stop while interest is high."
+      ],
+      "substitutions": [
+        {
+          "need": "Giraffes Can’t Dance",
+          "use": "Any short giraffe/zoo board book"
+        }
+      ],
+      "adaptations": "Offer a fidget stuffed animal for listeners who need movement.",
+      "extensions": "Children choose which animal rests next.",
+      "mixedAgeAdaptations": "Older toddlers retell with the prop; younger pat and watch.",
+      "observationPrompts": [
+        "Did the child attend to part of the story?",
+        "Did they interact with the habitat prop?"
+      ],
+      "vocabulary": [
+        "home",
+        "story",
+        "rest",
+        "safe",
+        "giraffe",
+        "nest",
+        "listen"
+      ],
+      "imageRequirement": "not_needed"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "imageBriefExample": "Toddler process-art paper with large painted giraffe spots, messy dabbing look. Footer: littlelearnershubbyleah.com",
+      "imageBriefSetup": "",
+      "title": "Giraffe Spot Painting",
+      "dayOfWeek": "wednesday",
+      "activityCategory": "Art",
+      "durationMinutes": 12,
+      "objective": "Create process art giraffe spots using large stamps or sponge circles—no worksheets, focus on dabbing and noticing spots.",
+      "description": "Toddlers dab washable brown/orange paint spots onto large paper giraffe outlines or blank paper using sponge circles or potato stampers.",
+      "materials": "Large paper (blank or simple giraffe outline)\nWashable paint\nSponge circles / large stampers\nSmocks\nWipes\nTray",
+      "preparation": "Pre-pour paint on trays\nPre-cut sponge circles\nTape paper to table",
+      "setup": "Art table for 2 toddlers; smocks on; wipes ready.",
+      "steps": "1. Show spots on a giraffe picture.\n2. Model one dab: “Spot!”\n3. Invite free dabbing—no required number.\n4. Name colors and “more/all done.”\n5. Wash hands and admire spots.",
+      "teacherLanguage": "Can you dab a spot?\nMore spots?\nBrown spot!\nYour giraffe is spotty.\nAll done painting?",
+      "observationOpportunities": "Grip on stampers, process focus, color words, and cleanup cooperation.",
+      "safetyNotes": "Non-toxic paint only. Supervise tasting. Smocks. Floor protection.",
+      "cleanupTips": "Wash stampers; hang art to dry; wipe table.",
+      "indoorAlternatives": "Dot markers on paper if paint is too wet that day.",
+      "outdoorAlternatives": "Easel painting spots outdoors.",
+      "teacherTips": [
+        "Process over product.",
+        "Offer blank paper if outlines feel restrictive."
+      ],
+      "substitutions": [
+        {
+          "need": "Sponges",
+          "use": "Balls of paper, cookie cutters, or fingertips with paint"
+        }
+      ],
+      "adaptations": "Hand-under-hand dabbing. Seated foot-dab alternative only if appropriate and supervised (prefer hands).",
+      "extensions": "Add leaf collage around the giraffe after paint dries (large leaves).",
+      "mixedAgeAdaptations": "Older toddlers count spots casually; younger dab freely.",
+      "observationPrompts": [
+        "Did the child dab intentionally?",
+        "Did they use spot/paint words?"
+      ],
+      "vocabulary": [
+        "giraffe",
+        "spot",
+        "dab",
+        "paint",
+        "more",
+        "brown",
+        "paper"
+      ],
+      "imageRequirement": "example_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "imageBriefExample": "",
+      "imageBriefSetup": "Shallow water bins with cups, soft trunk tool, and plastic elephant. Towels around. Footer: littlelearnershubbyleah.com",
+      "title": "Elephant Trunk Water Play",
+      "dayOfWeek": "wednesday",
+      "activityCategory": "Sensory Play",
+      "durationMinutes": 12,
+      "objective": "Explore water pouring and “trunk” scooping to build sensory comfort and arm coordination.",
+      "description": "Toddlers use cups, turkey basters, or soft tubing “trunks” to move water between bins, pretending to be elephants at the water hole.",
+      "materials": "Two shallow water bins\nCups and scoops\nOptional soft tubing or baster “trunks”\nTowels\nSmocks\nPlastic elephant",
+      "preparation": "Fill shallow water only\nSet towel perimeter\nTest basters are clean/large",
+      "setup": "Water table or floor bins with towel moat. Limit 2 children.",
+      "steps": "1. Introduce elephant at the water hole.\n2. Model scoop and pour.\n3. Invite trunk pouring.\n4. Use words: pour, splash, wet, empty.\n5. Empty tools and dry hands.",
+      "teacherLanguage": "Can your trunk pour?\nSplash, splash!\nFull or empty?\nElephants drink water.\nWipe, wipe — dry hands.",
+      "observationOpportunities": "Pouring control, sensory enjoyment/avoidance, and wet/dry language.",
+      "safetyNotes": "Shallow water only; constant supervision. No standing water unattended. Floor slip risk—towels down.",
+      "cleanupTips": "Dump water; sanitize tools; mop floor.",
+      "indoorAlternatives": "Dry rice pouring if water is not available (supervise mouthing).",
+      "outdoorAlternatives": "Ideal outdoors with a hose trickle and drainage.",
+      "teacherTips": [
+        "Keep water icy-cool or lukewarm based on comfort.",
+        "Offer dry towel play beside for hesitant children."
+      ],
+      "substitutions": [
+        {
+          "need": "Baster trunk",
+          "use": "Cups only or sponges to squeeze"
+        }
+      ],
+      "adaptations": "Gloves or tools-only for tactile sensitivity. Very shallow splash tray.",
+      "extensions": "Float a large leaf “boat” for the elephant to watch.",
+      "mixedAgeAdaptations": "Older toddlers ferry water to plants (teacher-guided); toddlers pour between bins.",
+      "observationPrompts": [
+        "Did the child pour or scoop water?",
+        "How did they respond to wet textures?"
+      ],
+      "vocabulary": [
+        "elephant",
+        "trunk",
+        "pour",
+        "water",
+        "wet",
+        "splash",
+        "empty"
+      ],
+      "imageRequirement": "setup_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "imageBriefExample": "Toddler paper with bold black/white stripe process art. Footer: littlelearnershubbyleah.com",
+      "imageBriefSetup": "",
+      "title": "Zebra Stripe Art",
+      "dayOfWeek": "wednesday",
+      "activityCategory": "Art",
+      "durationMinutes": 10,
+      "objective": "Explore lines and stripes through large-motor painting or sticking pre-cut stripe strips—process focused.",
+      "description": "Toddlers drag wide brushes or stick large black/white paper strips onto paper to make zebra-like stripes.",
+      "materials": "Large paper\nBlack/white washable paint OR pre-cut paper strips + glue sticks\nWide brushes\nSmocks\nZebra picture",
+      "preparation": "Pre-cut thick stripe strips\nPour paint if using\nTape paper down",
+      "setup": "Art trays for 2; zebra picture visible for inspiration—not for copying exactly.",
+      "steps": "1. Notice zebra stripes on the picture.\n2. Model one long stripe.\n3. Invite painting or sticking stripes anywhere.\n4. Talk about long/short and black/white.\n5. Admire unique stripe patterns.",
+      "teacherLanguage": "Long stripe!\nBlack or white?\nAnother stripe?\nYour zebra is stripy.\nYou made lines.",
+      "observationOpportunities": "Stroke direction, glue-stick pressure, color choice, and engagement time.",
+      "safetyNotes": "Non-toxic materials. Supervise glue sticks. No glitter.",
+      "cleanupTips": "Cap paint; wash brushes; dry art.",
+      "indoorAlternatives": "Sidewalk chalk stripes on paper taped to wall.",
+      "outdoorAlternatives": "Chalk zebra stripes on pavement.",
+      "teacherTips": [
+        "Strips are easier than brushes for some 12–18 month olds.",
+        "Avoid requiring even stripes."
+      ],
+      "substitutions": [
+        {
+          "need": "Paint",
+          "use": "Large washi tape strips or sticker strips"
+        }
+      ],
+      "adaptations": "Offer one color only. Hand-over-hand for glue sticks.",
+      "extensions": "Add a yarn “mane” after drying (large pieces).",
+      "mixedAgeAdaptations": "Older toddlers alternate colors; younger place one strip.",
+      "observationPrompts": [
+        "Did the child make at least one stripe mark or placement?",
+        "Did they notice black/white?"
+      ],
+      "vocabulary": [
+        "zebra",
+        "stripe",
+        "line",
+        "black",
+        "white",
+        "long",
+        "glue"
+      ],
+      "imageRequirement": "example_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "imageBriefExample": "",
+      "imageBriefSetup": "",
+      "title": "Move Like An Animal",
+      "dayOfWeek": "wednesday",
+      "activityCategory": "Music & Movement",
+      "durationMinutes": 8,
+      "objective": "Imitate simple zoo animal movements to build body awareness and listening for start/stop cues.",
+      "description": "Toddlers stretch tall like giraffes, stomp like elephants, waddle or tip-toe like other animals, and freeze when music pauses.",
+      "materials": "Open space\nOptional From Head to Toe book cues\nAnimal cards\nMusic player soft volume",
+      "preparation": "Choose 3 movements max\nClear path\nPlan freeze cue",
+      "setup": "Circle or line with space between children.",
+      "steps": "1. Show giraffe — stretch tall.\n2. Elephant — stomp slow.\n3. Monkey — swing arms.\n4. Freeze on cue.\n5. Rest animals on the rug.",
+      "teacherLanguage": "Stretch tall, giraffe!\nStomp, stomp, elephant.\nSwing like a monkey.\nFreeze!\nResting animals.",
+      "observationOpportunities": "Imitation quality, balance, freeze response, and joy in movement.",
+      "safetyNotes": "Space out. No running indoors. Soft knees for stomps.",
+      "cleanupTips": "Collect cards.",
+      "indoorAlternatives": "Seated animal movements (arm/trunk only).",
+      "outdoorAlternatives": "Animal parade on the playground path.",
+      "teacherTips": [
+        "Demonstrate facing children.",
+        "Offer a seated option every round."
+      ],
+      "substitutions": [
+        {
+          "need": "Music",
+          "use": "Teacher clap patterns as start/stop"
+        }
+      ],
+      "adaptations": "Hold hands for balance. Visual card before each move.",
+      "extensions": "Child chooses the next animal card.",
+      "mixedAgeAdaptations": "Infants bounce; older toddlers lead the line.",
+      "observationPrompts": [
+        "Did the child imitate at least one movement?",
+        "Did they attempt to freeze?"
+      ],
+      "vocabulary": [
+        "tall",
+        "stomp",
+        "swing",
+        "freeze",
+        "giraffe",
+        "elephant",
+        "move"
+      ],
+      "imageRequirement": "not_needed"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "imageBriefExample": "",
+      "imageBriefSetup": "Investigation tray with animal photos and large feature props (spots, stripes, trunk). Footer: littlelearnershubbyleah.com",
+      "title": "Animal Feature Investigation",
+      "dayOfWeek": "wednesday",
+      "activityCategory": "STEM/Discovery",
+      "durationMinutes": 10,
+      "objective": "Notice animal body features (spots, stripes, trunks, long necks) using large photos and matching props.",
+      "description": "Toddlers examine photo cards and touch corresponding props—spot stickers, stripe fabric, trunk tube—while teachers narrate features.",
+      "materials": "Large animal photo cards\nProp basket: sponges “spots,” stripe fabric, soft trunk tube, long ribbon “neck”\nMagnifying glasses (optional, plastic large)",
+      "preparation": "Select 3 feature props\nSanitize props\nKeep language concrete",
+      "setup": "Low table investigation tray with photos and props.",
+      "steps": "1. Show giraffe photo — “spots.”\n2. Invite touching spot sponges.\n3. Switch to zebra stripes, then elephant trunk.\n4. Match prop to photo.\n5. Put props to bed in the basket.",
+      "teacherLanguage": "What do you see?\nSpots or stripes?\nFeel the trunk.\nLong neck!\nYou are investigating.",
+      "observationOpportunities": "Visual attention, matching attempts, feature vocabulary, and tactile exploration.",
+      "safetyNotes": "Large props only. No glass magnifiers. Supervise tubes.",
+      "cleanupTips": "Sanitize props; stack cards.",
+      "indoorAlternatives": "Wall photo gallery with pointing stick (short).",
+      "outdoorAlternatives": "Chalk draw one feature on pavement and match toys.",
+      "teacherTips": [
+        "One feature at a time.",
+        "Follow the child’s pointing."
+      ],
+      "substitutions": [
+        {
+          "need": "Trunk tube",
+          "use": "Rolled sock or paper towel tube (supervise tearing)"
+        }
+      ],
+      "adaptations": "Offer hand-under-hand matching. Reduce to two photos.",
+      "extensions": "Take a “feature walk” to find stripes on clothing.",
+      "mixedAgeAdaptations": "Older toddlers name features; younger touch and look.",
+      "observationPrompts": [
+        "Did the child touch or match a feature prop?",
+        "Did they attempt spot/stripe/trunk words?"
+      ],
+      "vocabulary": [
+        "spots",
+        "stripes",
+        "trunk",
+        "neck",
+        "see",
+        "feel",
+        "same"
+      ],
+      "imageRequirement": "setup_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "imageBriefExample": "",
+      "imageBriefSetup": "Zookeeper care table with stuffed animal, bowl, large comfort wrap—zookeeper care focus. Footer: littlelearnershubbyleah.com",
+      "title": "Veterinarian Pretend Play",
+      "dayOfWeek": "thursday",
+      "activityCategory": "Dramatic Play",
+      "durationMinutes": 15,
+      "objective": "Practice gentle zookeeper wellness checks—look, listen, rest—reframing “vet” play as zoo animal care.",
+      "description": "Even with a vet-like title, keep the play as keeper care: toddlers bring animals to a care table, look at paws/ears, offer water/food, wrap a soft comfort bandage if wanted, and rest animals. Keep scripts on zookeeper care—not doctor visits.",
+      "materials": "Low care table\nStuffed zoo animals\nCloth “comfort wraps” (large)\nBowls\nToy listener optional\nKeeper badges\nResting basket",
+      "preparation": "Remove syringes/tiny medical pieces\nLabel zones Care / Rest\nPrep comfort wraps only (no pills)",
+      "setup": "Care table + resting habitat basket. 2 children at a time.",
+      "steps": "1. Explain: “Zookeepers check that animals feel okay.”\n2. Model look → gentle listen → comfort wrap → rest.\n3. Invite toddlers to care for an animal.\n4. Use keeper words, not doctor words.\n5. Close with resting animals in habitat.",
+      "teacherLanguage": "Does your animal feel okay?\nGentle look at the paws.\nNeed a soft wrap?\nRest in the habitat.\nKind zookeeper.",
+      "observationOpportunities": "Gentle touch, role language, sequencing, and turn-taking.",
+      "safetyNotes": "No real meds or sharp tools. Large wraps only. Supervise cords.",
+      "cleanupTips": "Sort care props; sanitize listeners.",
+      "indoorAlternatives": "Keep as a standing week-long care corner.",
+      "outdoorAlternatives": "Shade care table with the same flow.",
+      "teacherTips": [
+        "Correct “doctor” language gently toward “keeper care.”",
+        "Two props max."
+      ],
+      "substitutions": [
+        {
+          "need": "Toy listener",
+          "use": "Paper cup to “hear” heartbeat gently"
+        }
+      ],
+      "adaptations": "One-step care jobs. Watching-first welcome.",
+      "extensions": "Add a “feeling okay” picture card to point to.",
+      "mixedAgeAdaptations": "Preschoolers manage a wait line; toddlers do hands-on care.",
+      "observationPrompts": [
+        "Did the child use gentle touch?",
+        "Did play focus on care/rest rather than medical tools?"
+      ],
+      "vocabulary": [
+        "keeper",
+        "care",
+        "gentle",
+        "rest",
+        "okay",
+        "wrap",
+        "habitat"
+      ],
+      "imageRequirement": "setup_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "imageBriefExample": "",
+      "imageBriefSetup": "Soft cushion cave with stuffed animal and blanket rescue nest. Footer: littlelearnershubbyleah.com",
+      "title": "Animal Rescue Center",
+      "dayOfWeek": "thursday",
+      "activityCategory": "Dramatic Play",
+      "durationMinutes": 12,
+      "objective": "Practice helping roles by “rescuing” animals from a soft obstacle and bringing them to a safe habitat nest.",
+      "description": "Toddlers find animals behind cushions or in a tunnel and carry them to a rescue nest, offering a blanket and calm words.",
+      "materials": "Soft cushions / play tunnel\n3 stuffed animals\nRescue nest basket + blanket\nOptional toy binoculars",
+      "preparation": "Create easy hiding spots\nNo tight spaces\nStage nest clearly",
+      "setup": "Wide rescue path from soft hide spot to blanket nest with clear walkways.",
+      "steps": "1. Spot an animal with binoculars (or eyes).\n2. Crawl/walk to the animal.\n3. Carry gently to the nest.\n4. Cover with blanket.\n5. Say “safe now.”",
+      "teacherLanguage": "Do you see an animal?\nCan you help?\nGentle carry.\nSafe in the nest.\nThank you, helper.",
+      "observationOpportunities": "Helping behaviors, carrying control, empathy language, and path navigation.",
+      "safetyNotes": "No real heights. Soft obstacles only. Supervise tunnel use.",
+      "cleanupTips": "Return animals; fluff blankets.",
+      "indoorAlternatives": "Hide animals under scarves on a rug.",
+      "outdoorAlternatives": "Rescue walk between playground landmarks.",
+      "teacherTips": [
+        "Keep rescues calm, not scary.",
+        "Celebrate gentle carries over speed."
+      ],
+      "substitutions": [
+        {
+          "need": "Tunnel",
+          "use": "Table draped with a blanket as a cave"
+        }
+      ],
+      "adaptations": "Teacher places animal in child’s arms. Shorter path.",
+      "extensions": "Add a water bowl at the nest for pretend drink.",
+      "mixedAgeAdaptations": "Older toddlers hide animals; younger rescue.",
+      "observationPrompts": [
+        "Did the child carry an animal to the nest?",
+        "Did they use help/safe words?"
+      ],
+      "vocabulary": [
+        "rescue",
+        "help",
+        "safe",
+        "nest",
+        "carry",
+        "gentle",
+        "find"
+      ],
+      "imageRequirement": "setup_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "imageBriefExample": "",
+      "imageBriefSetup": "Care tray with stuffed zebra, bowl, cloth, and large soft brush. Footer: littlelearnershubbyleah.com",
+      "title": "Feed And Care For Animals",
+      "dayOfWeek": "thursday",
+      "activityCategory": "Fine Motor",
+      "durationMinutes": 10,
+      "objective": "Combine feeding and simple grooming care using scoops, cloths, and large brushes on stuffed zoo animals.",
+      "description": "Toddlers scoop feed, wipe faces, and brush fur with large toddler brushes—practicing a short care routine.",
+      "materials": "Animals\nBowls + scoops\nCloths\nLarge soft brushes\nTray\nPaper feed or oats",
+      "preparation": "Allergy check\nSanitize brushes\nLimit to 3 care tools",
+      "setup": "Care tray with animals seated. 2 toddlers.",
+      "steps": "1. Feed with a scoop.\n2. Wipe mouth.\n3. Brush gently.\n4. Rest animal.\n5. Wipe tray.",
+      "teacherLanguage": "Feed time.\nWipe gently.\nBrush, brush.\nAll clean?\nRest now.",
+      "observationOpportunities": "Sequence memory, tool use, gentle pressure, and care vocabulary.",
+      "safetyNotes": "Large brushes only. Supervise mouthing of feed.",
+      "cleanupTips": "Wash bowls/brushes; sweep feed.",
+      "indoorAlternatives": "Dry cloth “dusting” care without feed.",
+      "outdoorAlternatives": "Care station at outdoor table.",
+      "teacherTips": [
+        "Keep routine to 3 steps.",
+        "Model feather-light brushing."
+      ],
+      "substitutions": [
+        {
+          "need": "Brush",
+          "use": "Soft washcloth bunched as a brush"
+        }
+      ],
+      "adaptations": "Offer only wipe + rest for younger toddlers.",
+      "extensions": "Choose care card: feed or brush.",
+      "mixedAgeAdaptations": "Older toddlers set up trays; younger perform one step.",
+      "observationPrompts": [
+        "Did the child complete two care steps?",
+        "Was brushing gentle?"
+      ],
+      "vocabulary": [
+        "feed",
+        "brush",
+        "wipe",
+        "care",
+        "clean",
+        "rest",
+        "gentle"
+      ],
+      "imageRequirement": "setup_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "imageBriefExample": "",
+      "imageBriefSetup": "",
+      "title": "Keeper Training Course",
+      "dayOfWeek": "thursday",
+      "activityCategory": "Gross Motor",
+      "durationMinutes": 10,
+      "objective": "Practice zookeeper body skills—carry, walk carefully, and stop—on a short training path.",
+      "description": "Toddlers carry a lightweight stuffed animal along a taped path, step over a block “log,” and stop at a care station cone.",
+      "materials": "Tape path\nLight stuffed animals\nBlock log\nCone or sign “Care Station”\nOpen space",
+      "preparation": "Choose light animals\nClear hazards\nMark stop spot",
+      "setup": "One-way floor path with carry → step-over log → stop at Care Station basket.",
+      "steps": "1. Demonstrate careful walking with animal.\n2. Child carries animal along path.\n3. Step over log.\n4. Stop at care station and place animal down.\n5. Cheer the new keeper graduate (high five/sticker optional).",
+      "teacherLanguage": "Careful feet.\nHold your animal.\nStep over.\nStop at the station.\nYou did keeper training!",
+      "observationOpportunities": "Carrying coordination, balance, stopping on cue, and pride in completion.",
+      "safetyNotes": "Light animals only. No running. Spot steps.",
+      "cleanupTips": "Collect animals and markers.",
+      "indoorAlternatives": "Hallway careful-walk training.",
+      "outdoorAlternatives": "Playground path with chalk stop line.",
+      "teacherTips": [
+        "One child on the path at a time if crowded.",
+        "Offer wagon push for children who prefer not to carry."
+      ],
+      "substitutions": [
+        {
+          "need": "Cone",
+          "use": "Basket labeled Care Station"
+        }
+      ],
+      "adaptations": "Shorter path. Hand-holding. Push animal in a cart.",
+      "extensions": "Add a gentle roar celebration at the end.",
+      "mixedAgeAdaptations": "Older toddlers time themselves playfully; younger walk with a teacher.",
+      "observationPrompts": [
+        "Did the child carry and stop?",
+        "Did they step over with support?"
+      ],
+      "vocabulary": [
+        "keeper",
+        "carry",
+        "walk",
+        "stop",
+        "step",
+        "care",
+        "path"
+      ],
+      "imageRequirement": "not_needed"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "imageBriefExample": "",
+      "imageBriefSetup": "Check-up station with stuffed animal and large body-part icon strip—observation focus. Footer: littlelearnershubbyleah.com",
+      "title": "Animal Check-Up Station",
+      "dayOfWeek": "thursday",
+      "activityCategory": "STEM/Discovery",
+      "durationMinutes": 10,
+      "objective": "Observe animal features during a gentle “check-up” that focuses on looking and comparing—not medical procedures.",
+      "description": "Toddlers look at animal ears, paws, and tails with teacher narration, using a checklist of large picture icons to point to (eyes, ears, paws).",
+      "materials": "Animals\nLarge picture checklist icons (eyes/ears/paws/tail)\nOptional plastic magnifier\nClipboard with icons (no writing required)",
+      "preparation": "Print large icons\nRemove medical toys\nSanitize animals",
+      "setup": "Low station table with one animal and a large body-part icon strip for pointing.",
+      "steps": "1. Point to eyes icon — find eyes.\n2. Find ears, paws, tail.\n3. Gentle touch if child wants.\n4. Mark “all okay” with a large sticker or stamp on the icon sheet (teacher or child).\n5. Rest animal.",
+      "teacherLanguage": "Where are the eyes?\nFind the paws.\nTail?\nAll okay!\nYou checked carefully.",
+      "observationOpportunities": "Body-part vocabulary, pointing accuracy, gentle touch, and attention to detail.",
+      "safetyNotes": "No otoscopes/real tools. Large icons. Supervise magnifiers.",
+      "cleanupTips": "Sanitize animals; file icon sheets for reuse.",
+      "indoorAlternatives": "Wall icon chart with pointing stick.",
+      "outdoorAlternatives": "Check-up picnic blanket outdoors.",
+      "teacherTips": [
+        "This is observation play, not a vet exam.",
+        "Keep stickers large."
+      ],
+      "substitutions": [
+        {
+          "need": "Icon sheet",
+          "use": "Draw simple face parts on paper plates as find-it cues"
+        }
+      ],
+      "adaptations": "Two body parts only. Hand-under-hand pointing.",
+      "extensions": "Compare two animals’ tails.",
+      "mixedAgeAdaptations": "Older toddlers stamp the sheet; younger point.",
+      "observationPrompts": [
+        "Did the child find at least two features?",
+        "Did they use eye/ear/paw words?"
+      ],
+      "vocabulary": [
+        "eyes",
+        "ears",
+        "paws",
+        "tail",
+        "look",
+        "okay",
+        "check"
+      ],
+      "imageRequirement": "setup_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "imageBriefExample": "",
+      "imageBriefSetup": "Floor giant zoo with blocks, box pens, and stuffed animals. Footer: littlelearnershubbyleah.com",
+      "title": "Build A Giant Zoo",
+      "dayOfWeek": "friday",
+      "activityCategory": "STEM/Discovery",
+      "durationMinutes": 15,
+      "objective": "Collaborate to arrange a big floor zoo with blocks, boxes, and animals for open-ended construction play.",
+      "description": "Toddlers build paths, pens, and gates with large blocks and boxes, then place animals inside their giant zoo map.",
+      "materials": "Large blocks\nBoxes\nTape roads optional\nMany zoo animals\nBaskets\nOptional ticket booth box",
+      "preparation": "Clear a large floor area\nSort blocks\nSet animal basket",
+      "setup": "Open build zone with materials around the edge—not in a pile in the center.",
+      "steps": "1. Announce: “Let’s build a giant zoo!”\n2. Model a simple pen.\n3. Invite placing animals.\n4. Add a walking path with tape.\n5. Take a visitor walk through the zoo.\n6. Clean-up song to return animals.",
+      "teacherLanguage": "Where should the lions go?\nCan you make a path?\nBlock on block.\nVisitors coming!\nZoo is open!",
+      "observationOpportunities": "Building persistence, spatial language, peer awareness, and thematic placement.",
+      "safetyNotes": "No high unstable towers. Sit-down building preferred. Supervise box play.",
+      "cleanupTips": "Sort blocks; basket animals; recycle broken boxes.",
+      "indoorAlternatives": "Tabletop “mini zoo” with smaller (still safe) blocks for older toddlers.",
+      "outdoorAlternatives": "Chalk zoo map with animals on playground.",
+      "teacherTips": [
+        "Photograph the zoo before clean-up for memory talk.",
+        "Accept parallel building."
+      ],
+      "substitutions": [
+        {
+          "need": "Blocks",
+          "use": "Shoe boxes, cushions, and painter’s tape pens"
+        }
+      ],
+      "adaptations": "Offer a pre-built pen to fill. One animal focus.",
+      "extensions": "Add paper ticket for toddlers to hand over (no writing).",
+      "mixedAgeAdaptations": "Preschoolers design pens; toddlers stock animals.",
+      "observationPrompts": [
+        "Did the child place materials intentionally?",
+        "Did they engage with zoo arrangement?"
+      ],
+      "vocabulary": [
+        "zoo",
+        "build",
+        "path",
+        "pen",
+        "block",
+        "in",
+        "open"
+      ],
+      "imageRequirement": "setup_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "imageBriefExample": "",
+      "imageBriefSetup": "",
+      "title": "Animal Parade",
+      "dayOfWeek": "friday",
+      "activityCategory": "Music & Movement",
+      "durationMinutes": 8,
+      "objective": "Celebrate the week with a joyful animal movement parade using favorite sounds and motions.",
+      "description": "Toddlers parade holding animals or scarves, moving like their favorite zoo animal to a simple beat, then bow for visitors.",
+      "materials": "Animals or scarves\nMusic or drum beat\nParade path markers\nOptional tickets for “visitors” (teachers)",
+      "preparation": "Clear path\nChoose 2–3 movement options\nInvite another class/adults as clappers if appropriate",
+      "setup": "Oval parade path. Start/finish on the rug.",
+      "steps": "1. Choose an animal friend or scarf.\n2. Start slow parade music/beat.\n3. Cue movements along the path.\n4. Pause to roar or stretch.\n5. Final bow and rest.",
+      "teacherLanguage": "Parade time!\nWhat animal are you?\nMarch, march.\nRoar for the visitors!\nTake a bow.",
+      "observationOpportunities": "Group participation, movement choice, listening to beat, and celebration joy.",
+      "safetyNotes": "Walking feet. Space holders of animals. No running with props.",
+      "cleanupTips": "Return animals/scarves.",
+      "indoorAlternatives": "Seated parade with arm movements if space is tight.",
+      "outdoorAlternatives": "Outdoor track parade.",
+      "teacherTips": [
+        "Keep under 8 minutes.",
+        "Let children opt for watcher roles with clapping."
+      ],
+      "substitutions": [
+        {
+          "need": "Music",
+          "use": "Teacher drum on a box"
+        }
+      ],
+      "adaptations": "Wagon riders can hold animals as parade VIPs.",
+      "extensions": "Children vote (point) for favorite animal of the week.",
+      "mixedAgeAdaptations": "Infants watch; older toddlers lead.",
+      "observationPrompts": [
+        "Did the child join the parade path?",
+        "Did they show a favorite animal movement?"
+      ],
+      "vocabulary": [
+        "parade",
+        "march",
+        "bow",
+        "favorite",
+        "zoo",
+        "music",
+        "walk"
+      ],
+      "imageRequirement": "not_needed"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "imageBriefExample": "Toddler-decorated paper plate animal mask with large stickers and streamers. Footer: littlelearnershubbyleah.com",
+      "imageBriefSetup": "",
+      "title": "Animal Mask Creation",
+      "dayOfWeek": "friday",
+      "activityCategory": "Art",
+      "durationMinutes": 12,
+      "objective": "Make simple process animal masks with large paper plates and stickers—wear optional, decorate for fun.",
+      "description": "Toddlers decorate pre-cut paper plate masks with large stickers, streamers, or paint dabs. Elastic is optional and teacher-managed; many children just hold masks.",
+      "materials": "Paper plates with eye holes pre-cut (or no holes—hold-up masks)\nLarge stickers\nStreamers/yarn scraps\nGlue sticks\nSmocks\nOptional soft elastic (teacher attaches)",
+      "preparation": "Pre-cut plates\nAvoid tiny embellishments\nPlan hold-up option for under-2s",
+      "setup": "Art table; examples of lion/zebra colors as inspiration only.",
+      "steps": "1. Choose a plate.\n2. Add stickers/streamers freely.\n3. Name colors and animal ideas.\n4. Hold up for a roar photo opportunity (optional).\n5. Store masks in cubbies.",
+      "teacherLanguage": "What animal will you make?\nSticky sticker!\nMore yarn?\nHold it up—roar!\nYou made a mask.",
+      "observationOpportunities": "Fine motor sticker peeling, creative choices, and willingness to hold/wear.",
+      "safetyNotes": "Teacher-cut eye holes only if used. No small beads. Supervise elastic. Prefer hold-up masks for young toddlers.",
+      "cleanupTips": "Collect scraps; label masks with names.",
+      "indoorAlternatives": "Bag masks on craft sticks as puppets.",
+      "outdoorAlternatives": "Decorate outdoors then parade.",
+      "teacherTips": [
+        "Holding beats wearing for many toddlers.",
+        "Process over recognizable animals."
+      ],
+      "substitutions": [
+        {
+          "need": "Paper plates",
+          "use": "Cardboard circles or paper bags (supervise)"
+        }
+      ],
+      "adaptations": "Pre-stick a few stickers for children to press. Skip eye holes.",
+      "extensions": "Use masks in the closing parade.",
+      "mixedAgeAdaptations": "Older toddlers choose animal type; younger decorate freely.",
+      "observationPrompts": [
+        "Did the child add materials to the mask?",
+        "Did they engage in pretend with the finished piece?"
+      ],
+      "vocabulary": [
+        "mask",
+        "sticker",
+        "lion",
+        "make",
+        "hold",
+        "color",
+        "yarn"
+      ],
+      "imageRequirement": "example_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "imageBriefExample": "",
+      "imageBriefSetup": "Celebration sensory bin with shreds, large pom-poms, scoops, and zoo animals. Footer: littlelearnershubbyleah.com",
+      "title": "Zoo Sensory Celebration Bin",
+      "dayOfWeek": "friday",
+      "activityCategory": "Sensory Play",
+      "durationMinutes": 12,
+      "objective": "Celebrate zoo week with a festive sensory bin combining favorite textures and animals for free scooping play.",
+      "description": "A shallow celebration bin mixes paper shreds, large pom-poms, and animals so toddlers scoop, bury, and rediscover zoo friends.",
+      "materials": "Shallow tub\nPaper shreds + large pom-poms\nZoo animals\nScoops\nSmocks\nTowel",
+      "preparation": "Allergy check\nLarge fillers only\nSanitize animals",
+      "setup": "Bin for 2; celebration “open” sign optional.",
+      "steps": "1. Invite scooping celebration.\n2. Hide and find animals.\n3. Fill cups for a party feed.\n4. Name textures.\n5. Clean hands and wave goodbye to the bin.",
+      "teacherLanguage": "Party in the zoo bin!\nWhat did you find?\nScoop the soft balls.\nHide the lion.\nBye-bye, sensory bin.",
+      "observationOpportunities": "Sensory preference, peer play near bin, and search persistence.",
+      "safetyNotes": "No tiny confetti. Supervise mouthing. Slippery floor awareness.",
+      "cleanupTips": "Sort reusable fillers; sanitize animals.",
+      "indoorAlternatives": "Dry celebration bin only.",
+      "outdoorAlternatives": "Bubble + animal wash celebration outdoors.",
+      "teacherTips": [
+        "Keep energy calm despite “celebration.”",
+        "Offer a second quiet animal for overwhelm."
+      ],
+      "substitutions": [
+        {
+          "need": "Pom-poms",
+          "use": "Fabric scraps or large cotton balls"
+        }
+      ],
+      "adaptations": "Tools-only exploration. Smaller personal tray.",
+      "extensions": "Sing Going to the Zoo softly during scooping.",
+      "mixedAgeAdaptations": "Older hide; younger find.",
+      "observationPrompts": [
+        "Did the child scoop or search?",
+        "Did they show a preferred texture?"
+      ],
+      "vocabulary": [
+        "celebrate",
+        "scoop",
+        "find",
+        "soft",
+        "hide",
+        "zoo",
+        "party"
+      ],
+      "imageRequirement": "setup_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "imageBriefExample": "",
+      "imageBriefSetup": "",
+      "title": "Favorite Animal Show & Share",
+      "dayOfWeek": "friday",
+      "activityCategory": "Circle Time",
+      "durationMinutes": 10,
+      "objective": "Practice sharing a favorite animal with peers using show-and-share language in a short, supportive circle.",
+      "description": "Each toddler who wants a turn holds a favorite animal or photo and says (or hears teacher narrate) one word about it while friends listen and clap.",
+      "materials": "Animals/photos from the week\nSitting cushions\nOptional microphone prop (large)",
+      "preparation": "Prep enough animals so waiting is short\nPlan 20–30 second turns\nVisual “my turn” card",
+      "setup": "Circle cushions; animals in center basket.",
+      "steps": "1. Explain short turns.\n2. Child chooses animal.\n3. Teacher scaffolds: “You chose the ___.”\n4. Friends clap.\n5. Animal returns to basket.\n6. Group goodbye roar soft.",
+      "teacherLanguage": "Which animal is your favorite?\nYou chose the monkey!\nFriends are listening.\nClap for your friend.\nSoft goodbye roar.",
+      "observationOpportunities": "Choosing, speaking/attempting words, listening to peers, and waiting.",
+      "safetyNotes": "Sitting bodies. No forcing turns. Soft clap volume.",
+      "cleanupTips": "Return animals; stack cushions.",
+      "indoorAlternatives": "Partner show-and-share instead of full circle.",
+      "outdoorAlternatives": "Blanket circle outdoors.",
+      "teacherTips": [
+        "Narrate for nonverbal children proudly.",
+        "Keep total circle short."
+      ],
+      "substitutions": [
+        {
+          "need": "Microphone prop",
+          "use": "Paper towel tube “speaker”"
+        }
+      ],
+      "adaptations": "Pointing-only shares. Sit beside teacher with animal for comfort.",
+      "extensions": "Vote with eyes closed / pointing for class favorite.",
+      "mixedAgeAdaptations": "Older toddlers ask a peer a question; younger show only.",
+      "observationPrompts": [
+        "Did the child choose and show an animal?",
+        "Did they attend to a peer’s turn?"
+      ],
+      "vocabulary": [
+        "favorite",
+        "share",
+        "listen",
+        "clap",
+        "friend",
+        "animal",
+        "turn"
+      ],
+      "imageRequirement": "not_needed"
+    }
+  ]
+}
