@@ -65,6 +65,7 @@ const testAccountGuard = require("./test-account-guard.js");
 const { createProductionMonitoring } = require("./production-monitoring.js");
 const productionMonitoring = createProductionMonitoring();
 const adminInsights = require("./admin-insights.js");
+const conversionIntelligence = require("./conversion-intelligence.js");
 
 function configureSeoCurriculumSnapshotProvider() {
   seo.configureCurriculumSnapshotProvider(() => {
@@ -13432,6 +13433,27 @@ async function handleAdminInsights(request, response, url) {
     },
   });
   jsonResponse(response, 200, { ok: true, insights });
+}
+
+async function handleAdminConversionIntelligence(request, response, url) {
+  const adminToken = extractAdminToken(request, url) || "";
+  if (!validAdminToken(adminToken)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const store = peekStore();
+  const analyticsEvents = await loadInsightsAnalyticsEvents(store);
+  const data = conversionIntelligence.buildConversionIntelligence(store, {
+    events: analyticsEvents,
+    range: String(url.searchParams.get("range") || "7d").trim(),
+    startDate: String(url.searchParams.get("startDate") || "").trim(),
+    endDate: String(url.searchParams.get("endDate") || "").trim(),
+    source: String(url.searchParams.get("source") || "all").trim(),
+    ageGroup: String(url.searchParams.get("ageGroup") || "all").trim(),
+    converted: String(url.searchParams.get("converted") || "all").trim(),
+    journeyEmail: String(url.searchParams.get("journeyEmail") || "").trim(),
+  });
+  jsonResponse(response, 200, { ok: true, data });
 }
 
 const LIVE_CONNECT_CONFIRM_PHRASE = "CONNECT_ASHLEY_LADIISHA";
@@ -32108,6 +32130,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "GET" && url.pathname === "/api/admin/store-health") return handleAdminStoreHealth(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/production-monitoring") return await handleAdminProductionMonitoring(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/insights") return await handleAdminInsights(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/admin/conversion-intelligence") return await handleAdminConversionIntelligence(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/program-migration-plan") return await handleAdminProgramMigrationPlan(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/program-migration-rollback") return await handleAdminProgramMigrationRollback(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/store-export") return handleAdminStoreExport(request, response, url);

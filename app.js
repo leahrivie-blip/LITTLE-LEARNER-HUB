@@ -4604,6 +4604,13 @@ function trackEvent(name, detail = {}) {
   } catch {
     /* ignore milestone observer errors */
   }
+  try {
+    if (window.LLHConversionAnalytics?.trackConversionEvent && name === "pricing_cards_shown") {
+      window.LLHConversionAnalytics.trackPricingViewed({ location: detail.surface || detail.context || "pricing_cards" });
+    }
+  } catch {
+    /* conversion analytics must never break UX */
+  }
   return event;
 }
 
@@ -4640,6 +4647,14 @@ function showProFeatureModal(message = "This is a Pro Feature.", type = "feature
   }
   try {
     if (typeof markUpgradeValueMoment === "function") markUpgradeValueMoment(type === "limit" ? "premium_limit" : "locked_feature");
+  } catch {
+    /* ignore */
+  }
+  try {
+    window.LLHConversionAnalytics?.trackProContentEncountered?.({
+      featureType: type === "limit" ? "feature_locked" : "premium_resource_locked",
+      location: "pro_feature_modal",
+    });
   } catch {
     /* ignore */
   }
@@ -6953,7 +6968,7 @@ let adminLessonResourcesDraftId = "";
 const adminLessonUnsavedWarning = "You have unsaved changes. Leave without saving?";
 const adminLessonImportMetadataFields = new Set(["title", "theme", "age", "generatorLessonNumber", "plan", "visible"]);
 const adminLessonVisibleTruthyValues = new Set(["true", "yes", "visible", "live", "on", "1"]);
-const adminValidSectionTabs = new Set(["admin-home","admin-notifications","content-home","website-home","ai-home","billing-home","system-health","advanced-home","admin-settings","taxonomy-audit","dashboard","resources","curriculum-lesson-plans","curriculum-draft-review","curriculum-visual-production","curriculum-library-health","curriculum-ai-director","curriculum-ai-operator","curriculum-activities","curriculum-resources","forms","printables","menus","observations","resource-categories","reviews","founder","images","analytics","marketing-analytics","advisor","marketing-funnel","feature-usage","feature-requests-center","error-center","search-analytics","email-analytics","seo-dashboard","churn-dashboard","content-health","release-center","support","feedback","emails","ai-testing","ai-tools","ai-health","prompts","settings","usage","visibility","users","stripe-backfill","pricing","free-plan","free-starter-library","trial-usage","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding","messages-home","admin-inbox","messages-compose","messages-conversations","messages-automations","messages-sent","messages-drafts","messages-archived","messages-email","message-templates","welcome-messages","user-health","automations","changelog","feature-requests","lesson-plan-requests","bug-reports","promo-codes","in-app-announcements"]);
+const adminValidSectionTabs = new Set(["admin-home","admin-notifications","content-home","website-home","ai-home","billing-home","system-health","advanced-home","admin-settings","taxonomy-audit","dashboard","resources","curriculum-lesson-plans","curriculum-draft-review","curriculum-visual-production","curriculum-library-health","curriculum-ai-director","curriculum-ai-operator","curriculum-activities","curriculum-resources","forms","printables","menus","observations","resource-categories","reviews","founder","images","analytics","marketing-analytics","advisor","marketing-funnel","feature-usage","feature-requests-center","error-center","search-analytics","email-analytics","seo-dashboard","churn-dashboard","content-health","release-center","conversion-intelligence","support","feedback","emails","ai-testing","ai-tools","ai-health","prompts","settings","usage","visibility","users","stripe-backfill","pricing","free-plan","free-starter-library","trial-usage","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding","messages-home","admin-inbox","messages-compose","messages-conversations","messages-automations","messages-sent","messages-drafts","messages-archived","messages-email","message-templates","welcome-messages","user-health","automations","changelog","feature-requests","lesson-plan-requests","bug-reports","promo-codes","in-app-announcements"]);
 /** @deprecated use effectiveLessonPlanResourceCategories() — kept as alias for older call sites during transition */
 const lessonPlanResourceCategories = DEFAULT_LESSON_PLAN_RESOURCE_CATEGORIES;
 const adminActiveSectionTabRaw = localStorage.getItem("llhAdminActiveSection") || "admin-home";
@@ -6966,7 +6981,7 @@ if (adminActiveSectionTab === "activities") adminActiveSectionTab = "curriculum-
 // ─── Admin 2.0 Navigation Groups ─────────────────────────────────────────────
 const adminGroups = [
   { id: "admin-home", icon: "🏠", label: "Admin Home", tabs: ["admin-home", "admin-notifications"], defaultTab: "admin-home" },
-  { id: "insights", icon: "🧭", label: "Insights", tabs: ["advisor", "marketing-funnel", "feature-usage", "feature-requests-center", "error-center", "search-analytics", "email-analytics", "seo-dashboard", "churn-dashboard", "content-health", "release-center"], defaultTab: "advisor" },
+  { id: "insights", icon: "🧭", label: "Insights", tabs: ["advisor", "marketing-funnel", "conversion-intelligence", "feature-usage", "feature-requests-center", "error-center", "search-analytics", "email-analytics", "seo-dashboard", "churn-dashboard", "content-health", "release-center"], defaultTab: "advisor" },
   { id: "marketing", icon: "📈", label: "Marketing", tabs: ["marketing-analytics"], defaultTab: "marketing-analytics" },
   { id: "users", icon: "👥", label: "Users", tabs: ["users", "user-health"], defaultTab: "users" },
   { id: "billing", icon: "💳", label: "Billing", tabs: ["billing-home", "trial-usage"], defaultTab: "billing-home" },
@@ -6991,6 +7006,7 @@ const adminGroupForTab = {
   "churn-dashboard": "insights",
   "content-health": "insights",
   "release-center": "insights",
+  "conversion-intelligence": "insights",
   "marketing-analytics": "marketing",
   "billing-home": "billing",
   "trial-usage": "billing",
@@ -7089,6 +7105,7 @@ const adminTabLabels = {
   "churn-dashboard": "Churn Dashboard",
   "content-health": "Content Health",
   "release-center": "Release Center",
+  "conversion-intelligence": "Conversion Intelligence",
   "support": "Support",
   "feedback": "Feedback",
   "feature-requests": "Feature Requests",
@@ -21668,6 +21685,13 @@ function canCustomizeLessonPlans() {
 function trackUpgradePrompt(promptId, extra = {}) {
   try {
     trackEvent("upgrade_prompt_shown", { promptId, plan: effectiveAccessPlan(), ...extra });
+    window.LLHConversionAnalytics?.trackProContentEncountered?.({
+      featureType: String(extra.featureType || promptId || "feature_locked"),
+      location: extra.location || promptId || "upgrade_prompt",
+      lessonId: extra.resourceId || extra.lessonId || "",
+      lessonTitle: extra.title || "",
+      ageGroup: extra.age || extra.ageGroup || "",
+    });
   } catch {
     /* ignore */
   }
@@ -21689,6 +21713,12 @@ function trackProUpgradeIntent(source, extra = {}) {
       plan: extra.plan || primaryPaidOffer(),
       accessPlan: effectiveAccessPlan(),
       ...extra,
+    });
+    window.LLHConversionAnalytics?.trackUpgradeCtaClicked?.({
+      ctaLocation: extra.ctaLocation || source || "other",
+      location: extra.location || source || "",
+      lessonId: extra.resourceId || extra.lessonId || "",
+      lessonTitle: extra.title || "",
     });
   } catch {
     /* ignore */
@@ -32434,6 +32464,21 @@ async function openResourceViewer(resourceId, options = {}) {
   trackEvent("resource_view", viewDetail);
   if (/lesson/i.test(String(resource.category || "")) || resource._curriculumManaged && resource.category === "Lesson Plans") {
     trackEvent("lesson_plan_view", viewDetail);
+    window.LLHConversionAnalytics?.trackLessonViewed?.({
+      resourceId,
+      lessonId: resourceId,
+      title: resource.title,
+      ageGroup: resource.age,
+      access: resource.plan,
+    });
+  } else if (/activity/i.test(String(resource.category || ""))) {
+    window.LLHConversionAnalytics?.trackActivityViewed?.({
+      resourceId,
+      lessonId: resource.id,
+      title: resource.title,
+      ageGroup: resource.age,
+      access: resource.plan,
+    });
   }
   // ViewContent once per resource per browser session (refresh-safe).
   if (!metaViewContentAlreadyTracked(resourceId)) {
@@ -57763,6 +57808,7 @@ function applyAdminSectionVisibility() {
     ".admin-analytics-panel",
     ".admin-marketing-analytics-panel",
     ".admin-insights-panel",
+    ".admin-conversion-intelligence-panel",
     ".launch-readiness-panel",
     ".admin-ticket-panel",
     ".admin-feedback-panel",
@@ -57927,12 +57973,19 @@ function applyAdminSectionVisibility() {
     "churn-dashboard",
     "content-health",
     "release-center",
+    "conversion-intelligence",
   ].includes(tab)) {
-    const el = document.querySelector(".admin-insights-panel");
+    const el = document.querySelector(tab === "conversion-intelligence" ? ".admin-conversion-intelligence-panel" : ".admin-insights-panel");
     if (el) el.hidden = false;
+    if (tab === "conversion-intelligence") {
+      if (typeof window.renderAdminConversionIntelligence === "function") {
+        window.renderAdminConversionIntelligence(document.querySelector("#adminConversionIntelligenceApp"));
+      }
+    } else {
     const hub = tab === "feature-requests-center" ? "feature-requests" : tab;
     if (typeof window.renderAdminInsights === "function") {
       window.renderAdminInsights(document.querySelector("#adminInsightsApp"), hub);
+    }
     }
   } else if (tab === "support") {
     const el = document.querySelector(".admin-ticket-panel");
@@ -67752,6 +67805,8 @@ function toggleFavorite(id) {
       } else {
         trackEvent("first_favorite", { resourceId: id });
       }
+      trackEvent("favorite_add", { resourceId: id });
+      window.LLHConversionAnalytics?.trackLessonSaved?.({ resourceId: id, lessonId: id });
     } catch {
       /* ignore */
     }
