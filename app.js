@@ -3197,6 +3197,118 @@ function setFormMessage(elementOrSelector, message, isSuccess = false) {
   element.classList.toggle("success", Boolean(isSuccess));
 }
 
+/** @typedef {{ fields: Record<string, string|boolean>, focus?: { name: string, selectionStart?: number, selectionEnd?: number } }} LiveFormSnapshot */
+
+function snapshotLiveFormFields(form) {
+  if (!form) return null;
+  /** @type {Record<string, string|boolean>} */
+  const fields = {};
+  form.querySelectorAll("input, textarea, select").forEach((el) => {
+    if (!el.name || el.disabled || el.type === "file") return;
+    if (el.type === "password" || el.type === "hidden") {
+      fields[el.name] = el.value;
+      return;
+    }
+    if (el.type === "checkbox") {
+      fields[el.name] = el.checked;
+      return;
+    }
+    if (el.type === "radio") {
+      if (el.checked) fields[el.name] = el.value;
+      return;
+    }
+    fields[el.name] = el.value;
+  });
+  const active = document.activeElement;
+  /** @type {{ name: string, selectionStart?: number, selectionEnd?: number } | undefined} */
+  let focus;
+  if (active instanceof HTMLElement && form.contains(active) && active.name) {
+    focus = { name: active.name };
+    if (typeof active.selectionStart === "number") {
+      focus.selectionStart = active.selectionStart;
+      focus.selectionEnd = active.selectionEnd;
+    }
+  }
+  return { fields, focus };
+}
+
+function restoreLiveFormFields(form, snapshot) {
+  if (!form || !snapshot?.fields) return;
+  Object.keys(snapshot.fields).forEach((name) => {
+    const nodes = form.querySelectorAll(`[name="${CSS.escape(name)}"]`);
+    if (!nodes.length) return;
+    nodes.forEach((el) => {
+      const value = snapshot.fields[name];
+      if (el.type === "checkbox") {
+        el.checked = Boolean(value);
+        return;
+      }
+      if (el.type === "radio") {
+        el.checked = el.value === value;
+        return;
+      }
+      el.value = value == null ? "" : String(value);
+    });
+  });
+  const focus = snapshot.focus;
+  if (!focus?.name) return;
+  const focusEl = form.querySelector(`[name="${CSS.escape(focus.name)}"]`);
+  if (!(focusEl instanceof HTMLElement)) return;
+  try { focusEl.focus({ preventScroll: true }); } catch {
+    try { focusEl.focus(); } catch { /* ignore */ }
+  }
+  if (typeof focus.selectionStart === "number" && typeof focusEl.setSelectionRange === "function") {
+    try { focusEl.setSelectionRange(focus.selectionStart, focus.selectionEnd ?? focus.selectionStart); } catch { /* ignore */ }
+  }
+}
+
+function formHasLiveUserEdits(form) {
+  if (!form) return false;
+  const active = document.activeElement;
+  if (active instanceof HTMLElement && form.contains(active)) return true;
+  return [...form.querySelectorAll("input, textarea, select")].some((el) => {
+    if (!el.name || el.disabled || el.type === "file" || el.type === "hidden") return false;
+    if (el.type === "checkbox" || el.type === "radio") return el.checked;
+    return String(el.value || "").length > 0;
+  });
+}
+
+function containerHasLiveFormEdits(container, formSelector = "form") {
+  if (!container) return false;
+  return [...container.querySelectorAll(formSelector)].some((form) => formHasLiveUserEdits(form));
+}
+
+/**
+ * Replace container HTML without destroying in-progress form input.
+ * Returns false when a dirty render was skipped.
+ */
+function assignContainerInnerHtml(container, html, options = {}) {
+  if (!container) return false;
+  const forms = [...container.querySelectorAll("form")];
+  if (options.skipWhenDirty !== false && forms.some((form) => formHasLiveUserEdits(form))) {
+    return false;
+  }
+  const snapshots = forms.map((form) => ({
+    id: form.id || "",
+    snapshot: snapshotLiveFormFields(form),
+  }));
+  container.innerHTML = html;
+  snapshots.forEach(({ id, snapshot }) => {
+    if (!snapshot) return;
+    const nextForm = id ? container.querySelector(`#${CSS.escape(id)}`) : null;
+    if (nextForm) restoreLiveFormFields(nextForm, snapshot);
+  });
+  return true;
+}
+
+let adminUnlockShellGeneration = 0;
+if (typeof window !== "undefined") {
+  Object.defineProperty(window, "adminUnlockShellGeneration", {
+    get() { return adminUnlockShellGeneration; },
+    configurable: true,
+  });
+}
+
 let adminLessonSaveFlowMessages = [];
 
 function setAdminLessonSaveFlowMessage(message, { reset = false, isSuccess = true } = {}) {
@@ -3623,7 +3735,9 @@ function openAuthModal(mode = "login") {
     scrollX: window.scrollX || window.pageXOffset || 0,
     scrollY: window.scrollY || window.pageYOffset || 0,
   };
-  if (mode === "signup") {
+  const alreadyOpen = Boolean(modal?.classList.contains("open"));
+  const sameMode = mode === currentAuthMode;
+  if (mode === "signup" && !alreadyOpen) {
     signupWizardStep = 1;
     signupPersonaChoice = "";
     signupCenterPathway = "";
@@ -3631,7 +3745,9 @@ function openAuthModal(mode = "login") {
   if (!(modal?.classList.contains("open"))) {
     authModalReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   }
-  setAuthMode(mode);
+  if (!alreadyOpen || !sameMode) {
+    setAuthMode(mode);
+  }
   document.body.classList.add("auth-modal-open");
   syncProviderBodyScrollLock(preferredScroll);
   syncNonessentialNoticesForAuthOverlay(true);
@@ -3652,12 +3768,14 @@ function openAuthModal(mode = "login") {
   modal.setAttribute("aria-hidden", "false");
   // Close the public mobile menu so it cannot sit above / steal taps from auth.
   if (typeof setHomePublicMenuOpen === "function") setHomePublicMenuOpen(false);
-  if (mode === "signup") {
+  if (mode === "signup" && !alreadyOpen) {
     renderSignupWizardStep();
   }
-  const authFocusRoot = modal?.querySelector(".auth-modal-card, .modal-card") || modal;
-  const firstAuthFocus = llhDialogFocusableElements(authFocusRoot)[0];
-  restoreLlhFocus(firstAuthFocus || document.querySelector("#closeModal"));
+  if (!alreadyOpen) {
+    const authFocusRoot = modal?.querySelector(".auth-modal-card, .modal-card") || modal;
+    const firstAuthFocus = llhDialogFocusableElements(authFocusRoot)[0];
+    restoreLlhFocus(firstAuthFocus || document.querySelector("#closeModal"));
+  }
 }
 
 async function runAuthSyncWithTimeout(label, task, timeoutMs = 6000) {
@@ -3904,12 +4022,19 @@ function renderSignupWizardStep() {
     renderSignupPlanChooser();
   }
 
-  // Keep the sticky action row in view after step changes.
-  try {
-    body?.scrollTo?.({ top: 0 });
-    submitButton.scrollIntoView({ block: "nearest", inline: "nearest" });
-  } catch {
-    /* ignore */
+  // Keep the sticky action row in view after step changes — but never while the
+  // user is actively typing in the auth form (background sync / modal re-open
+  // must not steal focus or scroll the field out from under them).
+  const authForm = document.querySelector("#authForm");
+  const activeInAuthForm = document.activeElement instanceof HTMLElement
+    && authForm?.contains(document.activeElement);
+  if (!activeInAuthForm) {
+    try {
+      body?.scrollTo?.({ top: 0 });
+      submitButton.scrollIntoView({ block: "nearest", inline: "nearest" });
+    } catch {
+      /* ignore */
+    }
   }
 }
 
@@ -54502,7 +54627,15 @@ function renderAdminAccessShell() {
   if (!isAdminUnlocked()) {
     protectedContent.hidden = true;
     lockPanel.hidden = false;
-    const emailValue = escapeHtml(rememberedAdminEmail());
+    const existingUnlockForm = lockPanel.querySelector("#adminUnlockForm");
+    if (existingUnlockForm && formHasLiveUserEdits(existingUnlockForm)) {
+      return false;
+    }
+    const unlockSnapshot = existingUnlockForm ? snapshotLiveFormFields(existingUnlockForm) : null;
+    const emailValue = unlockSnapshot?.fields?.adminEmail != null
+      ? escapeHtml(String(unlockSnapshot.fields.adminEmail))
+      : escapeHtml(rememberedAdminEmail());
+    adminUnlockShellGeneration += 1;
     lockPanel.innerHTML = `
       <div class="admin-lock-content">
         <div>
@@ -54539,10 +54672,15 @@ function renderAdminAccessShell() {
         ` : ""}
       </div>
     `;
+    const newUnlockForm = lockPanel.querySelector("#adminUnlockForm");
+    if (newUnlockForm && unlockSnapshot) {
+      restoreLiveFormFields(newUnlockForm, unlockSnapshot);
+    }
     return false;
   }
   protectedContent.hidden = false;
   lockPanel.hidden = false;
+  adminUnlockShellGeneration += 1;
   lockPanel.innerHTML = `
     <div class="admin-unlocked-bar">
       <div>
@@ -55814,6 +55952,7 @@ function adminImageCardHtml(image) {
 function renderAdminContentManager() {
   const target = document.querySelector("#adminContentManagerApp");
   if (!target || !isAdminUnlocked()) return;
+  if (containerHasLiveFormEdits(target)) return;
   const content = effectiveSiteContent();
   const reviews = (content.reviews || []).slice().sort((a, b) => (a.order || 0) - (b.order || 0));
   const reviewRecord = reviews.find((item) => item.id === adminReviewEditorId) || reviews[0] || {
@@ -55828,7 +55967,7 @@ function renderAdminContentManager() {
   const founder = content.founder || {};
   const images = Array.isArray(content.images) ? content.images : [];
   const imageRecord = images.find((item) => item.id === adminImageEditorId) || images[0] || { id: "", label: "", group: "", imageUrl: "" };
-  target.innerHTML = `
+  if (!assignContainerInnerHtml(target, `
     <div class="admin-manager-grid">
       <section class="admin-manager-section" data-admin-cm-section="lesson-plans">
         <div class="section-heading">
@@ -55984,7 +56123,7 @@ function renderAdminContentManager() {
         <div id="adminResourceCategoriesManagerApp"></div>
       </section>
     </div>
-  `;
+  `)) return;
   if (adminActiveSectionTab === "curriculum-lesson-plans") renderAdminCurriculumLessonPlanManager();
   if (adminActiveSectionTab === "curriculum-draft-review" && window.LLHDraftReviewQueue) window.LLHDraftReviewQueue.mount();
   if (adminActiveSectionTab === "curriculum-visual-production" && window.LLHVisualProductionUi) window.LLHVisualProductionUi.mount();
