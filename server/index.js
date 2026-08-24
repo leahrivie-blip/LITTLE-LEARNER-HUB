@@ -17698,6 +17698,13 @@ async function handleHdhTesterInvitesList(request, response) {
     return;
   }
   const store = ensureHdhTesterInviteCollections(readStore());
+  const user = store.users?.[identity.email] || { email: identity.email, role: "owner" };
+  // Owner/director only — teachers/assistants must not manage tester invites.
+  // Independent invited testers also cannot invite others (matches UI hide).
+  if (!canManageStaffInvites(user) || user.hdhIndependentTester === true) {
+    jsonResponse(response, 403, { error: "Only owners and directors can manage tester invites." });
+    return;
+  }
   let appOrigin = "";
   try {
     const raw = String(request.headers.origin || "").trim()
@@ -17722,6 +17729,14 @@ async function handleHdhTesterInviteCreate(request, response) {
   } catch (error) {
     jsonResponse(response, 401, { error: error.message || "Please log in before inviting a tester." });
     return;
+  }
+  {
+    const storeGate = readStore();
+    const user = storeGate.users?.[identity.email] || { email: identity.email, role: "owner" };
+    if (!canManageStaffInvites(user) || user.hdhIndependentTester === true) {
+      jsonResponse(response, 403, { error: "Only owners and directors can invite testers." });
+      return;
+    }
   }
   let body;
   try {
@@ -18035,6 +18050,11 @@ async function handleHdhTesterInviteRevoke(request, response, inviteId) {
     return;
   }
   const store = ensureHdhTesterInviteCollections(readStore());
+  const user = store.users?.[identity.email] || { email: identity.email, role: "owner" };
+  if (!canManageStaffInvites(user) || user.hdhIndependentTester === true) {
+    jsonResponse(response, 403, { error: "Only owners and directors can revoke tester invites." });
+    return;
+  }
   const match = Object.entries(store.hdhTesterInvites).find(([, invite]) => (
     invite.id === inviteId && normalizeEmail(invite.invitedByEmail) === normalizeEmail(identity.email)
   ));
