@@ -67,6 +67,8 @@
 3. Also open an empty draft and a large plan to confirm polish
 4. Reset both flags to `false`
 
-## Hold
+## Production status
 
-No merge, deploy, or flag enablement until the owner approves the [Phase 1 QA readiness report](./PHASE1_QA_READINESS_REPORT.md).
+See [PHASE1_PRODUCTION_VERIFICATION.md](./PHASE1_PRODUCTION_VERIFICATION.md).
+
+PR #436 is **merged**. Production deploy + flag enablement were blocked on Render/admin access from the agent environment — owner must Manual Deploy `main` on Render, then enable `teachingKitViewer` + `teachingKitPrintCenter` only (`teachingKitAttachments` stays false).
