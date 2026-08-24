@@ -136,9 +136,10 @@ function parseOperatorCommand(rawCommand, options = {}) {
     && !/\b(upgrade|improve|including|lesson\s+content|text|fields|pictures?|images?)\b/i.test(raw);
   const wantsUpgrade = /\b(upgrade|improve|finish|complete|make\s+ready|fill\s+(?:the\s+)?missing|ready\s+for\s+(?:me\s+to\s+)?review)\b/i.test(raw)
     || (/\bfix\b/i.test(raw) && !imageFocusedFix && !mentionsImages);
-  const isCreateCommand = createApi.isCreateLessonCommand(raw)
+  const isCreateCommand = !createApi.isPrintableExistingLessonCommand(raw)
+    && (createApi.isCreateLessonCommand(raw)
     || (/\b(create|make\s+me|build)\b.+\b(lessons?|weeks?|kits?)\b/i.test(raw)
-      && !/\b(upgrade|finish|fix)\b.+\b(existing|this)\s+lesson\b/i.test(raw));
+      && !/\b(upgrade|finish|fix)\b.+\b(existing|this)\s+lesson\b/i.test(raw)));
   const noTouchImages = exclusions.flags.touchImages === false;
   const replaceBadOnly = /\b(keep\s+(?:all\s+)?good|only\s+replace\s+(?:the\s+)?bad|replace\s+(?:the\s+)?bad)\b/i.test(raw);
   const fullKitFinish = phase >= 6 && orchestrator.isFullKitFinishCommand(raw)

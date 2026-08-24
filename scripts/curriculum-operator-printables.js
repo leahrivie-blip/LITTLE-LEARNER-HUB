@@ -10,6 +10,7 @@
 "use strict";
 
 const schema = require("./curriculum-operator-schema.js");
+const printableAgeBand = require("./curriculum-operator-printable-age-band.js");
 
 const PRINTABLE_WRITE = Object.freeze(["CREATE", "REPLACE"]);
 const BRAND_FOOTER = "littlelearnershubbyleah.com";
@@ -333,7 +334,13 @@ function buildPrintableSpec({
   const title = text(planItem?.printable?.title, 180)
     || (d === "CREATE" || d === "REPLACE" ? `${text(activity?.title, 120)} Pack` : "");
   const contents = schema.asArray(planItem?.printable?.contents).map((c) => text(c, 120)).filter(Boolean);
-  const ageBand = text(plan?.age || activity?.age, 80);
+  const ageResolved = printableAgeBand.resolvePrintableAgeBand(plan, { activity });
+  const ageBand = ageResolved.ok
+    ? ageResolved.ageBand
+    : (schema.normalizeAgeBand(plan?.age || activity?.age) || text(plan?.age || activity?.age, 80));
+  const ageBandLabel = ageResolved.ok
+    ? ageResolved.ageLabel
+    : text(plan?.age || activity?.age, 80);
   const pages = contents.length
     ? contents.map((c, i) => ({
       index: i + 1,
@@ -356,6 +363,8 @@ function buildPrintableSpec({
     title,
     resourceType: schema.PRINTABLE_TYPES.includes(resourceType) ? resourceType : "other",
     ageBand,
+    ageBandLabel,
+    ageBandSource: ageResolved.ok ? ageResolved.source : null,
     purpose: purpose || text(planItem?.printable?.reason, 600),
     teacherUse: text(planItem?.printable?.reason, 400),
     childUse: purpose,
@@ -557,7 +566,10 @@ function buildPrintableActionsFromAudit(plan, activities, audit, curriculum, opt
         decision: "REMOVE",
         title: text(r.title, 180),
         resourceType: "other",
-        ageBand: text(plan.age, 80),
+        ageBand: (() => {
+          const resolved = printableAgeBand.resolvePrintableAgeBand(plan);
+          return resolved.ok ? resolved.ageBand : text(plan.age, 80);
+        })(),
         purpose: "Remove generic filler that does not help teachers run an activity.",
         teacherUse: "Do not print.",
         childUse: "",
@@ -729,7 +741,7 @@ async function generatePrintablePdfBuffer({
       kind: spec.resourceType,
     }));
 
-  const age = text(spec.ageBand || plan?.age || activity?.age, 60);
+  const age = text(spec.ageBandLabel || spec.ageBand || plan?.age || activity?.age, 60);
   const materials = text(activity?.materials, 200);
   const teacherUse = text(spec.teacherUse || spec.purpose, 240);
   const imageCache = new Map();
@@ -1539,11 +1551,30 @@ async function runPrintablePlanForLesson({
       const activity = schema.asArray(activities).find((a) => text(a.id, 160) === text(action.activityId, 160));
       if (!activity) throw new Error(`Activity ${action.activityId} not found by exact id.`);
 
+      const ageResolved = printableAgeBand.resolvePrintableAgeBand(plan, { activity });
+      if (!ageResolved.ok) {
+        const ownerInput = printableAgeBand.buildPrintableAgeBandOwnerInputError(ageResolved);
+        results.push({
+          ...action,
+          decision,
+          status: "failed",
+          code: ownerInput.code,
+          error: ownerInput.error,
+          ownerInput,
+          idempotencyKey,
+          preservedExisting: true,
+        });
+        continue;
+      }
+
       const spec = {
         ...action.spec,
         lessonId: plan.id,
         activityIds: [action.activityId],
         decision,
+        ageBand: ageResolved.ageBand,
+        ageBandLabel: ageResolved.ageLabel,
+        ageBandSource: ageResolved.source,
       };
       const specCheck = validatePrintableSpec(spec, {
         expectedLessonId: plan.id,
