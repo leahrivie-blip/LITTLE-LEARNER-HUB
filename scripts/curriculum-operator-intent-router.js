@@ -139,6 +139,25 @@ function matchLessonsFromCatalog(command, lessonPlans = []) {
 }
 
 /**
+ * Short Owner mutation commands that should inherit currentlySelectedLessonId
+ * without requiring the literal words "this lesson".
+ */
+function isShortSelectedLessonMutation(rawCommand) {
+  const raw = text(rawCommand);
+  if (!raw) return false;
+  if (detectNewLessonIntent(raw, { existingLessonIntent: false })) return false;
+  if (/\b(finish|improve|fix|upgrade|complete|edit)\s+(it|this)\b/i.test(raw)) return true;
+  if (detectAssetCategories(raw).length) return true;
+  if (ACTION_VERBS.test(raw) && (
+    /\b(books?|songs?|cover|pictures?|images?|photos?|printables?|visuals?|lesson|kit)\b/i.test(raw)
+    || /\b(finish|improve|fix|upgrade)\b/i.test(raw)
+  )) {
+    return true;
+  }
+  return false;
+}
+
+/**
  * @param {string} rawCommand
  * @param {{ currentlySelectedLessonId?: string|null, lessonPlans?: object[] }} [options]
  */
@@ -156,6 +175,10 @@ function detectExistingLessonReferences(rawCommand, options = {}) {
   const refersToThisLesson = /\b(this|current|selected)\s+lesson\b/i.test(raw)
     || /\bfor\s+this\s+one\b/i.test(raw)
     || /\bthis\s+one\b/i.test(raw);
+  const shortSelectedMutation = Boolean(
+    selectedId && isShortSelectedLessonMutation(raw),
+  );
+  const newLessonIntent = detectNewLessonIntent(raw, { existingLessonIntent: false });
 
   const ageScopedHint = /\b(?:the|a)\s+(infant|toddler|preschool|school[\s-]?age|mixed)\s+lesson\b/i.exec(raw);
   let ageScopedMatches = [];
@@ -174,7 +197,19 @@ function detectExistingLessonReferences(rawCommand, options = {}) {
     if (!resolvedLessons.some((r) => r.id === row.id)) resolvedLessons.push(row);
   };
   catalogMatches.forEach(pushUnique);
-  if (selectedLesson && refersToThisLesson) pushUnique(selectedLesson);
+
+  // Selected-lesson inheritance for short mutation commands (no "this lesson" required).
+  // Never override an explicit new-lesson create intent.
+  if (!newLessonIntent && selectedLesson && (refersToThisLesson || shortSelectedMutation)) {
+    // If catalog matched a different named lesson, prefer the named match(es).
+    if (!catalogMatches.length || catalogMatches.some((m) => m.id === selectedId)) {
+      resolvedLessons.length = 0;
+      pushUnique(selectedLesson);
+    }
+  } else if (!newLessonIntent && selectedId && (refersToThisLesson || shortSelectedMutation) && selectedLesson) {
+    pushUnique(selectedLesson);
+  }
+
   if (ageScopedMatches.length === 1) pushUnique(ageScopedMatches[0]);
 
   const titles = [...new Set([
@@ -183,10 +218,11 @@ function detectExistingLessonReferences(rawCommand, options = {}) {
   ].filter(Boolean))];
 
   let source = null;
-  if (resolvedLessons.length) source = catalogMatches.length ? "catalog" : "title_hint";
-  else if (refersToThisLesson && selectedLesson) {
+  if (resolvedLessons.length === 1 && selectedId && resolvedLessons[0].id === selectedId
+    && (refersToThisLesson || shortSelectedMutation)) {
     source = "selected";
-    pushUnique(selectedLesson);
+  } else if (resolvedLessons.length) {
+    source = catalogMatches.length ? "catalog" : "title_hint";
   } else if (hints.length) source = "title_hint";
   else if (ageScopedMatches.length === 1) source = "age_filter";
 
@@ -194,13 +230,13 @@ function detectExistingLessonReferences(rawCommand, options = {}) {
     titles,
     lessonIds: resolvedLessons.map((r) => r.id),
     resolvedLessons,
-    refersToThisLesson,
+    refersToThisLesson: refersToThisLesson || shortSelectedMutation,
     selectedLessonId: selectedId,
     source,
     existingLessonIntent: Boolean(
       resolvedLessons.length
       || hints.length
-      || (refersToThisLesson && selectedId)
+      || ((refersToThisLesson || shortSelectedMutation) && selectedId)
       || ageScopedMatches.length === 1,
     ),
   };
@@ -256,7 +292,8 @@ function detectAssetCategories(rawCommand) {
   const multiAsset = [cover, printable, image, songsBooks].filter(Boolean).length > 1;
   const broadUpgrade = multiAsset
     || /\bpublish[\s-]?ready\b/i.test(raw)
-    || /\bfinish\s+(?:everything|the\s+teaching\s+kit|this\s+lesson)\b/i.test(raw)
+    || /\bfinish\s+(?:everything|the\s+teaching\s+kit|this\s+lesson|it)\b/i.test(raw)
+    || /\bimprove\s+(?:this|it)\b/i.test(raw)
     || /\beverything\s+missing\b/i.test(raw)
     || /\badd\s+anything\s+it\s+needs\b/i.test(raw)
     || orchestrator.isFullKitFinishCommand(raw)
@@ -515,6 +552,7 @@ module.exports = {
   detectExistingLessonReferences,
   detectNewLessonIntent,
   detectAssetCategories,
+  isShortSelectedLessonMutation,
   pickPrimaryAssetCategory,
   resolveOwnerIntent,
   applyIntentRouting,

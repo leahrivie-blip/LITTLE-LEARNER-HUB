@@ -289,7 +289,11 @@ function parseOperatorCommand(rawCommand, options = {}) {
       notes.push("New-lesson creation requires Phase 7+; not executed at this phase.");
     }
   }
-  if (/\bpublish\b/i.test(raw) && !/\bready\s+to\s+publish\b/i.test(raw)) {
+  if (/\bpublish\b/i.test(raw)
+    && !/\bready\s+to\s+publish\b/i.test(raw)
+    && !/\bpublish[\s-]?ready\b/i.test(raw)
+    && !/\bready\s+for\s+(me\s+to\s+)?(review|publish)\b/i.test(raw)
+    && /\b(publish\s+(this\s+)?(lesson|it)|publish\s+it\s+now|go\s+ahead\s+and\s+publish)\b/i.test(raw)) {
     actions.publish = true;
     confirmReasons.push("publish_requested");
     notes.push("READY FOR REVIEW — PUBLISH REQUESTED. AI will finish the draft only; Owner must explicitly confirm Publish in the UI (Phase 8). No automatic publishing.");

@@ -68,13 +68,25 @@
     const token = adminToken();
     if (!token) throw new Error("Admin session required.");
     if (!isOwner()) throw new Error("AI Curriculum Operator is restricted to the owner account.");
+    const currentlySelectedLessonId = (() => {
+      try {
+        if (typeof adminCurriculumLessonEditorId === "string" && adminCurriculumLessonEditorId.trim()) {
+          return adminCurriculumLessonEditorId.trim();
+        }
+      } catch (_e) { /* ignore */ }
+      return "";
+    })();
     const response = await fetch("/api/admin/curriculum/operator", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ action, ...extra }),
+      body: JSON.stringify({
+        action,
+        currentlySelectedLessonId: currentlySelectedLessonId || undefined,
+        ...extra,
+      }),
     });
     const json = await response.json().catch(() => ({}));
     if (!response.ok) {
