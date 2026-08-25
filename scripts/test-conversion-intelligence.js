@@ -292,24 +292,408 @@ function wiringTests() {
   const appJs = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
   const indexHtml = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
   const serverJs = fs.readFileSync(path.join(ROOT, "server/index.js"), "utf8");
+  const clientSrc = fs.readFileSync(path.join(ROOT, "scripts/conversion-analytics-client.js"), "utf8");
+  const adminUi = fs.readFileSync(path.join(ROOT, "admin-conversion-intelligence.js"), "utf8");
   assert.match(serverJs, /handleAdminConversionIntelligence/);
   assert.match(serverJs, /conversion-intelligence\.js/);
   assert.match(indexHtml, /admin-conversion-intelligence/);
   assert.match(indexHtml, /conversion-analytics-client\.js/);
   assert.match(appJs, /conversion-intelligence/);
+  assert.match(appJs, /trackUpgradeCtaImpression/);
+  assert.match(clientSrc, /trackUpgradeCtaImpression/);
+  assert.match(adminUi, /Activation/);
+  assert.match(adminUi, /Signup Cohort/);
+  assert.match(adminUi, /Pre-purchase Association/);
+  assert.ok(fs.existsSync(path.join(ROOT, "server/conversion-phase2.js")));
   pass("admin UI and API wiring");
+}
+
+function phase2ATests() {
+  const now = Date.now();
+  const iso = (msAgo) => new Date(now - msAgo).toISOString();
+
+  // --- ACTIVATION ---
+  const pageOnly = conversionIntelligence.computeActivationState({
+    signupAt: iso(86400000),
+    events: [{ name: "page_view", createdAt: iso(80000000), detail: {} }],
+  });
+  assert.equal(pageOnly.activated, false);
+  pass("activation: page view only → not activated");
+
+  const oneLesson = conversionIntelligence.computeActivationState({
+    signupAt: iso(86400000),
+    events: [
+      { name: "lesson_viewed", createdAt: iso(80000000), detail: { resourceId: "a" } },
+      { name: "activity_viewed", createdAt: iso(79000000), detail: { resourceId: "a" } },
+    ],
+  });
+  assert.equal(oneLesson.activated, false);
+  pass("activation: one distinct resource → not activated");
+
+  const twoDupes = conversionIntelligence.computeActivationState({
+    signupAt: iso(86400000),
+    events: [
+      { name: "lesson_viewed", createdAt: iso(80000000), detail: { resourceId: "same" } },
+      { name: "lesson_viewed", createdAt: iso(79000000), detail: { resourceId: "same" } },
+      { name: "lesson_saved", createdAt: iso(78000000), detail: { resourceId: "same" } },
+    ],
+  });
+  assert.equal(twoDupes.activated, false);
+  pass("activation: duplicate resource view does not satisfy distinct requirement");
+
+  const activated = conversionIntelligence.computeActivationState({
+    signupAt: iso(86400000),
+    events: [
+      { name: "lesson_viewed", createdAt: iso(80000000), detail: { resourceId: "a" } },
+      { name: "lesson_viewed", createdAt: iso(79000000), detail: { resourceId: "b" } },
+      { name: "lesson_saved", createdAt: iso(78000000), detail: { resourceId: "b" } },
+    ],
+  });
+  assert.equal(activated.activated, true);
+  assert.ok(activated.activatedAt);
+  pass("activation: two distinct resources + meaningful action → activated");
+
+  const orderAct = conversionIntelligence.computeActivationState({
+    signupAt: iso(86400000),
+    events: [
+      { name: "lesson_saved", createdAt: iso(82000000), detail: { resourceId: "a" } },
+      { name: "lesson_viewed", createdAt: iso(81000000), detail: { resourceId: "a" } },
+      { name: "lesson_viewed", createdAt: iso(80000000), detail: { resourceId: "b" } },
+    ],
+  });
+  assert.equal(orderAct.activated, true);
+  assert.equal(orderAct.activatedAt, iso(80000000));
+  pass("activation: timestamp ordering when meaningful action precedes second view");
+
+  // --- COHORTS ---
+  const matureSignup = iso(40 * 86400000);
+  const immatureSignup = iso(2 * 86400000);
+  const cohortProfiles = new Map([
+    ["email:mature@t.com", {
+      email: "mature@t.com",
+      signupAt: matureSignup,
+      converted: true,
+      paidAtMs: new Date(matureSignup).getTime() + 2 * 86400000,
+      events: [{ name: "account_created", createdAt: matureSignup }],
+      sessions: new Set(["s1"]),
+      pricingViews: 0,
+      checkoutStarts: 0,
+      lessonViews: 0,
+      proEncounters: 0,
+      upgradeClicks: 0,
+      activated: true,
+    }],
+    ["email:mature-free@t.com", {
+      email: "mature-free@t.com",
+      signupAt: matureSignup,
+      converted: false,
+      paidAtMs: 0,
+      events: [{ name: "account_created", createdAt: matureSignup }],
+      sessions: new Set(["s1"]),
+      pricingViews: 0,
+      checkoutStarts: 0,
+      lessonViews: 0,
+      proEncounters: 0,
+      upgradeClicks: 0,
+      activated: false,
+    }],
+    ["email:immature@t.com", {
+      email: "immature@t.com",
+      signupAt: immatureSignup,
+      converted: false,
+      paidAtMs: 0,
+      events: [{ name: "account_created", createdAt: immatureSignup }],
+      sessions: new Set(["s1"]),
+      pricingViews: 0,
+      checkoutStarts: 0,
+      lessonViews: 0,
+      proEncounters: 0,
+      upgradeClicks: 0,
+      activated: false,
+    }],
+  ]);
+  const cohorts = conversionIntelligence.buildSignupCohorts(cohortProfiles, now);
+  const matureKey = matureSignup.slice(0, 10);
+  const immatureKey = immatureSignup.slice(0, 10);
+  const matureRow = cohorts.cohorts.find((c) => c.cohort === matureKey);
+  const immatureRow = cohorts.cohorts.find((c) => c.cohort === immatureKey);
+  assert.ok(matureRow);
+  assert.equal(matureRow.eligible30d, 2);
+  assert.equal(matureRow.paidWithin30d, 1);
+  assert.equal(matureRow.rate30d, "50%");
+  pass("cohorts: mature converted + non-converted counted");
+
+  assert.ok(immatureRow);
+  assert.equal(immatureRow.rate30d, "pending");
+  assert.equal(immatureRow.paidWithin30d, "—");
+  pass("cohorts: immature user excluded from 30d denominator");
+
+  assert.equal(matureRow.paidWithin1d, 0);
+  pass("cohorts: conversion after window does not count inside earlier window");
+
+  // --- PERSONA ---
+  assert.equal(conversionIntelligence.resolvePersona({ persona: "home_daycare" }), "home_daycare");
+  assert.equal(conversionIntelligence.resolvePersona({ onboardingPersona: "center" }), "center");
+  assert.equal(conversionIntelligence.resolvePersona({ accountType: "center", role: "teacher" }), "teacher_staff");
+  assert.equal(conversionIntelligence.resolvePersona({}), "unknown");
+  pass("persona: resolution order and unknown safe");
+
+  // --- AGE GROUP ---
+  assert.equal(conversionEvents.extractAgeGroup({ detail: { age: "School Age" } }), "School Age");
+  assert.equal(conversionEvents.extractAgeGroup({ detail: { age: "Mixed Ages" } }), "Mixed Ages");
+  assert.equal(conversionEvents.extractAgeGroup({ detail: { age: "Toddler (1-2)" } }), "Toddler");
+  const ageSeg = conversionIntelligence.buildAgeGroupSegmentation([
+    { name: "lesson_viewed", user: "a@t.com", visitorId: "v1", createdAt: iso(1000), detail: { resourceId: "x", age: "Toddler" } },
+    { name: "printable_viewed", user: "a@t.com", visitorId: "v1", createdAt: iso(900), detail: { resourceId: "x", age: "Toddler" } },
+    { name: "lesson_viewed", user: "b@t.com", visitorId: "v2", createdAt: iso(800), detail: { resourceId: "y", age: "School Age" } },
+  ], new Map([
+    ["email:a@t.com", { email: "a@t.com", pricingViews: 1, checkoutStarts: 0, converted: false }],
+    ["email:b@t.com", { email: "b@t.com", pricingViews: 0, checkoutStarts: 0, converted: false }],
+  ]));
+  assert.ok(ageSeg.rows.some((r) => r.ageGroup === "Toddler" && r.printableEngagement >= 1));
+  assert.ok(ageSeg.rows.some((r) => r.ageGroup === "School Age"));
+  pass("age group: canonical normalization + printable interactions");
+
+  // --- OFFER ---
+  assert.equal(conversionIntelligence.normalizeOffer({ detail: { type: "early_user" } }), "early_user");
+  assert.equal(conversionIntelligence.normalizeOffer({ detail: { type: "annual" } }), "pro_annual");
+  assert.equal(conversionIntelligence.normalizeOffer({ detail: { type: "monthly" } }), "pro_monthly");
+  assert.equal(conversionIntelligence.normalizeOffer({ detail: { type: "founding" } }), "founding");
+  assert.equal(conversionIntelligence.normalizeOffer({ detail: { trial7day: true } }), "trial");
+  assert.equal(conversionIntelligence.normalizeOffer({ billingOffer: "pro_monthly" }), "pro_monthly");
+  pass("offer: normalize early_user/annual/monthly/founding/trial");
+
+  const offerProfiles = new Map([
+    ["email:buyer@t.com", {
+      email: "buyer@t.com",
+      converted: true,
+      paidAtMs: now - 10000,
+      billingOffer: "pro_monthly",
+      events: [
+        { name: "checkout_start", createdAt: iso(20000), detail: { type: "annual" } },
+        { name: "checkout_start", createdAt: iso(15000), detail: { type: "monthly" } },
+        { name: "checkout_start", createdAt: iso(5000), detail: { type: "early_user" } }, // after purchase — ignored
+      ],
+    }],
+  ]);
+  const offers = conversionIntelligence.buildOfferAttribution(offerProfiles);
+  const monthly = offers.find((o) => o.offer === "pro_monthly");
+  assert.ok(monthly && monthly.paidConversions >= 1);
+  pass("offer: last pre-purchase checkout_start wins; post-purchase ignored");
+
+  assert.equal(
+    conversionIntelligence.userHasAuthoritativePaidConversion({
+      plan: "Pro",
+      stripeSubscriptionStatus: "past_due",
+      firstPaidInvoiceAt: iso(1000),
+    }),
+    false,
+  );
+  pass("offer: past_due/unpaid does not count as paid");
+
+  // --- CAMPAIGN ---
+  const campProfiles = new Map([
+    ["email:c@t.com", {
+      email: "c@t.com",
+      signupAt: iso(86400000),
+      source: "Facebook",
+      firstTouch: { source: "Facebook", medium: "paid_social", campaign: "spring", content: "ad1" },
+      activated: true,
+      pricingViews: 1,
+      checkoutStarts: 1,
+      converted: true,
+      events: [{ name: "account_created", createdAt: iso(86400000) }],
+    }],
+  ]);
+  const camp = conversionIntelligence.buildCampaignAttribution(campProfiles);
+  assert.ok(camp.firstTouch.some((r) => r.source === "Facebook" && r.campaign === "spring" && r.content === "ad1"));
+  pass("campaign: first-touch source/campaign/content preserved");
+
+  // --- LESSON ASSOCIATION ---
+  const lessonProfiles = new Map([
+    ["email:u@t.com", {
+      email: "u@t.com",
+      converted: true,
+      paidAtMs: now - 2 * 86400000,
+      events: [
+        { name: "pricing_viewed", user: "u@t.com", createdAt: iso(5 * 86400000) },
+        { name: "pricing_viewed", user: "u@t.com", createdAt: iso(20 * 86400000) },
+      ],
+    }],
+  ]);
+  const lessonEvents = [
+    { name: "lesson_viewed", user: "u@t.com", visitorId: "vu", createdAt: iso(10 * 86400000), detail: { resourceId: "farm", title: "Farm", age: "Toddler" } },
+    { name: "lesson_viewed", user: "u@t.com", visitorId: "vu", createdAt: iso(9 * 86400000), detail: { resourceId: "farm", title: "Farm", age: "Toddler" } },
+    { name: "lesson_saved", user: "u@t.com", createdAt: iso(8 * 86400000), detail: { resourceId: "farm" } },
+    { name: "printable_viewed", user: "u@t.com", createdAt: iso(7 * 86400000), detail: { resourceId: "farm" } },
+    { name: "pro_content_encountered", user: "u@t.com", createdAt: iso(6 * 86400000), detail: { lessonId: "farm", featureType: "printable_locked" } },
+  ];
+  // Wire profile events for pricing window checks
+  lessonProfiles.get("email:u@t.com").events = [
+    ...lessonEvents,
+    { name: "pricing_viewed", user: "u@t.com", createdAt: iso(5 * 86400000) },
+    { name: "pricing_viewed", user: "u@t.com", createdAt: iso(20 * 86400000) },
+  ];
+  const lessonAssoc = conversionIntelligence.buildLessonPurchaseAssociation(lessonEvents, lessonProfiles);
+  const farm = lessonAssoc.topLessons.find((l) => l.lessonId === "farm");
+  assert.ok(farm);
+  assert.equal(farm.uniqueViewers, 1);
+  assert.equal(farm.saves, 1);
+  assert.ok(farm.printableInteractions >= 1);
+  assert.ok(farm.proEncounters >= 1);
+  assert.equal(farm.pricingViewsWithin7d, 1);
+  assert.equal(farm.purchasesWithin30d, 1);
+  assert.match(lessonAssoc.associationDisclaimer, /not causal/i);
+  pass("lesson association: unique viewers, saves, printables, windows, disclaimer");
+
+  // --- LOST USERS ---
+  const lostProfiles = new Map([
+    ["email:fresh@t.com", {
+      email: "fresh@t.com",
+      signupAt: iso(1 * 86400000),
+      activated: false,
+      converted: false,
+      lastActive: iso(1000),
+      sessions: new Set(["s1"]),
+      checkoutStarts: 0,
+      events: [],
+      pricingViews: 0,
+      upgradeClicks: 0,
+      lessonViews: 0,
+      proEncounters: 0,
+      hadPaidHistory: false,
+      hasProAccess: false,
+    }],
+    ["email:stale@t.com", {
+      email: "stale@t.com",
+      signupAt: iso(20 * 86400000),
+      activated: false,
+      converted: false,
+      lastActive: iso(15 * 86400000),
+      sessions: new Set(["s1"]),
+      checkoutStarts: 0,
+      events: [{ name: "account_created", createdAt: iso(20 * 86400000) }],
+      pricingViews: 0,
+      upgradeClicks: 0,
+      lessonViews: 0,
+      proEncounters: 0,
+      hadPaidHistory: false,
+      hasProAccess: false,
+    }],
+    ["email:ended@t.com", {
+      email: "ended@t.com",
+      signupAt: iso(60 * 86400000),
+      activated: true,
+      converted: false,
+      lastActive: iso(5 * 86400000),
+      sessions: new Set(["s1", "s2"]),
+      checkoutStarts: 0,
+      events: [],
+      pricingViews: 0,
+      upgradeClicks: 0,
+      lessonViews: 0,
+      proEncounters: 0,
+      hadPaidHistory: true,
+      hasProAccess: false,
+    }],
+  ]);
+  const lost = conversionIntelligence.buildLostUserSegments(lostProfiles, now);
+  const neverUse = lost.segments.find((s) => s.id === "never_meaningful_use");
+  assert.ok(neverUse.count >= 1);
+  assert.ok(!neverUse.users.some((u) => u.user.includes("fresh")));
+  pass("lost users: fresh signup excluded; mature never-use counted");
+  const ended = lost.segments.find((s) => s.id === "previously_paid_ended");
+  assert.ok(ended.count >= 1);
+  pass("lost users: previously-paid-ended segment works");
+
+  // --- HIGH INTENT QUEUE ---
+  const queueProfiles = new Map([
+    ["email:queue.user@t.com", {
+      email: "queue.user@t.com",
+      signupAt: iso(10 * 86400000),
+      activated: false,
+      converted: false,
+      sessions: new Set(["s1", "s2"]),
+      pricingViews: 2,
+      proEncounters: 2,
+      checkoutStarts: 1,
+      checkoutCompleted: false,
+      lessonViews: 5,
+      upgradeClicks: 1,
+      lastActive: iso(1000),
+      events: [
+        { name: "account_created", createdAt: iso(10 * 86400000) },
+        { name: "checkout_start", createdAt: iso(5 * 86400000) },
+        { name: "pro_checkout_abandoned", createdAt: iso(4 * 86400000) },
+      ],
+    }],
+  ]);
+  const queue = conversionIntelligence.buildHighIntentQueue(queueProfiles, conversionIntelligence.computeIntentScore, now);
+  assert.ok(queue.length >= 1);
+  assert.ok(queue[0].categories.includes("Checkout abandoned"));
+  assert.ok(queue[0].categories.includes("Pricing viewed repeatedly"));
+  assert.ok(queue[0].user.includes("…"));
+  pass("high-intent queue: deterministic categories + masked identity");
+
+  // --- CTA impressions ---
+  assert.equal(resolveCanonicalEvent({ name: "upgrade_prompt_shown" }), null);
+  assert.equal(resolveCanonicalEvent({ name: "upgrade_cta_impression" }), "upgrade_cta_impression");
+  const ctaEvents = [
+    { name: "upgrade_prompt_shown", user: "c1@t.com", visitorId: "v1", createdAt: iso(1000), detail: { promptId: "locked_lesson_preview" } },
+    { name: "upgrade_cta_impression", user: "c1@t.com", visitorId: "v1", createdAt: iso(900), detail: { promptId: "locked_lesson_preview", ctaLocation: "locked_lesson_preview" } },
+    { name: "upgrade_cta_clicked", user: "c1@t.com", visitorId: "v1", createdAt: iso(800), detail: { ctaLocation: "locked_lesson_preview" } },
+    { name: "pro_content_encountered", user: "c1@t.com", visitorId: "v1", createdAt: iso(700), detail: { featureType: "pro_lesson_locked" } },
+  ];
+  const cta = conversionIntelligence.buildCtaPerformanceWithImpressions(ctaEvents);
+  const locked = cta.find((r) => r.cta === "locked_lesson_preview");
+  assert.ok(locked);
+  assert.equal(locked.impressions, 1);
+  assert.equal(locked.uniqueClicks, 1);
+  assert.equal(locked.ctr, "100%");
+  pass("CTA: unique impressions, no historical+new double-count, CTR correct");
+  const clientSrc = fs.readFileSync(path.join(ROOT, "scripts/conversion-analytics-client.js"), "utf8");
+  assert.ok(clientSrc.includes("trackUpgradeCtaImpression"));
+  assert.equal(resolveCanonicalEvent({ name: "pro_content_encountered" }), "pro_content_encountered");
+  assert.equal(resolveCanonicalEvent({ name: "upgrade_prompt_shown" }), null);
+  pass("CTA: client impression helper present; pro_content_encountered remains distinct");
+
+  // End-to-end report includes Phase 2A keys
+  const store = buildFixtureStore();
+  store.users["alice@free.test"].attribution = {
+    source: "Facebook", medium: "paid_social", campaign: "spring", content: "creative-a",
+  };
+  store.analyticsEvents.push({
+    id: "e22", name: "signup_persona_selected", user: "alice@free.test", createdAt: iso(2 * 86400000 - 1000),
+    detail: { persona: "home_daycare", accountType: "home_daycare", role: "owner" },
+  });
+  const report = conversionIntelligence.buildConversionIntelligence(store, { range: "all", events: store.analyticsEvents });
+  assert.ok(report.activation);
+  assert.ok(report.signupCohorts);
+  assert.ok(report.campaignAttribution);
+  assert.ok(report.personaSegmentation);
+  assert.ok(report.ageGroupSegmentation);
+  assert.ok(report.offerAttribution);
+  assert.ok(report.lessonAssociation);
+  assert.ok(report.lostUsers);
+  assert.ok(report.highIntentQueue);
+  assert.ok(report.funnel.stages.length >= 10);
+  pass("phase2A: report includes all new sections; funnel intact");
 }
 
 async function main() {
   console.log("Conversion Intelligence tests\n");
   wiringTests();
   const report = unitTests();
+  phase2ATests();
   await apiTests();
   console.log(`\nResults: ${passed} passed, ${failed} failed`);
   if (failed > 0) process.exit(1);
   console.log("\nExample funnel (fixture data):");
   for (const stage of report.funnel.stages.slice(0, 8)) {
     console.log(`  ${stage.uniqueUsers} — ${stage.label} (${stage.pctOfSignups}% of signups)`);
+  }
+  if (report.activation) {
+    console.log(`\nActivation: ${report.activation.activatedUsers}/${report.activation.signups} (${report.activation.activationRate})`);
   }
 }
 
