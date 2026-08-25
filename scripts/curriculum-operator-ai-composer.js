@@ -1137,6 +1137,11 @@ function validateComposerOutput(rawText, work, plan, options = {}) {
   }
 
   const allowedActs = new Map(work.activityRequests.map((r) => [r.activityId, r]));
+  const keepActs = new Map(
+    schema.asArray(work.activityKeep)
+      .map((k) => [text(k.activityId, 160), k])
+      .filter(([id]) => id),
+  );
   const activitiesOut = [];
   for (const row of schema.asArray(activitiesInput.activities)) {
     const activityId = text(row?.activityId || row?.id, 160);
@@ -1144,14 +1149,23 @@ function validateComposerOutput(rawText, work, plan, options = {}) {
       return { ok: false, code: "malformed_output", error: "Activity change missing activityId." };
     }
     if (!allowedActs.has(activityId)) {
+      if (keepActs.has(activityId)) {
+        // Content KEEP ≠ invalid activity. Skip AI echoes for printable-only / week-only jobs.
+        rejected.push({
+          field: activityId,
+          reason: "unrequested_activity",
+          message: `Activity not requested for content change (KEEP): ${activityId}`,
+        });
+        continue;
+      }
       return {
         ok: false,
         code: "unknown_activity_id",
-        error: `Unknown or KEEP activityId: ${activityId}`,
+        error: `Unknown activityId: ${activityId}`,
         diagnostics: shapeDiagnostics([{
           field: activityId,
           reason: "unknown_activity_id",
-          message: `Unknown or KEEP activityId: ${activityId}`,
+          message: `Unknown activityId: ${activityId}`,
         }], Object.keys(weeklyChanges).length),
       };
     }
