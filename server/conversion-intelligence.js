@@ -6,6 +6,7 @@
 const testAccountGuard = require("./test-account-guard.js");
 const membershipAccess = require("../scripts/membership-access.js");
 const conversionEvents = require("./conversion-events.js");
+const conversionPhase2 = require("./conversion-phase2.js");
 
 const {
   FUNNEL_STAGES,
@@ -869,6 +870,7 @@ function buildConversionIntelligence(store = {}, options = {}) {
   }
 
   let profiles = buildActorProfiles(scopedEvents, usersByEmail);
+  conversionPhase2.enrichProfilesPhase2(profiles, usersByEmail, userHasAuthoritativePaidConversion);
 
   if (options.source && options.source !== "all") {
     const want = String(options.source);
@@ -887,14 +889,44 @@ function buildConversionIntelligence(store = {}, options = {}) {
   const funnel = buildFunnel(profiles);
   const sources = buildSourceConversion(profiles);
   const content = buildContentBeforePurchase(scopedEvents, profiles);
+  const lessonAssociation = conversionPhase2.buildLessonPurchaseAssociation(scopedEvents, profiles);
+  // Prefer extended association rows for topLessons display while keeping legacy shape.
+  content.topLessons = (lessonAssociation.topLessons || []).map((row) => ({
+    lessonId: row.lessonId,
+    title: row.title,
+    ageGroup: row.ageGroup,
+    views: row.uniqueViewers,
+    uniqueViewers: row.uniqueViewers,
+    saves: row.saves,
+    printableInteractions: row.printableInteractions,
+    proEncounters: row.proEncounters,
+    pricingViewsWithin7d: row.pricingViewsWithin7d,
+    purchasesWithin30d: row.purchasesWithin30d,
+    upgradeClicks: 0,
+    purchases: row.purchasesWithin30d,
+    conversionRate: Number(row.conversionRatePct || 0),
+    associationLabel: row.associationLabel,
+  }));
+  content.associationDisclaimer = lessonAssociation.associationDisclaimer;
+  content.attributionWindows = lessonAssociation.attributionWindows;
+
   const paywall = buildPaywallAnalytics(scopedEvents);
-  const ctaPerformance = buildCtaPerformance(scopedEvents);
+  const ctaPerformance = conversionPhase2.buildCtaPerformanceWithImpressions(scopedEvents);
   const checkout = buildCheckoutDropOff(profiles);
   const highIntent = buildHighIntentUsers(profiles);
+  const highIntentQueue = conversionPhase2.buildHighIntentQueue(profiles, computeIntentScore);
   const retention = buildRetention(profiles);
   const timeToValue = buildTimeToValue(profiles);
   const today = buildTodaySignups(profiles);
   const insights = buildRuleInsights(profiles, funnel, checkout, sources, profiles.size);
+
+  const activation = conversionPhase2.buildActivation(profiles);
+  const signupCohorts = conversionPhase2.buildSignupCohorts(profiles);
+  const campaignAttribution = conversionPhase2.buildCampaignAttribution(profiles);
+  const personaSegmentation = conversionPhase2.buildPersonaSegmentation(profiles);
+  const ageGroupSegmentation = conversionPhase2.buildAgeGroupSegmentation(scopedEvents, profiles);
+  const offerAttribution = conversionPhase2.buildOfferAttribution(profiles);
+  const lostUsers = conversionPhase2.buildLostUserSegments(profiles);
 
   const freeSignups = [...profiles.values()].filter((p) => !p.converted).length;
   const paidConversions = [...profiles.values()].filter((p) => p.converted).length;
@@ -933,10 +965,21 @@ function buildConversionIntelligence(store = {}, options = {}) {
       upgradeClicks,
       checkoutStarts,
       biggestDropOff: funnel.biggestDropOff,
+      activationRate: activation.activationRate,
+      activatedUsers: activation.activatedUsers,
     },
     funnel,
     today,
+    activation,
+    signupCohorts,
+    campaignAttribution,
+    personaSegmentation,
+    ageGroupSegmentation,
+    offerAttribution,
+    lessonAssociation,
+    lostUsers,
     highIntentUsers: highIntent,
+    highIntentQueue,
     checkoutDropOff: checkout,
     trafficSources: sources,
     content,
@@ -960,4 +1003,20 @@ module.exports = {
   computeIntentScore,
   userHasAuthoritativePaidConversion,
   resolveCanonicalEvent,
+  // Phase 2A helpers re-exported for focused tests
+  computeActivationState: conversionPhase2.computeActivationState,
+  buildActivation: conversionPhase2.buildActivation,
+  buildSignupCohorts: conversionPhase2.buildSignupCohorts,
+  buildCampaignAttribution: conversionPhase2.buildCampaignAttribution,
+  buildPersonaSegmentation: conversionPhase2.buildPersonaSegmentation,
+  buildAgeGroupSegmentation: conversionPhase2.buildAgeGroupSegmentation,
+  buildOfferAttribution: conversionPhase2.buildOfferAttribution,
+  buildLessonPurchaseAssociation: conversionPhase2.buildLessonPurchaseAssociation,
+  buildLostUserSegments: conversionPhase2.buildLostUserSegments,
+  buildHighIntentQueue: conversionPhase2.buildHighIntentQueue,
+  buildCtaPerformanceWithImpressions: conversionPhase2.buildCtaPerformanceWithImpressions,
+  enrichProfilesPhase2: conversionPhase2.enrichProfilesPhase2,
+  normalizeOffer: conversionEvents.normalizeOffer,
+  resolvePersona: conversionEvents.resolvePersona,
+  extractResourceId: conversionEvents.extractResourceId,
 };
