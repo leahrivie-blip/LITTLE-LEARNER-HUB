@@ -23542,6 +23542,9 @@ async function handlePublishEnrichment(request, response, ctx) {
   }
 
   const linkedActivities = (existingCurriculum.activities || []).filter((item) => item.lessonPlanId === id);
+  const existingResources = Array.isArray(existingCurriculum.resources)
+    ? existingCurriculum.resources
+    : [];
   // Promote photo URLs in a draft copy so merge writes public URLs (never admin draft URLs).
   const promotedDraft = {
     ...incomingDraft,
@@ -23594,9 +23597,6 @@ async function handlePublishEnrichment(request, response, ctx) {
 
   const existingActivities = Array.isArray(existingCurriculum.activities)
     ? existingCurriculum.activities
-    : [];
-  const existingResources = Array.isArray(existingCurriculum.resources)
-    ? existingCurriculum.resources
     : [];
   const plansBeforeByRef = new Map(
     (existingCurriculum.lessonPlans || []).filter((p) => p?.id).map((p) => [p.id, p]),
