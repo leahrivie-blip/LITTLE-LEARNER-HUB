@@ -188,6 +188,20 @@ assertEqual(membership.membershipPaymentFailureIsStale(ambiguousUnpaidUser, NOW)
 assertEqual(membership.membershipStatusDisplay(ambiguousUnpaidUser, NOW), NEEDS_REVIEW, "ambiguous unpaid (no timestamp) still shows Billing Review Required (never Ended)");
 assertEqual(membership.membershipHasProAccess(ambiguousUnpaidUser, NOW), false, "ambiguous unpaid has no Pro access");
 
+console.log("\n--- 6b) Incomplete Stripe payment states — never canceled and never granted access ---");
+for (const stripeStatus of ["incomplete", "incomplete_expired"]) {
+  const user = {
+    email: `${stripeStatus}@example.com`,
+    plan: "Pro",
+    stripeSubscriptionStatus: stripeStatus,
+    subscriptionStatus: "Checkout Started",
+    stripeSubscriptionId: `sub_${stripeStatus}`,
+  };
+  assertEqual(membership.membershipStatusDisplay(user, NOW), NEEDS_REVIEW, `${stripeStatus} shows Billing Review Required, not Canceled`);
+  assertEqual(membership.membershipBillingStatusKey(user, NOW), "payment_failed", `${stripeStatus} is counted as payment_failed, not canceled`);
+  assertEqual(membership.membershipHasProAccess(user, NOW), false, `${stripeStatus} grants no Pro access`);
+}
+
 console.log("\n--- Admin audit buckets stay mutually exclusive and account for the new bucket ---");
 const allUsers = [freshFailedUser, openUnpaidInvoiceUser, staleFailedUser, reallyCanceledUser, recoveredUser, ambiguousUnpaidUser];
 const buckets = membership.membershipAdminAuditBuckets(allUsers, NOW);

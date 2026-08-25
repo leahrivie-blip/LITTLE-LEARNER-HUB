@@ -4789,7 +4789,7 @@ function accountHasRemainingPaidAccess(account = null) {
   // unpaid/past_due (old "Payment Failed"/"Past Due" wording or the current "Billing
   // Review Required" wording) always remove paid access — never a "canceled/ended" claim.
   if (status.includes("billing review required") || status.includes("payment failed") || stripeStatus === "unpaid") return false;
-  if (status.includes("past due") || stripeStatus === "past_due") return false;
+  if (status.includes("past due") || ["past_due", "incomplete", "incomplete_expired"].includes(stripeStatus)) return false;
   if (status.includes("free plan")) return false;
   if (status.includes("ended") && !status.includes("access ends")) return false;
   const endMs = accountAccessEndMs(target);
@@ -58306,7 +58306,9 @@ function isBillingReviewRequired(account) {
     || subStatus.includes("payment failed")
     || subStatus.includes("past due")
     || stripeStatus === "unpaid"
-    || stripeStatus === "past_due";
+    || stripeStatus === "past_due"
+    || stripeStatus === "incomplete"
+    || stripeStatus === "incomplete_expired";
 }
 
 function paymentFailureIsStale(account, nowMs = Date.now()) {
@@ -67572,7 +67574,7 @@ async function cancelSubscription() {
           : `Cancellation scheduled. Access continues until ${endLabel}.`,
         billingPriceLabel(),
       );
-      trackEvent("subscription_canceled", {
+      trackEvent("subscription_cancel_scheduled", {
         email: currentUser,
         previousPlan: account?.plan || "Pro",
         scheduled: true,
@@ -67604,7 +67606,7 @@ async function cancelSubscription() {
     stripeSubscriptionStatus: account.stripeSubscriptionStatus || (inTrial ? "trialing" : "active"),
   });
   addBillingHistory("Subscription Canceled", "Cancellation scheduled at period end. Access continues until the access-end date.", billingPriceLabel());
-  trackEvent("subscription_canceled", { email: currentUser, previousPlan: account?.plan || "Pro", scheduled: true });
+  trackEvent("subscription_cancel_scheduled", { email: currentUser, previousPlan: account?.plan || "Pro", scheduled: true });
   saveCurrentAccountState();
   updateAuthButtons();
   updatePlanLabel();
