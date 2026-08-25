@@ -120,14 +120,25 @@ function assessVisualScope(requests, {
 }
 
 function buildVisualPrompt(req) {
-  return [
-    text(req.visualConcept, 160),
-    "isolated, clear front view, child-recognizable, printable card illustration",
-    "consistent flat childcare printable style, plain light background",
-    `for printable “${text(req.printableTitle, 80)}”`,
-    `age: ${text(req.ageBand, 40)}`,
-    "no text overlay, no watermark, no collage",
-  ].filter(Boolean).join(", ");
+  const promptBuilder = require("./visual-prompt-builder.js");
+  const mode = promptBuilder.resolvePrintableAssetMode({
+    visualConcept: req.visualConcept,
+    visualSubject: req.name,
+    printableTitle: req.printableTitle,
+    printablePurpose: req.purpose,
+    ageBand: req.ageBand,
+    pageType: req.pageType,
+  });
+  return promptBuilder.buildVisualPrompt({
+    assetMode: mode,
+    ageBand: req.ageBand,
+    printableTitle: req.printableTitle,
+    printablePurpose: req.purpose,
+    visualConcept: req.visualConcept,
+    visualSubject: req.name,
+    activityTitle: req.activityTitle,
+    pageType: req.pageType,
+  }).generationPrompt;
 }
 
 /**
