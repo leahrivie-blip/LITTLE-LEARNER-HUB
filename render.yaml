@@ -36,6 +36,10 @@ services:
         sync: false
       - key: STRIPE_PRICE_EARLY_USER_MONTHLY
         sync: false
+      # Optional until the Staff Plan Price is created in Stripe. App boots without it;
+      # Staff Plan checkout fails closed if this ID is missing. Do not add to requiredForDeploy.
+      - key: STRIPE_PRICE_STAFF_MONTHLY
+        sync: false
       # Keep false until Early User checkout has passed verification.
       - key: EARLY_USER_PRICING_ENABLED
         value: "false"

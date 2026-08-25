@@ -223,10 +223,15 @@ function membershipIsEarlyUser(user) {
   return false;
 }
 
+function membershipIsStaffPlan(user) {
+  return String(user?.billingOffer || "").trim().toLowerCase() === "staff_plan";
+}
+
 function membershipPlanDisplay(user, nowMs = Date.now()) {
   if (!membershipHasProAccess(user, nowMs)) return "Free";
   if (membershipUserInTrial(user, nowMs)) return "Trial";
   if (membershipFoundingActive(user, nowMs)) return "Founding Member";
+  if (membershipIsStaffPlan(user)) return "Staff Plan";
   if (user?.subscriptionCadence === "annual") return "Pro Annual";
   if (membershipIsEarlyUser(user)) return "Pro — Early User";
   return "Pro Monthly";
@@ -584,11 +589,13 @@ function planKeyFromStripePriceHints(subscription, user = {}) {
     const offerMeta = String(item?.price?.metadata?.offer || "").toLowerCase();
     if (nickname.includes("founding") || offerMeta === "founding") return "founding";
     if (nickname.includes("early") || offerMeta === "early_user") return "early_user";
+    if (nickname.includes("staff") || offerMeta === "staff_plan" || offerMeta === "staff") return "staff";
     if (nickname.includes("annual") || nickname.includes("yearly")) return "annual";
     const amount = Number(item?.price?.unit_amount ?? item?.plan?.amount);
     if (Number.isFinite(amount)) {
       if (amount === 999) return "founding";
       if (amount === 1399) return "early_user";
+      if (amount === 2999) return "staff";
       if (amount === 19900) return "annual";
       if (amount === 1999) return "monthly";
     }
@@ -598,7 +605,7 @@ function planKeyFromStripePriceHints(subscription, user = {}) {
 
 function planKeyFromStripeSubscription(subscription, user = {}) {
   const metadataPlan = String(subscription?.metadata?.plan || "").trim().toLowerCase();
-  const valid = { founding: true, monthly: true, annual: true, early_user: true };
+  const valid = { founding: true, monthly: true, annual: true, early_user: true, staff: true };
   if (valid[metadataPlan]) return metadataPlan;
 
   const hinted = planKeyFromStripePriceHints(subscription, user);
@@ -617,6 +624,10 @@ function planKeyFromStripeSubscription(subscription, user = {}) {
   // payload is incomplete (renewal webhooks must not depend on the promo flag).
   if (membershipIsEarlyUser(user) && user?.subscriptionCadence !== "annual") {
     return "early_user";
+  }
+
+  if (membershipIsStaffPlan(user) && user?.subscriptionCadence !== "annual") {
+    return "staff";
   }
 
   if (user?.subscriptionCadence === "annual") return "annual";
@@ -713,6 +724,7 @@ function stripeSubscriptionToMembershipUpdates(subscription, user = {}, eventTyp
   const inTrial = stripeStatus === "trialing";
   const isFoundingCheckout = planKey === "founding";
   const isEarlyUserCheckout = planKey === "early_user";
+  const isStaffCheckout = planKey === "staff";
   const plan = isFoundingCheckout ? "Founding" : "Pro";
   const cadence = planKey === "annual" ? "annual" : "monthly";
   const monthlyPrice = isFoundingCheckout
@@ -721,7 +733,9 @@ function stripeSubscriptionToMembershipUpdates(subscription, user = {}, eventTyp
       ? "$199/year"
       : isEarlyUserCheckout
         ? "$13.99/month"
-        : "$19.99/month";
+        : isStaffCheckout
+          ? "$29.99/month"
+          : "$19.99/month";
 
   let subscriptionStatus;
   if (cancelAtPeriodEnd) {
@@ -735,13 +749,17 @@ function stripeSubscriptionToMembershipUpdates(subscription, user = {}, eventTyp
       ? "Founding Member Subscription Trialing"
       : isEarlyUserCheckout
         ? "Pro Early User Subscription Trialing"
-        : "Pro Monthly Subscription Trialing";
+        : isStaffCheckout
+          ? "Staff Plan Subscription Trialing"
+          : "Pro Monthly Subscription Trialing";
   } else if (isFoundingCheckout) {
     subscriptionStatus = "Founding Member Subscription Active";
   } else if (planKey === "annual") {
     subscriptionStatus = "Pro Annual Subscription Active";
   } else if (isEarlyUserCheckout) {
     subscriptionStatus = "Pro Early User Subscription Active";
+  } else if (isStaffCheckout) {
+    subscriptionStatus = "Staff Plan Subscription Active";
   } else {
     subscriptionStatus = "Pro Monthly Subscription Active";
   }
@@ -752,14 +770,22 @@ function stripeSubscriptionToMembershipUpdates(subscription, user = {}, eventTyp
     subscriptionCadence: cadence,
     subscriptionStatus,
     monthlyPrice,
-    billingOffer: isEarlyUserCheckout ? "early_user" : (isFoundingCheckout ? "founding" : (planKey === "annual" ? "pro_annual" : "pro_monthly")),
+    billingOffer: isEarlyUserCheckout
+      ? "early_user"
+      : isFoundingCheckout
+        ? "founding"
+        : isStaffCheckout
+          ? "staff_plan"
+          : (planKey === "annual" ? "pro_annual" : "pro_monthly"),
     planDisplayName: isFoundingCheckout
       ? "Founding Member"
       : isEarlyUserCheckout
         ? "Pro — Early User"
-        : planKey === "annual"
-          ? "Pro Annual"
-          : "Pro",
+        : isStaffCheckout
+          ? "Staff Plan"
+          : planKey === "annual"
+            ? "Pro Annual"
+            : "Pro",
     foundingMemberActive: isFoundingCheckout,
     foundingMemberHistorical: wasFounding || isFoundingCheckout,
     foundingMember: wasFounding || isFoundingCheckout,
@@ -785,6 +811,7 @@ module.exports = {
   membershipFoundingActive,
   membershipFoundingHistorical,
   membershipIsEarlyUser,
+  membershipIsStaffPlan,
   membershipPlanDisplay,
   membershipStatusDisplay,
   membershipHasTrialHistory,

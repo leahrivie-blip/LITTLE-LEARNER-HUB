@@ -8,6 +8,7 @@ const stripeBillingReconciliation = require("../scripts/stripe-billing-reconcili
 const accountAccess = require("../scripts/account-access.js");
 const staffBetaAccess = require("../scripts/staff-beta-access.js");
 const staffEntitlement = require("./staff-entitlement.js");
+const staffPlan = require("./staff-plan.js");
 const curriculumStandards = require("../scripts/curriculum-standards.js");
 const freeCurriculumSample = require("../scripts/free-curriculum-sample.js");
 const curriculumLessonAccessPlan = require("./curriculum-lesson-access-plan.js");
@@ -524,6 +525,7 @@ const planConfig = {
     offer: "pro_annual",
     displayName: "Pro Annual",
   },
+  staff: staffPlan.staffPlanConfig(),
 };
 
 // Required for standard Stripe checkout readiness. Early User price is optional
@@ -785,6 +787,7 @@ function stripeConfigStatus() {
       monthly: maskedValue(process.env.STRIPE_PRICE_PRO_MONTHLY),
       annual: maskedValue(process.env.STRIPE_PRICE_PRO_ANNUAL),
       earlyUser: maskedValue(process.env.STRIPE_PRICE_EARLY_USER_MONTHLY),
+      staff: maskedValue(staffPlan.getStaffPlanPriceId()),
     },
     earlyUserPricingEnabled: EARLY_USER_PRICING_ENABLED,
     earlyUserPricingAvailable: earlyUserPricingAvailable(),
@@ -7846,6 +7849,9 @@ function markPromoRedeemed(email, code, details = {}, options = {}) {
 }
 
 function getPriceId(planKey) {
+  if (planKey === staffPlan.STAFF_PLAN_KEY) {
+    return staffPlan.getStaffPlanPriceId();
+  }
   const config = planConfig[planKey];
   if (!config) return "";
   const configured = process.env[config.priceEnv] || "";
@@ -10700,9 +10706,24 @@ async function handleCheckout(request, response) {
     return;
   }
   const existingUser = store.users?.[email] || {};
+  if (requestedPlan === staffPlan.STAFF_PLAN_KEY) {
+    const staffCheckoutBlock = staffPlan.staffPlanCheckoutBlock({
+      user: existingUser,
+      requestedPlan,
+    });
+    if (staffCheckoutBlock) {
+      jsonResponse(response, staffCheckoutBlock.status, staffCheckoutBlock.payload);
+      return;
+    }
+  }
   // Block a second Checkout while the account already has paid/trial/manual Pro access.
   // Prevents double billing from duplicate clicks or returning to the upgrade page.
-  if (membershipAccess.membershipHasProAccess(existingUser)) {
+  // Staff Plan is a replacement tier: eligible non-founding owners may start that
+  // checkout even if they already have personal Pro on another price.
+  if (
+    membershipAccess.membershipHasProAccess(existingUser)
+    && !staffPlan.allowsStaffPlanCheckoutDespiteExistingPro(requestedPlan, existingUser)
+  ) {
     const alreadyFounding = membershipAccess.membershipFoundingActive(existingUser);
     const alreadyTrial = membershipAccess.membershipUserInTrial(existingUser);
     jsonResponse(response, 409, {
@@ -10802,9 +10823,10 @@ async function handleCheckout(request, response) {
   }
 
   // Promo signups: lock Founding $9.99 when spots remain; otherwise roll into regular Pro.
+  // Staff Plan is never remapped onto founding / monthly / early-user / annual.
   let planKey = requestedPlan;
   let planRemapped = null;
-  if (promo.valid && (planKey === "founding" || planKey === "monthly")) {
+  if (promo.valid && planKey !== staffPlan.STAFF_PLAN_KEY && (planKey === "founding" || planKey === "monthly")) {
     if (foundingSpotsRemaining(store) > 0) {
       if (planKey !== "founding") planRemapped = "founding";
       planKey = "founding";
@@ -10869,13 +10891,15 @@ async function handleCheckout(request, response) {
       success_url: body.successUrl || `${appBaseUrl()}/subscription-success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: body.cancelUrl || `${SITE_URL}?checkout=cancel`,
     };
-    thankYou6Checkout.applyPromotionCodeCheckoutParams(sessionParams);
-    thankYou6Checkout.applyThankYou6CheckoutMetadata(sessionParams, body);
+    if (planKey !== staffPlan.STAFF_PLAN_KEY) {
+      thankYou6Checkout.applyPromotionCodeCheckoutParams(sessionParams);
+      thankYou6Checkout.applyThankYou6CheckoutMetadata(sessionParams, body);
+    }
     if (STRIPE_AUTOMATIC_TAX) {
       sessionParams["automatic_tax[enabled]"] = "true";
       sessionParams.billing_address_collection = "required";
     }
-    if (promo.valid) {
+    if (promo.valid && planKey !== staffPlan.STAFF_PLAN_KEY) {
       sessionParams["metadata[promoCode]"] = promo.code;
       sessionParams["metadata[promoLabel]"] = promo.label;
       sessionParams["metadata[promoTrialDays]"] = String(promo.trialDays);
@@ -10887,7 +10911,7 @@ async function handleCheckout(request, response) {
       sessionParams["subscription_data[trial_period_days]"] = String(promo.trialDays);
       // Card is collected at Checkout; if it is somehow missing at trial end, cancel instead of leaving an unpaid sub.
       sessionParams["subscription_data[trial_settings][end_behavior][missing_payment_method]"] = "cancel";
-    } else if (trial7day) {
+    } else if (trial7day && planKey !== staffPlan.STAFF_PLAN_KEY) {
       // Stripe Checkout collects a card now (payment_method_collection=always), starts a 7-day
       // trial at $0, then automatically invoices/charges Pro Monthly when the trial ends.
       sessionParams["subscription_data[trial_period_days]"] = String(STANDARD_TRIAL_DAYS);
@@ -10915,14 +10939,20 @@ async function handleCheckout(request, response) {
       stripeCustomerId: customer,
       pendingPlan: planKey,
       subscriptionStatus: "Checkout Started",
-      pendingPromoCode: promo.valid ? promo.code : "",
-      pendingTrialDays: promo.valid ? promo.trialDays : trial7day ? STANDARD_TRIAL_DAYS : 0,
-      pendingPromoLabel: promo.valid ? promo.label : trial7day ? STANDARD_TRIAL_LABEL : "",
-      pendingTrialSource: promo.valid
-        ? trialClassification.PROMO_TRIAL_KIND
-        : trial7day
-          ? trialClassification.STANDARD_TRIAL_KIND
-          : "",
+      pendingPromoCode: planKey === staffPlan.STAFF_PLAN_KEY ? "" : (promo.valid ? promo.code : ""),
+      pendingTrialDays: planKey === staffPlan.STAFF_PLAN_KEY
+        ? 0
+        : (promo.valid ? promo.trialDays : trial7day ? STANDARD_TRIAL_DAYS : 0),
+      pendingPromoLabel: planKey === staffPlan.STAFF_PLAN_KEY
+        ? ""
+        : (promo.valid ? promo.label : trial7day ? STANDARD_TRIAL_LABEL : ""),
+      pendingTrialSource: planKey === staffPlan.STAFF_PLAN_KEY
+        ? ""
+        : promo.valid
+          ? trialClassification.PROMO_TRIAL_KIND
+          : trial7day
+            ? trialClassification.STANDARD_TRIAL_KIND
+            : "",
       foundingSpotReleasable: planKey === "founding" && Boolean(promo.valid || trial7day),
     }, { deferPersist: true });
     try {
@@ -18609,11 +18639,17 @@ async function handleStaffInvitesList(request, response) {
   }
   const invites = listProgramInvites(store, ownerEmail);
   const members = listProgramMembers(store, ownerEmail);
+  const owner = store.users?.[normalizeEmail(ownerEmail)] || user;
   jsonResponse(response, 200, {
     ok: true,
     invites: invites.map((invite) => publicStaffInvite(invite, { appOrigin })),
     members,
     seats: staffEntitlement.countStaffSeats({ invites, members }),
+    staffPlan: staffPlan.staffPlanPublicState({
+      owner,
+      ownerEmail,
+      isConfiguredAdminEmail,
+    }),
     emailDeliveryReady: supportEmailConfigStatus().ready,
   });
 }
@@ -18659,6 +18695,24 @@ async function handleStaffInviteCreate(request, response) {
     return;
   }
   const ownerEmail = normalizeEmail(inviter.linkedProgramOwnerEmail || identity.email);
+  const owner = store.users?.[ownerEmail] || (ownerEmail === identity.email ? inviter : {});
+  const staffPlanGate = staffPlan.evaluateStaffPlanInviteAccess({
+    owner,
+    ownerEmail,
+    isConfiguredAdminEmail,
+  });
+  if (!staffPlanGate.ok) {
+    jsonResponse(response, 403, {
+      error: staffPlanGate.message,
+      code: staffPlanGate.code,
+      staffPlan: staffPlan.staffPlanPublicState({
+        owner,
+        ownerEmail,
+        isConfiguredAdminEmail,
+      }),
+    });
+    return;
+  }
   const visibilityPreset = String(body.visibilityPreset || "").trim().toLowerCase();
   const hdhVisibility = (body.hdhVisibility || visibilityPreset)
     ? normalizeHdhStaffVisibility(body.hdhVisibility, visibilityPreset || "lead")
