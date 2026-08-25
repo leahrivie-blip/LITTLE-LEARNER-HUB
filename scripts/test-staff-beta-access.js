@@ -64,7 +64,7 @@ async function waitForHealth() {
 }
 
 const OWNER_EMAIL = "leahivie@icloud.com";
-const BETA_EMAIL = "tashley@icloud.com";
+const BETA_EMAIL = "tclashley@icloud.com";
 const BETA_EMAIL_2 = "learnnplay123sc@gmail.com";
 const PRO_USER = "pro-center@example.com";
 const FREE_USER = "free-home@example.com";
@@ -75,11 +75,16 @@ async function main() {
     assert.equal(canAccessStaffBeta(OWNER_EMAIL), true);
   });
 
-  await test("helper: tashley@iCloud.com allowed (normalized)", () => {
-    assert.equal(canAccessStaffBeta({ email: "tashley@iCloud.com" }), true);
-    assert.equal(canAccessStaffBeta({ email: "TASHLEY@ICLOUD.COM" }), true);
-    assert.equal(canAccessStaffBeta("  TAshley@iCloud.com  "), true);
-    assert.equal(normalizeStaffBetaEmail("TASHLEY@ICLOUD.COM"), "tashley@icloud.com");
+  await test("helper: tclashley@iCloud.com allowed (normalized)", () => {
+    assert.equal(canAccessStaffBeta({ email: "tclashley@iCloud.com" }), true);
+    assert.equal(canAccessStaffBeta({ email: "TCLASHLEY@ICLOUD.COM" }), true);
+    assert.equal(canAccessStaffBeta("  TClashley@iCloud.com  "), true);
+    assert.equal(normalizeStaffBetaEmail("TCLASHLEY@ICLOUD.COM"), "tclashley@icloud.com");
+  });
+
+  await test("helper: tashley@icloud.com is the old typo identity and is denied", () => {
+    assert.equal(canAccessStaffBeta("tashley@icloud.com"), false);
+    assert.equal(canAccessStaffBeta({ email: "TASHLEY@ICLOUD.COM" }), false);
   });
 
   await test("helper: learnnplay123sc@gmail.com allowed (normalized)", () => {
@@ -123,7 +128,9 @@ async function main() {
   const serverJs = fs.readFileSync(path.join(ROOT, "server", "index.js"), "utf8");
   assert.match(appJs, /function canAccessStaffBeta/);
   assert.match(appJs, /canAccessStaffBeta\(\)/);
+  assert.match(appJs, /tclashley@icloud\.com/);
   assert.match(appJs, /learnnplay123sc@gmail\.com/);
+  assert.equal(appJs.includes("tashley@icloud.com"), false);
   assert.match(serverJs, /staffBetaAccess\.canAccessStaffBeta/);
   assert.match(serverJs, /STAFF_BETA_FORBIDDEN_MESSAGE/);
   console.log("PASS  staff beta markers present in app.js + server");
@@ -209,13 +216,13 @@ async function main() {
       assert.equal(res.json.invite.email, "teacher-for-owner@example.com");
     });
 
-    await test("API: tashley@icloud.com can create staff invite", async () => {
+    await test("API: tclashley@icloud.com can create staff invite", async () => {
       const res = await request("POST", "/api/staff/invites", {
         email: BETA_EMAIL,
-        body: { ...inviteBody, email: "teacher-for-tashley@example.com" },
+        body: { ...inviteBody, email: "teacher-for-tclashley@example.com" },
       });
       assert.equal(res.status, 200, JSON.stringify(res.json));
-      assert.equal(res.json.invite.email, "teacher-for-tashley@example.com");
+      assert.equal(res.json.invite.email, "teacher-for-tclashley@example.com");
     });
 
     await test("API: learnnplay123sc@gmail.com can create staff invite", async () => {
@@ -227,12 +234,21 @@ async function main() {
       assert.equal(res.json.invite.email, "teacher-for-learnnplay@example.com");
     });
 
-    await test("API: TASHLEY@ICLOUD.COM allowed after auth normalization", async () => {
+    await test("API: TCLASHLEY@ICLOUD.COM allowed after auth normalization", async () => {
       const res = await request("POST", "/api/staff/invites", {
-        email: "TASHLEY@ICLOUD.COM",
+        email: "TCLASHLEY@ICLOUD.COM",
         body: { ...inviteBody, email: "teacher-case@example.com" },
       });
       assert.equal(res.status, 200, JSON.stringify(res.json));
+    });
+
+    await test("API: tashley@icloud.com typo identity is denied", async () => {
+      const res = await request("POST", "/api/staff/invites", {
+        email: "tashley@icloud.com",
+        body: { ...inviteBody, email: "should-not-create-from-typo@example.com" },
+      });
+      assert.equal(res.status, 403);
+      assert.equal(res.json.error, STAFF_BETA_FORBIDDEN_MESSAGE);
     });
 
     await test("API: random Pro user denied with 403", async () => {
@@ -242,7 +258,7 @@ async function main() {
       });
       assert.equal(res.status, 403);
       assert.equal(res.json.error, STAFF_BETA_FORBIDDEN_MESSAGE);
-      assert.equal(JSON.stringify(res.json).includes("tashley"), false);
+      assert.equal(JSON.stringify(res.json).includes("tclashley"), false);
       assert.equal(JSON.stringify(res.json).includes("learnnplay"), false);
       assert.equal(JSON.stringify(res.json).includes("allowlist"), false);
     });
@@ -273,7 +289,7 @@ async function main() {
       assert.ok(store.users[FREE_USER]);
       const invites = Object.values(store.staffInvites || {});
       assert.ok(invites.some((i) => i.email === "teacher-for-owner@example.com"));
-      assert.ok(invites.some((i) => i.email === "teacher-for-tashley@example.com"));
+      assert.ok(invites.some((i) => i.email === "teacher-for-tclashley@example.com"));
       assert.ok(invites.some((i) => i.email === "teacher-for-learnnplay@example.com"));
       assert.equal(invites.some((i) => i.email === "should-not-create@example.com"), false);
     });

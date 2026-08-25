@@ -14,7 +14,7 @@ const ROOT = path.join(__dirname, "..");
 const PORT = 4183;
 const BASE = `http://127.0.0.1:${PORT}`;
 const STORE = path.join(ROOT, "server", `.staff-entitlement-test-store-${process.pid}.json`);
-const OWNER = "tashley@icloud.com";
+const OWNER = "tclashley@icloud.com";
 const CODIRECTOR = "codirector.ashley@example.com";
 const NON_BETA = "provider@example.com";
 

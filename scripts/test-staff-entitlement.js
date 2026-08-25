@@ -19,14 +19,14 @@ function test(name, fn) {
 }
 
 const owner = {
-  email: "tashley@icloud.com",
+  email: "tclashley@icloud.com",
   plan: "Pro",
   stripeSubscriptionStatus: "active",
 };
 const staff = {
-  email: "codirector.ashley@example.com",
+  email: "ladiisha01@gmail.com",
   role: "director",
-  linkedProgramOwnerEmail: "tashley@icloud.com",
+  linkedProgramOwnerEmail: "tclashley@icloud.com",
   programAccessViaOwner: false,
   stripeCustomerId: null,
   stripeSubscriptionId: null,
@@ -35,11 +35,15 @@ const staff = {
 const members = [{ email: staff.email, role: "director", status: "active" }];
 
 async function main() {
-  await test("allowlist unchanged", () => {
+  await test("allowlist identity correction: Ashley owner only", () => {
     assert.deepEqual([...staffBetaAccess.STAFF_BETA_ALLOWLIST_EMAILS], [
-      "tashley@icloud.com",
+      "tclashley@icloud.com",
       "learnnplay123sc@gmail.com",
     ]);
+    assert.equal(staffBetaAccess.canAccessStaffBeta("tclashley@icloud.com"), true);
+    assert.equal(staffBetaAccess.canAccessStaffBeta("tashley@icloud.com"), false);
+    assert.equal(staffBetaAccess.canAccessStaffBeta("learnnplay123sc@gmail.com"), true);
+    assert.equal(staffBetaAccess.canAccessStaffBeta("provider@example.com"), false);
   });
 
   await test("existing accepted co-director inherits Pro without stored flag or personal Stripe", () => {
