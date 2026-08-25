@@ -3302,10 +3302,64 @@ function assignContainerInnerHtml(container, html, options = {}) {
 }
 
 /** Site Editor panels: skip innerHTML replacement while forms have live user input. */
+const SITE_EDITOR_APP_IDS = new Set([
+  "adminHeroApp",
+  "adminTrustApp",
+  "adminJourneyApp",
+  "adminReviewsCtaApp",
+  "adminFoundingApp",
+  "adminPricingApp",
+  "adminFreePlanAccessApp",
+  "adminPromoCodesApp",
+  "adminFaqsApp",
+  "adminAnnouncementApp",
+  "adminInAppAnnouncementsApp",
+  "adminUpgradeMsgApp",
+]);
+
+function refreshSiteEditorFormBaseline(form) {
+  if (!form) return;
+  const snapshot = snapshotLiveFormFields(form);
+  if (snapshot) form.setAttribute("data-site-editor-baseline", JSON.stringify(snapshot));
+}
+
+function refreshSiteEditorFormBaselineIfApplicable(form) {
+  if (!(form instanceof HTMLFormElement) || !form.id) return;
+  const liveForm = document.getElementById(form.id);
+  if (!(liveForm instanceof HTMLFormElement)) return;
+  const app = liveForm.closest("[id$='App']");
+  if (!app || !SITE_EDITOR_APP_IDS.has(app.id)) return;
+  refreshSiteEditorFormBaseline(liveForm);
+}
+
+function siteEditorFormHasUnsavedEdits(form) {
+  if (!form) return false;
+  const active = document.activeElement;
+  if (active instanceof HTMLElement && form.contains(active)) return true;
+  const baselineJson = form.getAttribute("data-site-editor-baseline");
+  if (!baselineJson) return false;
+  let baseline;
+  try { baseline = JSON.parse(baselineJson); } catch { return false; }
+  const current = snapshotLiveFormFields(form);
+  if (!current?.fields || !baseline?.fields) return false;
+  return Object.keys(current.fields).some((name) => {
+    const cur = current.fields[name];
+    const base = baseline.fields[name];
+    if (typeof cur === "boolean" || typeof base === "boolean") return Boolean(cur) !== Boolean(base);
+    return String(cur ?? "") !== String(base ?? "");
+  });
+}
+
+function siteEditorContainerHasUnsavedEdits(container) {
+  if (!container) return false;
+  return [...container.querySelectorAll("form")].some((form) => siteEditorFormHasUnsavedEdits(form));
+}
+
 function assignAdminSiteEditorHtml(target, html) {
   if (!target) return false;
-  if (containerHasLiveFormEdits(target)) return false;
+  if (siteEditorContainerHasUnsavedEdits(target)) return false;
   target.innerHTML = html;
+  target.querySelectorAll("form").forEach((form) => refreshSiteEditorFormBaseline(form));
   return true;
 }
 
@@ -3372,6 +3426,7 @@ async function runAdminSave({ messageSelector, form, saveFn, successMsg, onCompl
       setFormMessage(msgEl, msg, true);
       msgEl.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
     }
+    refreshSiteEditorFormBaselineIfApplicable(form);
     if (onComplete) onComplete();
     if (redirectFn) window.setTimeout(redirectFn, 2500);
 

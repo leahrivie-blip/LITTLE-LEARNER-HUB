@@ -126,16 +126,29 @@ async function waitForApp(page) {
 }
 
 async function unlockAdmin(page) {
-  await page.evaluate(({ adminEmail }) => {
+  const login = await requestJson("POST", "/api/admin/login", {
+    email: ADMIN.email,
+    password: ADMIN.password,
+    code: ADMIN.code,
+  });
+  if (login.status !== 200 || !login.json?.token) {
+    throw new Error(`Admin login failed: ${login.status} ${login.text || ""}`);
+  }
+  await page.evaluate(({ adminEmail, token }) => {
     localStorage.setItem("llhAdminUnlocked", "true");
     localStorage.setItem("llhAdminSession", JSON.stringify({
       email: adminEmail,
-      token: "local-preview-admin",
+      token,
       unlockedAt: new Date().toISOString(),
     }));
-  }, { adminEmail: ADMIN.email });
+  }, { adminEmail: ADMIN.email, token: login.json.token });
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForApp(page);
+  await page.evaluate(async () => {
+    if (typeof loadAdminSiteContent === "function") {
+      try { await loadAdminSiteContent(); } catch { /* ignore */ }
+    }
+  });
 }
 
 async function openSiteEditorTab(page, tab) {
@@ -236,6 +249,13 @@ async function testFailedSavePreservesEdits(page) {
   else pass("failed save preserves unsaved hero headline");
 }
 
+async function waitForHeroSaveValue(page, expectedHeadline) {
+  await page.waitForFunction((headline) => {
+    const current = effectiveSiteContent()?.homepage?.heroHeadline || "";
+    return current === headline;
+  }, expectedHeadline, { timeout: 30000 });
+}
+
 async function testSuccessfulSaveBaseline(page) {
   await unlockAdmin(page);
   await openSiteEditorTab(page, "hero");
@@ -244,22 +264,121 @@ async function testSuccessfulSaveBaseline(page) {
   await page.fill('input[name="heroHeadline"]', saved);
   await page.fill('textarea[name="heroSubheadline"]', "Saved subheadline");
   await page.click('#adminHeroForm button[type="submit"]');
-  await page.waitForTimeout(1500);
+  await waitForHeroSaveValue(page, saved);
   await triggerBackgroundAdminRerender(page);
   const after = await page.inputValue('input[name="heroHeadline"]');
   if (after !== saved) fail("successful save baseline", `expected "${saved}" got "${after}"`);
   else pass("successful save remains baseline after background rerender");
 }
 
-async function testCleanFormRefresh(page) {
+async function simulateServerSiteContentUpdate(page, patch) {
+  await page.evaluate((patch) => {
+    const base = siteContentState || {};
+    siteContentState = {
+      ...base,
+      ...patch,
+      homepage: patch.homepage ? { ...(base.homepage || {}), ...patch.homepage } : base.homepage,
+      announcement: patch.announcement ? { ...(base.announcement || {}), ...patch.announcement } : base.announcement,
+    };
+  }, patch);
+}
+
+async function testCleanFormRefreshFromServerUpdate(page) {
   await unlockAdmin(page);
   await openSiteEditorTab(page, "hero");
   await page.waitForSelector("#adminHeroForm");
-  const before = await page.evaluate(() => document.querySelector('#adminHeroForm input[name="heroHeadline"]')?.value || "");
+  const serverHeadline = `Server Refresh ${Date.now()}`;
+  await simulateServerSiteContentUpdate(page, { homepage: { heroHeadline: serverHeadline } });
   await triggerBackgroundAdminRerender(page);
-  const after = await page.evaluate(() => document.querySelector('#adminHeroForm input[name="heroHeadline"]')?.value || "");
-  if (before !== after) fail("clean refresh keeps loaded headline", `before="${before}" after="${after}"`);
-  else pass("clean hero form keeps server-loaded values through background rerender");
+  const after = await page.inputValue('input[name="heroHeadline"]');
+  if (after !== serverHeadline) fail("clean form refresh from server update", `expected "${serverHeadline}" got "${after}"`);
+  else pass("clean hero form refreshes to updated server headline");
+}
+
+async function testDirtyFormPreservedDuringServerUpdate(page) {
+  await unlockAdmin(page);
+  await openSiteEditorTab(page, "hero");
+  await page.waitForSelector("#adminHeroForm");
+  const localDraft = "Local Unsaved Hero Draft";
+  await page.fill('input[name="heroHeadline"]', localDraft);
+  await simulateServerSiteContentUpdate(page, { homepage: { heroHeadline: "External Server Headline" } });
+  await triggerBackgroundAdminRerender(page);
+  const after = await page.inputValue('input[name="heroHeadline"]');
+  if (after !== localDraft) fail("dirty form preserved during server update", `got "${after}"`);
+  else pass("unsaved hero edit preserved when server content updates under poll");
+}
+
+async function testSavedFormRefreshesAfterServerUpdate(page) {
+  await unlockAdmin(page);
+  await openSiteEditorTab(page, "hero");
+  await page.waitForSelector("#adminHeroForm");
+  const saved = `Saved Baseline ${Date.now()}`;
+  await page.fill('input[name="heroHeadline"]', saved);
+  await page.fill('textarea[name="heroSubheadline"]', "Saved subheadline for refresh test");
+  await page.click('#adminHeroForm button[type="submit"]');
+  await waitForHeroSaveValue(page, saved);
+  const isCleanAfterSave = await page.evaluate(() => {
+    const form = document.querySelector("#adminHeroForm");
+    if (!form || typeof siteEditorFormHasUnsavedEdits !== "function") return false;
+    return !siteEditorFormHasUnsavedEdits(form);
+  });
+  if (!isCleanAfterSave) fail("saved form baseline sync", "baseline not aligned after save");
+  else pass("successful save resets site-editor baseline (not permanently dirty)");
+
+  const postSaveServer = `Post-Save Server ${Date.now()}`;
+  await simulateServerSiteContentUpdate(page, { homepage: { heroHeadline: postSaveServer } });
+  await triggerBackgroundAdminRerender(page);
+  const after = await page.inputValue('input[name="heroHeadline"]');
+  if (after !== postSaveServer) fail("saved clean form accepts server refresh", `expected "${postSaveServer}" got "${after}"`);
+  else pass("saved clean form refreshes to newer server headline");
+}
+
+async function testAnnouncementFieldTypesCleanAndDirty(page) {
+  await unlockAdmin(page);
+  await openSiteEditorTab(page, "announcement");
+  await page.waitForSelector("#adminAnnouncementForm");
+  const serverText = `Server announcement ${Date.now()}`;
+  await simulateServerSiteContentUpdate(page, { announcement: { text: serverText, visible: true, location: "homepage" } });
+  await triggerBackgroundAdminRerender(page);
+  const clean = await page.evaluate(() => ({
+    text: document.querySelector('#adminAnnouncementForm textarea[name="text"]')?.value || "",
+    location: document.querySelector('#adminAnnouncementForm select[name="location"]')?.value || "",
+  }));
+  if (clean.text !== serverText) fail("announcement textarea clean refresh", clean.text);
+  else if (clean.location !== "homepage") fail("announcement select clean refresh", clean.location);
+  else pass("announcement textarea/select refresh on clean form");
+
+  await page.fill('textarea[name="text"]', "Local announcement draft");
+  await page.selectOption('select[name="location"]', "all");
+  const flashWasChecked = await page.isChecked('input[name="flashReferralBannerEnabled"]');
+  await page.setChecked('input[name="flashReferralBannerEnabled"]', !flashWasChecked);
+  await simulateServerSiteContentUpdate(page, { announcement: { text: "Should not overwrite", location: "top" } });
+  await triggerBackgroundAdminRerender(page);
+  const dirty = await page.evaluate(() => ({
+    text: document.querySelector('#adminAnnouncementForm textarea[name="text"]')?.value || "",
+    location: document.querySelector('#adminAnnouncementForm select[name="location"]')?.value || "",
+    flash: document.querySelector('#adminAnnouncementForm input[name="flashReferralBannerEnabled"]')?.checked,
+  }));
+  if (dirty.text !== "Local announcement draft") fail("announcement textarea dirty preserve", dirty.text);
+  else if (dirty.location !== "all") fail("announcement select dirty preserve", dirty.location);
+  else if (dirty.flash !== !flashWasChecked) fail("announcement checkbox dirty preserve", String(dirty.flash));
+  else pass("announcement textarea/select/checkbox preserve unsaved edits");
+}
+
+async function testTabSwitchingPreservesUnsaved(page) {
+  await unlockAdmin(page);
+  await openSiteEditorTab(page, "trust");
+  await page.waitForSelector("#adminTrustForm");
+  const trustDraft = "Trust Heading Draft Across Tabs";
+  await page.fill('input[name="trustSectionHeading"]', trustDraft);
+  await openSiteEditorTab(page, "hero");
+  await page.waitForSelector("#adminHeroForm");
+  await page.fill('input[name="heroHeadline"]', "Hero while trust dirty");
+  await openSiteEditorTab(page, "trust");
+  await page.waitForSelector("#adminTrustForm");
+  const trustValue = await page.inputValue('input[name="trustSectionHeading"]');
+  if (trustValue !== trustDraft) fail("tab switch preserves unsaved trust edit", trustValue);
+  else pass("returning to trust tab keeps unsaved edit in place");
 }
 
 async function testAllSiteEditorTabs(page) {
@@ -320,7 +439,11 @@ async function main() {
       await testMultipleFieldTypes(page);
       await testFailedSavePreservesEdits(page);
       await testSuccessfulSaveBaseline(page);
-      await testCleanFormRefresh(page);
+      await testCleanFormRefreshFromServerUpdate(page);
+      await testDirtyFormPreservedDuringServerUpdate(page);
+      await testSavedFormRefreshesAfterServerUpdate(page);
+      await testAnnouncementFieldTypesCleanAndDirty(page);
+      await testTabSwitchingPreservesUnsaved(page);
       await testAllSiteEditorTabs(page);
       await testExistingProtectedPaths(page);
     } finally {
