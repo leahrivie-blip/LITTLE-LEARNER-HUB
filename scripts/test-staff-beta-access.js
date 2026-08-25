@@ -153,6 +153,8 @@ async function main() {
         subscriptionStatus: "Staff Plan Subscription Active",
         stripeSubscriptionStatus: "active",
         billingOffer: "staff_plan",
+        foundingMemberNumber: 17,
+        foundingMemberHistorical: true,
         foundingMemberActive: false,
       },
       [BETA_EMAIL_2]: {

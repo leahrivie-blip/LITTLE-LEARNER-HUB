@@ -9,6 +9,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { spawn } = require("node:child_process");
 const membershipAccess = require("./membership-access.js");
+const foundingIdentity = require("./founding-identity.js");
 const staffPlan = require("../server/staff-plan.js");
 
 const ROOT = path.join(__dirname, "..");
@@ -87,6 +88,7 @@ async function main() {
   assert.match(serverJs, /staffPlan\.evaluateStaffPlanInviteAccess/);
   assert.match(staffPlanJs, /STRIPE_PRICE_STAFF_MONTHLY/);
   assert.match(staffPlanJs, /STAFF_PLAN_PRICE_ID/);
+  assert.match(staffPlanJs, /founding-identity/);
   assert.equal(staffPlanJs.includes("price_1"), false);
   assert.equal(serverJs.includes("price_1"), false);
   console.log("PASS  Staff Plan markers present; no hardcoded live Stripe price IDs");
@@ -106,28 +108,47 @@ async function main() {
     }), "price_primary_staff");
   });
 
-  await test("founding is foundingMemberActive only — not Early User / Monthly / Annual / historical number", () => {
+  await test("1+2 Ashley numbered founding identity survives past_due and does not grant Pro", () => {
+    const ashleyPastDue = {
+      email: ASHLEY,
+      foundingMemberNumber: 17,
+      foundingMemberHistorical: true,
+      foundingMemberActive: false,
+      plan: "Free",
+      stripeSubscriptionStatus: "past_due",
+      subscriptionStatus: "Billing Review Required — Access Locked",
+      billingOffer: "pro_monthly",
+    };
+    assert.equal(foundingIdentity.hasPermanentFoundingIdentity(ashleyPastDue), true);
+    assert.equal(staffPlan.isAuthoritativeFoundingMember(ashleyPastDue), true);
+    assert.equal(membershipAccess.membershipHasProAccess(ashleyPastDue), false);
+    assert.equal(staffPlan.evaluateStaffPlanInviteAccess({ owner: ashleyPastDue }).code, "founding_billing_inactive");
+    assert.equal(staffPlan.staffPlanPublicState({ owner: ashleyPastDue }).upgradeRequired, false);
+    assert.equal(staffPlan.staffPlanPublicState({ owner: ashleyPastDue }).foundingEntitlementActive, false);
+    const checkout = staffPlan.staffPlanCheckoutBlock({ user: ashleyPastDue, requestedPlan: "staff" });
+    assert.equal(checkout?.payload?.code, "founding_keeps_pricing");
+  });
+
+  await test("5+6+7 Early User / Monthly / Annual / display text are not founding", () => {
     assert.equal(staffPlan.isAuthoritativeFoundingMember({
       foundingMemberActive: true,
       plan: "Founding",
     }), true);
     assert.equal(staffPlan.isAuthoritativeFoundingMember({
-      foundingMemberActive: false,
-      foundingMemberNumber: 17,
-      plan: "Pro",
-    }), false);
-    assert.equal(staffPlan.isAuthoritativeFoundingMember({
+      email: LEARNNPLAY,
       foundingMemberActive: false,
       billingOffer: "early_user",
       priceLock: "Early User",
       planDisplayName: "Pro — Early User",
     }), false);
     assert.equal(staffPlan.isAuthoritativeFoundingMember({
+      email: "monthly.pro@example.com",
       foundingMemberActive: false,
       billingOffer: "pro_monthly",
       monthlyPrice: "$19.99/month",
     }), false);
     assert.equal(staffPlan.isAuthoritativeFoundingMember({
+      email: "annual.pro@example.com",
       foundingMemberActive: false,
       billingOffer: "pro_annual",
       subscriptionCadence: "annual",
@@ -136,6 +157,11 @@ async function main() {
       plan: "Founding",
       planDisplayName: "Founding Member",
       foundingMemberHistorical: true,
+    }), false);
+    assert.equal(staffPlan.isAuthoritativeFoundingMember({
+      foundingMemberNumber: 17,
+      foundingSpotReleasedAt: "2026-01-01T00:00:00.000Z",
+      foundingMemberActive: false,
     }), false);
   });
 
@@ -150,14 +176,14 @@ async function main() {
     assert.equal(staffPlan.evaluateStaffPlanInviteAccess({ owner: founding }).reason, "founding");
 
     const staffEntitled = paidUser({
-      email: ASHLEY,
+      email: "nonfounding.staff@example.com",
       billingOffer: "staff_plan",
     });
     assert.equal(staffPlan.hasStaffPlanEntitlement(staffEntitled), true);
     assert.equal(staffPlan.evaluateStaffPlanInviteAccess({ owner: staffEntitled }).ok, true);
 
     const pastDueStaff = {
-      email: ASHLEY,
+      email: "nonfounding.staff@example.com",
       billingOffer: "staff_plan",
       plan: "Free",
       stripeSubscriptionStatus: "past_due",
@@ -170,10 +196,10 @@ async function main() {
     const earlyUser = paidUser({ email: LEARNNPLAY, billingOffer: "early_user", priceLock: "Early User" });
     assert.equal(staffPlan.evaluateStaffPlanInviteAccess({ owner: earlyUser }).ok, false);
 
-    const monthly = paidUser({ email: ASHLEY, billingOffer: "pro_monthly" });
+    const monthly = paidUser({ email: "monthly.pro@example.com", billingOffer: "pro_monthly" });
     assert.equal(staffPlan.evaluateStaffPlanInviteAccess({ owner: monthly }).ok, false);
 
-    const annual = paidUser({ email: ASHLEY, billingOffer: "pro_annual", subscriptionCadence: "annual" });
+    const annual = paidUser({ email: "annual.pro@example.com", billingOffer: "pro_annual", subscriptionCadence: "annual" });
     assert.equal(staffPlan.evaluateStaffPlanInviteAccess({ owner: annual }).ok, false);
 
     const adminMonthly = paidUser({ email: ADMIN, billingOffer: "pro_monthly" });
@@ -221,20 +247,26 @@ async function main() {
   fs.writeFileSync(STORE, JSON.stringify({
     users: {
       [ADMIN]: paidUser({ email: ADMIN }),
-      [ASHLEY]: paidUser({
+      [ASHLEY]: {
         email: ASHLEY,
+        role: "owner",
+        accountType: "home_daycare",
+        plan: "Free",
+        subscriptionStatus: "Billing Review Required — Access Locked",
+        stripeSubscriptionStatus: "past_due",
         billingOffer: "pro_monthly",
         foundingMemberNumber: 17,
         foundingMemberHistorical: true,
+        foundingMember: true,
         foundingMemberActive: false,
-      }),
+      },
       [LEARNNPLAY]: paidUser({
         email: LEARNNPLAY,
-        plan: "Founding",
-        foundingMemberActive: true,
-        billingOffer: "founding",
-        monthlyPrice: "$9.99/month",
-        subscriptionStatus: "Founding Member Subscription Active",
+        billingOffer: "early_user",
+        priceLock: "Early User",
+        monthlyPrice: "$13.99/month",
+        subscriptionStatus: "Pro Early User Subscription Active",
+        foundingMemberActive: false,
       }),
     },
   }, null, 2));
@@ -267,31 +299,61 @@ async function main() {
   try {
     await waitForHealth();
 
-    await test("API: historical founding number without foundingMemberActive requires Staff Plan", async () => {
+    await test("API: Ashley past_due keeps founding identity and is not forced onto Staff Plan", async () => {
       const listed = await request("GET", "/api/staff/invites", { email: ASHLEY });
       assert.equal(listed.status, 200, JSON.stringify(listed.json));
-      assert.equal(listed.json.staffPlan.foundingMember, false);
-      assert.equal(listed.json.staffPlan.upgradeRequired, true);
+      assert.equal(listed.json.staffPlan.foundingMember, true);
+      assert.equal(listed.json.staffPlan.foundingEntitlementActive, false);
+      assert.equal(listed.json.staffPlan.upgradeRequired, false);
       assert.equal(listed.json.staffPlan.canInvite, false);
       assert.equal(listed.json.staffPlan.configured, false);
+
+      const access = await request("GET", `/api/subscription-status?email=${encodeURIComponent(ASHLEY)}`);
+      assert.equal(access.json.subscription.hasProAccess, false);
 
       const invite = await request("POST", "/api/staff/invites", {
         email: ASHLEY,
         body: { email: "teacher.blocked@example.com", role: "teacher", appOrigin: `http://127.0.0.1:${PORT}` },
       });
       assert.equal(invite.status, 403);
+      assert.equal(invite.json.code, "founding_billing_inactive");
+    });
+
+    await test("API: Early User is not founding and must have Staff Plan", async () => {
+      const listed = await request("GET", "/api/staff/invites", { email: LEARNNPLAY });
+      assert.equal(listed.status, 200, JSON.stringify(listed.json));
+      assert.equal(listed.json.staffPlan.foundingMember, false);
+      assert.equal(listed.json.staffPlan.upgradeRequired, true);
+      assert.equal(listed.json.staffPlan.canInvite, false);
+
+      const invite = await request("POST", "/api/staff/invites", {
+        email: LEARNNPLAY,
+        body: { email: "teacher.early@example.com", role: "teacher", appOrigin: `http://127.0.0.1:${PORT}` },
+      });
+      assert.equal(invite.status, 403);
       assert.equal(invite.json.code, "staff_plan_required");
     });
 
-    await test("API: founding member keeps founding pricing and may invite", async () => {
-      const listed = await request("GET", "/api/staff/invites", { email: LEARNNPLAY });
-      assert.equal(listed.status, 200, JSON.stringify(listed.json));
+    await test("API: Ashley recovers founding entitlement and can invite without Staff Plan", async () => {
+      const raw = JSON.parse(fs.readFileSync(STORE, "utf8"));
+      raw.users[ASHLEY] = {
+        ...raw.users[ASHLEY],
+        plan: "Founding",
+        foundingMemberActive: true,
+        stripeSubscriptionStatus: "active",
+        subscriptionStatus: "Founding Member Subscription Active",
+        monthlyPrice: "$9.99/month",
+      };
+      fs.writeFileSync(STORE, JSON.stringify(raw, null, 2));
+
+      const listed = await request("GET", "/api/staff/invites", { email: ASHLEY });
       assert.equal(listed.json.staffPlan.foundingMember, true);
+      assert.equal(listed.json.staffPlan.foundingEntitlementActive, true);
       assert.equal(listed.json.staffPlan.upgradeRequired, false);
       assert.equal(listed.json.staffPlan.canInvite, true);
 
       const invite = await request("POST", "/api/staff/invites", {
-        email: LEARNNPLAY,
+        email: ASHLEY,
         body: { email: "teacher.founding@example.com", role: "teacher", appOrigin: `http://127.0.0.1:${PORT}` },
       });
       assert.equal(invite.status, 200, JSON.stringify(invite.json));
@@ -307,7 +369,7 @@ async function main() {
 
     await test("checkout: missing Staff Plan price ID fails closed (no monthly fallback)", async () => {
       const res = await request("POST", "/api/create-checkout-session", {
-        body: { email: ASHLEY, plan: "staff" },
+        body: { email: LEARNNPLAY, plan: "staff" },
       });
       assert.equal(res.status, 400, JSON.stringify(res.json));
       assert.match(String(res.json.error || ""), /missing|not configured/i);
@@ -317,7 +379,7 @@ async function main() {
 
     await test("checkout: founding member is not forced onto Staff Plan", async () => {
       const res = await request("POST", "/api/create-checkout-session", {
-        body: { email: LEARNNPLAY, plan: "staff" },
+        body: { email: ASHLEY, plan: "staff" },
       });
       assert.equal(res.status, 400, JSON.stringify(res.json));
       assert.equal(res.json.code, "founding_keeps_pricing");
@@ -332,6 +394,16 @@ async function main() {
     users: {
       [ASHLEY]: paidUser({
         email: ASHLEY,
+        plan: "Founding",
+        foundingMemberActive: true,
+        foundingMemberNumber: 17,
+        foundingMemberHistorical: true,
+        billingOffer: "founding",
+        monthlyPrice: "$9.99/month",
+        subscriptionStatus: "Founding Member Subscription Active",
+      }),
+      [LEARNNPLAY]: paidUser({
+        email: LEARNNPLAY,
         billingOffer: "staff_plan",
         subscriptionStatus: "Staff Plan Subscription Active",
       }),
@@ -369,12 +441,13 @@ async function main() {
   try {
     await waitForHealth(PORT_PRICED);
 
-    await test("API: Staff Plan entitlement unlocks invites and keeps the 5-seat cap", async () => {
+    await test("API: founding Ashley can invite without Staff Plan and the 5-seat cap still holds", async () => {
       const listed = await request("GET", "/api/staff/invites", { email: ASHLEY, port: PORT_PRICED });
-      assert.equal(listed.json.staffPlan.hasStaffPlanEntitlement, true);
+      assert.equal(listed.json.staffPlan.foundingMember, true);
+      assert.equal(listed.json.staffPlan.foundingEntitlementActive, true);
+      assert.equal(listed.json.staffPlan.hasStaffPlanEntitlement, false);
       assert.equal(listed.json.staffPlan.upgradeRequired, false);
       assert.equal(listed.json.staffPlan.canInvite, true);
-      assert.equal(listed.json.staffPlan.configured, true);
       assert.equal(listed.json.seats.max, 5);
 
       for (let i = 1; i <= 5; i += 1) {
@@ -395,9 +468,16 @@ async function main() {
     });
 
     await test("checkout: already on Staff Plan is blocked; Pro monthly can start Staff Plan", async () => {
-      const already = await request("POST", "/api/create-checkout-session", {
+      const foundingCheckout = await request("POST", "/api/create-checkout-session", {
         port: PORT_PRICED,
         body: { email: ASHLEY, plan: "staff" },
+      });
+      assert.equal(foundingCheckout.status, 400, JSON.stringify(foundingCheckout.json));
+      assert.equal(foundingCheckout.json.code, "founding_keeps_pricing");
+
+      const already = await request("POST", "/api/create-checkout-session", {
+        port: PORT_PRICED,
+        body: { email: LEARNNPLAY, plan: "staff" },
       });
       assert.equal(already.status, 409, JSON.stringify(already.json));
       assert.equal(already.json.code, "already_subscribed");

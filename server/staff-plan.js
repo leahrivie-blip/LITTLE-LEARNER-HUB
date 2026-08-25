@@ -4,12 +4,13 @@
  * Isolated from seat counting and Pro inheritance. Does not invent Stripe
  * Price IDs and never falls back to founding / monthly / early-user / annual.
  *
- * Founding waiver uses foundingMemberActive only — not display text,
- * foundingMemberNumber, Early User, or regular Pro plans.
+ * Founding waiver uses permanent founding identity (numbered cohort), not the
+ * live foundingMemberActive billing flag and not display text.
  */
 "use strict";
 
 const membershipAccess = require("../scripts/membership-access.js");
+const foundingIdentity = require("../scripts/founding-identity.js");
 
 const STAFF_PLAN_KEY = "staff";
 const STAFF_PLAN_OFFER = "staff_plan";
@@ -23,6 +24,7 @@ const MAX_INCLUDED_STAFF_SEATS = 5;
 const STAFF_PLAN_REQUIRED_MESSAGE = "Upgrade to the Staff Plan ($29.99/month) to invite staff. This includes Pro for your account plus access for up to 5 staff members.";
 const STAFF_PLAN_PRICE_MISSING_MESSAGE = "Staff Plan checkout is not configured. The Staff Plan Stripe price ID is missing.";
 const FOUNDING_KEEPS_PRICING_MESSAGE = "Founding Members keep their existing founding pricing and do not need the Staff Plan.";
+const FOUNDING_BILLING_INACTIVE_MESSAGE = "Add Staff is included with your Founding Member plan. Update billing to invite staff.";
 const ALREADY_ON_STAFF_PLAN_MESSAGE = "This account already has an active Staff Plan. Manage billing from Settings → Billing & Subscription instead of starting a new checkout.";
 
 function normalizeOffer(value) {
@@ -55,11 +57,11 @@ function staffPlanConfig() {
 }
 
 /**
- * Authoritative founding-member flag. Historical numbers, Early User,
- * Monthly Pro, Annual Pro, and display labels are not founding.
+ * Staff Plan pricing uses permanent founding identity, not current access.
+ * past_due founding members stay founding for tier eligibility.
  */
 function isAuthoritativeFoundingMember(user) {
-  return Boolean(user && user.foundingMemberActive === true);
+  return foundingIdentity.hasPermanentFoundingIdentity(user);
 }
 
 function isStaffPlanOffer(user) {
@@ -86,11 +88,19 @@ function evaluateStaffPlanInviteAccess({
     };
   }
   if (isAuthoritativeFoundingMember(owner)) {
+    if (membershipAccess.membershipHasProAccess(owner) === true) {
+      return {
+        ok: true,
+        reason: "founding",
+        code: "",
+        message: "",
+      };
+    }
     return {
-      ok: true,
-      reason: "founding",
-      code: "",
-      message: "",
+      ok: false,
+      reason: "founding_billing_inactive",
+      code: "founding_billing_inactive",
+      message: FOUNDING_BILLING_INACTIVE_MESSAGE,
     };
   }
   if (hasStaffPlanEntitlement(owner)) {
@@ -121,12 +131,15 @@ function staffPlanPublicState({
     isConfiguredAdminEmail,
   });
   const foundingMember = isAuthoritativeFoundingMember(owner);
+  const foundingEntitlementActive = foundingMember
+    && membershipAccess.membershipHasProAccess(owner) === true;
   const admin = decision.reason === "admin";
   const required = !admin && !foundingMember;
   const entitled = hasStaffPlanEntitlement(owner);
   return {
     required,
     foundingMember,
+    foundingEntitlementActive,
     hasStaffPlanEntitlement: entitled,
     configured: isStaffPlanPriceConfigured(env),
     amount: STAFF_PLAN_AMOUNT,
@@ -198,6 +211,7 @@ module.exports = {
   STAFF_PLAN_REQUIRED_MESSAGE,
   STAFF_PLAN_PRICE_MISSING_MESSAGE,
   FOUNDING_KEEPS_PRICING_MESSAGE,
+  FOUNDING_BILLING_INACTIVE_MESSAGE,
   ALREADY_ON_STAFF_PLAN_MESSAGE,
   getStaffPlanPriceId,
   isStaffPlanPriceConfigured,
