@@ -785,11 +785,39 @@ function rejectGenericValue(field, value) {
   return null;
 }
 
+/**
+ * Activity/week prose fields that share the same ≥8-word thin gate in rejectGenericValue
+ * and may receive ONE bounded repair attempt.
+ */
+const REPAIRABLE_THIN_PROSE_FIELDS = Object.freeze([
+  "weeklyOverview",
+  "objectives",
+  "weeklyMaterials",
+  "teacherPreparation",
+  "familyConnection",
+  "objective",
+  "description",
+  "materials",
+  "preparation",
+  "setup",
+  "steps",
+  "teacherLanguage",
+  "observationOpportunities",
+  "safetyNotes",
+  "cleanupTips",
+]);
+
 /** Thin prose/list gates that may be recovered with one bounded repair call (not hard schema failures). */
-function isRepairableThinValidationError(message) {
+function isRepairableThinValidationError(message, field = "") {
   const m = text(message, 300);
   if (!m) return false;
-  return /^Value too short for /i.test(m) || /^Generic filler rejected for /i.test(m);
+  if (!(/^Value too short for /i.test(m) || /^Generic filler rejected for /i.test(m))) return false;
+  const fieldName = text(field, 80)
+    || (m.match(/^Value too short for ([A-Za-z]+)/i) || [])[1]
+    || (m.match(/^Generic filler rejected for ([A-Za-z]+)/i) || [])[1]
+    || "";
+  if (!fieldName) return true;
+  return REPAIRABLE_THIN_PROSE_FIELDS.includes(fieldName);
 }
 
 function buildRepairOnlyWork(work, repairTargets) {
@@ -895,12 +923,29 @@ function buildThinRepairUserPrompt(context, repairTargets, partialPlan) {
       reason: t.error,
     };
   });
+  const fieldHints = [];
+  if (targets.some((t) => t.field === "safetyNotes")) {
+    fieldHints.push(
+      "safetyNotes: ≥8 words naming a relevant activity-specific hazard/supervision need AND the teacher action that reduces it. Never return supervise-only filler.",
+    );
+  }
+  if (targets.some((t) => t.field === "materials")) {
+    fieldHints.push(
+      "materials: name concrete classroom materials sized for the age group and tied to the activity title (≥8 words).",
+    );
+  }
+  if (targets.some((t) => ["cleanupTips", "observationOpportunities", "teacherLanguage", "description", "objective", "steps", "setup", "preparation"].includes(t.field))) {
+    fieldHints.push(
+      "Other thin prose fields: write teacher-usable, activity-specific text (≥8 words). Do not return generic filler.",
+    );
+  }
   return [
     "REPAIR_THIN_FIELDS_ONLY",
     "Repair ONLY the listed thin/weak fields below.",
     "Already-accepted fields must NOT be returned — they are preserved separately.",
     "Each repaired value must be substantial and teacher-usable (≥8 words for prose; useful item lists for arrays).",
     "Name concrete classroom materials sized for the age group and tied to the activity title.",
+    ...fieldHints,
     "",
     JSON.stringify({
       lesson: context.lesson,
@@ -1071,7 +1116,7 @@ function validateComposerOutput(rawText, work, plan, options = {}) {
     const requestedAction = allowedWeek.get(field)?.action || allowedWeek.get(field)?.decision;
     const norm = coerceChangeEntry(field, extracted.weeklyIn[field], requestedAction);
     if (!norm.ok) {
-      if (collectThin && isRepairableThinValidationError(norm.error)) {
+      if (collectThin && isRepairableThinValidationError(norm.error, field)) {
         repairTargets.push({
           scope: "week",
           field,
@@ -1146,7 +1191,7 @@ function validateComposerOutput(rawText, work, plan, options = {}) {
       const requestedAction = allowedFields.get(field)?.action || allowedFields.get(field)?.decision;
       const norm = coerceChangeEntry(field, fieldSource[field], requestedAction);
       if (!norm.ok) {
-        if (collectThin && isRepairableThinValidationError(norm.error)) {
+        if (collectThin && isRepairableThinValidationError(norm.error, field)) {
           repairTargets.push({
             scope: "activity",
             activityId,
@@ -1604,6 +1649,28 @@ function buildOperatorAiFixtureResponse(userPrompt) {
         };
         return;
       }
+      if (field === "safetyNotes") {
+        row.changes[field] = {
+          action: target.action || "FILL",
+          value: [
+            `Keep ${title} pieces large enough for ${age} to reduce choking risk,`,
+            "stay within arm's reach while children handle tools or mouth materials,",
+            "and remove cracked or broken pieces immediately.",
+          ].join(" "),
+        };
+        return;
+      }
+      if (field === "cleanupTips") {
+        row.changes[field] = {
+          action: target.action || "FILL",
+          value: [
+            `Give a two-minute warning before ending ${title},`,
+            "invite children to place materials back on the tray,",
+            "and wipe the table so the next group starts clean.",
+          ].join(" "),
+        };
+        return;
+      }
       row.changes[field] = {
         action: target.action || "FILL",
         value: [
@@ -1741,6 +1808,7 @@ function buildOperatorAiFixtureResponse(userPrompt) {
 module.exports = {
   WEEK_FIELDS,
   ACTIVITY_FIELDS,
+  REPAIRABLE_THIN_PROSE_FIELDS,
   WRITE_ACTIONS,
   WEEK_FIELD_ALIASES,
   collectWorkItems,

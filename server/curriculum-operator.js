@@ -2130,6 +2130,16 @@ function createCurriculumOperatorApi(deps) {
       bag2.jobs = [job, ...bag2.jobs.filter((j) => j.id !== job.id)].slice(0, 100);
       await writeJobs(store, bag2);
 
+      // Natural-language connected upgrades reuse the same auto-apply path as connected_run.
+      let autoApply = { applied: [], skipped: [] };
+      if (job?.command?.actions?.connectedUpgrade && job?.command?.actions?.connectedAutoApply) {
+        autoApply = await tryConnectedAutoApply(job, store, session.email);
+        if (autoApply.applied.length) await writeStoreAsync(store);
+        const bag3 = readJobs(store);
+        bag3.jobs = [job, ...bag3.jobs.filter((j) => j.id !== job.id)].slice(0, 100);
+        await writeJobs(store, bag3);
+      }
+
       const upgraded = wantsUpgrade(command);
       const songsBooks = wantsSongsBooks(command);
       const printables = wantsPrintables(command);
@@ -2141,6 +2151,7 @@ function createCurriculumOperatorApi(deps) {
         command,
         planSummary,
         job,
+        autoApply,
         publishEnabled: false,
         published: false,
         draftOnly: upgraded || songsBooks || printables || images || created,

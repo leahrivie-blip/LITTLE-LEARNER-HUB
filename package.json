@@ -32,6 +32,7 @@
     "test:curriculum-operator-upgrade-thin-repair": "NODE_ENV=test node scripts/test-curriculum-operator-upgrade-thin-repair.js",
     "test:curriculum-operator-printable-age-band": "NODE_ENV=test node scripts/test-curriculum-operator-printable-age-band.js",
     "test:curriculum-operator-intent-routing": "NODE_ENV=test node scripts/test-curriculum-operator-intent-routing.js",
+    "test:curriculum-operator-nl-smoke-blockers": "NODE_ENV=test node scripts/test-curriculum-operator-nl-smoke-blockers.js",
     "test:curriculum-operator-empty-changes": "NODE_ENV=test node scripts/test-curriculum-operator-empty-changes.js",
     "test:curriculum-operator-create-architect": "NODE_ENV=test node scripts/test-curriculum-operator-create-architect.js",
     "test:curriculum-operator-staged-composer": "NODE_ENV=test node scripts/test-curriculum-operator-staged-composer.js",
