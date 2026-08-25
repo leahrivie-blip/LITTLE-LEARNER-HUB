@@ -10103,10 +10103,28 @@ function isOwnerTeachingKitEditorOpen() {
   return Boolean(enrichOpen || reviewOpen);
 }
 
+/**
+ * Clear Teaching Kit editor overlay host styles left by openOwnerTeachingKitEditor.
+ * Inline display:block must be removed or the empty fixed host keeps blocking Admin UI
+ * after body.tk-enrich-open is cleared.
+ */
+function releaseTeachingKitEditorOverlayHost() {
+  document.body.classList.remove("tk-editor-focused", "tk-enrich-open");
+  const host = document.querySelector("#adminTeachingKitEnrichmentHost");
+  if (!host) return;
+  host.hidden = true;
+  host.setAttribute("hidden", "");
+  try {
+    host.style.removeProperty("display");
+  } catch (_error) {
+    host.style.display = "";
+  }
+}
+
 function restoreAdminLessonListAfterTkEditorClose() {
   adminCurriculumLessonEditorId = "";
   adminTkEditorOpenInFlight = "";
-  document.body.classList.remove("tk-editor-focused", "tk-enrich-open");
+  releaseTeachingKitEditorOverlayHost();
   if (adminActiveSectionTab !== "curriculum-lesson-plans" && typeof setAdminSectionTab === "function") {
     setAdminSectionTab("curriculum-lesson-plans");
   }
@@ -10221,7 +10239,9 @@ async function openOwnerTeachingKitEditor(planId, options = {}) {
         if (host) {
           host.hidden = false;
           host.removeAttribute("hidden");
-          host.style.display = "block";
+          // Visibility comes from body.tk-enrich-open CSS. Do not set inline display —
+          // leftover display:block survives close() and blocks Admin navigation.
+          try { host.style.removeProperty("display"); } catch (_error) { host.style.display = ""; }
         }
         renderAdminCurriculumLessonPlanManager();
         applyAdminSectionVisibility();
@@ -15299,7 +15319,11 @@ function confirmLeaveTeachingKitEditor() {
     }
   }
   const editor = typeof LLHTeachingKitEnrichmentEditor !== "undefined" ? LLHTeachingKitEnrichmentEditor : null;
-  if (!editor || typeof editor.isOpen !== "function" || !editor.isOpen()) return true;
+  if (!editor || typeof editor.isOpen !== "function" || !editor.isOpen()) {
+    // Even if isOpen is already false, clear any leftover overlay host styles.
+    releaseTeachingKitEditorOverlayHost();
+    return true;
+  }
   const dirty = typeof editor.isDirty === "function" ? editor.isDirty() : false;
   const message = dirty
     ? "Leave Teaching Kit editor? Unsaved draft changes on this screen will be lost."
@@ -15307,8 +15331,13 @@ function confirmLeaveTeachingKitEditor() {
   if (!window.confirm(message)) return false;
   if (typeof editor.close === "function") {
     // skipReturnNavigation: caller is already navigating; do not bounce back to Draft Review.
+    // Existing dirty protection is the confirm above; force close after Owner confirms leave.
     editor.close({ force: true, abandonUnsaved: true, skipReturnNavigation: true });
   }
+  // Sync overlay release — close() is async; inline host styles must not outlive navigation.
+  releaseTeachingKitEditorOverlayHost();
+  adminCurriculumLessonEditorId = "";
+  adminTkEditorOpenInFlight = "";
   return true;
 }
 
