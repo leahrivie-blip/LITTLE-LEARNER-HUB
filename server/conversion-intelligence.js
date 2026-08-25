@@ -951,6 +951,7 @@ function buildConversionIntelligence(store = {}, options = {}) {
   };
   const ownerActionQueue = conversionLeads.filterOwnerActionQueue(ownerActionQueueAll, ownerFilters);
   const ownerWorkflowSummary = conversionLeads.buildOwnerWorkflowSummary(ownerActionQueueAll, profiles);
+  const ownerReasonFrequency = conversionLeads.buildOwnerReasonFrequency(/** @type {Record<string, unknown>} */ (store));
   const lostUserWorkflow = conversionLeads.buildLostUserWorkflow(lostUsers);
 
   let conversionLeadDetail = null;
@@ -1020,6 +1021,7 @@ function buildConversionIntelligence(store = {}, options = {}) {
     lostUsers,
     lostUserWorkflow,
     ownerWorkflowSummary,
+    ownerReasonFrequency,
     ownerActionQueue,
     ownerActionQueueTotal: ownerActionQueueAll.length,
     ownerFilters,

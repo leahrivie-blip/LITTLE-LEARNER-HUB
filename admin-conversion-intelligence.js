@@ -2,7 +2,7 @@
  * Conversion Intelligence — Owner/Admin UI.
  * Consumes GET /api/admin/conversion-intelligence
  */
-(function adminConversionIntelligenceModule() {
+(function adminConversionIntelligenceModule(root) {
   let state = {
     range: "7d",
     source: "all",
@@ -14,6 +14,7 @@
     cache: null,
     journeyEmail: "",
     detailEmail: "",
+    scrollRestore: null,
     queue: {
       activated: "all",
       highIntent: "all",
@@ -201,8 +202,113 @@
     return (values || []).map((v) => `<option value="${esc(v)}"${String(selected) === String(v) ? " selected" : ""}>${esc(v)}</option>`).join("");
   }
 
+  function optListReasons(reasons, selected) {
+    return (reasons || []).map((v) => `<option value="${esc(v)}"${String(selected) === String(v) ? " selected" : ""}>${esc(reasonLabel(v))}</option>`).join("");
+  }
+
+  function optListStatuses(statuses, selected) {
+    return (statuses || []).map((v) => `<option value="${esc(v)}"${String(selected) === String(v) ? " selected" : ""}>${esc(leadStatusLabel(v))}</option>`).join("");
+  }
+
+  /** Owner-facing status label (display only; does not change stored values). */
+  function leadStatusLabel(status) {
+    const key = String(status || "");
+    const map = {
+      new: "New signup",
+      activated: "Activated",
+      high_intent: "High purchase intent",
+      follow_up: "Follow-up",
+      contacted: "Contacted",
+      considering: "Considering",
+      not_ready: "Not ready",
+      converted: "Converted",
+      lost: "Lost",
+    };
+    return map[key] || key || "—";
+  }
+
+  /** Owner-facing reason label (display only). */
+  function reasonLabel(reason) {
+    const key = String(reason || "");
+    const map = {
+      price: "Too expensive",
+      not_enough_value: "Not enough value",
+      needs_different_age_group: "Needs different age group",
+      needs_specific_content: "Needs more lesson plans",
+      hard_to_use: "Hard to use",
+      prefers_current_method: "Prefers current method",
+      director_approval: "Director approval needed",
+      center_budget: "Center budget",
+      not_ready_yet: "Not ready yet",
+      technical_issue: "Technical issue",
+      just_browsing: "Just looking",
+      other: "Other",
+    };
+    return map[key] || key || "—";
+  }
+
+  function queueScrollAnchorForEmail(email) {
+    const clean = String(email || "").trim();
+    return clean ? `conv-lead-${clean.replace(/[^a-zA-Z0-9@._-]+/g, "-")}` : "convOwnerFollowUp";
+  }
+
+  function queueLeadCard(row, statuses, reasons) {
+    const email = String(row.email || "");
+    const anchorId = queueScrollAnchorForEmail(email);
+    const signalHint = row.checkoutStarted === "Yes"
+      ? `Checkout started · ${row.proEncounters || 0} Pro encounters`
+      : `${row.proEncounters || 0} Pro encounters`;
+    return `
+      <article class="conv-lead-card" id="${esc(anchorId)}" data-lead-email="${esc(email)}">
+        <div class="conv-lead-card-header">
+          <strong>${esc(row.user)}</strong>
+          <span class="conv-lead-pill">${esc(row.paidFreeLabel || "Free / unpaid")}</span>
+        </div>
+        <dl class="conv-lead-card-meta">
+          <div><dt>Intent</dt><dd>${esc(row.intentLevel || "—")}${row.intentScore != null ? ` (${esc(row.intentScore)})` : ""}</dd></div>
+          <div><dt>Persona</dt><dd>${esc(row.persona || "—")}</dd></div>
+          <div><dt>Activated</dt><dd>${esc(row.activated ? "Yes" : "No")}${row.activatedAt ? ` · ${esc(row.activatedAt)}` : ""}</dd></div>
+          <div><dt>Last active</dt><dd>${esc(row.lastActive || "—")}</dd></div>
+          <div><dt>Signals</dt><dd>${esc(signalHint)}</dd></div>
+          <div><dt>Follow-up status</dt><dd>
+            <select class="conv-lead-select" data-lead-status="${esc(email)}">${optListStatuses(statuses, row.ownerStatus || row.effectiveStatus || "new")}</select>
+            <span class="muted-copy">Suggested: ${esc(leadStatusLabel(row.derivedStatus))}</span>
+          </dd></div>
+          <div><dt>Reason captured</dt><dd>
+            <select class="conv-lead-select" data-lead-reason="${esc(email)}"><option value="">—</option>${optListReasons(reasons, row.capturedReason || "")}</select>
+            <span class="muted-copy">${esc(row.capturedReason ? reasonLabel(row.capturedReason) : "None recorded")}</span>
+          </dd></div>
+          ${row.latestNotePreview ? `<div class="conv-lead-note"><dt>Note</dt><dd>${esc(row.latestNotePreview)}</dd></div>` : ""}
+        </dl>
+        ${(row.categories || []).length ? `<p class="muted-copy conv-lead-cats">${esc((row.categories || []).join(" · "))}</p>` : ""}
+        <div class="conv-lead-card-actions">
+          <button type="button" class="ghost-button conv-lead-action" data-lead-detail="${esc(email)}">Detail</button>
+          <button type="button" class="ghost-button conv-lead-action" data-lead-save="${esc(email)}">Save</button>
+          <button type="button" class="ghost-button conv-lead-action" data-lead-note="${esc(email)}">Add Note</button>
+        </div>
+      </article>
+    `;
+  }
+
+  function applyScrollRestore() {
+    const restore = state.scrollRestore;
+    state.scrollRestore = null;
+    if (!restore) return;
+    requestAnimationFrame(() => {
+      if (restore.type === "y") {
+        window.scrollTo(0, Number(restore.value) || 0);
+        return;
+      }
+      const target = String(restore.value || "");
+      const el = document.getElementById(target)
+        || document.querySelector(`[data-lead-email="${CSS.escape(target)}"]`);
+      if (el) el.scrollIntoView({ block: "nearest" });
+    });
+  }
+
   function renderOwnerWorkflow(data) {
     const summary = data.ownerWorkflowSummary || {};
+    const reasonFreq = data.ownerReasonFrequency || [];
     const statuses = data.leadStatuses || ["new", "activated", "high_intent", "follow_up", "contacted", "considering", "not_ready", "converted", "lost"];
     const reasons = data.nonBuyerReasons || [];
     const queue = data.ownerActionQueue || [];
@@ -210,12 +316,17 @@
     const detail = data.conversionLeadDetail;
     const q = state.queue;
 
+    const reasonRollupHtml = reasonFreq.length ? table(
+      ["Reason (owner-entered)", "Count"],
+      reasonFreq.map((row) => [row.label || reasonLabel(row.reason), row.count]),
+    ) : `<div class="empty-state">No owner-entered reasons recorded yet.</div>`;
+
     const detailHtml = detail ? `
       <section class="admin-home-card" id="convLeadDetail">
         <p class="eyebrow">Conversion Detail — ${esc(detail.emailMasked)}</p>
         <div class="admin-insights-split">
           <div>
-            <h4>${esc(detail.layers?.observed?.label || "OBSERVED")}</h4>
+            <h4>${esc(detail.layers?.observed?.label || "What happened")}</h4>
             <p class="muted-copy">${esc(detail.layers?.observed?.description || "")}</p>
             <ul class="admin-insights-summary-list">
               <li>Signup: ${esc(detail.layers?.observed?.signupAt)}</li>
@@ -230,35 +341,68 @@
             </ol>
           </div>
           <div>
-            <h4>${esc(detail.layers?.derived?.label || "DERIVED")}</h4>
+            <h4>${esc(detail.layers?.derived?.label || "What the system suggests")}</h4>
             <p class="muted-copy">${esc(detail.layers?.derived?.description || "")}</p>
             <ul class="admin-insights-summary-list">
               <li>Activated: ${esc(detail.layers?.derived?.activated ? "Yes" : "No")} ${detail.layers?.derived?.activatedAt ? `(${esc(detail.layers.derived.activatedAt)})` : ""}</li>
               <li>Persona: ${esc(detail.layers?.derived?.persona)}</li>
-              <li>Derived status: ${esc(detail.layers?.derived?.derivedStatus)}</li>
-              <li>Paid (authoritative): ${esc(detail.layers?.derived?.paidAuthoritative ? "Yes" : "No")}</li>
+              <li>Suggested status: ${esc(leadStatusLabel(detail.layers?.derived?.derivedStatus))}</li>
+              <li>Paid (billing): ${esc(detail.layers?.derived?.paidAuthoritative ? "Yes" : "No")}</li>
               <li class="muted-copy">${esc(detail.layers?.derived?.associationNote || "Pre-purchase association (not causal)")}</li>
             </ul>
-            <h4>${esc(detail.layers?.ownerEntered?.label || "OWNER ENTERED")}</h4>
+            <h4>${esc(detail.layers?.ownerEntered?.label || "What you recorded")}</h4>
             <p class="muted-copy">${esc(detail.layers?.ownerEntered?.description || "")}</p>
             <ul class="admin-insights-summary-list">
-              <li>Owner status: ${esc(detail.layers?.ownerEntered?.status || "—")}</li>
-              <li>Effective: ${esc(detail.layers?.ownerEntered?.effectiveStatus)}</li>
+              <li>Your status: ${esc(leadStatusLabel(detail.layers?.ownerEntered?.status) || "—")}</li>
+              <li>Effective status: ${esc(leadStatusLabel(detail.layers?.ownerEntered?.effectiveStatus))}</li>
               <li>Notes: ${(detail.layers?.ownerEntered?.notes || []).length}</li>
-              <li>Reasons: ${(detail.layers?.ownerEntered?.reasons || []).map((r) => esc(r.reason)).join(", ") || "—"}</li>
+              <li>Reasons: ${(detail.layers?.ownerEntered?.reasons || []).map((r) => esc(reasonLabel(r.reason))).join(", ") || "—"}</li>
             </ul>
           </div>
         </div>
-        <button type="button" class="ghost-button" data-conv-clear-detail>Close detail</button>
+        <button type="button" class="ghost-button conv-lead-action" data-conv-clear-detail>Close detail</button>
       </section>
     ` : "";
 
+    const queueRowsHtml = queue.length ? queue.map((row) => {
+      const email = String(row.email || "");
+      const anchorId = queueScrollAnchorForEmail(email);
+      return `
+                <tr id="${esc(anchorId)}" data-lead-email="${esc(email)}">
+                  <td>${esc(row.user)}<div class="muted-copy">${esc(row.paidFreeLabel || "")}</div></td>
+                  <td>${esc(row.signupDate)}</td>
+                  <td>${esc(row.persona)}<div class="muted-copy">${esc((row.ageGroups || []).join(", "))}</div></td>
+                  <td>${esc(row.activated ? "Yes" : "No")}<div class="muted-copy">${esc(row.activatedAt || "")}</div></td>
+                  <td>${esc(row.intentLevel)}${row.intentScore != null ? ` (${esc(row.intentScore)})` : ""}<div class="muted-copy">${esc((row.categories || []).join("; "))}</div></td>
+                  <td>${esc(row.checkoutStarted)} · Pro ${esc(row.proEncounters)}</td>
+                  <td>
+                    <select data-lead-status="${esc(email)}">${optListStatuses(statuses, row.ownerStatus || row.effectiveStatus || "new")}</select>
+                    <div class="muted-copy">Suggested: ${esc(leadStatusLabel(row.derivedStatus))}</div>
+                  </td>
+                  <td>
+                    <select data-lead-reason="${esc(email)}"><option value="">—</option>${optListReasons(reasons, row.capturedReason || "")}</select>
+                    <div class="muted-copy">${esc(row.capturedReason ? reasonLabel(row.capturedReason) : "None recorded")}</div>
+                  </td>
+                  <td>${esc(row.latestNotePreview || "—")}<div class="muted-copy">${esc(row.latestNoteAt || "")}</div></td>
+                  <td class="conv-queue-actions">
+                    <button type="button" class="ghost-button conv-lead-action" data-lead-detail="${esc(email)}">Detail</button>
+                    <button type="button" class="ghost-button conv-lead-action" data-lead-save="${esc(email)}">Save</button>
+                    <button type="button" class="ghost-button conv-lead-action" data-lead-note="${esc(email)}">Add Note</button>
+                  </td>
+                </tr>
+              `;
+    }).join("") : `<tr><td colspan="10"><div class="empty-state">No leads match these filters.</div></td></tr>`;
+
+    const queueCardsHtml = queue.length
+      ? queue.map((row) => queueLeadCard(row, statuses, reasons)).join("")
+      : `<div class="empty-state">No leads match these filters.</div>`;
+
     return `
-      <section class="admin-home-card">
-        <p class="eyebrow">Phase 2B — Owner Follow-Up</p>
+      <section class="admin-home-card" id="convOwnerFollowUp">
+        <p class="eyebrow">Owner Follow-Up</p>
         <h4>Who should I pay attention to, and what do I know about why they haven't purchased?</h4>
         <p class="muted-copy">${esc(summary.note || "Owner status supplements analytics; billing remains authoritative for paid conversion.")}</p>
-        <div class="admin-home-grid admin-insights-kpi-grid">
+        <div class="admin-home-grid admin-insights-kpi-grid conv-owner-followup-kpis">
           ${kpi("High-intent unpaid", summary.highIntentUnpaid ?? "—")}
           ${kpi("Activated unpaid", summary.activatedUnpaid ?? "—")}
           ${kpi("Checkout unpaid", summary.checkoutStartedUnpaid ?? "—")}
@@ -269,6 +413,11 @@
           ${kpi("Converted (billing)", summary.converted ?? "—")}
         </div>
       </section>
+      <section class="admin-home-card">
+        <h4>Why people aren't buying (owner-entered)</h4>
+        <p class="muted-copy">Counts from reasons you recorded — not inferred from behavior.</p>
+        ${reasonRollupHtml}
+      </section>
       <section>
         <h4>Lost-User Workflow (analysis only)</h4>
         <p class="muted-copy">${esc(lostWf.note || "")}</p>
@@ -277,19 +426,19 @@
           (lostWf.groups || []).map((g) => [g.label, g.count]),
         )}
       </section>
-      <section>
+      <section id="convOwnerActionQueue">
         <h4>Owner Action Queue</h4>
-        <p class="muted-copy">Showing ${esc(queue.length)} of ${esc(data.ownerActionQueueTotal ?? queue.length)} leads · deterministic priority (intent score + categories). Owner-only.</p>
-        <div class="admin-insights-filters" style="flex-wrap:wrap;gap:8px;margin-bottom:12px">
+        <p class="muted-copy">Showing ${esc(queue.length)} of ${esc(data.ownerActionQueueTotal ?? queue.length)} leads · sorted by purchase intent signals. Owner-only.</p>
+        <div class="admin-insights-filters conv-queue-filters">
           <label>Activated <select id="convQActivated"><option value="all">All</option><option value="activated"${q.activated === "activated" ? " selected" : ""}>Activated</option><option value="non_activated"${q.activated === "non_activated" ? " selected" : ""}>Not activated</option></select></label>
           <label>High intent <select id="convQHighIntent"><option value="all">All</option><option value="yes"${q.highIntent === "yes" ? " selected" : ""}>High only</option></select></label>
           <label>Persona <select id="convQPersona"><option value="all">All</option>${optList(["home_daycare", "center", "teacher_staff", "unknown"], q.persona)}</select></label>
           <label>Age <select id="convQAge"><option value="all">All</option>${optList(["Infant", "Toddler", "Preschool", "School Age", "Mixed Ages", "All Ages", "Unknown"], q.queueAgeGroup)}</select></label>
-          <label>Status <select id="convQStatus"><option value="all">All</option>${optList(statuses, q.leadStatus)}</select></label>
-          <label>Reason <select id="convQReason"><option value="all">All</option>${optList(reasons, q.reason)}</select></label>
+          <label>Status <select id="convQStatus"><option value="all">All</option>${optListStatuses(statuses, q.leadStatus === "all" ? "" : q.leadStatus)}</select></label>
+          <label>Reason <select id="convQReason"><option value="all">All</option>${optListReasons(reasons, q.reason === "all" ? "" : q.reason)}</select></label>
           <label>Paid <select id="convQConverted"><option value="all">All</option><option value="not_converted"${q.queueConverted === "not_converted" ? " selected" : ""}>Unpaid</option><option value="converted"${q.queueConverted === "converted" ? " selected" : ""}>Paid</option></select></label>
         </div>
-        <div class="admin-users-table-wrap">
+        <div class="conv-queue-desktop admin-users-table-wrap">
           <table class="admin-users-table admin-insights-table">
             <thead>
               <tr>
@@ -298,32 +447,12 @@
               </tr>
             </thead>
             <tbody>
-              ${queue.length ? queue.map((row) => `
-                <tr data-lead-email="${esc(row.email)}">
-                  <td>${esc(row.user)}<div class="muted-copy">${esc(row.paidFreeLabel || "")}</div></td>
-                  <td>${esc(row.signupDate)}</td>
-                  <td>${esc(row.persona)}<div class="muted-copy">${esc((row.ageGroups || []).join(", "))}</div></td>
-                  <td>${esc(row.activated ? "Yes" : "No")}<div class="muted-copy">${esc(row.activatedAt || "")}</div></td>
-                  <td>${esc(row.intentLevel)}<div class="muted-copy">${esc((row.categories || []).join("; "))}</div></td>
-                  <td>${esc(row.checkoutStarted)} · Pro ${esc(row.proEncounters)}</td>
-                  <td>
-                    <select data-lead-status="${esc(row.email)}">${optList(statuses, row.ownerStatus || row.effectiveStatus || "new")}</select>
-                    <div class="muted-copy">derived: ${esc(row.derivedStatus)}</div>
-                  </td>
-                  <td>
-                    <select data-lead-reason="${esc(row.email)}"><option value="">—</option>${optList(reasons, row.capturedReason || "")}</select>
-                    <div class="muted-copy">${esc(row.capturedReason || "none recorded")}</div>
-                  </td>
-                  <td>${esc(row.latestNotePreview || "—")}<div class="muted-copy">${esc(row.latestNoteAt || "")}</div></td>
-                  <td>
-                    <button type="button" class="ghost-button" data-lead-detail="${esc(row.email)}">Detail</button>
-                    <button type="button" class="ghost-button" data-lead-save="${esc(row.email)}">Save</button>
-                    <button type="button" class="ghost-button" data-lead-note="${esc(row.email)}">+ Note</button>
-                  </td>
-                </tr>
-              `).join("") : `<tr><td colspan="10"><div class="empty-state">No leads match these filters.</div></td></tr>`}
+              ${queueRowsHtml}
             </tbody>
           </table>
+        </div>
+        <div class="conv-queue-mobile">
+          ${queueCardsHtml}
         </div>
       </section>
       ${detailHtml}
@@ -592,6 +721,7 @@
       if (!el) return;
       el.addEventListener("change", () => {
         mapQueueFilters();
+        state.scrollRestore = { type: "anchor", value: "convOwnerActionQueue" };
         void reload(mount);
       });
     });
@@ -599,11 +729,16 @@
     mount.querySelectorAll("[data-lead-detail]").forEach((btn) => {
       btn.addEventListener("click", () => {
         state.detailEmail = btn.getAttribute("data-lead-detail") || "";
+        state.scrollRestore = { type: "anchor", value: "convLeadDetail" };
         void reload(mount);
       });
     });
     mount.querySelector("[data-conv-clear-detail]")?.addEventListener("click", () => {
+      const email = state.detailEmail;
       state.detailEmail = "";
+      state.scrollRestore = email
+        ? { type: "anchor", value: queueScrollAnchorForEmail(email) }
+        : { type: "anchor", value: "convOwnerActionQueue" };
       void reload(mount);
     });
 
@@ -616,6 +751,7 @@
           const payload = { email };
           if (status) payload.status = status;
           if (reason) payload.reason = reason;
+          state.scrollRestore = { type: "anchor", value: queueScrollAnchorForEmail(email) };
           await postLeadUpdate(payload);
           void reload(mount);
         } catch (error) {
@@ -630,6 +766,7 @@
         const note = window.prompt("Internal owner note (not shown to customer):", "");
         if (note == null || !String(note).trim()) return;
         try {
+          state.scrollRestore = { type: "anchor", value: queueScrollAnchorForEmail(email) };
           await postLeadUpdate({ email, note });
           void reload(mount);
         } catch (error) {
@@ -657,6 +794,7 @@
         <div class="admin-insights-body">${renderBody(data)}</div>
       `;
       bindEvents(mount);
+      applyScrollRestore();
     } catch (error) {
       mount.innerHTML = `<div class="empty-state" role="alert">${esc(error.message || "Could not load Conversion Intelligence.")}</div>`;
     } finally {
@@ -673,5 +811,5 @@
     await reload(mount);
   }
 
-  global.renderAdminConversionIntelligence = renderAdminConversionIntelligence;
+  root.renderAdminConversionIntelligence = renderAdminConversionIntelligence;
 })(typeof window !== "undefined" ? window : globalThis);

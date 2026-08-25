@@ -39,6 +39,35 @@ const NON_BUYER_REASONS = Object.freeze([
   "other",
 ]);
 
+/** Owner-facing labels for non-buyer reason keys (display only). */
+const REASON_DISPLAY_LABELS = Object.freeze({
+  price: "Too expensive",
+  not_enough_value: "Not enough value",
+  needs_different_age_group: "Needs different age group",
+  needs_specific_content: "Needs more lesson plans",
+  hard_to_use: "Hard to use",
+  prefers_current_method: "Prefers current method",
+  director_approval: "Director approval needed",
+  center_budget: "Center budget",
+  not_ready_yet: "Not ready yet",
+  technical_issue: "Technical issue",
+  just_browsing: "Just looking",
+  other: "Other",
+});
+
+/** Owner-facing labels for lead status keys (display only). */
+const STATUS_DISPLAY_LABELS = Object.freeze({
+  new: "New signup",
+  activated: "Activated",
+  high_intent: "High purchase intent",
+  follow_up: "Follow-up",
+  contacted: "Contacted",
+  considering: "Considering",
+  not_ready: "Not ready",
+  converted: "Converted",
+  lost: "Lost",
+});
+
 const NOTE_MAX_LENGTH = 2000;
 const REASON_CONTEXT_MAX_LENGTH = 1000;
 const NOTES_HISTORY_CAP = 100;
@@ -80,6 +109,55 @@ function isValidLeadStatus(status) {
  */
 function isValidNonBuyerReason(reason) {
   return NON_BUYER_REASONS.includes(/** @type {NonBuyerReason} */ (String(reason || "")));
+}
+
+/**
+ * Owner-facing label for a reason key (display only).
+ * @param {string} reason
+ */
+function reasonDisplayLabel(reason) {
+  const key = String(reason || "").trim();
+  if (!key) return "";
+  return REASON_DISPLAY_LABELS[key] || key;
+}
+
+/**
+ * Owner-facing label for a lead status key (display only).
+ * @param {string} status
+ */
+function leadStatusDisplayLabel(status) {
+  const key = String(status || "").trim();
+  if (!key) return "";
+  return STATUS_DISPLAY_LABELS[key] || key;
+}
+
+/**
+ * Read-only roll-up of owner-entered non-buyer reasons (latest per lead).
+ * Does not infer reasons — only counts explicitly captured owner reasons.
+ * @param {Record<string, unknown>} store
+ */
+function buildOwnerReasonFrequency(store) {
+  const map = ensureConversionLeadsStore(store);
+  /** @type {Map<string, number>} */
+  const counts = new Map();
+
+  for (const lead of Object.values(map)) {
+    if (!lead || typeof lead !== "object") continue;
+    const reasons = Array.isArray(lead.reasons) ? lead.reasons : [];
+    if (!reasons.length) continue;
+    const latest = reasons[reasons.length - 1];
+    const key = String(latest?.reason || "").trim();
+    if (!key || !isValidNonBuyerReason(key)) continue;
+    counts.set(key, (counts.get(key) || 0) + 1);
+  }
+
+  return [...counts.entries()]
+    .map(([reason, count]) => ({
+      reason,
+      label: reasonDisplayLabel(reason),
+      count,
+    }))
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
 }
 
 /**
@@ -557,7 +635,7 @@ function buildConversionLeadDetail(email, profiles, events, store, buildJourneyF
     email: key,
     layers: {
       observed: {
-        label: "OBSERVED",
+        label: "What happened",
         description: "Actual events and account fields from analytics/store.",
         signupAt: String(profile?.signupAt || "").slice(0, 19) || "—",
         lastActive: String(profile?.lastActive || "").slice(0, 19) || "—",
@@ -572,7 +650,7 @@ function buildConversionLeadDetail(email, profiles, events, store, buildJourneyF
         timeline: Array.isArray(journey?.timeline) ? journey.timeline : [],
       },
       derived: {
-        label: "DERIVED",
+        label: "What the system suggests",
         description: "Deterministic classifications from events (not causal claims).",
         activated: Boolean(profile?.activated),
         activatedAt: String(profile?.activatedAt || "") || "",
@@ -582,7 +660,7 @@ function buildConversionLeadDetail(email, profiles, events, store, buildJourneyF
         associationNote: "Lesson → purchase figures are pre-purchase association (not causal).",
       },
       ownerEntered: {
-        label: "OWNER ENTERED",
+        label: "What you recorded",
         description: "Owner-only status, notes, and non-buyer reasons. Never invents paid conversion.",
         status: lead.status || "",
         statusUpdatedAt: lead.statusUpdatedAt || "",
@@ -664,6 +742,11 @@ module.exports = {
   buildOwnerActionQueue,
   filterOwnerActionQueue,
   buildOwnerWorkflowSummary,
+  buildOwnerReasonFrequency,
   buildConversionLeadDetail,
   buildLostUserWorkflow,
+  reasonDisplayLabel,
+  leadStatusDisplayLabel,
+  REASON_DISPLAY_LABELS,
+  STATUS_DISPLAY_LABELS,
 };

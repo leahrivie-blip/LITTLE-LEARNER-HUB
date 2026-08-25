@@ -376,7 +376,11 @@ function wiringTests() {
   assert.match(adminUi, /Signup Cohort/);
   assert.match(adminUi, /Pre-purchase Association/);
   assert.match(adminUi, /Owner Action Queue/);
-  assert.match(adminUi, /OWNER ENTERED/);
+  assert.match(adminUi, /Owner Follow-Up/);
+  assert.match(adminUi, /owner-entered/i);
+  assert.match(adminUi, /conv-queue-mobile/);
+  assert.match(adminUi, /applyScrollRestore/);
+  assert.match(adminUi, /root\.renderAdminConversionIntelligence/);
   assert.match(serverJs, /handleAdminConversionLeadUpdate/);
   assert.match(serverJs, /\/api\/admin\/conversion-leads/);
   assert.ok(fs.existsSync(path.join(ROOT, "server/conversion-phase2.js")));
@@ -890,12 +894,69 @@ function phase2BTests() {
   pass("phase2B: no regression to Phase 2A cohorts/attribution/CTA dedupe");
 }
 
+function ownerUxFixTests() {
+  const leads = conversionIntelligence.conversionLeads;
+  const store = { conversionLeads: {}, users: {} };
+
+  leads.addLeadReason(store, "a@test.com", "price", "");
+  leads.addLeadReason(store, "b@test.com", "price", "");
+  leads.addLeadReason(store, "c@test.com", "not_ready_yet", "");
+  leads.addLeadReason(store, "d@test.com", "just_browsing", "");
+  leads.addLeadReason(store, "e@test.com", "needs_specific_content", "");
+  leads.setLeadStatus(store, "f@test.com", "follow_up", "owner@test");
+  leads.addLeadReason(store, "g@test.com", "price", "");
+  leads.addLeadReason(store, "g@test.com", "other", "");
+
+  const freq = leads.buildOwnerReasonFrequency(store);
+  assert.equal(freq[0].reason, "price");
+  assert.equal(freq[0].count, 2);
+  assert.ok(freq.every((row) => row.reason && row.count > 0));
+  for (let i = 1; i < freq.length; i += 1) {
+    assert.ok(freq[i - 1].count >= freq[i].count);
+  }
+  pass("owner UX: reason roll-up counts owner-entered reasons, excludes blanks, sorted desc");
+
+  const fixture = buildFixtureStore();
+  leads.addLeadReason(fixture, "alice@free.test", "price", "");
+  leads.addLeadReason(fixture, "carol@intent.test", "not_ready_yet", "");
+  const report = conversionIntelligence.buildConversionIntelligence(fixture, {
+    range: "all",
+    events: fixture.analyticsEvents,
+  });
+  assert.ok(Array.isArray(report.ownerReasonFrequency));
+  const priceRow = report.ownerReasonFrequency.find((row) => row.reason === "price");
+  assert.ok(priceRow);
+  assert.equal(priceRow.count, 1);
+  assert.ok(report.ownerReasonFrequency.every((row) => row.label && row.count > 0));
+  pass("owner UX: API report includes ownerReasonFrequency (not inferred)");
+
+  const unpaidAlice = report.ownerActionQueue.find((row) => row.email === "alice@free.test");
+  assert.ok(unpaidAlice);
+  assert.equal(unpaidAlice.paidAuthoritative, false);
+  pass("owner UX: authoritative paid logic untouched in queue");
+
+  const adminUi = fs.readFileSync(path.join(ROOT, "admin-conversion-intelligence.js"), "utf8");
+  const css = fs.readFileSync(path.join(ROOT, "styles/llh-admin-workspace.css"), "utf8");
+  assert.match(adminUi, /Owner Follow-Up/);
+  assert.doesNotMatch(adminUi, /Phase 2B — Owner Follow-Up/);
+  assert.doesNotMatch(adminUi, /derived:\s*\$\{/);
+  assert.match(adminUi, /Suggested:/);
+  assert.match(adminUi, /conv-queue-mobile/);
+  assert.match(adminUi, /conv-queue-desktop/);
+  assert.match(adminUi, /applyScrollRestore/);
+  assert.match(adminUi, /scrollRestore/);
+  assert.match(css, /conv-owner-followup-kpis/);
+  assert.match(css, /@media \(max-width: 640px\)[\s\S]*conv-queue-mobile/);
+  pass("owner UX: mobile queue CSS/markup + scroll preservation + owner-facing wording");
+}
+
 async function main() {
   console.log("Conversion Intelligence tests\n");
   wiringTests();
   const report = unitTests();
   phase2ATests();
   phase2BTests();
+  ownerUxFixTests();
   await apiTests();
   console.log(`\nResults: ${passed} passed, ${failed} failed`);
   if (failed > 0) process.exit(1);
