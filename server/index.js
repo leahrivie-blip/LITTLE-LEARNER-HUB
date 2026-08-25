@@ -1074,6 +1074,7 @@ function defaultStore() {
     roleReconciliationAudit: [],
     processedStripeEvents: {},
     leads: [],
+    conversionLeads: {},
     promoRedemptions: [],
     promoCodes: [],
     foundingReservations: [],
@@ -13452,8 +13453,95 @@ async function handleAdminConversionIntelligence(request, response, url) {
     ageGroup: String(url.searchParams.get("ageGroup") || "all").trim(),
     converted: String(url.searchParams.get("converted") || "all").trim(),
     journeyEmail: String(url.searchParams.get("journeyEmail") || "").trim(),
+    detailEmail: String(url.searchParams.get("detailEmail") || "").trim(),
+    activated: String(url.searchParams.get("activated") || "all").trim(),
+    highIntent: String(url.searchParams.get("highIntent") || "all").trim(),
+    persona: String(url.searchParams.get("persona") || "all").trim(),
+    queueAgeGroup: String(url.searchParams.get("queueAgeGroup") || "all").trim(),
+    queueSource: String(url.searchParams.get("queueSource") || "all").trim(),
+    offer: String(url.searchParams.get("offer") || "all").trim(),
+    leadStatus: String(url.searchParams.get("leadStatus") || "all").trim(),
+    reason: String(url.searchParams.get("reason") || "all").trim(),
+    cohort: String(url.searchParams.get("cohort") || "all").trim(),
+    queueConverted: String(url.searchParams.get("queueConverted") || "all").trim(),
   });
   jsonResponse(response, 200, { ok: true, data });
+}
+
+/**
+ * Owner-only mutation endpoint for conversion lead status / notes / reasons.
+ * Never changes billing or user profile fields.
+ */
+async function handleAdminConversionLeadUpdate(request, response) {
+  const body = await readJson(request);
+  const adminToken = extractAdminTokenFromBody(request, body)
+    || extractAdminToken(request, { searchParams: new URLSearchParams() })
+    || "";
+  if (!validAdminToken(adminToken)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const leads = conversionIntelligence.conversionLeads;
+  const email = leads.normalizeEmail(body.email || body.userEmail || "");
+  if (!email || !email.includes("@")) {
+    jsonResponse(response, 400, { error: "A valid lead email is required.", code: "invalid_email" });
+    return;
+  }
+
+  const store = readStore();
+  leads.ensureConversionLeadsStore(store);
+  const adminEmail = normalizeEmail(
+    String(body.adminEmail || adminSessionEmailFromToken(adminToken) || ADMIN_EMAIL || "owner"),
+  );
+
+  try {
+    let lead = null;
+    if (body.status != null && String(body.status).trim() !== "") {
+      lead = leads.setLeadStatus(store, email, String(body.status).trim(), adminEmail);
+    }
+    if (body.note != null && String(body.note).trim() !== "") {
+      lead = leads.addLeadNote(store, email, body.note, adminEmail);
+    }
+    if (body.reason != null && String(body.reason).trim() !== "") {
+      lead = leads.addLeadReason(store, email, String(body.reason).trim(), body.reasonContext || body.context || "", adminEmail);
+    }
+    if (!lead) {
+      jsonResponse(response, 400, {
+        error: "Provide status, note, and/or reason to update.",
+        code: "noop",
+        leadStatuses: leads.LEAD_STATUSES,
+        nonBuyerReasons: leads.NON_BUYER_REASONS,
+      });
+      return;
+    }
+
+    // Authoritative paid flag for response honesty — never invent conversion from status.
+    const user = store.users?.[email] || null;
+    const paidAuthoritative = user
+      ? conversionIntelligence.userHasAuthoritativePaidConversion(user)
+      : false;
+
+    await respondAfterPersist(store, response, 200, {
+      ok: true,
+      lead,
+      paidAuthoritative,
+      note: "Owner status does not change billing. paidAuthoritative comes from membership/subscription data only.",
+    }, "Could not save conversion lead update.");
+  } catch (error) {
+    const code = error?.code || "lead_update_failed";
+    const status = code === "invalid_lead_status" || code === "invalid_reason" || code === "invalid_note" ? 400 : 500;
+    jsonResponse(response, status, { error: error.message || "Could not update conversion lead.", code });
+  }
+}
+
+/** Best-effort admin email from token for audit fields (non-secret). */
+function adminSessionEmailFromToken(token) {
+  try {
+    const session = adminSessionStore.validate(String(token || ""));
+    return session?.email || "";
+  } catch {
+    return "";
+  }
 }
 
 const LIVE_CONNECT_CONFIRM_PHRASE = "CONNECT_ASHLEY_LADIISHA";
@@ -32131,6 +32219,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "GET" && url.pathname === "/api/admin/production-monitoring") return await handleAdminProductionMonitoring(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/insights") return await handleAdminInsights(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/conversion-intelligence") return await handleAdminConversionIntelligence(request, response, url);
+    if (request.method === "POST" && url.pathname === "/api/admin/conversion-leads") return await handleAdminConversionLeadUpdate(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/program-migration-plan") return await handleAdminProgramMigrationPlan(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/program-migration-rollback") return await handleAdminProgramMigrationRollback(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/store-export") return handleAdminStoreExport(request, response, url);

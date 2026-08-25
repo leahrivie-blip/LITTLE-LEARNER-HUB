@@ -7,6 +7,7 @@ const testAccountGuard = require("./test-account-guard.js");
 const membershipAccess = require("../scripts/membership-access.js");
 const conversionEvents = require("./conversion-events.js");
 const conversionPhase2 = require("./conversion-phase2.js");
+const conversionLeads = require("./conversion-leads.js");
 
 const {
   FUNNEL_STAGES,
@@ -928,6 +929,45 @@ function buildConversionIntelligence(store = {}, options = {}) {
   const offerAttribution = conversionPhase2.buildOfferAttribution(profiles);
   const lostUsers = conversionPhase2.buildLostUserSegments(profiles);
 
+  // Phase 2B — owner follow-up workflow (additive; does not alter Phase 2A metrics).
+  const ownerActionQueueAll = conversionLeads.buildOwnerActionQueue(
+    profiles,
+    highIntentQueue,
+    /** @type {Record<string, unknown>} */ (store),
+    userHasAuthoritativePaidConversion,
+    usersByEmail,
+  );
+  const ownerFilters = {
+    activated: String(options.activated || "all"),
+    highIntent: String(options.highIntent || "all"),
+    persona: String(options.persona || "all"),
+    ageGroup: String(options.ageGroupFilter || options.queueAgeGroup || "all"),
+    source: String(options.queueSource || "all"),
+    offer: String(options.offer || "all"),
+    leadStatus: String(options.leadStatus || "all"),
+    reason: String(options.reason || "all"),
+    cohort: String(options.cohort || "all"),
+    converted: String(options.queueConverted || "all"),
+  };
+  const ownerActionQueue = conversionLeads.filterOwnerActionQueue(ownerActionQueueAll, ownerFilters);
+  const ownerWorkflowSummary = conversionLeads.buildOwnerWorkflowSummary(ownerActionQueueAll, profiles);
+  const lostUserWorkflow = conversionLeads.buildLostUserWorkflow(lostUsers);
+
+  let conversionLeadDetail = null;
+  const detailEmail = normalizeEmail(String(options.detailEmail || ""));
+  if (detailEmail) {
+    const detailUser = usersByEmail[detailEmail];
+    const detailPaid = detailUser ? userHasAuthoritativePaidConversion(detailUser) : false;
+    conversionLeadDetail = conversionLeads.buildConversionLeadDetail(
+      detailEmail,
+      profiles,
+      scopedEvents,
+      /** @type {Record<string, unknown>} */ (store),
+      buildUserJourney,
+      detailPaid,
+    );
+  }
+
   const freeSignups = [...profiles.values()].filter((p) => !p.converted).length;
   const paidConversions = [...profiles.values()].filter((p) => p.converted).length;
   const totalSignups = profiles.size;
@@ -978,6 +1018,14 @@ function buildConversionIntelligence(store = {}, options = {}) {
     offerAttribution,
     lessonAssociation,
     lostUsers,
+    lostUserWorkflow,
+    ownerWorkflowSummary,
+    ownerActionQueue,
+    ownerActionQueueTotal: ownerActionQueueAll.length,
+    ownerFilters,
+    conversionLeadDetail,
+    leadStatuses: conversionLeads.LEAD_STATUSES,
+    nonBuyerReasons: conversionLeads.NON_BUYER_REASONS,
     highIntentUsers: highIntent,
     highIntentQueue,
     checkoutDropOff: checkout,
@@ -1019,4 +1067,5 @@ module.exports = {
   normalizeOffer: conversionEvents.normalizeOffer,
   resolvePersona: conversionEvents.resolvePersona,
   extractResourceId: conversionEvents.extractResourceId,
+  conversionLeads,
 };
