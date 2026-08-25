@@ -160,6 +160,12 @@
   function renderBody(data) {
     const cards = data.summaryCards || {};
     const biggest = cards.biggestDropOff || {};
+    const activation = data.activation || {};
+    const cohorts = data.signupCohorts || {};
+    const campaign = data.campaignAttribution || {};
+    const ageSeg = data.ageGroupSegmentation || {};
+    const lessonAssoc = data.lessonAssociation || data.content || {};
+    const lost = data.lostUsers || {};
     return `
       <section class="admin-insights-hero">
         <p class="eyebrow">Conversion Intelligence</p>
@@ -170,6 +176,8 @@
         ${kpi("Free Signups", cards.freeSignups ?? "—")}
         ${kpi("Paid Conversions", cards.paidConversions ?? "—")}
         ${kpi("Free → Paid %", cards.freeToPaidPct != null ? `${cards.freeToPaidPct}%` : "—")}
+        ${kpi("Activated", activation.activatedUsers ?? "—")}
+        ${kpi("Activation Rate", activation.activationRate ?? "—")}
         ${kpi("Pricing Views", cards.pricingViews ?? "—")}
         ${kpi("Upgrade Clicks", cards.upgradeClicks ?? "—")}
         ${kpi("Checkout Starts", cards.checkoutStarts ?? "—")}
@@ -179,7 +187,139 @@
         ${renderToday(data.today)}
         ${renderInsights(data.insights)}
       </div>
+      <section class="admin-home-card">
+        <p class="eyebrow">Activation</p>
+        <h4>Are users reaching value?</h4>
+        <p class="muted-copy">${esc(activation.definition || "")}</p>
+        <ul class="admin-insights-summary-list">
+          <li>Signups: ${esc(activation.signups ?? 0)}</li>
+          <li>Activated: ${esc(activation.activatedUsers ?? 0)} (${esc(activation.activationRate ?? "—")})</li>
+          <li>Median signup → activation: ${esc(activation.medianSignupToActivation ?? "—")}</li>
+          <li>Activated → paid: ${esc(activation.activatedToPaidRate ?? "—")}</li>
+          <li>Non-activated → paid: ${esc(activation.nonActivatedToPaidRate ?? "—")}</li>
+        </ul>
+      </section>
       ${renderFunnel(data.funnel)}
+      <section>
+        <h4>Signup Cohort Conversion</h4>
+        <p class="muted-copy">${esc(cohorts.note || "Immature windows show pending and are excluded from denominators.")}</p>
+        ${table(
+          ["Cohort (UTC)", "Signups", "Paid 1d", "Rate 1d", "Paid 7d", "Rate 7d", "Paid 30d", "Rate 30d"],
+          (cohorts.cohorts || []).map((row) => [
+            row.cohort, row.signups,
+            row.paidWithin1d, row.rate1d,
+            row.paidWithin7d, row.rate7d,
+            row.paidWithin30d, row.rate30d,
+          ]),
+        )}
+      </section>
+      <div class="admin-insights-split">
+        <section>
+          <h4>Campaign / Creative (First-Touch)</h4>
+          <p class="muted-copy">${esc(campaign.note || "")}</p>
+          ${table(
+            ["Source", "Medium", "Campaign", "Content", "Signups", "Activated", "Checkout", "Paid", "Conv %"],
+            (campaign.firstTouch || []).map((row) => [
+              row.source, row.medium, row.campaign, row.content,
+              row.signups, row.activated, row.checkoutStarts, row.paid, row.conversionRate,
+            ]),
+          )}
+        </section>
+        <section>
+          <h4>Later-Touch (Separate — Not First-Touch)</h4>
+          ${table(
+            ["Source", "Campaign", "Content", "Touch Events", "Paid"],
+            (campaign.laterTouch || []).map((row) => [
+              row.source, row.campaign, row.content, row.touchEvents, row.paid,
+            ]),
+          )}
+        </section>
+      </div>
+      <div class="admin-insights-split">
+        <section>
+          <h4>Persona Conversion</h4>
+          ${table(
+            ["Persona", "Signups", "Activated", "Pricing", "Checkout", "Paid", "Conv %"],
+            (data.personaSegmentation || []).map((row) => [
+              row.persona, row.signups, row.activated, row.pricingViews, row.checkoutStarts, row.paid, row.conversionRate,
+            ]),
+          )}
+        </section>
+        <section>
+          <h4>Age-Group Engagement → Paid</h4>
+          <p class="muted-copy">${esc(ageSeg.note || "Users who engaged with content in each age group.")}</p>
+          ${table(
+            ["Age Group", "Engaged", "Lessons", "Printables", "Pro", "Pricing", "Checkout", "Paid", "Conv %"],
+            (ageSeg.rows || []).map((row) => [
+              row.ageGroup, row.engagedUsers, row.lessonEngagement, row.printableEngagement,
+              row.proEncounters, row.pricingViews, row.checkoutStarts, row.paidConversions, row.conversionRate,
+            ]),
+          )}
+        </section>
+      </div>
+      <div class="admin-insights-split">
+        <section>
+          <h4>Offer Attribution</h4>
+          ${table(
+            ["Offer", "Checkout Starts", "Paid", "Conv %"],
+            (data.offerAttribution || []).map((row) => [
+              row.offer, row.checkoutStarts, row.paidConversions, row.conversionRate,
+            ]),
+          )}
+        </section>
+        <section>
+          <h4>Upgrade CTA Performance (with CTR)</h4>
+          ${table(
+            ["CTA", "Impressions", "Unique Clicks", "CTR", "Checkout", "Purchases", "Conv %"],
+            (data.ctaPerformance || []).map((row) => [
+              row.cta, row.impressions ?? "—", row.uniqueClicks ?? row.clicks, row.ctr ?? "—",
+              row.checkoutStarts, row.purchases, row.conversionRate,
+            ]),
+          )}
+        </section>
+      </div>
+      <section>
+        <h4>Top Lessons — Pre-purchase Association (Not Causal)</h4>
+        <p class="muted-copy">${esc(lessonAssoc.associationDisclaimer || "Pre-purchase association (not causal)")}. Pricing window: 7d · Purchase window: 30d.</p>
+        ${table(
+          ["Lesson", "Unique Viewers", "Saves", "Printables", "Pro", "Pricing ≤7d", "Purchases ≤30d", "Conv %"],
+          (lessonAssoc.topLessons || data.content?.topLessons || []).map((row) => [
+            row.title,
+            row.uniqueViewers ?? row.views,
+            row.saves ?? "—",
+            row.printableInteractions ?? "—",
+            row.proEncounters ?? "—",
+            row.pricingViewsWithin7d ?? "—",
+            row.purchasesWithin30d ?? row.purchases,
+            typeof row.conversionRate === "number" ? `${row.conversionRate}%` : row.conversionRate,
+          ]),
+        )}
+      </section>
+      <div class="admin-insights-split">
+        <section>
+          <h4>Lost-User Lifecycle</h4>
+          <p class="muted-copy">${esc(lost.note || "")}</p>
+          ${table(
+            ["Segment", "Count"],
+            (lost.segments || []).map((seg) => [seg.label, seg.count]),
+          )}
+        </section>
+        <section>
+          <h4>High-Intent Action Queue (Read-Only)</h4>
+          ${table(
+            ["User", "Categories", "Intent", "Sessions", "Pricing", "Upgrade", "Checkout"],
+            (data.highIntentQueue || []).map((row) => [
+              row.user,
+              (row.categories || []).join("; "),
+              row.intentLevel,
+              row.sessions,
+              row.pricingViews,
+              row.upgradeClicks,
+              row.checkoutStarted,
+            ]),
+          )}
+        </section>
+      </div>
       <div class="admin-insights-split">
         <section>
           <h4>High-Intent Free Users</h4>
@@ -208,22 +348,6 @@
           ${table(
             ["Source", "Signups", "Paid", "Conversion %"],
             (data.trafficSources || []).map((row) => [row.source, row.signups, row.paid, `${row.conversionRate}%`]),
-          )}
-        </section>
-        <section>
-          <h4>Upgrade CTA Performance</h4>
-          ${table(
-            ["CTA", "Clicks", "Checkout", "Purchases", "Conv %"],
-            (data.ctaPerformance || []).map((row) => [row.cta, row.clicks, row.checkoutStarts, row.purchases, `${row.conversionRate}%`]),
-          )}
-        </section>
-      </div>
-      <div class="admin-insights-split">
-        <section>
-          <h4>Top Lessons Before Purchase</h4>
-          ${table(
-            ["Lesson", "Views", "Upgrade Clicks", "Purchases", "Conv %"],
-            (data.content?.topLessons || []).map((row) => [row.title, row.views, row.upgradeClicks, row.purchases, `${row.conversionRate}%`]),
           )}
         </section>
         <section>
