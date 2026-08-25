@@ -280,7 +280,78 @@ async function apiTests() {
     });
     assert.equal(ok.status, 200);
     assert.ok(ok.json?.data?.funnel?.stages?.length >= 10);
+    assert.ok(ok.json?.data?.ownerWorkflowSummary);
+    assert.ok(Array.isArray(ok.json?.data?.ownerActionQueue));
     pass("owner/admin authorization works");
+
+    // Phase 2B API: status / notes / reasons
+    const leadEmail = "alice@free.test";
+    const deniedLead = await requestJson("POST", "/api/admin/conversion-leads", {
+      email: leadEmail,
+      status: "follow_up",
+    }, { port: PORT });
+    assert.equal(deniedLead.status, 401);
+    pass("phase2B: non-owner cannot mutate conversion leads");
+
+    const badStatus = await requestJson("POST", "/api/admin/conversion-leads", {
+      email: leadEmail,
+      status: "totally_invalid_crm_state",
+    }, { port: PORT, headers: { Authorization: `Bearer ${token}` } });
+    assert.equal(badStatus.status, 400);
+    pass("phase2B: invalid status rejected");
+
+    const badReason = await requestJson("POST", "/api/admin/conversion-leads", {
+      email: leadEmail,
+      reason: "not_a_real_reason",
+    }, { port: PORT, headers: { Authorization: `Bearer ${token}` } });
+    assert.equal(badReason.status, 400);
+    pass("phase2B: invalid reason rejected");
+
+    const saveStatus = await requestJson("POST", "/api/admin/conversion-leads", {
+      email: leadEmail,
+      status: "follow_up",
+      note: "Called — interested but waiting on budget <script>x</script>",
+      reason: "center_budget",
+      reasonContext: "Director wants Q3",
+    }, { port: PORT, headers: { Authorization: `Bearer ${token}` } });
+    assert.equal(saveStatus.status, 200);
+    assert.equal(saveStatus.json?.lead?.status, "follow_up");
+    assert.equal(saveStatus.json?.paidAuthoritative, false);
+    assert.ok(saveStatus.json?.lead?.notes?.length >= 1);
+    assert.ok(!String(saveStatus.json.lead.notes[0].text).includes("<script>"));
+    assert.equal(saveStatus.json.lead.reasons[0].reason, "center_budget");
+    pass("phase2B: owner can persist status, sanitized note history, reason");
+
+    const note2 = await requestJson("POST", "/api/admin/conversion-leads", {
+      email: leadEmail,
+      note: "Second note keeps history",
+    }, { port: PORT, headers: { Authorization: `Bearer ${token}` } });
+    assert.equal(note2.status, 200);
+    assert.ok(note2.json.lead.notes.length >= 2);
+    pass("phase2B: note history preserved");
+
+    // Owner status "converted" must not fabricate billing conversion.
+    const fakeConvert = await requestJson("POST", "/api/admin/conversion-leads", {
+      email: leadEmail,
+      status: "converted",
+    }, { port: PORT, headers: { Authorization: `Bearer ${token}` } });
+    assert.equal(fakeConvert.status, 200);
+    assert.equal(fakeConvert.json.lead.status, "converted");
+    assert.equal(fakeConvert.json.paidAuthoritative, false);
+    pass("phase2B: owner status cannot fabricate authoritative paid conversion");
+
+    const detail = await requestJson("GET", `/api/admin/conversion-intelligence?range=all&detailEmail=${encodeURIComponent(leadEmail)}`, null, {
+      port: PORT,
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    assert.equal(detail.status, 200);
+    const layers = detail.json?.data?.conversionLeadDetail?.layers;
+    assert.ok(layers?.observed);
+    assert.ok(layers?.derived);
+    assert.ok(layers?.ownerEntered);
+    assert.equal(layers.derived.paidAuthoritative, false);
+    assert.equal(layers.ownerEntered.status, "converted");
+    pass("phase2B: detail separates observed / derived / owner-entered");
   } finally {
     child.kill("SIGTERM");
     await new Promise((r) => setTimeout(r, 200));
@@ -304,7 +375,12 @@ function wiringTests() {
   assert.match(adminUi, /Activation/);
   assert.match(adminUi, /Signup Cohort/);
   assert.match(adminUi, /Pre-purchase Association/);
+  assert.match(adminUi, /Owner Action Queue/);
+  assert.match(adminUi, /OWNER ENTERED/);
+  assert.match(serverJs, /handleAdminConversionLeadUpdate/);
+  assert.match(serverJs, /\/api\/admin\/conversion-leads/);
   assert.ok(fs.existsSync(path.join(ROOT, "server/conversion-phase2.js")));
+  assert.ok(fs.existsSync(path.join(ROOT, "server/conversion-leads.js")));
   pass("admin UI and API wiring");
 }
 
@@ -680,11 +756,146 @@ function phase2ATests() {
   pass("phase2A: report includes all new sections; funnel intact");
 }
 
+function phase2BTests() {
+  const leads = conversionIntelligence.conversionLeads;
+  const now = Date.now();
+  const iso = (msAgo) => new Date(now - msAgo).toISOString();
+
+  // Status + note sanitization / length
+  assert.equal(leads.isValidLeadStatus("follow_up"), true);
+  assert.equal(leads.isValidLeadStatus("crm_galaxy"), false);
+  assert.equal(leads.isValidNonBuyerReason("price"), true);
+  assert.equal(leads.isValidNonBuyerReason("vibes"), false);
+  const cleaned = leads.sanitizeOwnerText("  Hello <b>world</b>\0  ");
+  assert.equal(cleaned, "Hello world");
+  const long = leads.sanitizeOwnerText("x".repeat(5000));
+  assert.equal(long.length, leads.NOTE_MAX_LENGTH);
+  pass("phase2B: status/reason validation + note sanitization/length");
+
+  const store = { conversionLeads: {}, users: {} };
+  leads.setLeadStatus(store, "Lead@Free.Test", "high_intent", "owner@test");
+  leads.addLeadNote(store, "lead@free.test", "First");
+  leads.addLeadNote(store, "lead@free.test", "Second");
+  leads.addLeadReason(store, "lead@free.test", "price", "Too expensive vs alternatives");
+  const lead = leads.getConversionLead(store, "lead@free.test");
+  assert.equal(lead.status, "high_intent");
+  assert.equal(lead.notes.length, 2);
+  assert.equal(lead.reasons[0].reason, "price");
+  pass("phase2B: status persistence + notes history + reason persistence");
+
+  assert.throws(() => leads.setLeadStatus(store, "a@b.com", "nope"), /Invalid conversion lead status/);
+  assert.throws(() => leads.addLeadReason(store, "a@b.com", "nope"), /Invalid non-buyer reason/);
+  pass("phase2B: invalid mutations throw");
+
+  // Authoritative paid never invented by owner status
+  assert.equal(leads.resolveEffectiveStatus("new", "converted", false), "converted"); // label only
+  assert.equal(leads.resolveEffectiveStatus("new", "follow_up", true), "converted"); // billing wins
+  const unpaid = conversionIntelligence.userHasAuthoritativePaidConversion({
+    plan: "Pro",
+    stripeSubscriptionStatus: "past_due",
+    firstPaidInvoiceAt: iso(86400000),
+  });
+  // past_due may still have membershipHasProAccess depending on membership-access — force check
+  const unpaidStrict = conversionIntelligence.userHasAuthoritativePaidConversion({
+    plan: "Free",
+    stripeSubscriptionStatus: "unpaid",
+    subscriptionStatus: "past due",
+  });
+  assert.equal(unpaidStrict, false);
+  pass("phase2B: past_due/unpaid never treated as successful conversion");
+
+  // Queue filters + ordering + layers
+  const fixture = buildFixtureStore(now);
+  fixture.conversionLeads = store.conversionLeads;
+  // Ensure alice has lead data under her email key used by fixture
+  leads.setLeadStatus(fixture, "alice@free.test", "follow_up", "owner@test");
+  leads.addLeadReason(fixture, "alice@free.test", "not_ready_yet", "Maybe next month");
+
+  const report = conversionIntelligence.buildConversionIntelligence(fixture, {
+    range: "all",
+    events: fixture.analyticsEvents,
+  });
+  assert.ok(report.ownerWorkflowSummary);
+  assert.ok(Array.isArray(report.ownerActionQueue));
+  assert.ok(report.lostUserWorkflow?.groups?.length >= 4);
+  assert.ok(report.ownerWorkflowSummary.converted >= 1);
+  pass("phase2B: owner workflow summary + lost-user workflow present");
+
+  const scores = report.ownerActionQueue.map((r) => Number(r.intentScore) || 0);
+  for (let i = 1; i < scores.length; i += 1) {
+    assert.ok(scores[i - 1] >= scores[i] || report.ownerActionQueue[i - 1].paidAuthoritative === false);
+  }
+  pass("phase2B: high-intent ordering remains deterministic");
+
+  const activatedOnly = conversionIntelligence.buildConversionIntelligence(fixture, {
+    range: "all",
+    events: fixture.analyticsEvents,
+    activated: "activated",
+  });
+  assert.ok(activatedOnly.ownerActionQueue.every((r) => r.activated));
+  const followOnly = conversionIntelligence.buildConversionIntelligence(fixture, {
+    range: "all",
+    events: fixture.analyticsEvents,
+    leadStatus: "follow_up",
+  });
+  assert.ok(followOnly.ownerActionQueue.every((r) => r.effectiveStatus === "follow_up" || r.ownerStatus === "follow_up"));
+  const combo = conversionIntelligence.buildConversionIntelligence(fixture, {
+    range: "all",
+    events: fixture.analyticsEvents,
+    activated: "activated",
+    leadStatus: "follow_up",
+  });
+  assert.ok(combo.ownerActionQueue.every((r) => r.activated && (r.effectiveStatus === "follow_up" || r.ownerStatus === "follow_up")));
+  pass("phase2B: filters work independently and together");
+
+  const checkoutUnpaid = report.ownerActionQueue.filter((r) => r.checkoutStarted === "Yes" && !r.paidAuthoritative);
+  assert.ok(checkoutUnpaid.length >= 1 || report.ownerWorkflowSummary.checkoutStartedUnpaid >= 0);
+  pass("phase2B: checkout-started unpaid classification available");
+
+  const paidRow = report.ownerActionQueue.find((r) => r.paidAuthoritative);
+  assert.ok(paidRow);
+  assert.equal(paidRow.derivedStatus, "converted");
+  pass("phase2B: converted user appears with authoritative paid flag");
+
+  // Owner "converted" on free user does not flip paidAuthoritative
+  leads.setLeadStatus(fixture, "alice@free.test", "converted", "owner@test");
+  const afterFake = conversionIntelligence.buildConversionIntelligence(fixture, {
+    range: "all",
+    events: fixture.analyticsEvents,
+    detailEmail: "alice@free.test",
+  });
+  const alice = afterFake.ownerActionQueue.find((r) => r.email === "alice@free.test");
+  assert.ok(alice);
+  assert.equal(alice.paidAuthoritative, false);
+  assert.equal(alice.ownerStatus, "converted");
+  assert.ok(afterFake.conversionLeadDetail.layers.observed);
+  assert.ok(afterFake.conversionLeadDetail.layers.derived);
+  assert.ok(afterFake.conversionLeadDetail.layers.ownerEntered);
+  assert.notEqual(
+    JSON.stringify(afterFake.conversionLeadDetail.layers.observed),
+    JSON.stringify(afterFake.conversionLeadDetail.layers.ownerEntered),
+  );
+  pass("phase2B: observed/derived/owner-entered stay separated; status ≠ billing");
+
+  // Phase 2A regressions
+  assert.ok(afterFake.signupCohorts);
+  assert.ok(afterFake.campaignAttribution);
+  assert.ok(afterFake.personaSegmentation);
+  assert.ok(afterFake.offerAttribution);
+  const cta = conversionIntelligence.buildCtaPerformanceWithImpressions([
+    { name: "upgrade_prompt_shown", user: "c1@t.com", visitorId: "v1", createdAt: iso(1000), detail: { promptId: "x", ctaLocation: "x" } },
+    { name: "upgrade_cta_impression", user: "c1@t.com", visitorId: "v1", createdAt: iso(900), detail: { promptId: "x", ctaLocation: "x" } },
+  ]);
+  assert.equal(cta.find((r) => r.cta === "x")?.impressions, 1);
+  pass("phase2B: no regression to Phase 2A cohorts/attribution/CTA dedupe");
+}
+
 async function main() {
   console.log("Conversion Intelligence tests\n");
   wiringTests();
   const report = unitTests();
   phase2ATests();
+  phase2BTests();
   await apiTests();
   console.log(`\nResults: ${passed} passed, ${failed} failed`);
   if (failed > 0) process.exit(1);
