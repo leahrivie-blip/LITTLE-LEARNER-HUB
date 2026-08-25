@@ -326,6 +326,20 @@ function pickPrimaryAssetCategory(categories) {
   return null;
 }
 
+/** Owner asked for plan/preview only — successful upgrades must not auto-save into the lesson record. */
+function isPlanOnlyOperatorCommand(rawCommand) {
+  const raw = text(rawCommand);
+  if (!raw) return false;
+  return (
+    /\bplan[\s-]?only\b/i.test(raw)
+    || /\bpreview\s+(?:what\s+you\s+would\s+change|only)\b/i.test(raw)
+    || /\bshow\s+me\s+(?:the\s+)?upgrade\s+plan\b/i.test(raw)
+    || /\b(?:don['’]?t|do\s+not)\s+apply\b/i.test(raw)
+    || /\bwithout\s+applying\b/i.test(raw)
+    || /\bdo\s+not\s+(?:save|write|merge)\b/i.test(raw)
+  );
+}
+
 function buildInheritedContext(resolvedLessons) {
   if (resolvedLessons.length !== 1) return null;
   const lesson = resolvedLessons[0];
@@ -469,6 +483,13 @@ function resolveOwnerIntent(rawCommand, options = {}) {
 function applyIntentRouting(state, intent) {
   if (!intent || !state) return;
 
+  const planOnly = isPlanOnlyOperatorCommand(state.raw);
+  state.actions.planOnly = planOnly;
+  if (planOnly) {
+    state.actions.connectedAutoApply = false;
+    state.notes.push("Plan-only / preview-only — will not auto-apply enrichment into the editable lesson record.");
+  }
+
   if (intent.lessonReference.titles.length) {
     state.titles = [...new Set([...(state.titles || []), ...intent.lessonReference.titles])];
   }
@@ -506,10 +527,11 @@ function applyIntentRouting(state, intent) {
     state.actions.upgradeLesson = state.actions.touchDraft !== false;
     state.actions.upgradeActivities = state.actions.touchDraft !== false;
     state.actions.saveDraft = true;
+    const planOnly = state.actions.planOnly === true;
     if (phase >= 6) {
       state.actions.connectedUpgrade = true;
-      state.actions.connectedAutoApply = true;
-      if (!state.actions.textOnly) {
+      state.actions.connectedAutoApply = !planOnly;
+      if (!planOnly && !state.actions.textOnly) {
         if (state.actions.touchSongs !== false || state.actions.touchBooks !== false) {
           state.actions.generateSongsBooks = true;
           state.actions.checkSongs = state.actions.touchSongs !== false;
@@ -581,6 +603,7 @@ module.exports = {
   detectAssetCategories,
   isShortSelectedLessonMutation,
   pickPrimaryAssetCategory,
+  isPlanOnlyOperatorCommand,
   resolveOwnerIntent,
   applyIntentRouting,
   isExistingLessonOperationCommand: printableAgeBand.isPrintableExistingLessonCommand,

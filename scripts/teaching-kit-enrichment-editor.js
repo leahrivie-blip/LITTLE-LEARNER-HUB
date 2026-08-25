@@ -208,6 +208,24 @@
     return api.ownerPublishState(plan, activities, getOwnerWorkspaceData(plan), curriculumResources());
   }
 
+  /** Apply enrichment is independent from Publish lesson — only needs pending draft content. */
+  function applyEnrichmentGate(plan, activities, draft = state.draft) {
+    const blockers = [];
+    if (!plan?.id) {
+      blockers.push({ code: "missing_identity", message: "Lesson is missing its canonical id" });
+    }
+    const populated = enrichmentDraftLooksPopulated(draft)
+      || enrichmentDraftLooksPopulated(plan?.enrichmentDraft);
+    if (!populated) {
+      blockers.push({ code: "enrichment_draft_empty", message: "No enrichment draft to apply yet." });
+    }
+    return {
+      canApply: !blockers.length,
+      blockers,
+      displayLabel: blockers.length ? "Nothing to apply" : "Ready to apply enrichment",
+    };
+  }
+
   function evaluateCurrentKit() {
     const plan = getPlan();
     const apiQr = qualityReviewApi();
@@ -2127,7 +2145,13 @@
       body: JSON.stringify(payload),
     });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+    if (!response.ok) {
+      const message = data.error || `HTTP ${response.status}`;
+      if (typeof showActionFeedback === "function") {
+        showActionFeedback(`Apply enrichment failed: ${message}`, null, { allowDuringOverlay: true, ttlMs: 10000 });
+      }
+      throw new Error(message);
+    }
     if (data.curriculum && typeof applyCurriculumState === "function") {
       applyCurriculumState(data.curriculum, { siteContentUpdatedAt: data.siteContentUpdatedAt });
     }
@@ -2136,13 +2160,16 @@
     state.pendingCleanupAssetIds = [];
     state.publishOpen = false;
     state.statusText = data.duplicate
-      ? "Already published — no duplicate version created."
+      ? "Already applied — enrichment overlay matches the last saved version."
       : `Applied enrichment overlay${data.versionId ? ` (${data.versionId})` : ""}${data.ownerOverrideApplied ? " (owner override logged)" : ""}. Lesson publish status is unchanged.`;
     render();
     if (typeof showActionFeedback === "function") {
       showActionFeedback(data.duplicate
         ? "Enrichment overlay already applied for this lesson."
         : "Applied enrichment overlay. This did not publish the lesson to users.");
+    }
+    if (typeof renderAdminCurriculumLessonPlans === "function") {
+      try { renderAdminCurriculumLessonPlans(); } catch (_error) { /* ignore */ }
     }
   }
 
@@ -2889,6 +2916,7 @@
     const idx = Math.min(state.activityIndex, Math.max(0, n - 1));
     const historyCount = Array.isArray(plan.enrichmentPublishHistory) ? plan.enrichmentPublishHistory.length : 0;
     const gate = ownerGate(plan, activities);
+    const applyGate = applyEnrichmentGate(plan, activities);
     const core = gate.core || {};
     const optional = gate.optional || {};
     const evaluated = evaluateCurrentKit();
@@ -2925,7 +2953,7 @@
             <button type="button" class="primary-button" data-ai-suggest="lesson">Prepare AI Draft</button>
             <button type="button" class="ghost-button" data-summary-toggle>Optional quality details</button>
             <button type="button" class="primary-button" data-enrich-save-draft>Save draft</button>
-            <button type="button" class="ghost-button" data-enrich-publish data-can-publish="${gate.canPublish ? "true" : "false"}">Apply enrichment</button>
+            <button type="button" class="ghost-button" data-enrich-publish data-can-apply="${applyGate.canApply ? "true" : "false"}" title="${applyGate.canApply ? "Merge enrichment draft into the editable lesson record (does not publish to users)" : applyGate.blockers.map((item) => item.message).join("; ") || "Nothing to apply"}">Apply enrichment</button>
             <button type="button" class="primary-button" data-publish-lesson ${gate.canPublish ? "" : "disabled"} title="${gate.canPublish ? "This lesson is now published to users" : "Cannot publish yet"}">Publish lesson</button>
             <button type="button" class="ghost-button" data-enrich-next-lesson>Next lesson →</button>
           </div>
@@ -4155,7 +4183,8 @@
     const report = evaluated?.report || state.qualityReport;
     if (report) state.qualityReport = report;
     const gate = ownerGate(plan, activities);
-    const blocked = !gate.canPublish;
+    const applyGate = applyEnrichmentGate(plan, activities);
+    const blocked = !applyGate.canApply;
     const readiness = gate.displayLabel;
     const acceptedAi = Number(state.draft?.acceptedAiSuggestionCount || state._acceptedAiCount || 0);
     const manualEdits = Number(state.draft?.manualEditCount || (state.dirty ? 1 : 0));
@@ -4176,22 +4205,23 @@
               <li><strong>Accepted AI suggestions (session):</strong> ${acceptedAi}</li>
               <li><strong>Manual edits pending:</strong> ${manualEdits ? "Yes" : "None flagged"}</li>
               <li><strong>Remaining suggestions:</strong> ${warningCount}</li>
-              <li><strong>True blockers:</strong> ${gate.blockers.length ? gate.blockers.map((item) => item.message).join("; ") : "None"}</li>
+              <li><strong>Apply blockers:</strong> ${applyGate.blockers.length ? applyGate.blockers.map((item) => item.message).join("; ") : "None"}</li>
+              <li><strong>Publish blockers (Publish lesson only):</strong> ${gate.blockers.length ? gate.blockers.map((item) => item.message).join("; ") : "None"}</li>
               <li><strong>Printables:</strong> ${gate.optional.printables ? "Published printable resources linked" : "Optional — printable ideas do not block publish"}</li>
               <li><strong>Lesson status:</strong> <span data-publish-readiness-label>${esc(readiness)}</span></li>
             </ul>
-            ${gate.blockers.length ? `
+            ${applyGate.blockers.length ? `
               <div class="tk-quality-hard-blockers" data-publish-blocker-list>
-                <h4>Cannot publish yet</h4>
+                <h4>Cannot apply yet</h4>
                 <ul>
-                  ${gate.blockers.map((b) => `
+                  ${applyGate.blockers.map((b) => `
                     <li data-blocker-code="${esc(b.code || "")}">
                       <span>${esc(b.message || b.code || "Missing required field")}</span>
                     </li>
                   `).join("")}
                 </ul>
               </div>
-            ` : (gate.openTodoCount ? `<p class="muted-copy">${gate.openTodoCount} optional item${gate.openTodoCount === 1 ? "" : "s"} still on your list</p>` : "")}
+            ` : (gate.openTodoCount ? `<p class="muted-copy">${gate.openTodoCount} optional item${gate.openTodoCount === 1 ? "" : "s"} still on your list before Publish lesson</p>` : "")}
             ${qualityOn ? `
               <div class="tk-quality-publish-gate">
                 <div class="tk-quality-publish-gate-head">
@@ -4656,12 +4686,18 @@
     }
     const publishBtn = chrome.querySelector("[data-enrich-publish]");
     if (publishBtn) {
-      publishBtn.dataset.canPublish = gate.canPublish ? "true" : "false";
-      publishBtn.textContent = "Publish";
-      publishBtn.title = gate.canPublish
-        ? (gate.openTodoCount
-          ? `${gate.openTodoCount} optional item${gate.openTodoCount === 1 ? "" : "s"} still on your list`
-          : "Publish this lesson")
+      const applyGate = applyEnrichmentGate(plan, activities);
+      publishBtn.dataset.canApply = applyGate.canApply ? "true" : "false";
+      publishBtn.textContent = "Apply enrichment";
+      publishBtn.title = applyGate.canApply
+        ? "Merge enrichment draft into the editable lesson record (does not publish to users)"
+        : applyGate.blockers.map((item) => item.message).join("; ") || "Nothing to apply";
+    }
+    const publishLessonBtn = chrome.querySelector("[data-publish-lesson]");
+    if (publishLessonBtn) {
+      publishLessonBtn.disabled = !gate.canPublish;
+      publishLessonBtn.title = gate.canPublish
+        ? "Publish this lesson to users"
         : gate.blockers.map((item) => item.message).join("; ") || "Fix true blockers before publishing";
     }
   }
@@ -5443,16 +5479,24 @@
       }
       if (event.target.closest("[data-publish-confirm]")) {
         const plan = getPlan();
-        const gate = ownerGate(plan, getActivities(plan));
-        if (!gate.canPublish) {
-          state.statusText = gate.blockers.map((item) => item.message).join(". ");
+        const applyGate = applyEnrichmentGate(plan, getActivities(plan));
+        if (!applyGate.canApply) {
+          state.statusText = applyGate.blockers.map((item) => item.message).join(". ");
+          if (typeof showActionFeedback === "function") {
+            showActionFeedback(state.statusText, null, { allowDuringOverlay: true });
+          }
           render();
           return;
         }
         try {
           await publishEnrichment();
+          state.publishOpen = false;
         } catch (error) {
-          state.statusText = `Apply enrichment failed: ${error.message || error}`;
+          const message = `Apply enrichment failed: ${error.message || error}`;
+          state.statusText = message;
+          if (typeof showActionFeedback === "function") {
+            showActionFeedback(message, null, { allowDuringOverlay: true, ttlMs: 10000 });
+          }
           render();
         }
         return;

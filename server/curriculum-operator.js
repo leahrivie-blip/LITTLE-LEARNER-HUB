@@ -1765,7 +1765,10 @@ function createCurriculumOperatorApi(deps) {
   async function tryConnectedAutoApply(job, store, sessionEmail) {
     const applied = [];
     const skipped = [];
-    if (!job?.command?.actions?.connectedAutoApply) return { applied, skipped };
+    const actions = job?.command?.actions || {};
+    if (actions.planOnly || actions.connectedAutoApply === false) return { applied, skipped };
+    const autoApplyRequested = actions.connectedAutoApply === true || actions.connectedUpgrade === true;
+    if (!autoApplyRequested) return { applied, skipped };
     for (const lr of schema.asArray(job.lessonResults)) {
       const gate = connectedUpgradeApi.canAutoApplyConnectedEnrichment(lr, job);
       if (!gate.ok) {
@@ -2132,7 +2135,11 @@ function createCurriculumOperatorApi(deps) {
 
       // Natural-language connected upgrades reuse the same auto-apply path as connected_run.
       let autoApply = { applied: [], skipped: [] };
-      if (job?.command?.actions?.connectedUpgrade && job?.command?.actions?.connectedAutoApply) {
+      const cmdActions = job?.command?.actions || {};
+      const shouldAutoApply = !cmdActions.planOnly
+        && cmdActions.connectedAutoApply !== false
+        && (cmdActions.connectedAutoApply === true || cmdActions.connectedUpgrade === true);
+      if (shouldAutoApply) {
         autoApply = await tryConnectedAutoApply(job, store, session.email);
         if (autoApply.applied.length) await writeStoreAsync(store);
         const bag3 = readJobs(store);

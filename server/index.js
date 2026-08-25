@@ -23403,9 +23403,11 @@ async function handlePublishEnrichment(request, response, ctx) {
     && teachingKit.isTeachingKitCurriculumOperatorEnabled(enrichFlags);
   const allowConnectedAutoApply = body?.operatorConnectedApply === true
     && teachingKit.isTeachingKitCurriculumOperatorEnabled(enrichFlags);
+  const allowOwnerEnrichmentApply = Boolean(ctx.preAuthorizedOwnerSession);
   if (!teachingKit.isTeachingKitEnrichmentEditorEnabled(enrichFlags)
     && !allowOperatorOwnerPublish
-    && !allowConnectedAutoApply) {
+    && !allowConnectedAutoApply
+    && !allowOwnerEnrichmentApply) {
     jsonResponse(response, 404, {
       error: "Teaching Kit Enrichment Editor is disabled.",
       code: "enrichment_editor_disabled",
@@ -23516,9 +23518,10 @@ async function handlePublishEnrichment(request, response, ctx) {
     || (Array.isArray(weekToolkit.observationFocus) && weekToolkit.observationFocus.length),
   );
   const hasActivityEnrichment = Boolean(Object.keys(incomingDraft?.activities || {}).length);
+  const draftStillPending = enrichmentDraftHasContent(existingPlan.enrichmentDraft);
   // Idempotent duplicate publish: no draft left / same fingerprint → no new version.
   const draftEmpty = !incomingDraft || (!hasActivityEnrichment && !hasWeekEnrichment);
-  if (draftEmpty || (lastVersion && lastVersion.fingerprint === fingerprint)) {
+  if ((draftEmpty || (lastVersion && lastVersion.fingerprint === fingerprint)) && !draftStillPending) {
     jsonResponse(response, 200, {
       ok: true,
       saveMode: "publish_enrichment",
@@ -23549,7 +23552,9 @@ async function handlePublishEnrichment(request, response, ctx) {
       ]),
     ),
   };
-  const merged = enrichmentApi.mergeDraftIntoPlan(existingPlan, linkedActivities, promotedDraft);
+  const merged = enrichmentApi.mergeDraftIntoPlan(existingPlan, linkedActivities, promotedDraft, {
+    resources: existingResources,
+  });
   const assetIds = [...enrichmentMedia.collectDraftMediaAssetIds(promotedDraft)];
 
   // Touch only draft-owned activities. Untouched siblings keep the exact existing
