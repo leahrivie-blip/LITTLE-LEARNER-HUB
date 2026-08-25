@@ -13,6 +13,19 @@
     loading: false,
     cache: null,
     journeyEmail: "",
+    detailEmail: "",
+    queue: {
+      activated: "all",
+      highIntent: "all",
+      persona: "all",
+      queueAgeGroup: "all",
+      queueSource: "all",
+      offer: "all",
+      leadStatus: "all",
+      reason: "all",
+      cohort: "all",
+      queueConverted: "all",
+    },
   };
 
   function esc(value) {
@@ -33,6 +46,16 @@
       source: params.source || state.source,
       ageGroup: params.ageGroup || state.ageGroup,
       converted: params.converted || state.converted,
+      activated: params.activated || state.queue.activated,
+      highIntent: params.highIntent || state.queue.highIntent,
+      persona: params.persona || state.queue.persona,
+      queueAgeGroup: params.queueAgeGroup || state.queue.queueAgeGroup,
+      queueSource: params.queueSource || state.queue.queueSource,
+      offer: params.offer || state.queue.offer,
+      leadStatus: params.leadStatus || state.queue.leadStatus,
+      reason: params.reason || state.queue.reason,
+      cohort: params.cohort || state.queue.cohort,
+      queueConverted: params.queueConverted || state.queue.queueConverted,
     });
     if (state.range === "custom") {
       if (state.startDate) qs.set("startDate", state.startDate);
@@ -40,6 +63,9 @@
     }
     if (params.journeyEmail || state.journeyEmail) {
       qs.set("journeyEmail", params.journeyEmail || state.journeyEmail);
+    }
+    if (params.detailEmail || state.detailEmail) {
+      qs.set("detailEmail", params.detailEmail || state.detailEmail);
     }
     qs.set("_", String(Date.now()));
     const headers = { "Cache-Control": "no-store" };
@@ -49,6 +75,20 @@
     const json = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(json.error || `Conversion Intelligence failed (${res.status})`);
     return json.data;
+  }
+
+  async function postLeadUpdate(payload) {
+    const headers = { "Content-Type": "application/json", "Cache-Control": "no-store" };
+    const t = token();
+    if (t) headers.Authorization = `Bearer ${t}`;
+    const res = await fetch("/api/admin/conversion-leads", {
+      method: "POST",
+      headers,
+      body: JSON.stringify(payload),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(json.error || `Lead update failed (${res.status})`);
+    return json;
   }
 
   function kpi(label, value) {
@@ -157,6 +197,139 @@
     `;
   }
 
+  function optList(values, selected) {
+    return (values || []).map((v) => `<option value="${esc(v)}"${String(selected) === String(v) ? " selected" : ""}>${esc(v)}</option>`).join("");
+  }
+
+  function renderOwnerWorkflow(data) {
+    const summary = data.ownerWorkflowSummary || {};
+    const statuses = data.leadStatuses || ["new", "activated", "high_intent", "follow_up", "contacted", "considering", "not_ready", "converted", "lost"];
+    const reasons = data.nonBuyerReasons || [];
+    const queue = data.ownerActionQueue || [];
+    const lostWf = data.lostUserWorkflow || {};
+    const detail = data.conversionLeadDetail;
+    const q = state.queue;
+
+    const detailHtml = detail ? `
+      <section class="admin-home-card" id="convLeadDetail">
+        <p class="eyebrow">Conversion Detail — ${esc(detail.emailMasked)}</p>
+        <div class="admin-insights-split">
+          <div>
+            <h4>${esc(detail.layers?.observed?.label || "OBSERVED")}</h4>
+            <p class="muted-copy">${esc(detail.layers?.observed?.description || "")}</p>
+            <ul class="admin-insights-summary-list">
+              <li>Signup: ${esc(detail.layers?.observed?.signupAt)}</li>
+              <li>Last active: ${esc(detail.layers?.observed?.lastActive)}</li>
+              <li>Lessons / activities: ${esc(detail.layers?.observed?.lessonViews)} / ${esc(detail.layers?.observed?.activityViews)}</li>
+              <li>Pro / pricing / upgrade / checkout: ${esc(detail.layers?.observed?.proEncounters)} / ${esc(detail.layers?.observed?.pricingViews)} / ${esc(detail.layers?.observed?.upgradeClicks)} / ${esc(detail.layers?.observed?.checkoutStarts)}</li>
+            </ul>
+            <ol class="admin-insights-summary-list">
+              ${(detail.layers?.observed?.timeline || []).slice(0, 12).map((step) => `
+                <li><strong>${esc(step.time)}</strong> — ${esc(step.label)}</li>
+              `).join("") || "<li>No timeline events.</li>"}
+            </ol>
+          </div>
+          <div>
+            <h4>${esc(detail.layers?.derived?.label || "DERIVED")}</h4>
+            <p class="muted-copy">${esc(detail.layers?.derived?.description || "")}</p>
+            <ul class="admin-insights-summary-list">
+              <li>Activated: ${esc(detail.layers?.derived?.activated ? "Yes" : "No")} ${detail.layers?.derived?.activatedAt ? `(${esc(detail.layers.derived.activatedAt)})` : ""}</li>
+              <li>Persona: ${esc(detail.layers?.derived?.persona)}</li>
+              <li>Derived status: ${esc(detail.layers?.derived?.derivedStatus)}</li>
+              <li>Paid (authoritative): ${esc(detail.layers?.derived?.paidAuthoritative ? "Yes" : "No")}</li>
+              <li class="muted-copy">${esc(detail.layers?.derived?.associationNote || "Pre-purchase association (not causal)")}</li>
+            </ul>
+            <h4>${esc(detail.layers?.ownerEntered?.label || "OWNER ENTERED")}</h4>
+            <p class="muted-copy">${esc(detail.layers?.ownerEntered?.description || "")}</p>
+            <ul class="admin-insights-summary-list">
+              <li>Owner status: ${esc(detail.layers?.ownerEntered?.status || "—")}</li>
+              <li>Effective: ${esc(detail.layers?.ownerEntered?.effectiveStatus)}</li>
+              <li>Notes: ${(detail.layers?.ownerEntered?.notes || []).length}</li>
+              <li>Reasons: ${(detail.layers?.ownerEntered?.reasons || []).map((r) => esc(r.reason)).join(", ") || "—"}</li>
+            </ul>
+          </div>
+        </div>
+        <button type="button" class="ghost-button" data-conv-clear-detail>Close detail</button>
+      </section>
+    ` : "";
+
+    return `
+      <section class="admin-home-card">
+        <p class="eyebrow">Phase 2B — Owner Follow-Up</p>
+        <h4>Who should I pay attention to, and what do I know about why they haven't purchased?</h4>
+        <p class="muted-copy">${esc(summary.note || "Owner status supplements analytics; billing remains authoritative for paid conversion.")}</p>
+        <div class="admin-home-grid admin-insights-kpi-grid">
+          ${kpi("High-intent unpaid", summary.highIntentUnpaid ?? "—")}
+          ${kpi("Activated unpaid", summary.activatedUnpaid ?? "—")}
+          ${kpi("Checkout unpaid", summary.checkoutStartedUnpaid ?? "—")}
+          ${kpi("Follow-up", summary.followUp ?? "—")}
+          ${kpi("Contacted", summary.contacted ?? "—")}
+          ${kpi("Considering", summary.considering ?? "—")}
+          ${kpi("Lost (owner)", summary.lost ?? "—")}
+          ${kpi("Converted (billing)", summary.converted ?? "—")}
+        </div>
+      </section>
+      <section>
+        <h4>Lost-User Workflow (analysis only)</h4>
+        <p class="muted-copy">${esc(lostWf.note || "")}</p>
+        ${table(
+          ["Group", "Count"],
+          (lostWf.groups || []).map((g) => [g.label, g.count]),
+        )}
+      </section>
+      <section>
+        <h4>Owner Action Queue</h4>
+        <p class="muted-copy">Showing ${esc(queue.length)} of ${esc(data.ownerActionQueueTotal ?? queue.length)} leads · deterministic priority (intent score + categories). Owner-only.</p>
+        <div class="admin-insights-filters" style="flex-wrap:wrap;gap:8px;margin-bottom:12px">
+          <label>Activated <select id="convQActivated"><option value="all">All</option><option value="activated"${q.activated === "activated" ? " selected" : ""}>Activated</option><option value="non_activated"${q.activated === "non_activated" ? " selected" : ""}>Not activated</option></select></label>
+          <label>High intent <select id="convQHighIntent"><option value="all">All</option><option value="yes"${q.highIntent === "yes" ? " selected" : ""}>High only</option></select></label>
+          <label>Persona <select id="convQPersona"><option value="all">All</option>${optList(["home_daycare", "center", "teacher_staff", "unknown"], q.persona)}</select></label>
+          <label>Age <select id="convQAge"><option value="all">All</option>${optList(["Infant", "Toddler", "Preschool", "School Age", "Mixed Ages", "All Ages", "Unknown"], q.queueAgeGroup)}</select></label>
+          <label>Status <select id="convQStatus"><option value="all">All</option>${optList(statuses, q.leadStatus)}</select></label>
+          <label>Reason <select id="convQReason"><option value="all">All</option>${optList(reasons, q.reason)}</select></label>
+          <label>Paid <select id="convQConverted"><option value="all">All</option><option value="not_converted"${q.queueConverted === "not_converted" ? " selected" : ""}>Unpaid</option><option value="converted"${q.queueConverted === "converted" ? " selected" : ""}>Paid</option></select></label>
+        </div>
+        <div class="admin-users-table-wrap">
+          <table class="admin-users-table admin-insights-table">
+            <thead>
+              <tr>
+                <th>User</th><th>Signup</th><th>Persona</th><th>Activated</th><th>Intent / cats</th>
+                <th>Checkout</th><th>Status</th><th>Reason</th><th>Note</th><th>Act</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${queue.length ? queue.map((row) => `
+                <tr data-lead-email="${esc(row.email)}">
+                  <td>${esc(row.user)}<div class="muted-copy">${esc(row.paidFreeLabel || "")}</div></td>
+                  <td>${esc(row.signupDate)}</td>
+                  <td>${esc(row.persona)}<div class="muted-copy">${esc((row.ageGroups || []).join(", "))}</div></td>
+                  <td>${esc(row.activated ? "Yes" : "No")}<div class="muted-copy">${esc(row.activatedAt || "")}</div></td>
+                  <td>${esc(row.intentLevel)}<div class="muted-copy">${esc((row.categories || []).join("; "))}</div></td>
+                  <td>${esc(row.checkoutStarted)} · Pro ${esc(row.proEncounters)}</td>
+                  <td>
+                    <select data-lead-status="${esc(row.email)}">${optList(statuses, row.ownerStatus || row.effectiveStatus || "new")}</select>
+                    <div class="muted-copy">derived: ${esc(row.derivedStatus)}</div>
+                  </td>
+                  <td>
+                    <select data-lead-reason="${esc(row.email)}"><option value="">—</option>${optList(reasons, row.capturedReason || "")}</select>
+                    <div class="muted-copy">${esc(row.capturedReason || "none recorded")}</div>
+                  </td>
+                  <td>${esc(row.latestNotePreview || "—")}<div class="muted-copy">${esc(row.latestNoteAt || "")}</div></td>
+                  <td>
+                    <button type="button" class="ghost-button" data-lead-detail="${esc(row.email)}">Detail</button>
+                    <button type="button" class="ghost-button" data-lead-save="${esc(row.email)}">Save</button>
+                    <button type="button" class="ghost-button" data-lead-note="${esc(row.email)}">+ Note</button>
+                  </td>
+                </tr>
+              `).join("") : `<tr><td colspan="10"><div class="empty-state">No leads match these filters.</div></td></tr>`}
+            </tbody>
+          </table>
+        </div>
+      </section>
+      ${detailHtml}
+    `;
+  }
+
   function renderBody(data) {
     const cards = data.summaryCards || {};
     const biggest = cards.biggestDropOff || {};
@@ -187,6 +360,7 @@
         ${renderToday(data.today)}
         ${renderInsights(data.insights)}
       </div>
+      ${renderOwnerWorkflow(data)}
       <section class="admin-home-card">
         <p class="eyebrow">Activation</p>
         <h4>Are users reaching value?</h4>
@@ -401,6 +575,66 @@
         state.ageGroup = ageSel?.value || "all";
         state.converted = convertedSel?.value || "all";
         void reload(mount);
+      });
+    });
+
+    const mapQueueFilters = () => {
+      state.queue.activated = mount.querySelector("#convQActivated")?.value || "all";
+      state.queue.highIntent = mount.querySelector("#convQHighIntent")?.value || "all";
+      state.queue.persona = mount.querySelector("#convQPersona")?.value || "all";
+      state.queue.queueAgeGroup = mount.querySelector("#convQAge")?.value || "all";
+      state.queue.leadStatus = mount.querySelector("#convQStatus")?.value || "all";
+      state.queue.reason = mount.querySelector("#convQReason")?.value || "all";
+      state.queue.queueConverted = mount.querySelector("#convQConverted")?.value || "all";
+    };
+    ["#convQActivated", "#convQHighIntent", "#convQPersona", "#convQAge", "#convQStatus", "#convQReason", "#convQConverted"].forEach((sel) => {
+      const el = mount.querySelector(sel);
+      if (!el) return;
+      el.addEventListener("change", () => {
+        mapQueueFilters();
+        void reload(mount);
+      });
+    });
+
+    mount.querySelectorAll("[data-lead-detail]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        state.detailEmail = btn.getAttribute("data-lead-detail") || "";
+        void reload(mount);
+      });
+    });
+    mount.querySelector("[data-conv-clear-detail]")?.addEventListener("click", () => {
+      state.detailEmail = "";
+      void reload(mount);
+    });
+
+    mount.querySelectorAll("[data-lead-save]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const email = btn.getAttribute("data-lead-save") || "";
+        const status = mount.querySelector(`select[data-lead-status="${CSS.escape(email)}"]`)?.value || "";
+        const reason = mount.querySelector(`select[data-lead-reason="${CSS.escape(email)}"]`)?.value || "";
+        try {
+          const payload = { email };
+          if (status) payload.status = status;
+          if (reason) payload.reason = reason;
+          await postLeadUpdate(payload);
+          void reload(mount);
+        } catch (error) {
+          window.alert(error.message || "Could not save lead.");
+        }
+      });
+    });
+
+    mount.querySelectorAll("[data-lead-note]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const email = btn.getAttribute("data-lead-note") || "";
+        const note = window.prompt("Internal owner note (not shown to customer):", "");
+        if (note == null || !String(note).trim()) return;
+        try {
+          await postLeadUpdate({ email, note });
+          void reload(mount);
+        } catch (error) {
+          window.alert(error.message || "Could not save note.");
+        }
       });
     });
   }
