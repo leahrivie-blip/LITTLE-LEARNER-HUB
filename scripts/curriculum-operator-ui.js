@@ -5,9 +5,50 @@
 (function initCurriculumOperatorUi(global) {
   "use strict";
 
+  function mapCurrentActionToLabel(action) {
+    const key = String(action || "").toLowerCase();
+    if (!key) return "Working on lesson…";
+    if (key.startsWith("lesson.audit") || key.startsWith("lesson.update") || key.startsWith("creation.")) {
+      return "Updating content…";
+    }
+    if (key.startsWith("song") || key.startsWith("book")) return "Working on songs & books…";
+    if (key.startsWith("image")) return "Processing images…";
+    if (key.startsWith("printable")) return "Processing printables…";
+    if (key.includes("validate") || key.includes("verification") || key.startsWith("lesson.save")) {
+      return "Finalizing…";
+    }
+    return "Working on lesson…";
+  }
+
+  function formatRunStatusFromJob(job) {
+    if (!job) return "Working on lesson…";
+    if (job.status === "completed") return "Job complete — open the lesson to review.";
+    if (job.status === "failed") {
+      const lr = (job.lessonResults || []).find((row) => row.error) || (job.lessonResults || [])[0];
+      return lr?.error ? String(lr.error) : "Job failed.";
+    }
+    const action = job.progress?.currentAction;
+    if (action) return mapCurrentActionToLabel(action);
+    const logTail = (job.log || []).slice(-1)[0]?.message;
+    if (logTail) return logTail;
+    return "Working on lesson…";
+  }
+
+  function runButtonLabel(runPhase) {
+    if (runPhase === "starting") return "Starting…";
+    if (runPhase === "running") return "Running…";
+    return "Run job";
+  }
+
   const state = {
     mounted: false,
     busy: false,
+    runInFlight: false,
+    runPhase: "idle",
+    runStatusMessage: "",
+    runJobId: "",
+    runPollHandle: null,
+    runStartedAt: 0,
     command: "",
     message: "",
     isError: false,
@@ -319,6 +360,80 @@
     </article>`;
   }
 
+  function stopRunPolling() {
+    if (state.runPollHandle) {
+      clearInterval(state.runPollHandle);
+      state.runPollHandle = null;
+    }
+  }
+
+  function resetRunUi() {
+    stopRunPolling();
+    state.runInFlight = false;
+    state.runPhase = "idle";
+    state.runStatusMessage = "";
+    state.runJobId = "";
+    state.runStartedAt = 0;
+  }
+
+  function renderRunStatusBlock() {
+    if (!state.runPhase || state.runPhase === "idle") return "";
+    const phaseClass = state.runPhase === "failed" ? "is-error"
+      : (state.runPhase === "complete" ? "is-success" : "is-running");
+    const jobLine = state.runJobId
+      ? `<p class="muted-copy">Job <code>${esc(state.runJobId)}</code></p>`
+      : "";
+    const elapsed = state.runStartedAt && (state.runPhase === "starting" || state.runPhase === "running")
+      ? `<p class="muted-copy">Elapsed ${Math.max(0, Math.floor((Date.now() - state.runStartedAt) / 1000))}s</p>`
+      : "";
+    return `
+      <section class="co-run-status ${phaseClass}" role="status" aria-live="polite" aria-atomic="true">
+        <p class="co-run-status-head"><strong>${esc(state.runStatusMessage || "Starting curriculum job…")}</strong></p>
+        ${jobLine}
+        ${elapsed}
+      </section>`;
+  }
+
+  function startRunPolling(commandText, startedAt) {
+    stopRunPolling();
+    state.runPollHandle = setInterval(() => {
+      void pollRunningJob(commandText, startedAt);
+    }, 2500);
+  }
+
+  async function pollRunningJob(commandText, startedAt) {
+    if (state.runPhase === "complete" || state.runPhase === "failed" || !state.runInFlight) return;
+    try {
+      const list = await api("list");
+      const jobs = list.jobs || [];
+      const startedIso = new Date(startedAt - 5000).toISOString();
+      const running = jobs.find((j) => j.status === "running" && (
+        j.rawCommand === commandText
+        || (j.createdAt && j.createdAt >= startedIso)
+      ));
+      if (running?.id && !state.runJobId) {
+        state.runJobId = running.id;
+        state.runPhase = "running";
+        state.runStatusMessage = "Job started — working now";
+        render();
+      }
+      const jobId = state.runJobId || running?.id;
+      if (!jobId) return;
+      const detail = await api("get", { jobId });
+      const job = detail.job;
+      if (job) {
+        state.job = job;
+        if (job.status === "running") {
+          state.runPhase = "running";
+          state.runStatusMessage = formatRunStatusFromJob(job);
+        }
+        render();
+      }
+    } catch (_pollError) {
+      /* keep visible running state; final run response resolves outcome */
+    }
+  }
+
   function render() {
     const el = host();
     if (!el) return;
@@ -347,13 +462,14 @@
           </div>
         </div>
         ${state.message ? `<p class="access-notice ${state.isError ? "error" : ""}" role="status">${esc(state.message)}</p>` : ""}
+        ${renderRunStatusBlock()}
         <label class="co-command-label">
           <span>Command</span>
           <textarea id="coCommandInput" rows="3" placeholder="Example: Create a Preschool Bakery lesson with 15 activities and leave it ready for review.">${esc(state.command)}</textarea>
         </label>
-        <div class="account-actions-row">
+        <div class="account-actions-row co-run-actions">
           <button type="button" class="ghost-button" id="coParseBtn" ${state.busy ? "disabled" : ""}>Interpret</button>
-          <button type="button" class="primary-button" id="coRunBtn" ${state.busy ? "disabled" : ""}>Run job</button>
+          <button type="button" class="primary-button" id="coRunBtn" ${state.busy || state.runInFlight ? "disabled" : ""}>${esc(runButtonLabel(state.runPhase))}</button>
           <button type="button" class="ghost-button" id="coRefreshJobsBtn" ${state.busy ? "disabled" : ""}>Refresh jobs</button>
         </div>
         ${state.commandParsed ? `
@@ -433,6 +549,12 @@
         .co-publish-modal { position: fixed; inset: 0; background: rgba(20,16,12,.45); display: flex; align-items: center; justify-content: center; z-index: 80; padding: 1rem; }
         .co-publish-modal-card { background: #fffaf3; max-width: 28rem; width: 100%; padding: 1.25rem; border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,.18); }
         button.linkish { background: none; border: none; color: inherit; text-decoration: underline; cursor: pointer; padding: 0; font: inherit; }
+        .co-run-status { margin: .75rem 0 0; padding: .85rem 1rem; border-radius: 12px; border: 1px solid rgba(0,0,0,.1); background: rgba(255,255,255,.7); }
+        .co-run-status.is-running { border-color: rgba(120, 86, 20, .35); background: #fff7ea; }
+        .co-run-status.is-success { border-color: rgba(31, 107, 58, .35); background: #eef8f0; }
+        .co-run-status.is-error { border-color: rgba(138, 31, 31, .35); background: #fdeeee; }
+        .co-run-status-head { margin: 0; }
+        .co-run-actions { flex-wrap: wrap; gap: .5rem; }
       </style>
     `;
 
@@ -578,18 +700,40 @@
   }
 
   async function onRun() {
+    if (state.runInFlight) return;
+    const commandSnapshot = state.command;
+    state.runInFlight = true;
     state.busy = true;
+    state.runPhase = "starting";
+    state.runStatusMessage = "Starting curriculum job…";
+    state.runJobId = "";
+    state.runStartedAt = Date.now();
     state.message = "";
     state.isError = false;
     render();
+    startRunPolling(commandSnapshot, state.runStartedAt);
     try {
-      const result = await api("run", { command: state.command, confirm: true, phase: 7 });
+      const result = await api("run", { command: commandSnapshot, confirm: true, phase: 7 });
       state.commandParsed = { command: result.command };
       state.planSummary = result.planSummary;
       state.job = result.job;
+      if (result.job?.id) state.runJobId = result.job.id;
+      const autoApplied = Array.isArray(result.autoApply?.applied) && result.autoApply.applied.length > 0;
       if (result.awaitingConfirm) {
-        state.message = "Confirmation required before running. Review scope, then confirm.";
+        state.runPhase = "failed";
+        state.runStatusMessage = "Confirmation required before running. Review scope, then confirm.";
+        state.message = state.runStatusMessage;
+      } else if (result.job?.status === "failed") {
+        state.runPhase = "failed";
+        state.isError = true;
+        const lr = (result.job.lessonResults || []).find((row) => row.error) || (result.job.lessonResults || [])[0];
+        state.runStatusMessage = lr?.error || result.error || "Job failed.";
+        state.message = state.runStatusMessage;
       } else if (result.draftOnly) {
+        state.runPhase = "complete";
+        state.runStatusMessage = autoApplied
+          ? "Job complete — enrichment applied. Open the lesson to review."
+          : "Job complete — open the lesson to review.";
         const createdId = result.job?.lessonResults?.[0]?.createdLessonId || result.job?.lessonResults?.[0]?.lessonId;
         const publishRequested = (result.job?.lessonResults || []).some((lr) => lr.publishRequested)
           || (result.command?.confirmations?.reasons || []).includes("publish_requested");
@@ -597,24 +741,32 @@
           state.message = createdId
             ? `READY FOR REVIEW — PUBLISH REQUESTED (${createdId}). AI did not publish. Confirm Publish in the Owner review panel.`
             : "READY FOR REVIEW — PUBLISH REQUESTED. AI did not publish. Confirm Publish in the Owner review panel.";
+        } else if (autoApplied) {
+          state.message = "Upgrade complete and auto-applied to the existing lesson. Open the lesson to review (still draft).";
         } else {
           state.message = createdId
             ? `Draft lesson created (${createdId}) — READY FOR OWNER REVIEW / NOT PUBLISHED. Open the lesson to inspect.`
             : "Full Teaching Kit draft job complete — NOT PUBLISHED. Open the lesson to review.";
         }
       } else {
+        state.runPhase = "complete";
+        state.runStatusMessage = "Job complete.";
         state.message = "Audit job complete. No curriculum data was changed.";
       }
       await refreshJobs(false);
     } catch (error) {
       state.isError = true;
-      state.message = error.message || "Run failed.";
+      state.runPhase = "failed";
+      state.runStatusMessage = error.message || "Run failed.";
+      state.message = state.runStatusMessage;
       state.planSummary = error.payload?.selection ? {
         selectionNote: error.payload.selection.selectionNote,
         lessons: error.payload.selection.selected || [],
         candidatesConsidered: error.payload.selection.candidatesConsidered,
       } : state.planSummary;
     } finally {
+      stopRunPolling();
+      state.runInFlight = false;
       state.busy = false;
       render();
     }
@@ -666,7 +818,7 @@
         state.message = error.message || "Could not list jobs.";
       }
     }
-    if (doRender) render();
+    if (doRender && !state.runInFlight) render();
   }
 
   async function mount() {
@@ -678,5 +830,12 @@
     }
   }
 
-  global.LLHCurriculumOperatorUi = { mount };
+  global.LLHCurriculumOperatorUi = {
+    mount,
+    __test__: {
+      mapCurrentActionToLabel,
+      formatRunStatusFromJob,
+      runButtonLabel,
+    },
+  };
 })(typeof window !== "undefined" ? window : globalThis);
