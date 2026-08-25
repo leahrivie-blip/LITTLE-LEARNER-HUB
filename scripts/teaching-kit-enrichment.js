@@ -1520,7 +1520,43 @@
     return next;
   }
 
-  function mergeDraftIntoPlan(plan, activities, enrichmentDraft) {
+  function normalizePrintableTitleKey(value) {
+    return text(value).toLowerCase().replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
+  }
+
+  /**
+   * When applying enrichment, reuse an existing linked resource with the same title
+   * instead of attaching another equivalent printable id.
+   */
+  function dedupePrintableResourceIds(plan, printableIds, resources) {
+    const catalog = asArray(resources);
+    const byTitle = new Map();
+    catalog.forEach((item) => {
+      const titleKey = normalizePrintableTitleKey(item?.title);
+      if (titleKey && !byTitle.has(titleKey)) byTitle.set(titleKey, text(item?.id));
+    });
+    const mergedIds = asArray(plan?.resourceIds).map(text).filter(Boolean);
+    const seenTitles = new Set();
+    mergedIds.forEach((id) => {
+      const hit = catalog.find((item) => text(item?.id) === id);
+      const titleKey = normalizePrintableTitleKey(hit?.title);
+      if (titleKey) seenTitles.add(titleKey);
+    });
+    asArray(printableIds).map(text).filter(Boolean).forEach((id) => {
+      const hit = catalog.find((item) => text(item?.id) === id);
+      const titleKey = normalizePrintableTitleKey(hit?.title);
+      if (titleKey && seenTitles.has(titleKey)) {
+        const existingId = byTitle.get(titleKey);
+        if (existingId && !mergedIds.includes(existingId)) mergedIds.push(existingId);
+        return;
+      }
+      if (titleKey) seenTitles.add(titleKey);
+      if (!mergedIds.includes(id)) mergedIds.push(id);
+    });
+    return mergedIds.slice(0, 200);
+  }
+
+  function mergeDraftIntoPlan(plan, activities, enrichmentDraft, options = {}) {
     const draft = enrichmentDraft && typeof enrichmentDraft === "object" ? enrichmentDraft : null;
     if (!draft) {
       return { plan: planForProviderMapping(plan), activities: asArray(activities) };
@@ -1786,12 +1822,17 @@
     const printableIdeas = normalizePrintableIdeas(week.printableIdeas);
     const vocabCards = normalizeVocabCards(week.vocabCards);
     if (printableIds.length) {
-      const existingIds = asArray(nextPlan.resourceIds).map(text).filter(Boolean);
-      const mergedIds = [...existingIds];
-      printableIds.forEach((id) => {
-        if (!mergedIds.includes(id)) mergedIds.push(id);
-      });
-      nextPlan.resourceIds = mergedIds.slice(0, 200);
+      const resources = asArray(options.resources);
+      nextPlan.resourceIds = resources.length
+        ? dedupePrintableResourceIds(nextPlan, printableIds, resources)
+        : (() => {
+          const existingIds = asArray(nextPlan.resourceIds).map(text).filter(Boolean);
+          const mergedIds = [...existingIds];
+          printableIds.forEach((id) => {
+            if (!mergedIds.includes(id)) mergedIds.push(id);
+          });
+          return mergedIds.slice(0, 200);
+        })();
     }
     const percent = computeCompletionPercent(nextPlan, nextActivities, null);
     const priorToolkit = nextPlan.teachingKit?.teacherToolkit && typeof nextPlan.teachingKit.teacherToolkit === "object"

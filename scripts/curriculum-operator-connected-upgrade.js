@@ -337,10 +337,18 @@ function summarizePlanForOwner(planBundle) {
 function canAutoApplyConnectedEnrichment(lessonResult, job) {
   if (!lessonResult || !job) return { ok: false, code: "missing_result", message: "Missing job result." };
   const cmd = job.command || {};
-  if (!cmd.actions?.connectedAutoApply) {
+  const actions = cmd.actions || {};
+  if (actions.planOnly) {
+    return { ok: false, code: "plan_only", message: "Plan-only command — auto-apply skipped." };
+  }
+  if (actions.connectedAutoApply === false) {
     return { ok: false, code: "auto_apply_not_requested", message: "Auto-apply not requested for this job." };
   }
-  if (cmd.actions?.publish) {
+  const autoApplyRequested = actions.connectedAutoApply === true || actions.connectedUpgrade === true;
+  if (!autoApplyRequested) {
+    return { ok: false, code: "auto_apply_not_requested", message: "Auto-apply not requested for this job." };
+  }
+  if (actions?.publish) {
     return { ok: false, code: "publish_requested", message: "Publish was requested — auto-apply blocked." };
   }
   if (lessonResult.status !== "success") {

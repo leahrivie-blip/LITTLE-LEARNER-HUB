@@ -321,6 +321,7 @@ function emptyActionsFlags() {
     publish: false,
     connectedUpgrade: false,
     connectedAutoApply: false,
+    planOnly: false,
   };
 }
 
@@ -404,7 +405,16 @@ function normalizeOperatorCommand(raw = {}, options = {}) {
     publish: actionsIn.publish === true,
     connectedUpgrade: actionsIn.connectedUpgrade === true,
     connectedAutoApply: actionsIn.connectedAutoApply === true,
+    planOnly: actionsIn.planOnly === true,
   };
+
+  // Successful existing-lesson connected upgrades auto-save into the editable draft lesson
+  // unless Owner explicitly asked for plan-only / preview-only behavior.
+  if (actions.planOnly) {
+    actions.connectedAutoApply = false;
+  } else if (actions.connectedUpgrade && actionsIn.connectedAutoApply !== false) {
+    actions.connectedAutoApply = true;
+  }
 
   // Always block publish. Create only at Phase 7+ when explicitly requested.
   actions.publish = false;
