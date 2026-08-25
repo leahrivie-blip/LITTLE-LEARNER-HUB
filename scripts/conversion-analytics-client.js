@@ -138,6 +138,32 @@
     trackConversionEvent("printable_viewed", detail);
   }
 
+  /**
+   * Deduped CTA impression — keyed by ctaLocation + promptId.
+   * @param {Record<string, string|number|boolean|undefined>} detail
+   */
+  function trackUpgradeCtaImpression(detail = {}) {
+    try {
+      if (typeof global.trackEvent !== "function") return;
+      const ctaLocation = String(detail.ctaLocation || detail.location || detail.promptId || "other");
+      const promptId = String(detail.promptId || "");
+      const key = dedupeKey("upgrade_cta_impression", { ctaLocation, promptId, location: ctaLocation });
+      if (wasRecentlyTracked(key)) return;
+      markTracked(key);
+      global.trackEvent("upgrade_cta_impression", {
+        ...detail,
+        ctaLocation,
+        promptId: promptId || undefined,
+      });
+    } catch (error) {
+      try {
+        console.warn("[conversion-analytics] impression track failed:", error?.message || error);
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
   global.LLHConversionAnalytics = Object.freeze({
     trackConversionEvent,
     trackProContentEncountered,
@@ -145,6 +171,7 @@
     trackActivityViewed,
     trackPricingViewed,
     trackUpgradeCtaClicked,
+    trackUpgradeCtaImpression,
     trackLessonSaved,
     trackPrintableViewed,
     ensureSessionStarted,

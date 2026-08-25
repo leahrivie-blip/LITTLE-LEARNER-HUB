@@ -21685,6 +21685,12 @@ function canCustomizeLessonPlans() {
 function trackUpgradePrompt(promptId, extra = {}) {
   try {
     trackEvent("upgrade_prompt_shown", { promptId, plan: effectiveAccessPlan(), ...extra });
+    window.LLHConversionAnalytics?.trackUpgradeCtaImpression?.({
+      promptId,
+      ctaLocation: extra.ctaLocation || extra.location || promptId || "upgrade_prompt",
+      location: extra.location || promptId || "upgrade_prompt",
+      lessonId: extra.resourceId || extra.lessonId || "",
+    });
     window.LLHConversionAnalytics?.trackProContentEncountered?.({
       featureType: String(extra.featureType || promptId || "feature_locked"),
       location: extra.location || promptId || "upgrade_prompt",
