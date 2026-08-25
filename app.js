@@ -3301,6 +3301,68 @@ function assignContainerInnerHtml(container, html, options = {}) {
   return true;
 }
 
+/** Site Editor panels: skip innerHTML replacement while forms have live user input. */
+const SITE_EDITOR_APP_IDS = new Set([
+  "adminHeroApp",
+  "adminTrustApp",
+  "adminJourneyApp",
+  "adminReviewsCtaApp",
+  "adminFoundingApp",
+  "adminPricingApp",
+  "adminFreePlanAccessApp",
+  "adminPromoCodesApp",
+  "adminFaqsApp",
+  "adminAnnouncementApp",
+  "adminInAppAnnouncementsApp",
+  "adminUpgradeMsgApp",
+]);
+
+function refreshSiteEditorFormBaseline(form) {
+  if (!form) return;
+  const snapshot = snapshotLiveFormFields(form);
+  if (snapshot) form.setAttribute("data-site-editor-baseline", JSON.stringify(snapshot));
+}
+
+function refreshSiteEditorFormBaselineIfApplicable(form) {
+  if (!(form instanceof HTMLFormElement) || !form.id) return;
+  const liveForm = document.getElementById(form.id);
+  if (!(liveForm instanceof HTMLFormElement)) return;
+  const app = liveForm.closest("[id$='App']");
+  if (!app || !SITE_EDITOR_APP_IDS.has(app.id)) return;
+  refreshSiteEditorFormBaseline(liveForm);
+}
+
+function siteEditorFormHasUnsavedEdits(form) {
+  if (!form) return false;
+  const active = document.activeElement;
+  if (active instanceof HTMLElement && form.contains(active)) return true;
+  const baselineJson = form.getAttribute("data-site-editor-baseline");
+  if (!baselineJson) return false;
+  let baseline;
+  try { baseline = JSON.parse(baselineJson); } catch { return false; }
+  const current = snapshotLiveFormFields(form);
+  if (!current?.fields || !baseline?.fields) return false;
+  return Object.keys(current.fields).some((name) => {
+    const cur = current.fields[name];
+    const base = baseline.fields[name];
+    if (typeof cur === "boolean" || typeof base === "boolean") return Boolean(cur) !== Boolean(base);
+    return String(cur ?? "") !== String(base ?? "");
+  });
+}
+
+function siteEditorContainerHasUnsavedEdits(container) {
+  if (!container) return false;
+  return [...container.querySelectorAll("form")].some((form) => siteEditorFormHasUnsavedEdits(form));
+}
+
+function assignAdminSiteEditorHtml(target, html) {
+  if (!target) return false;
+  if (siteEditorContainerHasUnsavedEdits(target)) return false;
+  target.innerHTML = html;
+  target.querySelectorAll("form").forEach((form) => refreshSiteEditorFormBaseline(form));
+  return true;
+}
+
 let adminUnlockShellGeneration = 0;
 if (typeof window !== "undefined") {
   Object.defineProperty(window, "adminUnlockShellGeneration", {
@@ -3364,6 +3426,7 @@ async function runAdminSave({ messageSelector, form, saveFn, successMsg, onCompl
       setFormMessage(msgEl, msg, true);
       msgEl.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
     }
+    refreshSiteEditorFormBaselineIfApplicable(form);
     if (onComplete) onComplete();
     if (redirectFn) window.setTimeout(redirectFn, 2500);
 
@@ -59892,7 +59955,7 @@ function renderAdminHeroSection() {
   if (!target || !isAdminUnlocked()) return;
   const homepage = (effectiveSiteContent().homepage || {});
   const benefitsText = (homepage.heroBenefits || []).join("\n");
-  target.innerHTML = `
+  if (!assignAdminSiteEditorHtml(target, `
     <div class="section-heading">
       <div><p class="eyebrow">Site Editor</p><h3>Hero Section <span class="se-status-badge se-live">🟢 Live</span></h3></div>
     </div>
@@ -59937,7 +60000,7 @@ function renderAdminHeroSection() {
       </div>
       <span class="form-message" id="adminHeroMessage"></span>
     </form>
-  `;
+  `)) return;
 }
 
 async function saveAdminHeroForm(form) {
@@ -59977,7 +60040,7 @@ function renderAdminTrustSection() {
   const target = document.querySelector("#adminTrustApp");
   if (!target || !isAdminUnlocked()) return;
   const homepage = (effectiveSiteContent().homepage || {});
-  target.innerHTML = `
+  if (!assignAdminSiteEditorHtml(target, `
     <div class="section-heading">
       <div><p class="eyebrow">Site Editor</p><h3>Provider Trust &amp; Showcase Sections <span class="se-status-badge se-live">🟢 Live</span></h3></div>
     </div>
@@ -60021,7 +60084,7 @@ function renderAdminTrustSection() {
       </div>
       <span class="form-message" id="adminTrustMessage"></span>
     </form>
-  `;
+  `)) return;
 }
 
 async function saveAdminTrustForm(form) {
@@ -60073,7 +60136,7 @@ function renderAdminJourneySection() {
   if (!target || !isAdminUnlocked()) return;
   const homepage = (effectiveSiteContent().homepage || {});
   const whyText = (homepage.whyItems || []).map((item) => item.title).join("\n");
-  target.innerHTML = `
+  if (!assignAdminSiteEditorHtml(target, `
     <div class="section-heading">
       <div><p class="eyebrow">Site Editor</p><h3>Journey, How It Works &amp; Why Section <span class="se-status-badge se-live">🟢 Live</span></h3></div>
     </div>
@@ -60111,7 +60174,7 @@ function renderAdminJourneySection() {
       </div>
       <span class="form-message" id="adminJourneyMessage"></span>
     </form>
-  `;
+  `)) return;
 }
 
 async function saveAdminJourneyForm(form) {
@@ -60157,7 +60220,7 @@ function renderAdminReviewsCtaSection() {
   const target = document.querySelector("#adminReviewsCtaApp");
   if (!target || !isAdminUnlocked()) return;
   const homepage = (effectiveSiteContent().homepage || {});
-  target.innerHTML = `
+  if (!assignAdminSiteEditorHtml(target, `
     <div class="section-heading">
       <div><p class="eyebrow">Site Editor</p><h3>Reviews &amp; Final CTA Sections <span class="se-status-badge se-live">🟢 Live</span></h3></div>
     </div>
@@ -60188,7 +60251,7 @@ function renderAdminReviewsCtaSection() {
       </div>
       <span class="form-message" id="adminReviewsCtaMessage"></span>
     </form>
-  `;
+  `)) return;
 }
 
 async function saveAdminReviewsCtaForm(form) {
@@ -60222,7 +60285,7 @@ function renderAdminFoundingSection() {
   if (!target || !isAdminUnlocked()) return;
   const f = (effectiveSiteContent().founding || {});
   const isDraft = f._draft === true;
-  target.innerHTML = `
+  if (!assignAdminSiteEditorHtml(target, `
     <div class="section-heading">
       <div><p class="eyebrow">Site Editor</p><h3>Founding Member Section ${adminDraftStatusBadge(isDraft)}</h3></div>
     </div>
@@ -60254,7 +60317,7 @@ function renderAdminFoundingSection() {
       </div>
       <span class="form-message" id="adminFoundingMessage"></span>
     </form>
-  `;
+  `)) return;
 }
 
 async function saveAdminFoundingForm(form) {
@@ -60293,7 +60356,7 @@ function renderAdminPricingSection() {
   const isDraft = pricing._draft === true;
   const freeFeaturesText = (pricing.freePlanFeatures || []).join("\n");
   const proFeaturesText = (pricing.proPlanFeatures || []).join("\n");
-  target.innerHTML = `
+  if (!assignAdminSiteEditorHtml(target, `
     <div class="section-heading">
       <div><p class="eyebrow">Site Editor</p><h3>Pricing Section ${adminDraftStatusBadge(isDraft)}</h3></div>
     </div>
@@ -60353,7 +60416,7 @@ function renderAdminPricingSection() {
       </div>
       <span class="form-message" id="adminPricingMessage"></span>
     </form>
-  `;
+  `)) return;
 }
 
 async function saveAdminPricingForm(form) {
@@ -60436,7 +60499,7 @@ function renderAdminFreePlanAccessSection() {
     const pad = (n) => String(n).padStart(2, "0");
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   })();
-  target.innerHTML = `
+  if (!assignAdminSiteEditorHtml(target, `
     <div class="section-heading">
       <div><p class="eyebrow">Site Editor</p><h3>Free Plan Access <span class="se-status-badge se-live">🟢 Live</span></h3></div>
     </div>
@@ -60481,7 +60544,7 @@ function renderAdminFreePlanAccessSection() {
       </div>
       <span class="form-message" id="adminFreePlanAccessMessage"></span>
     </form>
-  `;
+  `)) return;
 }
 
 function adminFeaturedThisWeekEditorHtml() {
@@ -60718,7 +60781,7 @@ function renderAdminFaqsSection() {
   const content = effectiveSiteContent();
   const faqs = (content.faqs || []).slice().sort((a, b) => (a.order || 0) - (b.order || 0));
   const editFaq = faqs.find((f) => f.id === adminFaqEditId) || null;
-  target.innerHTML = `
+  if (!assignAdminSiteEditorHtml(target, `
     <div class="section-heading">
       <div><p class="eyebrow">Site Editor</p><h3>FAQ Manager</h3></div>
       <button class="ghost-button" type="button" id="adminNewFaqButton">+ Add FAQ</button>
@@ -60754,7 +60817,7 @@ function renderAdminFaqsSection() {
       </div>
       <span class="form-message" id="adminFaqMessage"></span>
     </form>
-  `;
+  `)) return;
 }
 
 async function saveAdminFaqForm(form) {
@@ -60838,7 +60901,7 @@ function renderAdminAnnouncementSection() {
   let statusLabel = adminDraftStatusBadge(isDraft);
   if (!isDraft && isVisible) statusLabel = isExpired ? `<span class="se-status-badge se-draft">⏰ Expired</span>` : `<span class="se-status-badge se-live">🟢 Showing</span>`;
   if (!isDraft && !isVisible) statusLabel = `<span class="se-status-badge">⭕ Hidden</span>`;
-  target.innerHTML = `
+  if (!assignAdminSiteEditorHtml(target, `
     <div class="section-heading">
       <div><p class="eyebrow">Site Editor</p><h3>Site Announcement ${statusLabel}</h3></div>
     </div>
@@ -60872,7 +60935,7 @@ function renderAdminAnnouncementSection() {
       </div>
       <span class="form-message" id="adminAnnouncementMessage"></span>
     </form>
-  `;
+  `)) return;
 }
 
 async function saveAdminAnnouncementForm(form) {
@@ -60919,7 +60982,7 @@ function renderAdminPromoCodesSection() {
         <p class="muted-copy">Redemption counts come from the shared <code>promoRedemptions</code> ledger (filtered by normalized code) — not separate per row.</p>
       </div>`
     : "";
-  target.innerHTML = `
+  if (!assignAdminSiteEditorHtml(target, `
     <div class="section-heading">
       <div>
         <p class="eyebrow">Growth</p>
@@ -60979,7 +61042,7 @@ function renderAdminPromoCodesSection() {
         <div class="analytics-row"><span>${escapeHtml(r.email || "")}</span><strong>${escapeHtml(r.code || "")}</strong><small>${escapeHtml(r.redeemedAt ? new Date(r.redeemedAt).toLocaleString() : "")}</small></div>
       `).join("") : `<div class="empty-state">No redemptions recorded yet.</div>`}
     </article>
-  `;
+  `)) return;
 }
 
 function renderAdminInAppAnnouncementsSection() {
@@ -60989,7 +61052,7 @@ function renderAdminInAppAnnouncementsSection() {
     loadAdminInAppAnnouncements().then(() => renderAdminInAppAnnouncementsSection());
   }
   const items = adminCommsAnnouncementsState.items || [];
-  target.innerHTML = `
+  if (!assignAdminSiteEditorHtml(target, `
     <div class="section-heading">
       <div>
         <p class="eyebrow">Communication Center</p>
@@ -61051,7 +61114,7 @@ function renderAdminInAppAnnouncementsSection() {
         </tbody>
       </table>
     </div>
-  `;
+  `)) return;
 }
 
 // ── Upgrade Messaging ──
@@ -61063,7 +61126,7 @@ function renderAdminUpgradeMsgSection() {
   const content = effectiveSiteContent();
   const um = content.upgradeMessaging || {};
   const isDraft = um._draft === true;
-  target.innerHTML = `
+  if (!assignAdminSiteEditorHtml(target, `
     <div class="section-heading">
       <div><p class="eyebrow">Site Editor</p><h3>Upgrade &amp; Trial Messaging ${adminDraftStatusBadge(isDraft)}</h3></div>
     </div>
@@ -61093,7 +61156,7 @@ function renderAdminUpgradeMsgSection() {
       </div>
       <span class="form-message" id="adminUpgradeMsgMessage"></span>
     </form>
-  `;
+  `)) return;
 }
 
 async function saveAdminUpgradeMsgForm(form) {
