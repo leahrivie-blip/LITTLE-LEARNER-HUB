@@ -11,6 +11,7 @@ const schema = require("./curriculum-operator-schema.js");
 const structurePaste = require("./curriculum-lesson-structure-paste.js");
 const orchestrator = require("./curriculum-operator-orchestrator.js");
 const printableAgeBand = require("./curriculum-operator-printable-age-band.js");
+const intentRouter = require("./curriculum-operator-intent-router.js");
 
 const WEEKDAYS = Object.freeze(["monday", "tuesday", "wednesday", "thursday", "friday"]);
 
@@ -523,11 +524,9 @@ function buildOperatorCreateAiFixtureResponse(userPrompt) {
 function isCreateLessonCommand(rawCommand) {
   const raw = String(rawCommand || "");
   if (printableAgeBand.isPrintableExistingLessonCommand(raw)) return false;
-  return (
-    /\b(create|make|build)\b.+\b(new\s+)?(lessons?|weeks?|kits?)\b/i.test(raw)
-    || /\bmake\s+me\s+a\s+new\b/i.test(raw)
-    || /\bcreate\s+an?\s+(infant|toddler|preschool|pro|free)\b/i.test(raw)
-  );
+  return intentRouter.detectNewLessonIntent(raw, {
+    existingLessonIntent: intentRouter.detectExistingLessonReferences(raw).existingLessonIntent,
+  });
 }
 
 module.exports = {

@@ -7,6 +7,7 @@
 const schema = require("./curriculum-operator-schema.js");
 const orchestrator = require("./curriculum-operator-orchestrator.js");
 const createApi = require("./curriculum-operator-create.js");
+const intentRouter = require("./curriculum-operator-intent-router.js");
 
 function parseCount(command) {
   const m = String(command || "").match(/\b(?:top|next|first|the)?\s*(\d{1,2})\b/i)
@@ -63,14 +64,23 @@ function parseOperatorCommand(rawCommand, options = {}) {
   const actions = schema.emptyActionsFlags();
   const count = parseCount(raw);
   const plan = parsePlan(raw);
-  const ageBand = parseAgeBand(raw);
-  const titles = extractNamedLessonHints(raw);
-  let selection = "filter";
+  let ageBand = parseAgeBand(raw);
+  const phase = schema.clampInt(options.phase, 1, 8, 6);
+  let titles = extractNamedLessonHints(raw);
+  const ownerIntent = intentRouter.resolveOwnerIntent(raw, {
+    phase,
+    currentlySelectedLessonId: options.currentlySelectedLessonId,
+    lessonPlans: options.lessonPlans || [],
+  });
+  if (ownerIntent.lessonReference.titles.length) {
+    titles = [...new Set([...titles, ...ownerIntent.lessonReference.titles])];
+  }
+  let lessonIds = ownerIntent.lessonReference.lessonIds.slice();
+  let selection = ownerIntent.lessonReference.selection || "filter";
   let intent = "audit";
   let updatedSince = null;
-  let ambiguous = false;
-  const confirmReasons = [];
-  const phase = schema.clampInt(options.phase, 1, 8, 6);
+  let ambiguous = ownerIntent.needsClarification;
+  const confirmReasons = [...ownerIntent.clarificationReasons];
   const exclusions = orchestrator.parseExclusionHints(raw);
   exclusions.notes.forEach((n) => notes.push(n));
   Object.assign(actions, {
@@ -107,9 +117,13 @@ function parseOperatorCommand(rawCommand, options = {}) {
     || /\bmissing\s+printables?\b/i.test(raw) || /\bneed(?:s)?\s+printables?\b/i.test(raw)) {
     selection = "weak_printables";
     actions.checkPrintables = true;
+  } else if (ownerIntent.lessonReference.lessonIds.length === 1) {
+    selection = "explicit_ids";
+  } else if (lessonIds.length === 1) {
+    selection = "explicit_ids";
   } else if (titles.length) {
     selection = "named_titles";
-  } else if (options.currentlySelectedLessonId && /\b(this|current|selected)\s+lesson\b/i.test(raw)) {
+  } else if (options.currentlySelectedLessonId && ownerIntent.lessonReference.selection === "currently_selected") {
     selection = "currently_selected";
   }
 
@@ -136,10 +150,11 @@ function parseOperatorCommand(rawCommand, options = {}) {
     && !/\b(upgrade|improve|including|lesson\s+content|text|fields|pictures?|images?)\b/i.test(raw);
   const wantsUpgrade = /\b(upgrade|improve|finish|complete|make\s+ready|fill\s+(?:the\s+)?missing|ready\s+for\s+(?:me\s+to\s+)?review)\b/i.test(raw)
     || (/\bfix\b/i.test(raw) && !imageFocusedFix && !mentionsImages);
-  const isCreateCommand = !createApi.isPrintableExistingLessonCommand(raw)
-    && (createApi.isCreateLessonCommand(raw)
-    || (/\b(create|make\s+me|build)\b.+\b(lessons?|weeks?|kits?)\b/i.test(raw)
-      && !/\b(upgrade|finish|fix)\b.+\b(existing|this)\s+lesson\b/i.test(raw)));
+  let isCreateCommand = ownerIntent.forceCreateLesson
+    ? true
+    : (ownerIntent.forceNotCreateLesson
+      ? false
+      : createApi.isCreateLessonCommand(raw));
   const noTouchImages = exclusions.flags.touchImages === false;
   const replaceBadOnly = /\b(keep\s+(?:all\s+)?good|only\s+replace\s+(?:the\s+)?bad|replace\s+(?:the\s+)?bad)\b/i.test(raw);
   const fullKitFinish = phase >= 6 && orchestrator.isFullKitFinishCommand(raw)
@@ -389,6 +404,44 @@ function parseOperatorCommand(rawCommand, options = {}) {
     }
   }
 
+  intentRouter.applyIntentRouting({
+    raw,
+    phase,
+    titles,
+    lessonIds,
+    selection,
+    intent,
+    actions,
+    notes,
+    ageBand,
+    plan,
+    isCreateCommand,
+    ambiguous,
+    confirmReasons,
+  }, ownerIntent);
+  selection = ownerIntent.lessonReference.lessonIds.length === 1
+    ? "explicit_ids"
+    : selection;
+  lessonIds = ownerIntent.lessonReference.lessonIds.length
+    ? ownerIntent.lessonReference.lessonIds.slice()
+    : lessonIds;
+  if (ownerIntent.inheritFromLesson?.ageBand) ageBand = ownerIntent.inheritFromLesson.ageBand;
+  if (ownerIntent.inheritFromLesson?.accessPlan && !plan) {
+    // plan variable is const — scope uses inherited access at selection time via lesson record
+  }
+  if (ownerIntent.needsClarification) ambiguous = true;
+  isCreateCommand = ownerIntent.forceNotCreateLesson ? false : isCreateCommand;
+  if (ownerIntent.forceCreateLesson) isCreateCommand = true;
+  if (confirmReasons.includes("scope_review_required")) {
+    isCreateCommand = false;
+  }
+  if (isCreateCommand) {
+    intent = "create_lesson";
+    actions.createLesson = true;
+  } else {
+    actions.createLesson = false;
+  }
+
   const command = schema.normalizeOperatorCommand({
     rawCommand: raw,
     intent,
@@ -397,7 +450,7 @@ function parseOperatorCommand(rawCommand, options = {}) {
       count: count || schema.DEFAULT_LIMITS.maxLessons,
       plan,
       ageBand,
-      lessonIds: [],
+      lessonIds,
       titles,
       updatedSince,
       currentlySelectedLessonId: options.currentlySelectedLessonId || null,
@@ -417,6 +470,14 @@ function parseOperatorCommand(rawCommand, options = {}) {
 
   return {
     command,
+    ownerIntent: {
+      route: ownerIntent.route,
+      assetCategory: ownerIntent.assetCategory,
+      existingLessonIntent: ownerIntent.existingLessonIntent,
+      newLessonIntent: ownerIntent.newLessonIntent,
+      needsClarification: ownerIntent.needsClarification,
+      inheritFromLesson: ownerIntent.inheritFromLesson,
+    },
     ambiguous,
     needsConfirmation: ambiguous
       || confirmReasons.includes("publish_requested")

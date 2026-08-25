@@ -1912,6 +1912,7 @@ function createCurriculumOperatorApi(deps) {
       const parsed = commandApi.parseOperatorCommand(body.command || body.rawCommand || "", {
         currentlySelectedLessonId: body.currentlySelectedLessonId,
         phase,
+        lessonPlans: schema.asArray(curriculum?.lessonPlans),
       });
       jsonResponse(response, 200, {
         ok: true,
@@ -1933,6 +1934,7 @@ function createCurriculumOperatorApi(deps) {
         : commandApi.parseOperatorCommand(body.command || body.rawCommand || "", {
           currentlySelectedLessonId: body.currentlySelectedLessonId,
           phase,
+          lessonPlans: schema.asArray(curriculum?.lessonPlans),
         });
 
       const command = parsed.command;
@@ -1956,7 +1958,14 @@ function createCurriculumOperatorApi(deps) {
 
       let selection;
       if (wantsCreate(command)) {
-        const briefResult = createApi.parseCreationBrief(command.rawCommand || "", { defaultAccessPlan: "Free" });
+        const inheritParent = parsed.ownerIntent?.inheritFromLesson
+          ? schema.asArray(curriculum?.lessonPlans).find((p) => p.id === parsed.ownerIntent.inheritFromLesson.lessonId)
+          : null;
+        const briefResult = createApi.parseCreationBrief(command.rawCommand || "", {
+          defaultAccessPlan: inheritParent?.plan === "Pro" ? "Pro" : (parsed.ownerIntent?.inheritFromLesson?.accessPlan || "Free"),
+          parentLesson: inheritParent || undefined,
+          ageBand: parsed.ownerIntent?.inheritFromLesson?.ageBand || undefined,
+        });
         if (!briefResult.ok) {
           const ageOnly = (briefResult.needsOwnerInput || []).length === 1
             && briefResult.needsOwnerInput[0] === "age_band";
