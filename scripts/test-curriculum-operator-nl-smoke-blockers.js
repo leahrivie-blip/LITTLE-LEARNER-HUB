@@ -239,4 +239,35 @@ console.log("\nG. connected_run auto-apply helper unchanged");
   ok(bundle.accessPlan === "Free", "connected plan inherits Free");
 }
 
+console.log("\nH. LMW-style auto-apply command routes connected upgrade (not finish_images)");
+{
+  const LMW_ID = "cur-lp-549b80f61dfa8d79";
+  const cmd = [
+    "fix Little Makers Workshop completely and make it ready for me to review.",
+    "Improve all weak or missing draft content.",
+    "Review the books and songs.",
+    "Review all existing pictures.",
+    "Review the printables already linked to Little Makers Workshop.",
+    "Create the actual useful printables this lesson needs.",
+    "Attach the finished draft printables to this same lesson.",
+    "Do not create a new lesson.",
+    "Auto-apply the completed upgrade into the existing lesson.",
+    "Do not publish anything.",
+  ].join(" ");
+  const parsed = commandApi.parseOperatorCommand(cmd, {
+    phase: 7,
+    lessonPlans: [{
+      id: LMW_ID,
+      title: "Little Makers Workshop",
+      age: "Toddler 12–24 Months",
+      plan: "Free",
+    }],
+  });
+  ok(parsed.ownerIntent.route === "existing_connected_upgrade", "LMW long command routes connected upgrade");
+  ok(parsed.command.actions.connectedUpgrade === true, "connectedUpgrade enabled");
+  ok(parsed.command.actions.connectedAutoApply === true, "connectedAutoApply enabled");
+  ok(parsed.command.intent !== "finish_images", "not misrouted to finish_images-only");
+  ok(parsed.ambiguous !== true, "named lesson + auto-apply does not false-ambiguous");
+}
+
 console.log(`\nNL smoke blockers passed ${passed} assertions`);

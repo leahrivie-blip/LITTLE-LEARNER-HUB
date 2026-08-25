@@ -230,7 +230,9 @@ function detectExistingLessonReferences(rawCommand, options = {}) {
     titles,
     lessonIds: resolvedLessons.map((r) => r.id),
     resolvedLessons,
-    refersToThisLesson: refersToThisLesson || shortSelectedMutation,
+    refersToThisLesson,
+    shortSelectedMutation,
+    usesSelectedContext: refersToThisLesson || shortSelectedMutation,
     selectedLessonId: selectedId,
     source,
     existingLessonIntent: Boolean(
@@ -249,6 +251,8 @@ function detectExistingLessonReferences(rawCommand, options = {}) {
  */
 function detectNewLessonIntent(rawCommand, context = {}) {
   const raw = text(rawCommand);
+  if (/\bdo\s+not\s+create\s+(?:a\s+)?new\s+lesson\b/i.test(raw)) return false;
+  if (/\b(?:same|existing)\s+lesson\s+id\b/i.test(raw)) return false;
   if (context.existingLessonIntent) return false;
   if (printableAgeBand.isPrintableExistingLessonCommand(raw)) return false;
   if (/\b(?:create|make|build)\s+\d{1,2}\s+new\s+lessons?\b/i.test(raw)) return true;
@@ -292,6 +296,9 @@ function detectAssetCategories(rawCommand) {
   const multiAsset = [cover, printable, image, songsBooks].filter(Boolean).length > 1;
   const broadUpgrade = multiAsset
     || /\bpublish[\s-]?ready\b/i.test(raw)
+    || /\bauto[\s-]?apply\b/i.test(raw)
+    || /\b(?:fix|upgrade|improve|finish|complete)\b/i.test(raw)
+      && /\b(?:completely|everything|all\s+weak|teaching\s+kit|ready\s+for\s+(?:me\s+to\s+)?review)\b/i.test(raw)
     || /\bfinish\s+(?:everything|the\s+teaching\s+kit|this\s+lesson|it)\b/i.test(raw)
     || /\bimprove\s+(?:this|it)\b/i.test(raw)
     || /\beverything\s+missing\b/i.test(raw)
@@ -393,6 +400,14 @@ function resolveOwnerIntent(rawCommand, options = {}) {
     needsClarification = true;
     clarificationReasons.push("missing_selected_lesson");
     route = ROUTES.AMBIGUOUS;
+  } else if (
+    lessonRef.shortSelectedMutation
+    && !options.currentlySelectedLessonId
+    && lessonRef.resolvedLessons.length !== 1
+  ) {
+    needsClarification = true;
+    clarificationReasons.push("ambiguous_scope");
+    route = ROUTES.AMBIGUOUS;
   }
 
   if (lessonRef.titles.length && !lessonRef.resolvedLessons.length && (options.lessonPlans || []).length) {
@@ -407,9 +422,21 @@ function resolveOwnerIntent(rawCommand, options = {}) {
 
   const selection = lessonRef.lessonIds.length === 1
     ? "explicit_ids"
-    : (lessonRef.refersToThisLesson && options.currentlySelectedLessonId
+    : (lessonRef.usesSelectedContext && options.currentlySelectedLessonId
       ? "currently_selected"
       : (lessonRef.titles.length ? "named_titles" : "filter"));
+
+  if (
+    /\bauto[\s-]?apply\b/i.test(raw)
+    && lessonRef.existingLessonIntent
+    && lessonRef.resolvedLessons.length === 1
+    && !newLessonIntent
+  ) {
+    route = ROUTES.EXISTING_CONNECTED_UPGRADE;
+    needsClarification = false;
+    clarificationReasons.length = 0;
+    notes.push("Explicit auto-apply request — routing to connected upgrade for the resolved existing lesson.");
+  }
 
   return {
     route,
