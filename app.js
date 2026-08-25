@@ -5719,6 +5719,12 @@ async function syncSubscriptionFromBackend(email, options = {}) {
     if (typeof data?.subscription?.programAccessViaOwner === "boolean") {
       updates.programAccessViaOwner = data.subscription.programAccessViaOwner;
     }
+    if (data?.subscription?.accessInheritedFromOwner != null) {
+      updates.accessInheritedFromOwner = data.subscription.accessInheritedFromOwner || "";
+    }
+    if (typeof data?.subscription?.independentlySubscribed === "boolean") {
+      updates.independentlySubscribed = data.subscription.independentlySubscribed;
+    }
     if (typeof data?.subscription?.multiRoleTester === "boolean") {
       updates.multiRoleTester = data.subscription.multiRoleTester;
     }
@@ -21826,10 +21832,19 @@ function hasTestingProEntitlement() {
   return true;
 }
 
+function hasInheritedProgramProAccess(account = currentAccount()) {
+  if (!account) return false;
+  if (account.programAccessViaOwner) return true;
+  if (account.accessInheritedFromOwner) return account.hasProAccess !== false;
+  const linked = String(account.linkedProgramOwnerEmail || "").trim().toLowerCase();
+  const email = String(account.email || currentUser || "").trim().toLowerCase();
+  return Boolean(linked && email && linked !== email && account.hasProAccess === true);
+}
+
 function isProUser() {
   if (adminAccessOverridesMemberPlan()) return true;
   if (hasTestingProEntitlement()) return true;
-  if (currentAccount()?.programAccessViaOwner) return true;
+  if (hasInheritedProgramProAccess()) return true;
   if (isSignedInPlatformOwner()) return true;
   return accessRank[effectiveAccessPlan()] >= accessRank.Pro;
 }
@@ -21842,7 +21857,7 @@ function membershipDisplayStatus(account = currentAccount()) {
   const product = accountProductStatus(account);
   if (!currentUser) return product;
   if (product.hasProAccess) return product;
-  if (account?.programAccessViaOwner) {
+  if (hasInheritedProgramProAccess(account)) {
     return {
       ...product,
       key: "program_access",
@@ -43291,6 +43306,7 @@ async function refreshStaffInvitesFromBackend() {
   staffInviteRemoteCache = {
     invites: Array.isArray(data.invites) ? data.invites : [],
     members: Array.isArray(data.members) ? data.members : [],
+    seats: data.seats || null,
     emailDeliveryReady: Boolean(data.emailDeliveryReady),
     loadedAt: Date.now(),
   };
@@ -43314,7 +43330,16 @@ function renderStaffManagementPage(options = {}) {
   }
   const cache = staffInviteRemoteCache;
   const invites = cache.invites?.length ? cache.invites : centerProgramData().staffInvites;
-  const members = Array.isArray(cache.members) ? cache.members : [];
+  const members = (Array.isArray(cache.members) ? cache.members : [])
+    .filter((member) => String(member.status || "active") === "active");
+  const pendingInvites = invites.filter((invite) => invite.status === "pending");
+  const seats = cache.seats || {
+    used: members.length + pendingInvites.length,
+    max: 5,
+    remaining: Math.max(0, 5 - members.length - pendingInvites.length),
+    canInvite: (members.length + pendingInvites.length) < 5,
+  };
+  const atStaffCap = !seats.canInvite;
   const classrooms = activeScheduleClassrooms();
   const account = currentAccount() || {};
   const programOwnerEmail = account.linkedProgramOwnerEmail || currentUser || "";
@@ -43366,10 +43391,13 @@ function renderStaffManagementPage(options = {}) {
                 <strong>${escapeHtml(member.email || "Staff")}</strong>
                 <p class="muted-copy">${escapeHtml(member.role || "teacher")} · active${member.classroomName ? ` · ${escapeHtml(member.classroomName)}` : ""}${member.joinedAt ? ` · joined ${escapeHtml(String(member.joinedAt).slice(0, 10))}` : ""}</p>
               </div>
-              <span class="tag">Active</span>
+              <div class="account-actions-row">
+                <span class="tag">Active</span>
+                ${!isLinkedMember ? `<button class="ghost-button" type="button" data-staff-member-remove="${escapeHtml(member.email || "")}">Remove</button>` : ""}
+              </div>
             </article>
           `).join("")}
-          ${invites.filter((invite) => invite.status === "pending").map((invite) => `
+          ${pendingInvites.map((invite) => `
             <article class="platform-manage-row">
               <div>
                 <strong>${escapeHtml(invite.email || "Invite")}</strong>
@@ -43386,6 +43414,10 @@ function renderStaffManagementPage(options = {}) {
       </section>
       <section class="section-block platform-manage-card">
         <h3>Invite staff</h3>
+        <p class="muted-copy">${escapeHtml(`${seats.used} / ${seats.max} staff seats used`)}</p>
+        ${atStaffCap ? `
+        <p class="form-message" id="staffInviteMessage">You’ve reached the 5 staff limit for your beta account.</p>
+        ` : `
         <form id="staffInviteForm" class="mini-form platform-manage-form">
           <label>Email<input name="email" type="email" required placeholder="teacher@example.com" /></label>
           <label>Role
@@ -43406,6 +43438,7 @@ function renderStaffManagementPage(options = {}) {
           <p class="form-note">${escapeHtml(emailNote)}</p>
           <span class="form-message" id="staffInviteMessage" aria-live="polite"></span>
         </form>
+        `}
       </section>
     `,
   });
@@ -52308,7 +52341,7 @@ function effectiveAccessPlan() {
   if (isSignedInPlatformOwner()) return "Founding";
   if (currentUser) {
     const account = currentAccount();
-    if (account?.programAccessViaOwner) {
+    if (hasInheritedProgramProAccess(account)) {
       return normalizeBillingPlan(account?.plan || "Pro", account) === "Free" ? "Pro" : normalizeBillingPlan(account?.plan || "Pro", account);
     }
     const resolved = accountHasPaidBilling(account) ? normalizeBillingPlan(account?.plan || currentPlan, account) : "Free";
@@ -69379,6 +69412,30 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const staffMemberRemove = event.target.closest("[data-staff-member-remove]");
+  if (staffMemberRemove) {
+    event.preventDefault();
+    const memberEmail = staffMemberRemove.dataset.staffMemberRemove;
+    (async () => {
+      try {
+        const headers = await staffAuthHeaders();
+        if (!headers || !canUseLaunchBackend()) throw new Error("Staff removal needs the live server.");
+        const response = await fetch(`/api/staff/members/${encodeURIComponent(memberEmail)}`, {
+          method: "DELETE",
+          headers,
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result?.error || "Could not remove staff.");
+        await refreshStaffInvitesFromBackend();
+        renderStaffManagementPage({ refresh: false });
+        showActionFeedback("Staff member removed.");
+      } catch (error) {
+        window.alert(error.message || "Could not remove staff.");
+      }
+    })();
+    return;
+  }
+
   const staffInviteRemove = event.target.closest("[data-staff-invite-remove]");
   if (staffInviteRemove) {
     event.preventDefault();
@@ -79081,6 +79138,11 @@ document.addEventListener("submit", async (event) => {
   if (event.target?.id === "staffInviteForm") {
     event.preventDefault();
     if (!canAccessPlatformFeature("staff_management") || !canAccessStaffBeta()) return;
+    if (staffInviteRemoteCache.seats && staffInviteRemoteCache.seats.canInvite === false) {
+      const capMessage = document.querySelector("#staffInviteMessage");
+      if (capMessage) capMessage.textContent = "You’ve reached the 5 staff limit for your beta account.";
+      return;
+    }
     const form = event.target;
     const message = document.querySelector("#staffInviteMessage");
     const data = collectFormData(form);

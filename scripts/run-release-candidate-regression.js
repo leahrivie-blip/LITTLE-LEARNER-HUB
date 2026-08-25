@@ -24,6 +24,8 @@ const SUITES = [
   { name: "Account access", cmd: "npm", args: ["run", "test:account-access"] },
   { name: "Login/logout session", cmd: "npm", args: ["run", "test:login-logout-session-audit"] },
   { name: "Staff invite flow", cmd: "npm", args: ["run", "test:staff-invite-flow"] },
+  { name: "Staff entitlement unit", cmd: "npm", args: ["run", "test:staff-entitlement"] },
+  { name: "Staff entitlement inheritance", cmd: "npm", args: ["run", "test:staff-entitlement-inheritance"] },
   { name: "Daily logs + attendance", cmd: "npm", args: ["run", "test:daily-logs-attendance"] },
   { name: "Child data sync", cmd: "npm", args: ["run", "test:child-data-sync"] },
   { name: "Messaging regression", cmd: "npm", args: ["run", "test:messaging-regression"] },

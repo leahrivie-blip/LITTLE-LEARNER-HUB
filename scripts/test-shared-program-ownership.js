@@ -165,6 +165,7 @@ async function main() {
       PORT: String(PORT),
       LLH_STORE_PATH: STORE,
       ADMIN_EMAIL,
+      ADMIN_EMAILS: `${OWNER},${DIRECTOR}`,
       ADMIN_PASSWORD,
       ADMIN_ACCESS_CODE: ADMIN_CODE,
       FIREBASE_API_KEY: "",
