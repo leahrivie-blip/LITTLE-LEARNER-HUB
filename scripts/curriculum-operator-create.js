@@ -10,6 +10,8 @@ const crypto = require("crypto");
 const schema = require("./curriculum-operator-schema.js");
 const structurePaste = require("./curriculum-lesson-structure-paste.js");
 const orchestrator = require("./curriculum-operator-orchestrator.js");
+const printableAgeBand = require("./curriculum-operator-printable-age-band.js");
+const intentRouter = require("./curriculum-operator-intent-router.js");
 
 const WEEKDAYS = Object.freeze(["monday", "tuesday", "wednesday", "thursday", "friday"]);
 
@@ -65,7 +67,15 @@ function creationIdempotencyKey(brief) {
 function parseCreationBrief(rawCommand, options = {}) {
   const raw = text(rawCommand, 4000);
   const exclusions = orchestrator.parseExclusionHints(raw);
-  const ageBand = schema.normalizeAgeBand(raw) || options.ageBand || null;
+  const parentResolved = options.parentLesson
+    ? printableAgeBand.resolvePrintableAgeBand(options.parentLesson, {
+      fallbackAgeBand: options.ageBand || null,
+    })
+    : null;
+  const ageBand = schema.normalizeAgeBand(raw)
+    || options.ageBand
+    || (parentResolved?.ok ? parentResolved.ageBand : null)
+    || null;
   let accessPlan = null;
   if (/\bpro\b/i.test(raw)) accessPlan = "Pro";
   else if (/\bfree\b/i.test(raw)) accessPlan = "Free";
@@ -513,11 +523,10 @@ function buildOperatorCreateAiFixtureResponse(userPrompt) {
 
 function isCreateLessonCommand(rawCommand) {
   const raw = String(rawCommand || "");
-  return (
-    /\b(create|make|build)\b.+\b(new\s+)?(lessons?|weeks?|kits?)\b/i.test(raw)
-    || /\bmake\s+me\s+a\s+new\b/i.test(raw)
-    || /\bcreate\s+an?\s+(infant|toddler|preschool|pro|free)\b/i.test(raw)
-  );
+  if (printableAgeBand.isPrintableExistingLessonCommand(raw)) return false;
+  return intentRouter.detectNewLessonIntent(raw, {
+    existingLessonIntent: intentRouter.detectExistingLessonReferences(raw).existingLessonIntent,
+  });
 }
 
 module.exports = {
@@ -535,6 +544,7 @@ module.exports = {
   qualityReviewNewLesson,
   buildOperatorCreateAiFixtureResponse,
   isCreateLessonCommand,
+  isPrintableExistingLessonCommand: printableAgeBand.isPrintableExistingLessonCommand,
   ageLabel,
   defaultActivityTarget,
 };

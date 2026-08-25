@@ -21,6 +21,7 @@ const jobApi = require("../scripts/curriculum-operator-job.js");
 const createApi = require("../scripts/curriculum-operator-create.js");
 const createArchitect = require("../scripts/curriculum-operator-create-architect.js");
 const connectedUpgradeApi = require("../scripts/curriculum-operator-connected-upgrade.js");
+const printableAgeBand = require("../scripts/curriculum-operator-printable-age-band.js");
 
 const ACTIONS = Object.freeze([
   "parse",
@@ -1911,6 +1912,7 @@ function createCurriculumOperatorApi(deps) {
       const parsed = commandApi.parseOperatorCommand(body.command || body.rawCommand || "", {
         currentlySelectedLessonId: body.currentlySelectedLessonId,
         phase,
+        lessonPlans: schema.asArray(curriculum?.lessonPlans),
       });
       jsonResponse(response, 200, {
         ok: true,
@@ -1932,6 +1934,7 @@ function createCurriculumOperatorApi(deps) {
         : commandApi.parseOperatorCommand(body.command || body.rawCommand || "", {
           currentlySelectedLessonId: body.currentlySelectedLessonId,
           phase,
+          lessonPlans: schema.asArray(curriculum?.lessonPlans),
         });
 
       const command = parsed.command;
@@ -1955,8 +1958,28 @@ function createCurriculumOperatorApi(deps) {
 
       let selection;
       if (wantsCreate(command)) {
-        const briefResult = createApi.parseCreationBrief(command.rawCommand || "", { defaultAccessPlan: "Free" });
+        const inheritParent = parsed.ownerIntent?.inheritFromLesson
+          ? schema.asArray(curriculum?.lessonPlans).find((p) => p.id === parsed.ownerIntent.inheritFromLesson.lessonId)
+          : null;
+        const briefResult = createApi.parseCreationBrief(command.rawCommand || "", {
+          defaultAccessPlan: inheritParent?.plan === "Pro" ? "Pro" : (parsed.ownerIntent?.inheritFromLesson?.accessPlan || "Free"),
+          parentLesson: inheritParent || undefined,
+          ageBand: parsed.ownerIntent?.inheritFromLesson?.ageBand || undefined,
+        });
         if (!briefResult.ok) {
+          const ageOnly = (briefResult.needsOwnerInput || []).length === 1
+            && briefResult.needsOwnerInput[0] === "age_band";
+          const ownerInput = ageOnly
+            ? printableAgeBand.buildPrintableAgeBandOwnerInputError({
+              debug: {
+                lessonId: null,
+                lessonTitle: briefResult.brief?.title || null,
+                rawAgeFields: printableAgeBand.pickRawAgeFields(null),
+                acceptedAgeBands: printableAgeBand.SUPPORTED_AGE_BANDS,
+                reason: "creation_brief_missing_age_band",
+              },
+            })
+            : null;
           jsonResponse(response, 409, {
             ok: false,
             code: "NEEDS_OWNER_INPUT",
@@ -1964,6 +1987,7 @@ function createCurriculumOperatorApi(deps) {
             command,
             needsOwnerInput: briefResult.needsOwnerInput,
             creationBrief: briefResult.brief,
+            ...(ownerInput ? { ageBandDebug: ownerInput } : {}),
           });
           return;
         }
