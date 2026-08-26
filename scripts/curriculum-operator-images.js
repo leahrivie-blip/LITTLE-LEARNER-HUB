@@ -355,35 +355,54 @@ function buildActivityImagePrompt({ plan, activity, draftActivity, field, concep
     : activity;
   const briefField = field === "exampleImageUrl" ? "imageBriefExample" : "imageBriefSetup";
   const existingBrief = text(draftActivity?.[briefField] || activity?.[briefField], 800);
-  if (existingBrief) return existingBrief;
-  if (text(concept, 800)) return text(concept, 800);
+  const promptBuilder = require("./visual-prompt-builder.js");
+  const bundle = promptBuilder.buildVisualPrompt({
+    assetMode: field === "exampleImageUrl"
+      ? promptBuilder.ASSET_MODES.REALISTIC_ACTIVITY_EXAMPLE
+      : promptBuilder.ASSET_MODES.REALISTIC_ACTIVITY_PHOTO,
+    ageBand: plan?.age || activity?.age || view?.ageModifications,
+    lessonTitle: plan?.title,
+    lessonTheme: plan?.theme,
+    activityTitle: view?.title || activity?.title,
+    activityCategory: view?.activityCategory || activity?.category,
+    objective: view?.objective || activity?.objective,
+    description: view?.description || activity?.description,
+    materials: view?.materials || activity?.materials,
+    setup: view?.setup || activity?.setup,
+    steps: view?.steps || activity?.steps,
+    safetyNotes: view?.safetyNotes || activity?.safetyNotes,
+    ownerBrief: existingBrief || text(concept, 800),
+    imagePurpose: field === "exampleImageUrl" ? "example" : "setup",
+  });
+  return bundle.generationPrompt;
+}
 
-  const age = text(plan?.age || activity?.age || view?.ageModifications || "early childhood", 60);
-  const title = text(view?.title || activity?.title, 180);
-  const materials = text(view?.materials || activity?.materials, 300);
-  const setup = text(view?.setup || activity?.setup, 300);
-  const steps = text(view?.steps || activity?.steps, 400);
-  const objective = text(view?.objective || activity?.objective, 240);
-  const safety = text(view?.safetyNotes || activity?.safetyNotes, 200);
-  const theme = text(plan?.theme, 80);
-
-  return [
-    `Realistic childcare classroom photograph for a ${age} activity.`,
-    title ? `Activity: “${title}”.` : "",
-    theme ? `Lesson theme: ${theme} (show the activity, not decorative theme art).` : "",
-    objective ? `Objective: ${objective}` : "",
-    materials ? `Materials visible: ${materials}` : "",
-    setup ? `Setup: ${setup}` : "",
-    steps ? `Children will: ${steps.slice(0, 280)}` : "",
-    safety ? `Safety: ${safety}` : "",
-    field === "exampleImageUrl"
-      ? "Show a clear in-process or finished example of the activity."
-      : "Show a clear, achievable activity setup a teacher could recreate.",
-    "Child-height tables or floor space. Slightly imperfect real classroom, not glossy stock photo.",
-    "No cartoon characters, no fantasy scenes, no unlisted materials, no tiny unsafe pieces for infants/toddlers.",
-    "People optional; prefer setup-focused composition unless hands-in-action helps.",
-    "No readable posters or dense text in the image.",
-  ].filter(Boolean).join(" ");
+function buildActivityImagePromptBundle(params) {
+  const prompt = buildActivityImagePrompt(params);
+  const promptBuilder = require("./visual-prompt-builder.js");
+  return {
+    ...promptBuilder.buildVisualPrompt({
+      assetMode: params.field === "exampleImageUrl"
+        ? promptBuilder.ASSET_MODES.REALISTIC_ACTIVITY_EXAMPLE
+        : promptBuilder.ASSET_MODES.REALISTIC_ACTIVITY_PHOTO,
+      ageBand: params.plan?.age || params.activity?.age,
+      lessonTitle: params.plan?.title,
+      lessonTheme: params.plan?.theme,
+      activityTitle: params.activity?.title,
+      activityCategory: params.activity?.category,
+      objective: params.activity?.objective,
+      description: params.activity?.description,
+      materials: params.activity?.materials,
+      setup: params.activity?.setup,
+      steps: params.activity?.steps,
+      safetyNotes: params.activity?.safetyNotes,
+      ownerBrief: text(params.draftActivity?.[params.field === "exampleImageUrl" ? "imageBriefExample" : "imageBriefSetup"]
+        || params.activity?.[params.field === "exampleImageUrl" ? "imageBriefExample" : "imageBriefSetup"]
+        || params.concept, 800),
+      imagePurpose: params.field === "exampleImageUrl" ? "example" : "setup",
+    }),
+    generationPrompt: prompt,
+  };
 }
 
 async function generateActivityImageBuffer({ apiKey, model, prompt, generateFn, mock }) {
@@ -1039,6 +1058,7 @@ module.exports = {
   applyImageGenerationSoftBudget,
   assessImageScope,
   buildActivityImagePrompt,
+  buildActivityImagePromptBundle,
   generateActivityImageBuffer,
   uploadActivityImageBuffer,
   attachImageToEnrichmentDraft,
