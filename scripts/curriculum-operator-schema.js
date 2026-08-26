@@ -407,6 +407,7 @@ function normalizeOperatorCommand(raw = {}, options = {}) {
     connectedUpgrade: actionsIn.connectedUpgrade === true,
     connectedAutoApply: actionsIn.connectedAutoApply === true,
     planOnly: actionsIn.planOnly === true,
+    weeklyFieldScope: Array.isArray(actionsIn.weeklyFieldScope) ? actionsIn.weeklyFieldScope.slice() : null,
   };
 
   // Successful existing-lesson connected upgrades auto-save into the editable draft lesson
@@ -432,6 +433,8 @@ function normalizeOperatorCommand(raw = {}, options = {}) {
     actions.generatePrintables = false;
     actions.generateSongsBooks = false;
   }
+  if (actions.touchImages === false && actionsIn.checkImages === false) actions.checkImages = false;
+  if (actions.touchPrintables === false && actionsIn.checkPrintables === false) actions.checkPrintables = false;
   if (actions.touchImages === false) {
     actions.generateImages = false;
     actions.replaceBadImages = false;

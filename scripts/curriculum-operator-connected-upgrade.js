@@ -601,7 +601,10 @@ function refreshLessonResultPostApply(lessonResult, plan, curriculum, options = 
     beforePlan: options.beforePlan || lessonResult.beforePlan || {},
     afterPlan: plan,
     requestedFieldSuccess: options.requestedFieldSuccess || lessonResult.requestedFieldSuccess || [],
+    command: options.command || {},
+    draftWeek: plan?.enrichmentDraft?.week || {},
   });
+  const requestedOutcomeGaps = persistenceCheck.requestedOutcomeGaps || [];
   return {
     ...lessonResult,
     auditAfter: finalAudit,
@@ -611,6 +614,8 @@ function refreshLessonResultPostApply(lessonResult, plan, curriculum, options = 
     reportConsistency: finalAudit.reportConsistency,
     persistenceVerification: persistenceCheck,
     persistenceMismatches: persistenceCheck.mismatches,
+    requestedOutcomeGaps,
+    requestedOutcomes: persistenceCheck.requestedOutcomes || {},
     persistedDiff: persistenceCheck.persistedDiff,
     contentPersistenceIncomplete: persistenceCheck.ok === false,
     readinessDelta: {

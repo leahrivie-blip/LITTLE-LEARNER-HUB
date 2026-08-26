@@ -430,6 +430,7 @@ function parseExclusionHints(rawCommand) {
 
   if (/\bdo\s+not\s+(?:touch|change|update|make|create|generate)\s+(?:the\s+)?printables?\b/i.test(raw)
     || /\bdon['’]?t\s+(?:touch|change|make|create|generate)\s+(?:the\s+)?printables?\b/i.test(raw)
+    || /\b(?:do\s+not\s+touch|don['’]?t\s+touch)\b[^.\n]*\bprintables?\b/i.test(raw)
     || /\bwithout\s+printables?\b/i.test(raw)
     || /\bkeep\s+(?:the\s+)?(?:current\s+|existing\s+)?printables?\b/i.test(raw)
     || /\bleave\s+(?:the\s+)?printables?\s+(?:untouched|alone)\b/i.test(raw)
@@ -440,6 +441,7 @@ function parseExclusionHints(rawCommand) {
 
   if (/\bdo\s+not\s+(?:touch|change)\s+(?:the\s+)?songs?\b/i.test(raw)
     || /\bdon['’]?t\s+(?:touch|change)\s+(?:the\s+)?songs?\b/i.test(raw)
+    || /\b(?:do\s+not\s+touch|don['’]?t\s+touch)\b[^.\n]*\bsongs?\b/i.test(raw)
     || /\beverything\s+except\s+songs?\b/i.test(raw)) {
     flags.touchSongs = false;
     notes.push("Songs locked by exclusion.");
@@ -471,6 +473,45 @@ function parseExclusionHints(rawCommand) {
   return { flags, notes };
 }
 
+function parseWeeklyFieldScope(rawCommand) {
+  const raw = String(rawCommand || "");
+  if (/\bonly\s+(?:fix|prove|repair)\s+(?:the\s+)?(?:remaining\s+)?(?:learning\s+)?domains?\s+and\s+vocab/i.test(raw)
+    || /\b(?:fix|repair)\s+only\s+(?:learning\s+)?domains?\s+and\s+vocab/i.test(raw)
+    || /\bdo\s+not\s+change\s+any\s+other\s+content\b/i.test(raw)) {
+    return ["learningDomains", "vocabCards"];
+  }
+  return null;
+}
+
+function applyTextOnlyAuditFlags(rawCommand, actions = {}) {
+  const raw = String(rawCommand || "");
+  const next = { ...actions };
+  const auditImagesOnly = /\baudit\b.{0,32}(?:the\s+)?(?:activity\s+)?(?:pictures?|images?)\b/i.test(raw)
+    && (/\bdo\s+not\s+replace\b/i.test(raw)
+      || !/\b(?:replace|generate|create|make)\b/i.test(raw));
+  const auditPrintablesOnly = /\baudit\b.{0,32}printables?\b/i.test(raw)
+    && (/\bdo\s+not\s+replace\b/i.test(raw)
+      || !/\b(?:replace|generate|create|make)\b/i.test(raw));
+  if (auditImagesOnly) {
+    next.checkImages = true;
+    next.touchImages = false;
+    next.generateImages = false;
+    next.replaceBadImages = false;
+  }
+  if (auditPrintablesOnly) {
+    next.checkPrintables = true;
+    next.touchPrintables = false;
+    next.generatePrintables = false;
+  }
+  if (next.textOnly === true || next.touchImages === false) {
+    if (!auditImagesOnly) next.checkImages = false;
+  }
+  if (next.textOnly === true || next.touchPrintables === false) {
+    if (!auditPrintablesOnly) next.checkPrintables = false;
+  }
+  return next;
+}
+
 function isFullKitFinishCommand(rawCommand) {
   const raw = String(rawCommand || "");
   return (
@@ -495,6 +536,8 @@ module.exports = {
   classifyFullKitOwnerReview,
   verifyFullKitStoredState,
   parseExclusionHints,
+  parseWeeklyFieldScope,
+  applyTextOnlyAuditFlags,
   isFullKitFinishCommand,
   countDecisions,
 };

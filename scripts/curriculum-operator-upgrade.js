@@ -304,6 +304,8 @@ async function buildUpgradeDraft(plan, curriculum, audit, options = {}) {
     upgradeActivities: options.upgradeActivities !== false,
     touchSongs: options.touchSongs !== false,
     touchBooks: options.touchBooks !== false,
+    command: options.command || null,
+    weeklyFieldScope: options.weeklyFieldScope || options.command?.actions?.weeklyFieldScope || null,
   });
 
   if (!composed.ok) {

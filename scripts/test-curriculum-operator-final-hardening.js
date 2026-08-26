@@ -35,7 +35,7 @@ function lmwPlan(overrides = {}) {
     plan: "Free",
     status: "draft",
     learningDomains: [],
-    vocabularyWords: "",
+    vocabularyWords: "press, stick, roll, squeeze",
     weeklyOverview: "Young toddlers explore process art and early building.",
     objectives: "Explore art materials through safe hands-on play.",
     weeklyMaterials: "Large paper rolls; chunky crayons; washable paint",
@@ -47,7 +47,12 @@ function lmwPlan(overrides = {}) {
     enrichmentDraft: {
       week: {
         learningDomains: ["Creative Arts", "Physical Development", "Language & Literacy"],
-        vocabCards: ["press", "stick", "roll", "squeeze"],
+        vocabCards: [
+          { word: "press", definition: "Push down firmly." },
+          { word: "stick", definition: "Attach one thing to another." },
+          { word: "roll", definition: "Roll dough or tools." },
+          { word: "squeeze", definition: "Press hands together." },
+        ],
         teacherToolkit: {
           prepChecklist: ["Cover floors", "Stage one tray"],
           observationFocus: ["Grasp patterns", "Sensory exploration"],

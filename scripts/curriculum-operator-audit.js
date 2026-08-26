@@ -86,7 +86,11 @@ function weekFieldValue(plan, draftWeek, key) {
     return list.length ? list.join("\n") : schema.text(week.observationOpportunities) || schema.text(plan?.observationOpportunities);
   }
   if (key === "milestones") {
-    return schema.text(week.milestones) || schema.text(plan?.milestones) || schema.text(plan?.adaptations);
+    const weekList = schema.asArray(week.milestones).map((item) => schema.text(item)).filter(Boolean);
+    if (weekList.length) return weekList.join("\n");
+    const kitList = schema.asArray(plan?.teachingKit?.milestones).map((item) => schema.text(item)).filter(Boolean);
+    if (kitList.length) return kitList.join("\n");
+    return schema.text(plan?.milestones) || schema.text(plan?.adaptations);
   }
   if (key === "learningDomains") {
     return lessonRead.learningDomainsText(plan, week);
@@ -97,8 +101,22 @@ function weekFieldValue(plan, draftWeek, key) {
   return schema.text(week[key]) || schema.text(plan?.[key]);
 }
 
-function classifyWeeklyFields(plan, draft) {
+function mapWeeklyFieldScope(field) {
+  const key = schema.text(field, 80);
+  if (key === "vocabularyWords") return "vocabCards";
+  return key;
+}
+
+function isWeeklyFieldInScope(field, scope) {
+  if (!Array.isArray(scope) || !scope.length) return true;
+  return scope.includes(mapWeeklyFieldScope(field));
+}
+
+function classifyWeeklyFields(plan, draft, options = {}) {
   const week = draft?.week || {};
+  const weeklyFieldScope = schema.asArray(options.weeklyFieldScope).map((field) => mapWeeklyFieldScope(field)).filter(Boolean);
+  const explicitVocabularyRepair = options.explicitVocabularyRepair === true
+    || lessonRead.commandRequestsVocabularyRepair(options.command || {});
   const defs = [
     { field: "weeklyOverview", label: "Weekly overview", minStrong: 25 },
     { field: "objectives", label: "Learning objectives", minStrong: 18 },
@@ -112,6 +130,16 @@ function classifyWeeklyFields(plan, draft) {
     { field: "vocabularyWords", label: "Vocabulary", minStrong: 6, isVocabList: true },
   ];
   return defs.map((def) => {
+    if (weeklyFieldScope.length && !isWeeklyFieldInScope(def.field, weeklyFieldScope)) {
+      const value = weekFieldValue(plan, week, def.field);
+      return schema.normalizeFieldDecision({
+        field: def.field,
+        label: def.label,
+        decision: "KEEP",
+        reason: "Out of scope for this command.",
+        preview: schema.text(value, 160),
+      });
+    }
     const value = weekFieldValue(plan, week, def.field);
     if (def.isDomainList) {
       const count = schema.asArray(value ? value.split(/,\s*/) : []).filter(Boolean).length
@@ -131,18 +159,32 @@ function classifyWeeklyFields(plan, draft) {
       });
     }
     if (def.isVocabList) {
-      const words = schema.text(value).split(/[,\n·;]+/).map((w) => w.trim()).filter(Boolean);
-      const cls = words.length >= 4
-        ? { decision: "KEEP", reason: "Vocabulary is present." }
-        : (words.length >= 1
-          ? { decision: "IMPROVE", reason: "Vocabulary list is thin." }
-          : { decision: "FILL", reason: "Vocabulary is empty." });
+      const quality = lessonRead.classifyVocabularyQuality(plan, week);
+      let cls;
+      if (quality.state === "VALID") {
+        cls = { decision: "KEEP", reason: "Valid structured vocabulary present." };
+      } else if (quality.state === "SYNC_NEEDED") {
+        cls = { decision: "FILL", reason: quality.reason };
+      } else if (quality.state === "THIN") {
+        cls = { decision: explicitVocabularyRepair ? "FILL" : "IMPROVE", reason: quality.reason };
+      } else if (quality.state === "MALFORMED") {
+        cls = { decision: "REPLACE", reason: quality.reason };
+      } else {
+        cls = { decision: "FILL", reason: quality.reason };
+      }
+      if (explicitVocabularyRepair && quality.state !== "VALID") {
+        cls = {
+          decision: quality.state === "MALFORMED" ? "REPLACE" : "FILL",
+          reason: `Explicit vocabulary repair requested — ${quality.reason}`,
+        };
+      }
       return schema.normalizeFieldDecision({
         field: def.field,
         label: def.label,
         decision: cls.decision,
         reason: cls.reason,
-        preview: schema.text(value, 160),
+        preview: schema.text(quality.preview || value, 160),
+        vocabularyQuality: quality.state,
       });
     }
     if (def.field === "teacherPreparation") {
@@ -550,7 +592,11 @@ function auditLesson(plan, curriculum = {}, options = {}) {
     ? enrichment.flattenLessonActivities(plan, activities)
     : activities;
 
-  const weeklyContent = classifyWeeklyFields(plan, draft);
+  const weeklyContent = classifyWeeklyFields(plan, draft, {
+    command: options.command || {},
+    weeklyFieldScope: options.weeklyFieldScope || options.command?.actions?.weeklyFieldScope,
+    explicitVocabularyRepair: options.explicitVocabularyRepair,
+  });
   const activityClassifications = flat.map((act) => {
     const key = schema.text(act.id || act.itemId);
     return classifyActivity(act, draftActs[key] || {});
