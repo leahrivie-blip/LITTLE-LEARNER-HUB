@@ -26080,6 +26080,91 @@ async function handleAdminEnrichmentPhotoDelete(request, response) {
   });
 }
 
+/**
+ * Promote existing enrichment photo assets to public/renderable visibility
+ * (visibility=published) without regenerating, replacing, or re-attaching media.
+ * Same helper used by connected Operator image-save (#778) and enrichment publish.
+ * Does not mutate lesson/activity content or enrichmentDraft.
+ */
+async function handleAdminEnrichmentPhotoPromoteVisibility(request, response) {
+  const body = await readJson(request);
+  if (!requireTeachingKitOwnerAdminSession(request, body, response)) return;
+  const store = readStore();
+  const enrichFlags = normalizedFeatureFlags(store.siteContent?.featureFlags);
+  if (!teachingKit.isTeachingKitEnrichmentEditorEnabled(enrichFlags)) {
+    jsonResponse(response, 404, {
+      error: "Teaching Kit Enrichment Editor is disabled.",
+      code: "enrichment_editor_disabled",
+    });
+    return;
+  }
+
+  const lessonPlanId = normalizedShortText(body.lessonPlanId, 160);
+  if (!lessonPlanId) {
+    jsonResponse(response, 400, {
+      error: "lessonPlanId is required.",
+      code: "invalid_lesson_plan",
+    });
+    return;
+  }
+
+  const curriculum = readSiteCurriculum(store);
+  const plan = (curriculum.lessonPlans || []).find((item) => item.id === lessonPlanId);
+  if (!plan) {
+    jsonResponse(response, 404, { error: "Lesson plan not found.", code: "lesson_not_found" });
+    return;
+  }
+
+  const rawIds = Array.isArray(body.mediaAssetIds)
+    ? body.mediaAssetIds
+    : (body.mediaAssetId ? [body.mediaAssetId] : []);
+  const mediaAssetIds = [...new Set(
+    rawIds
+      .map((id) => normalizedShortText(id, 120))
+      .filter((id) => enrichmentMedia.isEnrichmentMediaAssetId(id)),
+  )];
+  if (!mediaAssetIds.length) {
+    jsonResponse(response, 400, {
+      error: "One or more valid mediaAssetIds are required.",
+      code: "invalid_media_asset",
+    });
+    return;
+  }
+
+  const before = mediaAssetIds.map((assetId) => ({
+    mediaAssetId: assetId,
+    visibility: getEnrichmentMediaVisibility(store, assetId),
+  }));
+
+  await promoteEnrichmentAssetsToPublished(store, mediaAssetIds, lessonPlanId);
+
+  appendEnrichmentEditorAudit(store, {
+    action: "promote_media_visibility",
+    lessonPlanId,
+    adminEmail: normalizedShortText(body.adminEmail || "", 180),
+    note: `Promoted ${mediaAssetIds.length} enrichment photo(s) to published visibility (no content change).`,
+  });
+  await writeStoreAsync(store);
+
+  const after = mediaAssetIds.map((assetId) => ({
+    mediaAssetId: assetId,
+    visibility: getEnrichmentMediaVisibility(store, assetId),
+  }));
+
+  jsonResponse(response, 200, {
+    ok: true,
+    lessonPlanId,
+    promoted: after.filter((row) => row.visibility === "published" || row.visibility === "shared"),
+    before,
+    after,
+    lessonStatus: plan.status || "",
+    accessPlan: plan.plan === "Pro" ? "Pro" : "Free",
+    contentUnchanged: true,
+    assetsCreated: 0,
+    imageGeneration: false,
+  });
+}
+
 async function handleAdminEnrichmentMediaCleanupProcess(request, response) {
   const body = await readJson(request);
   if (!requireTeachingKitOwnerAdminSession(request, body, response)) return;
@@ -32386,6 +32471,9 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/lesson-covers/assign") return await handleAdminLessonCoverAssign(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/enrichment-photos/upload") return await handleAdminEnrichmentPhotoUpload(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/enrichment-photos/delete") return await handleAdminEnrichmentPhotoDelete(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/curriculum/enrichment-photos/promote-visibility") {
+      return await handleAdminEnrichmentPhotoPromoteVisibility(request, response);
+    }
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/enrichment-photos/cleanup-process") {
       return await handleAdminEnrichmentMediaCleanupProcess(request, response);
     }

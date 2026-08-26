@@ -91,6 +91,7 @@
     "test:teaching-kit-enrichment-slice-3": "NODE_ENV=test node scripts/test-teaching-kit-enrichment-slice-3.js",
     "test:teaching-kit-enrichment-slice-4": "NODE_ENV=test node scripts/test-teaching-kit-enrichment-slice-4.js",
     "test:teaching-kit-enrichment-media-lifecycle": "NODE_ENV=test node scripts/test-teaching-kit-enrichment-media-lifecycle.js",
+    "test:enrichment-photo-promote-visibility": "NODE_ENV=test node scripts/test-enrichment-photo-promote-visibility.js",
     "test:teaching-kit-media-ref-safe-cleanup": "NODE_ENV=test node scripts/test-teaching-kit-media-ref-safe-cleanup.js",
     "test:teaching-kit-enrichment-slice-5": "NODE_ENV=test node scripts/test-teaching-kit-enrichment-slice-5.js",
     "test:teaching-kit-enrichment-slice-6": "NODE_ENV=test node scripts/test-teaching-kit-enrichment-slice-6.js",
