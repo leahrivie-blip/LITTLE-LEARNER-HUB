@@ -156,7 +156,8 @@ function parseOperatorCommand(rawCommand, options = {}) {
       ? false
       : createApi.isCreateLessonCommand(raw));
   const noTouchImages = exclusions.flags.touchImages === false;
-  const replaceBadOnly = /\b(keep\s+(?:all\s+)?good|only\s+replace\s+(?:the\s+)?bad|replace\s+(?:the\s+)?bad)\b/i.test(raw);
+  const replaceBadOnly = /\b(keep\s+(?:all\s+)?good|only\s+replace\s+(?:the\s+)?bad|replace\s+(?:the\s+)?bad)\b/i.test(raw)
+    || intentRouter.requestsWeakImageReplacement(raw);
   const fullKitFinish = phase >= 6 && orchestrator.isFullKitFinishCommand(raw)
     && !isCreateCommand
     && !wantsSongsBooks

@@ -9,10 +9,20 @@
 
 const schema = require("./curriculum-operator-schema.js");
 
+const CURRICULUM_LEARNING_DOMAINS = new Set([
+  "Social Emotional",
+  "Language & Literacy",
+  "Math",
+  "Science",
+  "Physical Development",
+  "Creative Arts",
+]);
+
 const WEEK_FIELDS = Object.freeze([
   "weeklyOverview",
   "objectives",
   "weeklyMaterials",
+  "learningDomains",
   "teacherPreparation",
   "prepChecklist",
   "observationFocus",
@@ -79,6 +89,9 @@ function stripJsonFences(raw) {
 const WEEK_FIELD_ALIASES = Object.freeze({
   vocabularyWords: "vocabCards",
   vocabulary: "vocabCards",
+  LEARNING_DOMAINS: "learningDomains",
+  learningdomains: "learningDomains",
+  "learning domains": "learningDomains",
   materials: "weeklyMaterials",
   overview: "weeklyOverview",
   weeklyoverview: "weeklyOverview",
@@ -517,7 +530,20 @@ function shouldWriteDecision(decision) {
 function mapAuditWeekField(field) {
   const f = text(field, 80);
   if (f === "vocabularyWords") return "vocabCards";
+  if (f === "learningDomains") return "learningDomains";
   return f;
+}
+
+function normalizeLearningDomainsValue(value) {
+  let list = value;
+  if (typeof list === "string") {
+    list = list.split(/[,;\n·|]/).map((s) => s.trim()).filter(Boolean);
+  }
+  if (!Array.isArray(list)) return [];
+  return list
+    .map((item) => text(item, 80))
+    .filter((item) => CURRICULUM_LEARNING_DOMAINS.has(item))
+    .slice(0, 6);
 }
 
 /**
@@ -550,7 +576,11 @@ function collectWorkItems(plan, activities, audit, options = {}) {
       if (field === "prepChecklist") current = schema.asArray(draftWeek.teacherToolkit?.prepChecklist).join(" ");
       else if (field === "observationFocus") current = schema.asArray(draftWeek.teacherToolkit?.observationFocus).join(" ");
       else if (field === "milestones" || field === "vocabCards") current = schema.asArray(draftWeek[field]).join(" ");
-      else current = text(draftWeek[field] || plan?.[field === "vocabCards" ? "vocabularyWords" : field], 2000);
+      else if (field === "learningDomains") {
+        current = schema.asArray(draftWeek.learningDomains).length
+          ? schema.asArray(draftWeek.learningDomains).join(", ")
+          : schema.asArray(plan?.learningDomains).join(", ");
+      } else current = text(draftWeek[field] || plan?.[field === "vocabCards" ? "vocabularyWords" : field], 2000);
       const decision = text(fieldDec.decision, 20).toUpperCase();
       if (wordCount(current) >= 25 && (decision === "IMPROVE" || decision === "FILL")) {
         weekKeep.push({
@@ -690,6 +720,12 @@ function buildComposerContext(plan, activities, audit, work) {
     }
     if (field === "milestones" || field === "vocabCards") {
       weekContext[field] = schema.asArray(week[field]).slice(0, 16);
+      return;
+    }
+    if (field === "learningDomains") {
+      weekContext[field] = schema.asArray(week.learningDomains).length
+        ? schema.asArray(week.learningDomains).slice(0, 6)
+        : schema.asArray(plan?.learningDomains).slice(0, 6);
       return;
     }
     weekContext[field] = text(week[field] || plan?.[field], 1200);
@@ -962,7 +998,10 @@ function normalizeChangeEntry(field, raw) {
     return { ok: false, error: `Unsupported action for ${field}: ${action}` };
   }
   let value = raw.value;
-  if (field === "prepChecklist" || field === "observationFocus" || field === "milestones"
+  if (field === "learningDomains") {
+    value = normalizeLearningDomainsValue(value);
+    if (!value.length) return { ok: false, error: "learningDomains must include at least one approved domain" };
+  } else if (field === "prepChecklist" || field === "observationFocus" || field === "milestones"
     || field === "vocabCards" || field === "teacherTips" || field === "vocabulary"
     || field === "observationPrompts") {
     if (typeof value === "string") {
@@ -1345,6 +1384,12 @@ function applyComposerPlanToDraft(previousDraft, validatedPlan, work) {
   ];
 
   Object.entries(validatedPlan.weeklyChanges || {}).forEach(([field, entry]) => {
+    if (field === "learningDomains") {
+      draft.week.learningDomains = entry.value;
+      intended.week.learningDomains = entry.value;
+      changed.push({ path: "week.learningDomains", decision: entry.action, source: "ai" });
+      return;
+    }
     if (field === "prepChecklist") {
       if (!draft.week.teacherToolkit || typeof draft.week.teacherToolkit !== "object") draft.week.teacherToolkit = {};
       draft.week.teacherToolkit.prepChecklist = entry.value;

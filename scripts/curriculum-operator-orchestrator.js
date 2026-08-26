@@ -405,7 +405,8 @@ function parseExclusionHints(rawCommand) {
     || /\bdon['’]?t\s+(?:touch|change|make|create|generate)\s+(?:the\s+)?printables?\b/i.test(raw)
     || /\bwithout\s+printables?\b/i.test(raw)
     || /\bkeep\s+(?:the\s+)?(?:current\s+|existing\s+)?printables?\b/i.test(raw)
-    || /\bleave\s+(?:the\s+)?printables?\s+alone\b/i.test(raw)) {
+    || /\bleave\s+(?:the\s+)?printables?\s+(?:untouched|alone)\b/i.test(raw)
+    || /\bprintables?\s+(?:must\s+)?(?:stay|remain)\s+untouched\b/i.test(raw)) {
     flags.touchPrintables = false;
     notes.push("Printables locked by exclusion.");
   }
@@ -425,7 +426,9 @@ function parseExclusionHints(rawCommand) {
     notes.push("Books locked by exclusion.");
   }
 
-  if (/\b(?:update|change|replace)\s+(?:the\s+)?cover\b/i.test(raw)
+  if (/\b(?:update|change|replace|create|generate|make|new)\s+(?:a\s+)?(?:realistic\s+)?(?:lesson\s+)?cover\b/i.test(raw)
+    || /\bREALISTIC_LESSON_COVER\b/i.test(raw)
+    || /\brealistic\s+lesson\s+cover\b/i.test(raw)
     || /\band\s+update\s+(?:the\s+)?cover\b/i.test(raw)) {
     flags.touchCover = true;
     notes.push("Cover update explicitly requested.");

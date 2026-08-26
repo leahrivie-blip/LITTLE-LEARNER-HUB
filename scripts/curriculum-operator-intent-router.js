@@ -157,6 +157,66 @@ function isShortSelectedLessonMutation(rawCommand) {
   return false;
 }
 
+function extractExplicitLessonIds(rawCommand, lessonPlans = []) {
+  const raw = text(rawCommand);
+  const ids = [];
+  const re = /\b(cur-lp-[a-f0-9]{16})\b/gi;
+  let match;
+  while ((match = re.exec(raw))) ids.push(String(match[1]).toLowerCase());
+  const catalogIds = new Set(schema.asArray(lessonPlans).map((p) => text(p?.id, 160)).filter(Boolean));
+  return [...new Set(ids.filter((id) => !catalogIds.size || catalogIds.has(id)))];
+}
+
+/** Owner asked to save into the editable lesson record without a separate Apply Enrichment step. */
+function isDirectDraftSaveCommand(rawCommand) {
+  const raw = text(rawCommand);
+  if (!raw) return false;
+  return (
+    /\bsave\s+directly\s+(?:to|into)\s+(?:the\s+)?editable\s+draft\b/i.test(raw)
+    || /\bdirect(?:ly)?\s+(?:to|into)\s+(?:the\s+)?editable\s+draft\b/i.test(raw)
+    || /\b(?:without|no)\s+apply\s+enrichment\b/i.test(raw)
+    || /\b(?:don['’]?t|do\s+not)\s+use\s+apply\s+enrichment\b/i.test(raw)
+    || /\bsave\s+(?:changes\s+)?directly\s+(?:to|into)\s+(?:the\s+)?(?:draft\s+)?lesson\b/i.test(raw)
+  );
+}
+
+function isPrintablesExcludedCommand(rawCommand) {
+  const raw = text(rawCommand);
+  if (!raw) return false;
+  return (
+    /\b(?:do\s+not|don['’]?t)\s+touch\s+(?:the\s+)?printables?\b/i.test(raw)
+    || /\bleave\s+(?:the\s+)?printables?\s+(?:untouched|alone)\b/i.test(raw)
+    || /\bprintables?\s+(?:must\s+)?(?:stay|remain)\s+untouched\b/i.test(raw)
+    || /\bwithout\s+(?:changing|touching|updating)\s+(?:the\s+)?printables?\b/i.test(raw)
+  );
+}
+
+function isExplicitCoverRequestCommand(rawCommand) {
+  const raw = text(rawCommand);
+  if (!raw) return false;
+  return (
+    /\bREALISTIC_LESSON_COVER\b/i.test(raw)
+    || /\brealistic\s+lesson\s+cover\b/i.test(raw)
+    || /\b(?:create|generate|make|replace|new)\s+(?:a\s+)?(?:realistic\s+)?(?:lesson\s+)?cover\b/i.test(raw)
+    || /\b(?:update|change|replace)\s+(?:the\s+)?cover\b/i.test(raw)
+    || /\band\s+update\s+(?:the\s+)?cover\b/i.test(raw)
+  );
+}
+
+function requestsWeakImageReplacement(rawCommand) {
+  const raw = text(rawCommand);
+  if (!raw) return false;
+  return (
+    /\b(?:replace|regenerate|fix|upgrade)\s+(?:the\s+)?(?:weak|bad|remaining|generic)\b/i.test(raw)
+      && /\b(?:pictures?|images?|photos?|visuals?)\b/i.test(raw)
+  ) || (
+    /\bweak(?:est)?\s+(?:remaining\s+)?activity\s+(?:pictures?|images?)\b/i.test(raw)
+  ) || (
+    /\bregenerate\s+(?:the\s+)?(?:weak|remaining)\b/i.test(raw)
+      && /\b(?:activity\s+)?(?:pictures?|images?)\b/i.test(raw)
+  );
+}
+
 /**
  * @param {string} rawCommand
  * @param {{ currentlySelectedLessonId?: string|null, lessonPlans?: object[] }} [options]
@@ -165,6 +225,7 @@ function detectExistingLessonReferences(rawCommand, options = {}) {
   const raw = text(rawCommand);
   const hints = extractLessonTitleHints(raw).filter((t) => !isAgeOrPlanNoiseTitle(t));
   const catalogMatches = matchLessonsFromCatalog(raw, options.lessonPlans || []);
+  const explicitLessonIds = extractExplicitLessonIds(raw, options.lessonPlans || []);
   const selectedId = text(options.currentlySelectedLessonId, 160) || null;
   const selectedLesson = selectedId
     ? catalogMatches.find((m) => m.id === selectedId)
@@ -197,6 +258,10 @@ function detectExistingLessonReferences(rawCommand, options = {}) {
     if (!resolvedLessons.some((r) => r.id === row.id)) resolvedLessons.push(row);
   };
   catalogMatches.forEach(pushUnique);
+  explicitLessonIds.forEach((id) => {
+    const row = schema.asArray(options.lessonPlans).map(planRowSummary).find((m) => m.id === id);
+    if (row) pushUnique(row);
+  });
 
   // Selected-lesson inheritance for short mutation commands (no "this lesson" required).
   // Never override an explicit new-lesson create intent.
@@ -218,7 +283,9 @@ function detectExistingLessonReferences(rawCommand, options = {}) {
   ].filter(Boolean))];
 
   let source = null;
-  if (resolvedLessons.length === 1 && selectedId && resolvedLessons[0].id === selectedId
+  if (resolvedLessons.length === 1 && explicitLessonIds.includes(resolvedLessons[0].id)) {
+    source = "explicit_id";
+  } else if (resolvedLessons.length === 1 && selectedId && resolvedLessons[0].id === selectedId
     && (refersToThisLesson || shortSelectedMutation)) {
     source = "selected";
   } else if (resolvedLessons.length) {
@@ -237,6 +304,7 @@ function detectExistingLessonReferences(rawCommand, options = {}) {
     source,
     existingLessonIntent: Boolean(
       resolvedLessons.length
+      || explicitLessonIds.length
       || hints.length
       || ((refersToThisLesson || shortSelectedMutation) && selectedId)
       || ageScopedMatches.length === 1,
@@ -278,13 +346,14 @@ function detectNewLessonIntent(rawCommand, context = {}) {
 function detectAssetCategories(rawCommand) {
   const raw = text(rawCommand);
   const found = [];
+  const printablesExcluded = isPrintablesExcludedCommand(raw);
 
-  const cover = /\b(cover|cover\s+image|cover\s+photo)\b/i.test(raw) && ACTION_VERBS.test(raw);
-  const printableStrong = /\b(printable|printables|pdf|resource\s+pack)\b/i.test(raw);
-  const printableTeachingAsset = /\b(station\s+signs?|activity\s+cards?|maker\s+signs?|sorting\s+cards?|dramatic\s+play(?:\s+pack)?)\b/i.test(raw)
+  const cover = isExplicitCoverRequestCommand(raw);
+  const printableStrong = !printablesExcluded && /\b(printable|printables|pdf|resource\s+pack)\b/i.test(raw);
+  const printableTeachingAsset = !printablesExcluded && /\b(station\s+signs?|activity\s+cards?|maker\s+signs?|sorting\s+cards?|dramatic\s+play(?:\s+pack)?)\b/i.test(raw)
     && ACTION_VERBS.test(raw);
-  const printable = printableStrong || printableTeachingAsset
-    || (/\bprintables?\b/i.test(raw) && ACTION_VERBS.test(raw));
+  const printable = !printablesExcluded && (printableStrong || printableTeachingAsset
+    || (/\bprintables?\b/i.test(raw) && ACTION_VERBS.test(raw)));
 
   const image = /\b(picture|pictures|image|images|photo|photos|visuals?)\b/i.test(raw)
     && (ACTION_VERBS.test(raw) || /\b(bad|better|weak)\b/i.test(raw));
@@ -297,8 +366,10 @@ function detectAssetCategories(rawCommand) {
   const broadUpgrade = multiAsset
     || /\bpublish[\s-]?ready\b/i.test(raw)
     || /\bauto[\s-]?apply\b/i.test(raw)
-    || /\b(?:fix|upgrade|improve|finish|complete)\b/i.test(raw)
-      && /\b(?:completely|everything|all\s+weak|teaching\s+kit|ready\s+for\s+(?:me\s+to\s+)?review)\b/i.test(raw)
+    || isDirectDraftSaveCommand(raw)
+    || (/\b(?:same|existing)\s+lesson\s+id\b/i.test(raw) && extractExplicitLessonIds(raw).length === 1)
+    || (/\b(?:fix|upgrade|improve|finish|complete)\b/i.test(raw)
+      && /\b(?:completely|everything|all\s+weak|teaching\s+kit|ready\s+for\s+(?:me\s+to\s+)?review)\b/i.test(raw))
     || /\bfinish\s+(?:everything|the\s+teaching\s+kit|this\s+lesson|it)\b/i.test(raw)
     || /\bimprove\s+(?:this|it)\b/i.test(raw)
     || /\beverything\s+missing\b/i.test(raw)
@@ -330,6 +401,7 @@ function pickPrimaryAssetCategory(categories) {
 function isPlanOnlyOperatorCommand(rawCommand) {
   const raw = text(rawCommand);
   if (!raw) return false;
+  if (isDirectDraftSaveCommand(raw)) return false;
   return (
     /\bplan[\s-]?only\b/i.test(raw)
     || /\bpreview\s+(?:what\s+you\s+would\s+change|only)\b/i.test(raw)
@@ -410,7 +482,7 @@ function resolveOwnerIntent(rawCommand, options = {}) {
     route = ROUTES.AMBIGUOUS;
   }
 
-  if (lessonRef.refersToThisLesson && !options.currentlySelectedLessonId) {
+  if (lessonRef.refersToThisLesson && !options.currentlySelectedLessonId && lessonRef.resolvedLessons.length !== 1) {
     needsClarification = true;
     clarificationReasons.push("missing_selected_lesson");
     route = ROUTES.AMBIGUOUS;
@@ -441,7 +513,7 @@ function resolveOwnerIntent(rawCommand, options = {}) {
       : (lessonRef.titles.length ? "named_titles" : "filter"));
 
   if (
-    /\bauto[\s-]?apply\b/i.test(raw)
+    (/\bauto[\s-]?apply\b/i.test(raw) || isDirectDraftSaveCommand(raw))
     && lessonRef.existingLessonIntent
     && lessonRef.resolvedLessons.length === 1
     && !newLessonIntent
@@ -449,7 +521,7 @@ function resolveOwnerIntent(rawCommand, options = {}) {
     route = ROUTES.EXISTING_CONNECTED_UPGRADE;
     needsClarification = false;
     clarificationReasons.length = 0;
-    notes.push("Explicit auto-apply request — routing to connected upgrade for the resolved existing lesson.");
+    notes.push("Explicit direct-draft / auto-apply request — routing to connected upgrade for the resolved existing lesson.");
   }
 
   return {
@@ -530,8 +602,25 @@ function applyIntentRouting(state, intent) {
     const planOnly = state.actions.planOnly === true;
     if (phase >= 6) {
       state.actions.connectedUpgrade = true;
-      state.actions.connectedAutoApply = !planOnly;
-      if (!planOnly && !state.actions.textOnly) {
+      if (isDirectDraftSaveCommand(state.raw)) {
+        state.actions.planOnly = false;
+        state.actions.connectedAutoApply = true;
+      } else {
+        state.actions.connectedAutoApply = !planOnly;
+      }
+      if (requestsWeakImageReplacement(state.raw)) {
+        state.actions.replaceBadImages = true;
+      }
+      if (isExplicitCoverRequestCommand(state.raw)) {
+        state.actions.touchCover = true;
+      }
+      if (isPrintablesExcludedCommand(state.raw)) {
+        state.actions.touchPrintables = false;
+        state.actions.generatePrintables = false;
+        state.actions.checkPrintables = false;
+      }
+      const effectivePlanOnly = state.actions.planOnly === true;
+      if (!effectivePlanOnly && !state.actions.textOnly) {
         if (state.actions.touchSongs !== false || state.actions.touchBooks !== false) {
           state.actions.generateSongsBooks = true;
           state.actions.checkSongs = state.actions.touchSongs !== false;
@@ -598,6 +687,11 @@ module.exports = {
   ASSET_CATEGORIES,
   extractLessonTitleHints,
   matchLessonsFromCatalog,
+  extractExplicitLessonIds,
+  isDirectDraftSaveCommand,
+  isPrintablesExcludedCommand,
+  isExplicitCoverRequestCommand,
+  requestsWeakImageReplacement,
   detectExistingLessonReferences,
   detectNewLessonIntent,
   detectAssetCategories,
