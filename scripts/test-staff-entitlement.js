@@ -22,6 +22,8 @@ const owner = {
   email: "tclashley@icloud.com",
   plan: "Pro",
   stripeSubscriptionStatus: "active",
+  foundingMemberNumber: 17,
+  foundingMemberHistorical: true,
 };
 const staff = {
   email: "ladiisha01@gmail.com",
@@ -65,6 +67,42 @@ async function main() {
       members,
       ownerHasPersonalPro: false,
     }), false);
+  });
+
+  await test("non-founding Monthly Pro does not grant inherited Pro", () => {
+    assert.equal(staffEntitlement.staffInheritsOwnerProAccess({
+      user: {
+        ...staff,
+        linkedProgramOwnerEmail: "learnnplay123sc@gmail.com",
+      },
+      owner: {
+        email: "learnnplay123sc@gmail.com",
+        plan: "Pro",
+        stripeSubscriptionStatus: "active",
+        billingOffer: "pro_monthly",
+        foundingMemberActive: false,
+      },
+      members: [{ email: staff.email, role: "director", status: "active" }],
+      ownerHasPersonalPro: true,
+    }), false);
+  });
+
+  await test("non-founding active Staff Plan grants inherited Pro", () => {
+    assert.equal(staffEntitlement.staffInheritsOwnerProAccess({
+      user: {
+        ...staff,
+        linkedProgramOwnerEmail: "learnnplay123sc@gmail.com",
+      },
+      owner: {
+        email: "learnnplay123sc@gmail.com",
+        plan: "Pro",
+        stripeSubscriptionStatus: "active",
+        billingOffer: "staff_plan",
+        foundingMemberActive: false,
+      },
+      members: [{ email: staff.email, role: "director", status: "active" }],
+      ownerHasPersonalPro: true,
+    }), true);
   });
 
   await test("inherited Pro requires owner beta allowlist", () => {

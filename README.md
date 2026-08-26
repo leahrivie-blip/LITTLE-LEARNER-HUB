@@ -62,4 +62,8 @@ Connect production services before accepting real payments:
 - Production analytics
 
 The current local version includes a safe Stripe checkout simulation so the buyer path can be tested without live keys.
+
+### Staff Plan seats
+
+Staff Plan includes a hard maximum of 5 staff seats. Production Render is a single web instance today, so the in-process owner lock serializes invite creates on one process. Invite create also re-counts after persist and revokes a sixth seat (`seat_cap_race`) if two writes race. If the service is scaled to multiple instances later, keep that durable post-persist guard; do not rely on memory locks alone.
 test after Github transfer

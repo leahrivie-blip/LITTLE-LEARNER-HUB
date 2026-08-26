@@ -5,6 +5,7 @@
 "use strict";
 
 const staffBetaAccess = require("../scripts/staff-beta-access.js");
+const staffPlan = require("./staff-plan.js");
 
 const MAX_STAFF_SEATS = 5;
 const STAFF_LIMIT_MESSAGE = "You’ve reached the 5 staff limit for your beta account.";
@@ -80,13 +81,32 @@ function findPendingInviteByEmail(invites, email, nowMs = Date.now()) {
 }
 
 /**
- * Staff inherit Pro feature access when:
- * 1. owner currently has personal Pro
- * 2. owner is on the existing Add Staff beta allowlist
- * 3. staff membership/link is active
+ * Staff inherit Pro feature access when the link is active, the owner
+ * currently has personal Pro, the owner is on the Add Staff beta allowlist
+ * (or is an admin), AND the owner is either:
+ * - a founding member, or
+ * - on an active Staff Plan
  *
- * Does not require stored programAccessViaOwner.
+ * Ordinary Monthly / Early User / Annual Pro does not grant inherited Pro.
+ * Does not require stored programAccessViaOwner. Does not delete relationships.
  */
+function ownerGrantsInheritedPro({
+  owner,
+  ownerHasPersonalPro = false,
+  canAccessStaffBetaFn = staffBetaAccess.canAccessStaffBeta,
+  staffBetaOptions = {},
+  isConfiguredAdminEmail,
+} = {}) {
+  if (!ownerHasPersonalPro) return false;
+  if (canAccessStaffBetaFn(owner || owner?.email, staffBetaOptions) !== true) return false;
+  const email = normalizeEmail(owner?.email);
+  if (typeof isConfiguredAdminEmail === "function" && email && isConfiguredAdminEmail(email) === true) {
+    return true;
+  }
+  if (staffPlan.isAuthoritativeFoundingMember(owner)) return true;
+  return staffPlan.hasStaffPlanEntitlement(owner) === true;
+}
+
 function staffInheritsOwnerProAccess({
   user,
   owner,
@@ -94,12 +114,20 @@ function staffInheritsOwnerProAccess({
   ownerHasPersonalPro = false,
   canAccessStaffBetaFn = staffBetaAccess.canAccessStaffBeta,
   staffBetaOptions = {},
+  isConfiguredAdminEmail,
 } = {}) {
   if (!isActivelyLinkedStaff(user, members)) return false;
-  if (!ownerHasPersonalPro) return false;
-  return canAccessStaffBetaFn(owner || user?.linkedProgramOwnerEmail, staffBetaOptions) === true;
+  return ownerGrantsInheritedPro({
+    owner,
+    ownerHasPersonalPro,
+    canAccessStaffBetaFn,
+    staffBetaOptions,
+    isConfiguredAdminEmail,
+  });
 }
 
+// Production Render web service is currently 1 instance. withOwnerLock is
+// in-process; invite create also re-counts after persist and revokes a 6th seat.
 const ownerLocks = new Map();
 
 function withOwnerLock(ownerEmail, fn) {
@@ -122,6 +150,7 @@ module.exports = {
   isActivelyLinkedStaff,
   findActiveMemberByEmail,
   findPendingInviteByEmail,
+  ownerGrantsInheritedPro,
   staffInheritsOwnerProAccess,
   withOwnerLock,
 };

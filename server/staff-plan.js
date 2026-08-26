@@ -193,10 +193,10 @@ function staffPlanCheckoutBlock({ user, requestedPlan } = {}) {
   return null;
 }
 
-function allowsStaffPlanCheckoutDespiteExistingPro(requestedPlan, user) {
-  return String(requestedPlan || "").trim().toLowerCase() === STAFF_PLAN_KEY
-    && !isAuthoritativeFoundingMember(user)
-    && !hasStaffPlanEntitlement(user);
+function allowsStaffPlanCheckoutDespiteExistingPro() {
+  // Existing Monthly / Early User subscribers must replace the current
+  // subscription item. A second Checkout Session is never allowed.
+  return false;
 }
 
 module.exports = {

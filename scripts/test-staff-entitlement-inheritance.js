@@ -17,6 +17,8 @@ const STORE = path.join(ROOT, "server", `.staff-entitlement-test-store-${process
 const OWNER = "tclashley@icloud.com";
 const CODIRECTOR = "codirector.ashley@example.com";
 const NON_BETA = "provider@example.com";
+const MONTHLY_BETA = "learnnplay123sc@gmail.com";
+const MONTHLY_STAFF = "teacher.monthly@example.com";
 
 function test(name, fn) {
   return Promise.resolve()
@@ -112,10 +114,34 @@ async function main() {
         stripeCustomerId: "cus_solo",
         stripeSubscriptionId: "sub_solo",
       },
+      [MONTHLY_BETA]: {
+        email: MONTHLY_BETA,
+        role: "owner",
+        plan: "Pro",
+        subscriptionStatus: "Pro Monthly Subscription Active",
+        stripeSubscriptionStatus: "active",
+        billingOffer: "pro_monthly",
+        foundingMemberActive: false,
+        stripeCustomerId: "cus_monthly_beta",
+        stripeSubscriptionId: "sub_monthly_beta",
+      },
+      [MONTHLY_STAFF]: {
+        email: MONTHLY_STAFF,
+        role: "teacher",
+        linkedProgramOwnerEmail: MONTHLY_BETA,
+        programAccessViaOwner: true,
+        plan: "Free",
+        subscriptionStatus: "Free Plan",
+        stripeCustomerId: "",
+        stripeSubscriptionId: "",
+      },
     },
     programMembers: {
       [OWNER]: [
         { email: CODIRECTOR, role: "director", status: "active", joinedAt: "2026-08-01T12:00:00.000Z" },
+      ],
+      [MONTHLY_BETA]: [
+        { email: MONTHLY_STAFF, role: "teacher", status: "active", joinedAt: "2026-08-01T12:00:00.000Z" },
       ],
     },
     staffInvites: {},
@@ -296,6 +322,12 @@ async function main() {
       assert.ok(limited.length >= 1);
       const after = await request("GET", "/api/staff/invites", { email: OWNER });
       assert.equal(after.json.seats.used, 5);
+    });
+
+    await test("O non-founding Monthly Pro linked staff do not inherit Pro", async () => {
+      const res = await request("GET", `/api/subscription-status?email=${encodeURIComponent(MONTHLY_STAFF)}`);
+      assert.equal(res.json.subscription.hasProAccess, false);
+      assert.equal(res.json.subscription.accessInheritedFromOwner || "", "");
     });
 
     await test("15 owner loses Pro and inherited access disappears", async () => {
