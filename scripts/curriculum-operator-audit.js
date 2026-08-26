@@ -12,6 +12,7 @@
 "use strict";
 
 const schema = require("./curriculum-operator-schema.js");
+const lessonRead = require("./curriculum-operator-lesson-read.js");
 
 function loadStandards() {
   try { return require("./curriculum-standards.js"); } catch (_e) { return null; }
@@ -88,10 +89,10 @@ function weekFieldValue(plan, draftWeek, key) {
     return schema.text(week.milestones) || schema.text(plan?.milestones) || schema.text(plan?.adaptations);
   }
   if (key === "learningDomains") {
-    const draftList = schema.asArray(week.learningDomains);
-    const planList = schema.asArray(plan?.learningDomains);
-    const list = draftList.length ? draftList : planList;
-    return list.length ? list.join(", ") : "";
+    return lessonRead.learningDomainsText(plan, week);
+  }
+  if (key === "vocabularyWords") {
+    return lessonRead.vocabularyTextFromSources(plan, week);
   }
   return schema.text(week[key]) || schema.text(plan?.[key]);
 }
@@ -108,7 +109,7 @@ function classifyWeeklyFields(plan, draft) {
     { field: "observationFocus", label: "Observation focus", minStrong: 12 },
     { field: "familyConnection", label: "Family connection", minStrong: 15 },
     { field: "milestones", label: "Milestones / adaptations", minStrong: 10 },
-    { field: "vocabularyWords", label: "Vocabulary", minStrong: 6 },
+    { field: "vocabularyWords", label: "Vocabulary", minStrong: 6, isVocabList: true },
   ];
   return defs.map((def) => {
     const value = weekFieldValue(plan, week, def.field);
@@ -121,6 +122,21 @@ function classifyWeeklyFields(plan, draft) {
         : (count === 1
           ? { decision: "IMPROVE", reason: "Only one learning domain selected." }
           : { decision: "FILL", reason: "Learning domains are empty." });
+      return schema.normalizeFieldDecision({
+        field: def.field,
+        label: def.label,
+        decision: cls.decision,
+        reason: cls.reason,
+        preview: schema.text(value, 160),
+      });
+    }
+    if (def.isVocabList) {
+      const words = schema.text(value).split(/[,\n·;]+/).map((w) => w.trim()).filter(Boolean);
+      const cls = words.length >= 4
+        ? { decision: "KEEP", reason: "Vocabulary is present." }
+        : (words.length >= 1
+          ? { decision: "IMPROVE", reason: "Vocabulary list is thin." }
+          : { decision: "FILL", reason: "Vocabulary is empty." });
       return schema.normalizeFieldDecision({
         field: def.field,
         label: def.label,
@@ -573,13 +589,22 @@ function auditLesson(plan, curriculum = {}, options = {}) {
     : schema.asArray(plan.books);
   let booksDecision = { decision: "FILL", reason: "No books listed." };
   if (booksList.length) {
-    const withGuide = booksList.filter((b) => schema.text(b.whyThisBook)
-      || schema.asArray(b.beforeReadingQuestions).length
-      || schema.asArray(b.afterReadingQuestions).length
-      || schema.text(b.notes)).length;
-    booksDecision = withGuide
-      ? { decision: "KEEP", reason: `${booksList.length} book(s); ${withGuide} with teacher guidance.` }
-      : { decision: "IMPROVE", reason: `${booksList.length} book(s) listed but guidance is thin.` };
+    const libraryPrompts = booksList.filter((b) => lessonRead.classifyBookRecord(b) === "CLASSROOM_LIBRARY_PROMPT");
+    const needsGuide = booksList.filter((b) => lessonRead.bookNeedsDiscussionGuide(b));
+    const withGuide = booksList.filter((b) => !lessonRead.bookNeedsDiscussionGuide(b)).length;
+    if (needsGuide.length) {
+      booksDecision = {
+        decision: "IMPROVE",
+        reason: `${needsGuide.length} book(s) need discussion guides; ${libraryPrompts.length} classroom-library prompt(s) are acceptable as-is.`,
+      };
+    } else {
+      booksDecision = {
+        decision: "KEEP",
+        reason: libraryPrompts.length
+          ? `${booksList.length} book resource(s); classroom-library search prompt(s) do not require title-specific discussion guides.`
+          : `${booksList.length} book(s); ${withGuide} with teacher guidance.`,
+      };
+    }
   }
 
   let completeness = null;
@@ -587,10 +612,17 @@ function auditLesson(plan, curriculum = {}, options = {}) {
     completeness = teacher.analyzeLessonCompleteness(plan, flat, draft, { resources });
   }
 
+  const auditPlanView = lessonRead.buildAuditPlanView(plan, draft);
+  const auditOptions = {
+    resources,
+    connectedOperatorPath: options.connectedOperatorPath === true,
+    skipWeekdayFocusBlocker: options.skipWeekdayFocusBlocker === true,
+  };
+
   let qualityEval = null;
   try {
     if (quality?.evaluateTeachingKit) {
-      qualityEval = quality.evaluateTeachingKit(plan, flat, draft, { resources });
+      qualityEval = quality.evaluateTeachingKit(auditPlanView, flat, draft, auditOptions);
     }
   } catch (_e) {
     qualityEval = null;
@@ -599,7 +631,7 @@ function auditLesson(plan, curriculum = {}, options = {}) {
   let standardsAudit = null;
   try {
     if (standards?.auditLessonPlanAgainstStandards) {
-      standardsAudit = standards.auditLessonPlanAgainstStandards(plan);
+      standardsAudit = standards.auditLessonPlanAgainstStandards(auditPlanView);
     }
   } catch (_e) {
     standardsAudit = null;
@@ -701,6 +733,11 @@ function auditLesson(plan, curriculum = {}, options = {}) {
 
   audit.estimatedJobScope = estimateJobScope(audit);
   audit.recommendedFutureActions = recommendedFutureActions(audit);
+  audit.lessonReadiness = lessonRead.classifyLessonReadiness(audit);
+  audit.reportConsistency = lessonRead.assertReportConsistency(audit, {
+    printablesExcluded: options.printablesExcluded === true,
+    printableMutations: options.printableMutations || 0,
+  });
   audit.phase1 = {
     mutationsApplied: false,
     published: false,

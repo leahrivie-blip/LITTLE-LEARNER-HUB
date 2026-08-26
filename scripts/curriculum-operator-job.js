@@ -100,6 +100,14 @@ function normalizeLessonResult(raw = {}) {
     qualityReview: input.qualityReview && typeof input.qualityReview === "object" ? input.qualityReview : null,
     workPlan: input.workPlan && typeof input.workPlan === "object" ? input.workPlan : null,
     kitScope: input.kitScope && typeof input.kitScope === "object" ? input.kitScope : null,
+    executionScope: input.executionScope && typeof input.executionScope === "object" ? input.executionScope : null,
+    lessonReadiness: schema.text(input.lessonReadiness, 40) || null,
+    reportConsistency: input.reportConsistency && typeof input.reportConsistency === "object"
+      ? input.reportConsistency
+      : null,
+    readinessDelta: input.readinessDelta && typeof input.readinessDelta === "object"
+      ? input.readinessDelta
+      : null,
     finalVerification: input.finalVerification && typeof input.finalVerification === "object"
       ? input.finalVerification
       : null,

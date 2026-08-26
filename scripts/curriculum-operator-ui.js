@@ -214,12 +214,12 @@
         ${publishNote}
         <h5>${esc(audit.title || lr.title || "Lesson")}</h5>
         <p class="co-status-pill">READY FOR OWNER REVIEW</p>
-        <p>Teaching Kit ${esc(readiness)}%</p>
+        <p>Teaching Kit ${esc(readiness)}%${lr.lessonReadiness ? ` · Lesson readiness: ${esc(lr.lessonReadiness)}` : ""}</p>
         <ul class="co-review-checks">
           <li>Content — Weekly plan ${audit.weeklyContent ? "✓" : "·"} · Activities ✓ · Songs ${lr.songsBooksComplete || (lr.songCounts && (lr.songCounts.KEEP || lr.songCounts.ADD)) ? "✓" : "·"} · Books ${lr.songsBooksComplete || (lr.bookCounts && (lr.bookCounts.KEEP || lr.bookCounts.ADD)) ? "✓" : "·"}</li>
           <li>Activity images — ${lr.imagesComplete ? "✓ Verified" : "Needs review"}</li>
-          <li>Printables — ${lr.printablesComplete ? "✓ Verified" : "Needs review"}</li>
-          <li>Final validation — ${lr.finalVerification?.ok !== false ? "✓ No critical blockers" : "✗ Issues remain"}</li>
+          <li>Printables — ${lr.kitScope?.locks?.printables ? "OUT OF SCOPE (excluded)" : (lr.printablesComplete ? "✓ Verified" : "Needs review")}</li>
+          <li>Final validation — ${lr.finalVerification?.ok !== false ? "✓ Stored state verified" : "✗ Issues remain"}${lr.reportConsistency?.ok === false ? " · report consistency warnings" : ""}</li>
           <li>Last Operator job — Completed</li>
         </ul>
         <p><strong>PUBLISH STATUS</strong> — NOT PUBLISHED</p>
@@ -266,13 +266,12 @@
       <section>
         <h5>Full-kit work plan</h5>
         <pre class="co-log">${esc((typeof LLHCurriculumOperatorUi !== "undefined" ? "" : "") + (lr.workPlan.title || "") + " · cover " + (lr.workPlan.cover || "LOCKED"))}</pre>
-        <p class="muted-copy">Locks:
-          images ${lr.kitScope?.locks?.images ? "ON" : "off"} ·
-          printables ${lr.kitScope?.locks?.printables ? "ON" : "off"} ·
-          songs ${lr.kitScope?.locks?.songs ? "ON" : "off"} ·
-          books ${lr.kitScope?.locks?.books ? "ON" : "off"} ·
-          cover ${lr.kitScope?.locks?.cover !== false ? "ON" : "off"}
+        <p class="muted-copy">Execution scope:
+          ${lr.executionScope
+    ? `Images ${esc(lr.executionScope.images)} · Printables ${esc(lr.executionScope.printables)} · Cover ${esc(lr.executionScope.cover)} · Songs ${esc(lr.executionScope.songs)} · Books ${esc(lr.executionScope.books)}`
+    : `images ${lr.kitScope?.locks?.images ? "EXCLUDED" : "ENABLED"} · printables ${lr.kitScope?.locks?.printables ? "EXCLUDED" : "ENABLED"} · cover ${lr.kitScope?.locks?.cover ? "EXCLUDED" : "ENABLED"}`}
         </p>
+        ${lr.lessonReadiness ? `<p class="muted-copy">Lesson readiness: ${esc(lr.lessonReadiness)} · Job status: ${esc(review)}</p>` : ""}
       </section>` : ""}
       ${lr.finalVerification ? `
       <section>

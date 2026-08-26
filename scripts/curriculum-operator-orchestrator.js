@@ -7,6 +7,7 @@
 "use strict";
 
 const schema = require("./curriculum-operator-schema.js");
+const lessonRead = require("./curriculum-operator-lesson-read.js");
 
 const FULL_KIT_EXECUTION_ORDER = Object.freeze([
   "PARSE_COMMAND",
@@ -139,16 +140,30 @@ function buildFullKitWorkPlan({ plan, audit, kitScope, command } = {}) {
       : (item.image?.reason || ""),
   }));
 
-  const printablePlan = assetPlan.map((item) => ({
-    activityId: item.activityId,
-    activityTitle: item.activityTitle,
-    decision: scope.printables
-      ? (item.printable?.decision || "NOT_NEEDED")
-      : (schema.asArray(item.printable?.existingResourceIds).length ? "KEEP_EXISTING" : "NOT_NEEDED"),
-    reason: scope.locks.printables
-      ? "Printables locked by command exclusion."
-      : (item.printable?.reason || ""),
-  }));
+  const printablePlan = scope.printables
+    ? assetPlan.map((item) => ({
+      activityId: item.activityId,
+      activityTitle: item.activityTitle,
+      decision: item.printable?.decision || "NOT_NEEDED",
+      reason: item.printable?.reason || "",
+    }))
+    : assetPlan.map((item) => ({
+      activityId: item.activityId,
+      activityTitle: item.activityTitle,
+      decision: "OUT_OF_SCOPE",
+      reason: "Printables excluded from this job by command.",
+    }));
+
+  const printableRecommendations = !scope.printables
+    ? assetPlan
+      .filter((item) => ["CREATE", "REPLACE"].includes(item.printable?.decision))
+      .map((item) => ({
+        activityId: item.activityId,
+        activityTitle: item.activityTitle,
+        decision: item.printable?.decision,
+        reason: item.printable?.reason || "Future printable opportunity — not part of this job.",
+      }))
+    : [];
 
   const expectedReady = scope.lessonContent || scope.activities || scope.songs
     || scope.books || scope.images || scope.printables;
@@ -166,6 +181,8 @@ function buildFullKitWorkPlan({ plan, audit, kitScope, command } = {}) {
     books: bookPlan,
     images: imagePlan,
     printables: printablePlan,
+    printableRecommendations,
+    executionScope: lessonRead.summarizeExecutionScope(scope, command),
     counts: {
       text: countDecisions(textPlan),
       activities: countDecisions(activityPlan),
@@ -195,7 +212,15 @@ function summarizeWorkPlanForOwner(workPlan) {
   pushCounts("SONGS", workPlan.counts?.songs);
   pushCounts("BOOKS", workPlan.counts?.books);
   pushCounts("IMAGES", workPlan.counts?.images);
-  pushCounts("PRINTABLES", workPlan.counts?.printables);
+  if (workPlan.printableRecommendations?.length) {
+    lines.push(`PRINTABLES (OUT OF SCOPE): ${workPlan.printableRecommendations.length} future recommendation(s)`);
+  } else {
+    pushCounts("PRINTABLES", workPlan.counts?.printables);
+  }
+  if (workPlan.executionScope) {
+    const es = workPlan.executionScope;
+    lines.push(`SCOPE: Images ${es.images} · Printables ${es.printables} · Cover ${es.cover} · Songs ${es.songs} · Books ${es.books}`);
+  }
   lines.push(`EXPECTED: ${workPlan.expectedOwnerReview}`);
   lines.push("PUBLISH: NOT PUBLISHED");
   return lines.join("\n");
