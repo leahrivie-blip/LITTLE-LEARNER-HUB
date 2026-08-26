@@ -500,6 +500,32 @@ async function main() {
       "user prompt asks for weeklyChanges + activities");
   }
 
+  // learningDomains accepted (canonical plan field)
+  {
+    const workDomains = {
+      ...work,
+      weekRequests: [{
+        field: "learningDomains",
+        action: "FILL",
+        reason: "Empty",
+        currentPreview: "",
+      }],
+      hasWork: true,
+    };
+    const raw = JSON.stringify({
+      lessonId: LESSON_ID,
+      weeklyChanges: {
+        learningDomains: {
+          action: "FILL",
+          value: ["Creative Arts", "Physical Development"],
+        },
+      },
+      activities: [],
+    });
+    const validated = composer.validateComposerOutput(raw, workDomains, plan);
+    ok(validated.ok === true, "learningDomains accepted as canonical weekly field");
+  }
+
   // Unsupported alias rejected
   {
     const raw = JSON.stringify({

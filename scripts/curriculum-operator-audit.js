@@ -87,6 +87,12 @@ function weekFieldValue(plan, draftWeek, key) {
   if (key === "milestones") {
     return schema.text(week.milestones) || schema.text(plan?.milestones) || schema.text(plan?.adaptations);
   }
+  if (key === "learningDomains") {
+    const draftList = schema.asArray(week.learningDomains);
+    const planList = schema.asArray(plan?.learningDomains);
+    const list = draftList.length ? draftList : planList;
+    return list.length ? list.join(", ") : "";
+  }
   return schema.text(week[key]) || schema.text(plan?.[key]);
 }
 
@@ -96,6 +102,7 @@ function classifyWeeklyFields(plan, draft) {
     { field: "weeklyOverview", label: "Weekly overview", minStrong: 25 },
     { field: "objectives", label: "Learning objectives", minStrong: 18 },
     { field: "weeklyMaterials", label: "Materials", minStrong: 12 },
+    { field: "learningDomains", label: "Learning domains", minStrong: 1, isDomainList: true },
     { field: "teacherPreparation", label: "Teacher preparation / Toolkit", minStrong: 15 },
     { field: "prepChecklist", label: "Prep checklist", minStrong: 6 },
     { field: "observationFocus", label: "Observation focus", minStrong: 12 },
@@ -105,6 +112,23 @@ function classifyWeeklyFields(plan, draft) {
   ];
   return defs.map((def) => {
     const value = weekFieldValue(plan, week, def.field);
+    if (def.isDomainList) {
+      const count = schema.asArray(value ? value.split(/,\s*/) : []).filter(Boolean).length
+        || schema.asArray(plan?.learningDomains).length
+        || schema.asArray(week?.learningDomains).length;
+      const cls = count >= 2
+        ? { decision: "KEEP", reason: "Learning domains are present." }
+        : (count === 1
+          ? { decision: "IMPROVE", reason: "Only one learning domain selected." }
+          : { decision: "FILL", reason: "Learning domains are empty." });
+      return schema.normalizeFieldDecision({
+        field: def.field,
+        label: def.label,
+        decision: cls.decision,
+        reason: cls.reason,
+        preview: schema.text(value, 160),
+      });
+    }
     const cls = classifyTextField(value, { minStrong: def.minStrong, minOk: Math.min(6, def.minStrong) });
     return schema.normalizeFieldDecision({
       field: def.field,
