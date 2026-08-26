@@ -174,7 +174,8 @@ function testCoverIntent() {
   ok(lessonRead.resolveCoverIntent(command) === "EXPLICIT_REPLACE", "explicit cover intent detected");
   const plan = lmwPlan();
   const coverPlan = connected.buildCoverPlan(plan, { activities: lmwActivities() }, { command });
-  ok(coverPlan.decision === "REPLACE_REQUESTED", "cover plan attempts replacement when explicitly requested");
+  ok(coverPlan.decision === "GENERATE", "explicit cover plans dedicated GENERATE task");
+  ok(coverPlan.generationMode === "REALISTIC_LESSON_COVER", "explicit cover uses REALISTIC_LESSON_COVER mode");
   ok(coverPlan.coverIntent === "EXPLICIT_REPLACE", "coverIntent recorded");
 }
 

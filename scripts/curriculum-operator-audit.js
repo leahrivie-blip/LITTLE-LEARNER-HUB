@@ -145,6 +145,23 @@ function classifyWeeklyFields(plan, draft) {
         preview: schema.text(value, 160),
       });
     }
+    if (def.field === "teacherPreparation") {
+      const substantial = lessonRead.isTeacherPreparationSubstantial
+        ? lessonRead.isTeacherPreparationSubstantial(plan, week)
+        : wordCount(value) >= def.minStrong;
+      const cls = substantial
+        ? { decision: "KEEP", reason: "Teacher preparation is substantial." }
+        : (wordCount(value) >= Math.min(6, def.minStrong)
+          ? { decision: "IMPROVE", reason: "Teacher preparation is present but thin." }
+          : { decision: "FILL", reason: "Teacher preparation is weak or missing." });
+      return schema.normalizeFieldDecision({
+        field: def.field,
+        label: def.label,
+        decision: cls.decision,
+        reason: cls.reason,
+        preview: schema.text(value, 160),
+      });
+    }
     const cls = classifyTextField(value, { minStrong: def.minStrong, minOk: Math.min(6, def.minStrong) });
     return schema.normalizeFieldDecision({
       field: def.field,

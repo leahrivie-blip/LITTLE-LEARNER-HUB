@@ -21,6 +21,162 @@ function asArray(value) {
   return schema.asArray(value);
 }
 
+function wordCount(value) {
+  return text(value, 4000).split(/\s+/).filter(Boolean).length;
+}
+
+/**
+ * Canonical vocabulary contract:
+ * - Authoritative structured storage: teachingKit.vocabCards (array of card objects).
+ * - Plan-level plan.vocabularyWords (comma-separated string) is the editor/audit string view.
+ * - mergeDraftIntoPlan writes both from week.vocabCards; readers merge draft + persisted sources.
+ */
+function getActivityTeacherTips(activity, dailyPlanItem, patch = {}) {
+  const draftTips = asArray(patch?.teacherTips).map((tip) => text(tip, 400)).filter(Boolean);
+  if (draftTips.length) return draftTips;
+  const activityTips = asArray(activity?.teacherTips).map((tip) => text(tip, 400)).filter(Boolean);
+  if (activityTips.length) return activityTips;
+  const itemTips = asArray(dailyPlanItem?.teacherTips).map((tip) => text(tip, 400)).filter(Boolean);
+  if (itemTips.length) return itemTips;
+  return [];
+}
+
+function teacherPreparationSources(plan = {}, week = {}) {
+  const weekToolkit = week.teacherToolkit && typeof week.teacherToolkit === "object"
+    ? week.teacherToolkit
+    : {};
+  const planToolkit = plan?.teachingKit?.teacherToolkit && typeof plan.teachingKit.teacherToolkit === "object"
+    ? plan.teachingKit.teacherToolkit
+    : {};
+  return {
+    week,
+    weekToolkit,
+    planToolkit,
+    prepText: text(week.teacherPreparation)
+      || text(weekToolkit.teacherPreparation)
+      || text(planToolkit.teacherPreparation)
+      || text(planToolkit.notes),
+    prepChecklist: asArray(weekToolkit.prepChecklist).length
+      ? asArray(weekToolkit.prepChecklist)
+      : asArray(planToolkit.prepChecklist),
+  };
+}
+
+function isTeacherPreparationSubstantial(plan = {}, week = {}) {
+  const sources = teacherPreparationSources(plan, week);
+  const prepWords = wordCount(sources.prepText);
+  if (prepWords >= 15) return true;
+  if (prepWords >= 8 && sources.prepChecklist.length >= 2) return true;
+  return false;
+}
+
+function flattenObjectPaths(value, prefix = "", out = []) {
+  if (value == null) {
+    if (prefix) out.push(prefix);
+    return out;
+  }
+  if (Array.isArray(value)) {
+    if (!value.length) {
+      if (prefix) out.push(prefix);
+      return out;
+    }
+    value.forEach((item, index) => flattenObjectPaths(item, `${prefix}[${index}]`, out));
+    return out;
+  }
+  if (typeof value === "object") {
+    const keys = Object.keys(value);
+    if (!keys.length) {
+      if (prefix) out.push(prefix);
+      return out;
+    }
+    keys.forEach((key) => {
+      const next = prefix ? `${prefix}.${key}` : key;
+      flattenObjectPaths(value[key], next, out);
+    });
+    return out;
+  }
+  if (prefix) out.push(prefix);
+  return out;
+}
+
+function computePersistedPlanDiff(beforePlan = {}, afterPlan = {}) {
+  const ignore = new Set([
+    "updatedAt", "enrichmentDraft", "enrichmentDraftUndo", "enrichmentPublishHistory",
+    "__llhSurgicalDailyPlans", "__llhAccessPlanPatch",
+  ]);
+  const paths = new Set([
+    ...flattenObjectPaths(beforePlan),
+    ...flattenObjectPaths(afterPlan),
+  ]);
+  const changed = [];
+  paths.forEach((pathKey) => {
+    if (!pathKey || ignore.has(pathKey)) return;
+    const beforeVal = pathKey.split(".").reduce((cur, part) => {
+      if (cur == null) return undefined;
+      const match = part.match(/^(.+)\[(\d+)\]$/);
+      if (match) return cur[match[1]]?.[Number(match[2])];
+      return cur[part];
+    }, beforePlan);
+    const afterVal = pathKey.split(".").reduce((cur, part) => {
+      if (cur == null) return undefined;
+      const match = part.match(/^(.+)\[(\d+)\]$/);
+      if (match) return cur[match[1]]?.[Number(match[2])];
+      return cur[part];
+    }, afterPlan);
+    if (JSON.stringify(beforeVal ?? null) !== JSON.stringify(afterVal ?? null)) {
+      changed.push(pathKey);
+    }
+  });
+  return changed.sort();
+}
+
+function verifyConnectedAutoApplyPersistence({
+  beforePlan = {},
+  afterPlan = {},
+  requestedFieldSuccess = [],
+} = {}) {
+  const mismatches = [];
+  asArray(requestedFieldSuccess).forEach((entry) => {
+    const key = text(entry?.field, 80);
+    const action = text(entry?.action || entry?.decision, 20).toUpperCase();
+    if (!key || !["FILL", "IMPROVE", "REPLACE", "SUCCESS"].includes(action)) return;
+    if (key === "learningDomains") {
+      if (!asArray(afterPlan?.learningDomains).length) {
+        mismatches.push({
+          field: key,
+          code: "PERSISTENCE_MISMATCH",
+          message: "learningDomains repair did not persist after reload.",
+        });
+      }
+      return;
+    }
+    if (key === "vocabularyWords" || key === "vocabCards") {
+      const vocab = vocabularyTextFromSources(afterPlan, {});
+      const cards = asArray(afterPlan?.teachingKit?.vocabCards);
+      if (!vocab && !cards.length) {
+        mismatches.push({
+          field: "vocabularyWords",
+          code: "PERSISTENCE_MISMATCH",
+          message: "Vocabulary repair did not persist after reload.",
+        });
+      }
+      return;
+    }
+    if (key === "milestones" && !asArray(afterPlan?.teachingKit?.milestones).length) {
+      mismatches.push({
+        field: key,
+        code: "PERSISTENCE_MISMATCH",
+        message: "milestones repair did not persist after reload.",
+      });
+    }
+  });
+  return {
+    ok: mismatches.length === 0,
+    mismatches,
+    persistedDiff: computePersistedPlanDiff(beforePlan, afterPlan),
+  };
+}
+
 function vocabCardLabel(card) {
   if (card == null) return "";
   if (typeof card === "string") return text(card, 200);
@@ -176,6 +332,11 @@ module.exports = {
   vocabularyTextFromSources,
   learningDomainsFromSources,
   learningDomainsText,
+  getActivityTeacherTips,
+  teacherPreparationSources,
+  isTeacherPreparationSubstantial,
+  computePersistedPlanDiff,
+  verifyConnectedAutoApplyPersistence,
   classifyBookRecord,
   bookNeedsDiscussionGuide,
   buildAuditPlanView,

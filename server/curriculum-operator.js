@@ -1106,9 +1106,11 @@ function createCurriculumOperatorApi(deps) {
       if (job.command.actions?.connectedUpgrade) {
         coverPlan = connectedUpgradeApi.buildCoverPlan(plan, curriculum, { command: job.command });
         workPlan.coverPlan = coverPlan;
-        workPlan.cover = coverPlan.decision === "REPLACE" || coverPlan.decision === "REPLACE_REQUESTED"
-          ? "REPLACE_WITH_ACTIVITY_IMAGE"
-          : "KEEP_EXISTING";
+        workPlan.cover = coverPlan.decision === "GENERATE"
+          ? "GENERATE_REALISTIC_LESSON_COVER"
+          : (coverPlan.decision === "REPLACE" || coverPlan.decision === "REPLACE_REQUESTED"
+            ? "REPLACE_WITH_ACTIVITY_IMAGE"
+            : "KEEP_EXISTING");
       }
       jobApi.appendLog(job, `Work plan for “${plan.title}”: ${orchestrator.summarizeWorkPlanForOwner(workPlan).split("\n").slice(1, 4).join(" · ")}`, "info", plan.id);
 
@@ -1569,8 +1571,65 @@ function createCurriculumOperatorApi(deps) {
         };
       }
 
-      // Connected upgrade: assign cover from strongest activity image when plan says REPLACE.
-      if (job.command.actions?.connectedUpgrade) {
+      // Connected upgrade: dedicated REALISTIC_LESSON_COVER generation when explicitly requested.
+      if (job.command.actions?.connectedUpgrade && coverPlan?.decision === "GENERATE") {
+        const coverCurriculum = readSiteCurriculum(store);
+        const crypto = require("crypto");
+        const path = require("path");
+        const lessonCoverMedia = require("./lesson-cover-media.js");
+        const persistCoverFn = async ({ buffer, mimeType, fileName }) => {
+          const id = `lesson-cover-${crypto.randomBytes(16).toString("hex")}`;
+          try {
+            const storePath = process.env.LLH_STORE_PATH
+              || path.join(process.cwd(), "server/data/launch-store.json");
+            const dir = lessonCoverMedia.localCoverDirFromStorePath(storePath);
+            lessonCoverMedia.writeLocalLessonCover(dir, id, {
+              mimeType: mimeType || "image/png",
+              buffer,
+              fileName: fileName || "lesson-cover.png",
+            });
+            return { ok: true, id, url: lessonCoverMedia.lessonCoverMediaUrl(id) };
+          } catch (error) {
+            return { ok: false, code: "cover_persist_failed", error: error.message };
+          }
+        };
+        const generatedCover = await connectedUpgradeApi.runDedicatedLessonCoverGeneration({
+          plan: workingPlan,
+          curriculum: coverCurriculum,
+          coverPlan,
+          apiKey: process.env.OPENAI_API_KEY || "",
+          mockGenerate: process.env.VISUAL_PRODUCTION_MOCK_GENERATE === "1",
+          persistCoverFn,
+        });
+        if (generatedCover?.ok) {
+          coverPlan = generatedCover.coverPlan;
+          const currentDraft = workingPlan.enrichmentDraft && typeof workingPlan.enrichmentDraft === "object"
+            ? workingPlan.enrichmentDraft
+            : {};
+          const nextDraft = connectedUpgradeApi.applyCoverToEnrichmentDraft(currentDraft, coverPlan);
+          if (typeof saveOperatorEnrichmentDraft === "function") {
+            const coverSave = await saveOperatorEnrichmentDraft({
+              store,
+              lessonPlanId: plan.id,
+              enrichmentDraft: nextDraft,
+              adminEmail: sessionEmail,
+            });
+            if (coverSave?.ok) {
+              Object.assign(store, readStore());
+              workingPlan = schema.asArray(readSiteCurriculum(store).lessonPlans).find((p) => p.id === plan.id)
+                || workingPlan;
+            }
+          }
+        } else {
+          jobApi.appendLog(
+            job,
+            `Dedicated lesson cover generation skipped/failed: ${schema.text(generatedCover?.error || generatedCover?.code, 240)}`,
+            "warn",
+            plan.id,
+          );
+        }
+      } else if (job.command.actions?.connectedUpgrade
+        && (coverPlan?.decision === "REPLACE" || coverPlan?.decision === "REPLACE_REQUESTED")) {
         const coverCurriculum = readSiteCurriculum(store);
         const currentCoverPlan = coverPlan || connectedUpgradeApi.buildCoverPlan(workingPlan, coverCurriculum, {
           command: job.command,
@@ -1822,6 +1881,7 @@ function createCurriculumOperatorApi(deps) {
     job.lessonResults = results;
     const completed = results.filter((l) => l.status === "success").length;
     const failed = results.filter((l) => l.status === "failed").length;
+    const contentGaps = results.some((l) => l.contentPersistenceIncomplete === true);
     job.progress = {
       ...job.progress,
       completed,
@@ -1831,7 +1891,10 @@ function createCurriculumOperatorApi(deps) {
       currentAction: "",
       currentLessonId: "",
     };
-    job.status = failed && !completed ? "failed" : "completed";
+    job.status = failed && !completed
+      ? "failed"
+      : (contentGaps ? "completed_with_gaps" : "completed");
+    job.contentPersistenceIncomplete = contentGaps;
     job.ownerSummary = jobApi.buildOwnerSummary(job);
     jobApi.appendLog(
       job,
@@ -1866,6 +1929,8 @@ function createCurriculumOperatorApi(deps) {
         continue;
       }
       Object.assign(store, readStore());
+      const curriculumBefore = readSiteCurriculum(store);
+      const beforePlan = schema.asArray(curriculumBefore.lessonPlans).find((p) => p.id === lr.lessonId) || null;
       const result = await applyOperatorConnectedEnrichment({
         store,
         lessonPlanId: lr.lessonId,
@@ -1878,13 +1943,30 @@ function createCurriculumOperatorApi(deps) {
         const curriculum = readSiteCurriculum(store);
         const reloadedPlan = schema.asArray(curriculum.lessonPlans).find((p) => p.id === lr.lessonId);
         if (reloadedPlan) {
+          const requestedFieldSuccess = schema.asArray(lr.composerDiagnostics?.accepted)
+            .filter((row) => row.scope === "week" && row.field)
+            .map((row) => ({ field: row.field, action: row.action || "SUCCESS" }));
           const nextLr = connectedUpgradeApi.refreshLessonResultPostApply(lr, reloadedPlan, curriculum, {
             command: job.command,
+            beforePlan: beforePlan || {},
+            requestedFieldSuccess,
             printablesExcluded: lr.kitScope?.locks?.printables === true,
             printableMutations: 0,
           });
+          nextLr.proposedChanges = schema.asArray(lr.updated).slice();
+          nextLr.persistedChanges = schema.asArray(nextLr.persistedDiff);
+          nextLr.updated = nextLr.persistedChanges;
+          if (nextLr.contentPersistenceIncomplete) {
+            nextLr.ownerReviewStatus = nextLr.ownerReviewStatus === "BLOCKED"
+              ? "BLOCKED"
+              : "PARTIAL";
+          }
           job.lessonResults[i] = nextLr;
-          refreshed.push({ lessonId: lr.lessonId, lessonReadiness: nextLr.lessonReadiness });
+          refreshed.push({
+            lessonId: lr.lessonId,
+            lessonReadiness: nextLr.lessonReadiness,
+            persistenceMismatches: nextLr.persistenceMismatches,
+          });
         }
       } else {
         skipped.push({ lessonId: lr.lessonId, ...result });

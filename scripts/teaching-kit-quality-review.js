@@ -518,12 +518,18 @@
     list.forEach((act) => {
       const key = text(act.id || act.itemId);
       const patch = draftActs[key] || {};
+      const dailyItem = act.dailyPlanItem || null;
       if (!text(patch.outdoorAlternatives || act.outdoorAlternatives || act.outdoorOption) && !/outdoor|sidewalk|garden|yard/i.test(body)) {
         missingOutdoor += 1;
       }
       if (!text(patch.indoorAlternatives || act.indoorAlternatives || act.indoorAlternative)) missingIndoor += 1;
       if (!asArray(patch.observationPrompts).length && !text(act.observationOpportunities)) missingObs += 1;
-      if (!asArray(patch.teacherTips).length) missingTips += 1;
+      const tips = lessonRead?.getActivityTeacherTips
+        ? lessonRead.getActivityTeacherTips(act, dailyItem, patch)
+        : (enrich?.activityEnrichmentView
+          ? enrich.activityEnrichmentView(act, patch).teacherTips
+          : asArray(patch.teacherTips || act.teacherTips));
+      if (!tips.length) missingTips += 1;
       const view = enrichApiForImages?.activityEnrichmentView
         ? enrichApiForImages.activityEnrichmentView(act, patch)
         : {
@@ -598,12 +604,16 @@
     }
 
     // Teacher prep / toolkit
-    const prep = text(week.teacherPreparation)
-      || text(week.teacherToolkit?.teacherPreparation)
-      || asArray(week.teacherToolkit?.prepChecklist).join(" ");
-    const prepSubstantial = wordCount(prep) >= 15
-      || (wordCount(text(week.teacherPreparation) || text(week.teacherToolkit?.teacherPreparation)) >= 8
-        && asArray(week.teacherToolkit?.prepChecklist).length >= 2);
+    const prepSubstantial = lessonRead?.isTeacherPreparationSubstantial
+      ? lessonRead.isTeacherPreparationSubstantial(plan, week)
+      : (() => {
+        const prep = text(week.teacherPreparation)
+          || text(week.teacherToolkit?.teacherPreparation)
+          || asArray(week.teacherToolkit?.prepChecklist).join(" ");
+        return wordCount(prep) >= 15
+          || (wordCount(text(week.teacherPreparation) || text(week.teacherToolkit?.teacherPreparation)) >= 8
+            && asArray(week.teacherToolkit?.prepChecklist).length >= 2);
+      })();
     if (!prepSubstantial) {
       findings.push(finding({
         code: "weak_teacher_prep",
@@ -632,7 +642,7 @@
     );
     if (toolkitScore < 6) {
       const missingAreas = [];
-      if (!(text(toolkit.teacherPreparation) || text(week.teacherPreparation))) missingAreas.push("preparation notes");
+      if (!prepSubstantial) missingAreas.push("preparation notes");
       if (!asArray(toolkit.teacherTips || toolkit.tips).length) missingAreas.push("toolkit tips");
       if (!asArray(toolkit.setupCleanupShortcuts).length) missingAreas.push("setup/cleanup shortcuts");
       if (!(asArray(toolkit.observationPrompts).length || asArray(toolkit.observationFocus).length)) {
@@ -654,7 +664,7 @@
         severity: prepSubstantial ? "medium" : "blocking",
         blocking: !prepSubstantial,
         message: prepSubstantial
-          ? `Teacher Toolkit completeness is ${toolkitScore}/12 structured areas${missingAreas.length ? ` — optional follow-up: ${missingAreas.slice(0, 4).join(", ")}` : ""}.`
+          ? `Teaching Kit completeness: ${toolkitScore} of 12 quality dimensions currently satisfied${missingAreas.length ? ` — optional follow-up: ${missingAreas.slice(0, 4).join(", ")}` : ""}.`
           : `Teacher Toolkit is incomplete (${toolkitScore}/12 structured areas). Thin prep notes alone are not enough.`,
         suggestion: "Add preparation, tips, substitutions, adaptations, observation/documentation prompts, safety/inclusion, and end-of-week reflection.",
         navigateTo: "week:toolkit",
