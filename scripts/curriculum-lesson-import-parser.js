@@ -21,6 +21,13 @@ try {
   curriculumSentinel = (typeof globalThis !== "undefined" && globalThis.LLHCurriculumSentinel) || null;
 }
 
+let learningDomainsApi = null;
+try {
+  learningDomainsApi = require("./curriculum-learning-domains.js");
+} catch {
+  learningDomainsApi = null;
+}
+
 const PLAY_ACTIVITY_CATEGORIES_V1 = [
   "Circle Time",
   "Literacy",
@@ -80,7 +87,7 @@ const ACTIVITY_CATEGORY_ALIASES = {
   "open-ended exploration": "Open-Ended Exploration",
 };
 
-const CURRICULUM_LEARNING_DOMAINS = [
+const CURRICULUM_LEARNING_DOMAINS = learningDomainsApi?.CURRICULUM_LEARNING_DOMAINS || [
   "Social Emotional",
   "Language & Literacy",
   "Math",
@@ -88,24 +95,23 @@ const CURRICULUM_LEARNING_DOMAINS = [
   "Physical Development",
   "Creative Arts",
 ];
-
-const LEARNING_DOMAIN_ALIASES = {
+const LEARNING_DOMAIN_ALIASES = learningDomainsApi?.LEARNING_DOMAIN_ALIASES || {
   "fine motor": "Physical Development",
   "gross motor": "Physical Development",
-  "physical": "Physical Development",
-  "motor": "Physical Development",
-  "literacy": "Language & Literacy",
-  "language": "Language & Literacy",
+  physical: "Physical Development",
+  motor: "Physical Development",
+  literacy: "Language & Literacy",
+  language: "Language & Literacy",
   "language and literacy": "Language & Literacy",
-  "social": "Social Emotional",
+  social: "Social Emotional",
   "social-emotional": "Social Emotional",
   "social emotional": "Social Emotional",
-  "sel": "Social Emotional",
-  "art": "Creative Arts",
-  "arts": "Creative Arts",
-  "creative": "Creative Arts",
-  "maths": "Math",
-  "mathematics": "Math",
+  sel: "Social Emotional",
+  art: "Creative Arts",
+  arts: "Creative Arts",
+  creative: "Creative Arts",
+  maths: "Math",
+  mathematics: "Math",
 };
 
 const CURRICULUM_LESSON_STATUSES = ["draft", "published", "featured", "archived"];
@@ -385,6 +391,9 @@ function curriculumAgeBucketFromText(value) {
 }
 
 function parseLearningDomainsList(text) {
+  if (learningDomainsApi?.parseLearningDomainsList) {
+    return learningDomainsApi.parseLearningDomainsList(text);
+  }
   const seen = new Set();
   const domains = [];
   String(text || "")
