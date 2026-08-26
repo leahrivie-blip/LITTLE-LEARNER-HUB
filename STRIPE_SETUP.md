@@ -10,6 +10,7 @@ Create these recurring prices in Stripe:
 - Pro Monthly: `$19.99/month`
 - Pro Early User: `$13.99/month` (same Pro product / entitlement; separate Price ID)
 - Pro Annual: `$199/year`
+- Staff Plan: `$29.99/month` (optional until created — replacement tier for Add Staff: owner Pro + up to 5 staff, no per-seat charges)
 
 Copy the Stripe price IDs into your environment:
 
@@ -18,8 +19,11 @@ STRIPE_PRICE_FOUNDING_MONTHLY=price_...
 STRIPE_PRICE_PRO_MONTHLY=price_...
 STRIPE_PRICE_EARLY_USER_MONTHLY=price_...
 STRIPE_PRICE_PRO_ANNUAL=price_...
+STRIPE_PRICE_STAFF_MONTHLY=price_...
 EARLY_USER_PRICING_ENABLED=false
 ```
+
+`STRIPE_PRICE_STAFF_MONTHLY` is **not** required to boot or deploy. If it is missing, Staff Plan checkout fails closed — it does not fall back to monthly, founding, early-user, or annual. `STAFF_PLAN_PRICE_ID` is accepted as an alias for the same Price ID.
 
 `EARLY_USER_PRICING_ENABLED` defaults to **false**. Keep it off until checkout verification passes.
 When enabled, new customers can select Early User ($13.99). Existing Early User

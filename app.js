@@ -5791,6 +5791,7 @@ function checkoutAmount(type) {
   if (type === "founding") return "$9.99/month";
   if (type === "annual") return "$199/year";
   if (type === "early_user") return offeredProMonthlyLabel();
+  if (type === "staff") return "$29.99/month";
   return regularProMonthlyLabel();
 }
 
@@ -5798,6 +5799,7 @@ function checkoutPlanName(type) {
   if (type === "founding") return "Founding Member";
   if (type === "annual") return "Pro Annual";
   if (type === "early_user") return "Pro — Early User";
+  if (type === "staff") return "Staff Plan";
   return "Pro Monthly";
 }
 
@@ -43307,6 +43309,7 @@ async function refreshStaffInvitesFromBackend() {
     invites: Array.isArray(data.invites) ? data.invites : [],
     members: Array.isArray(data.members) ? data.members : [],
     seats: data.seats || null,
+    staffPlan: data.staffPlan || null,
     emailDeliveryReady: Boolean(data.emailDeliveryReady),
     loadedAt: Date.now(),
   };
@@ -43340,6 +43343,10 @@ function renderStaffManagementPage(options = {}) {
     canInvite: (members.length + pendingInvites.length) < 5,
   };
   const atStaffCap = !seats.canInvite;
+  const staffPlan = cache.staffPlan || {};
+  const staffPlanUnknown = !cache.staffPlan && !cache.localOnly;
+  const staffPlanUpgradeRequired = staffPlan.upgradeRequired === true;
+  const staffPlanCanInvite = !staffPlanUnknown && staffPlan.canInvite !== false;
   const classrooms = activeScheduleClassrooms();
   const account = currentAccount() || {};
   const programOwnerEmail = account.linkedProgramOwnerEmail || currentUser || "";
@@ -43348,6 +43355,7 @@ function renderStaffManagementPage(options = {}) {
   const emailNote = cache.emailDeliveryReady
     ? "Invite emails send automatically when delivery is configured."
     : "If email delivery is not configured on the server, you will still get a shareable accept link.";
+  const staffPlanConfigured = staffPlan.configured !== false;
   section.innerHTML = renderManageSurfaceShell({
     eyebrow: "Staff & Permissions",
     title: "Staff management",
@@ -43415,9 +43423,25 @@ function renderStaffManagementPage(options = {}) {
       <section class="section-block platform-manage-card">
         <h3>Invite staff</h3>
         <p class="muted-copy">${escapeHtml(`${seats.used} / ${seats.max} staff seats used`)}</p>
-        ${atStaffCap ? `
+        ${staffPlanUnknown ? `
+        <p class="muted-copy" id="staffInviteMessage">Checking Staff Plan entitlement…</p>
+        ` : staffPlanUpgradeRequired ? `
+        <div class="staff-plan-upgrade">
+          <h4>Add Staff — $29.99/month</h4>
+          <p>Get Pro for your account plus access for up to 5 staff members.</p>
+          <p class="muted-copy">Staff inherit paid feature access from the program owner. Role permissions still apply. Seats 1–5 are included. There is no 6th staff option.</p>
+          ${isLinkedMember ? `
+          <p class="form-message" id="staffInviteMessage">The program owner needs to upgrade to the Staff Plan before staff can be invited.</p>
+          ` : staffPlanConfigured ? `
+          <button class="primary-button" type="button" data-upgrade-staff-plan>Upgrade to Staff Plan</button>
+          <span class="form-message" id="staffInviteMessage" aria-live="polite"></span>
+          ` : `
+          <p class="form-message" id="staffInviteMessage">Staff Plan checkout is not configured yet. The Staff Plan Stripe price ID is missing.</p>
+          `}
+        </div>
+        ` : atStaffCap ? `
         <p class="form-message" id="staffInviteMessage">You’ve reached the 5 staff limit for your beta account.</p>
-        ` : `
+        ` : staffPlanCanInvite ? `
         <form id="staffInviteForm" class="mini-form platform-manage-form">
           <label>Email<input name="email" type="email" required placeholder="teacher@example.com" /></label>
           <label>Role
@@ -43438,6 +43462,8 @@ function renderStaffManagementPage(options = {}) {
           <p class="form-note">${escapeHtml(emailNote)}</p>
           <span class="form-message" id="staffInviteMessage" aria-live="polite"></span>
         </form>
+        ` : `
+        <p class="form-message" id="staffInviteMessage">${escapeHtml(staffPlan.message || "Staff invites are not available until the required Staff Plan is active.")}</p>
         `}
       </section>
     `,
@@ -67134,6 +67160,50 @@ function showFoundingVsProConfirm(onChoice) {
  * startCheckout() directly (no extra step for founding checkouts, sold-out states,
  * or genuinely ineligible users).
  */
+async function startStaffPlanCheckout() {
+  if (!requireBillingAccount()) return;
+  if (!window.confirm("Continue to secure Stripe checkout for Staff Plan at $29.99/month?\n\nThis is a replacement monthly subscription: Pro for your account plus Add Staff for up to 5 staff members. There are no per-seat charges.")) {
+    return;
+  }
+  const checkoutButton = document.querySelector("[data-upgrade-staff-plan]");
+  if (checkoutButton) {
+    checkoutButton.disabled = true;
+    checkoutButton.textContent = "Opening Stripe...";
+  }
+  const message = document.querySelector("#staffInviteMessage");
+  try {
+    if (!stripeCheckoutConfig.checkoutEndpoint || !canUseStripeBackend()) {
+      throw new Error("Stripe checkout is not available right now.");
+    }
+    const response = await fetch(stripeCheckoutConfig.checkoutEndpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: currentUser,
+        plan: "staff",
+        priceKey: "STRIPE_PRICE_STAFF_MONTHLY",
+        successUrl: `${window.location.origin}/subscription-success?session_id={CHECKOUT_SESSION_ID}`,
+        cancelUrl: `${window.location.origin}${window.location.pathname}?view=staff&checkout=cancel`,
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data?.error || "Staff Plan checkout could not start.");
+    if (data?.url) {
+      window.location.href = data.url;
+      return;
+    }
+    throw new Error("Staff Plan checkout did not return a Stripe URL.");
+  } catch (error) {
+    if (message) message.textContent = error.message || "Could not start Staff Plan checkout.";
+    else window.alert(error.message || "Could not start Staff Plan checkout.");
+  } finally {
+    if (checkoutButton) {
+      checkoutButton.disabled = false;
+      checkoutButton.textContent = "Upgrade to Staff Plan";
+    }
+  }
+}
+
 async function startCheckoutWithFoundingGuard(type, trackingContext = "checkout") {
   // Refresh the founding count from the server before deciding whether to show the
   // confirmation — a stale client-side cache (e.g. from an earlier page load) must
@@ -69470,6 +69540,13 @@ document.addEventListener("click", async (event) => {
   if (refreshStaffInvitesBtn) {
     event.preventDefault();
     renderStaffManagementPage({ refresh: true });
+    return;
+  }
+
+  const upgradeStaffPlanBtn = event.target.closest("[data-upgrade-staff-plan]");
+  if (upgradeStaffPlanBtn) {
+    event.preventDefault();
+    startStaffPlanCheckout();
     return;
   }
 
@@ -79138,6 +79215,14 @@ document.addEventListener("submit", async (event) => {
   if (event.target?.id === "staffInviteForm") {
     event.preventDefault();
     if (!canAccessPlatformFeature("staff_management") || !canAccessStaffBeta()) return;
+    if (staffInviteRemoteCache.staffPlan && staffInviteRemoteCache.staffPlan.canInvite === false) {
+      const billingMessage = document.querySelector("#staffInviteMessage");
+      if (billingMessage) {
+        billingMessage.textContent = staffInviteRemoteCache.staffPlan.message
+          || "Upgrade to the Staff Plan ($29.99/month) to invite staff.";
+      }
+      return;
+    }
     if (staffInviteRemoteCache.seats && staffInviteRemoteCache.seats.canInvite === false) {
       const capMessage = document.querySelector("#staffInviteMessage");
       if (capMessage) capMessage.textContent = "You’ve reached the 5 staff limit for your beta account.";
