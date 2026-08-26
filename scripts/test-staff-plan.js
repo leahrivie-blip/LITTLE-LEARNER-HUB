@@ -407,6 +407,14 @@ async function main() {
         billingOffer: "staff_plan",
         subscriptionStatus: "Staff Plan Subscription Active",
       }),
+      [ADMIN]: paidUser({
+        email: ADMIN,
+        billingOffer: "pro_monthly",
+        monthlyPrice: "$19.99/month",
+        stripeCustomerId: "cus_admin_monthly",
+        stripeSubscriptionId: "sub_admin_monthly",
+        stripeSubscriptionItemId: "si_admin_monthly",
+      }),
       "switcher@example.com": paidUser({
         email: "switcher@example.com",
         billingOffer: "pro_monthly",
@@ -467,7 +475,7 @@ async function main() {
       assert.match(String(sixth.json.error || ""), /5 staff limit/);
     });
 
-    await test("checkout: already on Staff Plan is blocked; Pro monthly can start Staff Plan", async () => {
+    await test("checkout: already on Staff Plan is blocked; Monthly Pro replaces the existing subscription", async () => {
       const foundingCheckout = await request("POST", "/api/create-checkout-session", {
         port: PORT_PRICED,
         body: { email: ASHLEY, plan: "staff" },
@@ -482,13 +490,26 @@ async function main() {
       assert.equal(already.status, 409, JSON.stringify(already.json));
       assert.equal(already.json.code, "already_subscribed");
 
-      const upgrade = await request("POST", "/api/create-checkout-session", {
+      const betaBlocked = await request("POST", "/api/create-checkout-session", {
         port: PORT_PRICED,
         body: { email: "switcher@example.com", plan: "staff" },
       });
+      assert.equal(betaBlocked.status, 403, JSON.stringify(betaBlocked.json));
+      assert.equal(betaBlocked.json.code, "staff_beta_required");
+
+      const upgrade = await request("POST", "/api/staff-plan/upgrade", {
+        port: PORT_PRICED,
+        body: { email: ADMIN, plan: "staff" },
+      });
       assert.equal(upgrade.status, 200, JSON.stringify(upgrade.json));
-      assert.match(String(upgrade.json.url || ""), /price_test_staff_monthly_only/);
-      assert.equal(String(upgrade.json.url || "").includes("price_sim_pro_monthly"), false);
+      assert.equal(upgrade.json.upgraded, true);
+      assert.equal(upgrade.json.subscriptionId, "sub_admin_monthly");
+      assert.equal(upgrade.json.prorationBehavior, "none");
+      assert.equal(upgrade.json.subscriptionIdRetained, true);
+      assert.equal(String(upgrade.json.url || ""), "");
+      const after = JSON.parse(fs.readFileSync(pricedStore, "utf8"));
+      assert.equal(after.users[ADMIN].billingOffer, "staff_plan");
+      assert.equal(after.users[ADMIN].stripeSubscriptionId, "sub_admin_monthly");
     });
   } finally {
     priced.kill("SIGTERM");

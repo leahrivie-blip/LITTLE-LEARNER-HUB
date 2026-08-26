@@ -58579,9 +58579,14 @@ function adminMembershipHasBillingHistory(account) {
 
 function adminMembershipPlanLabel(account) {
   if (account?.membershipPlan) return account.membershipPlan;
+  const staffOffer = String(account?.billingOffer || "").trim().toLowerCase() === "staff_plan";
+  if (typeof isBillingReviewRequired === "function" && isBillingReviewRequired(account) && staffOffer) {
+    return "Staff Plan";
+  }
   if (!adminMembershipHasProAccess(account)) return "Free";
   if (adminMembershipInTrial(account)) return "Trial";
   if (adminMembershipFoundingActive(account)) return "Founding Member";
+  if (staffOffer) return "Staff Plan";
   if (account?.subscriptionCadence === "annual") return "Pro Annual";
   if (typeof accountIsEarlyUser === "function" && accountIsEarlyUser(account)) return "Pro — Early User";
   if (String(account?.billingOffer || "").trim().toLowerCase() === "early_user") return "Pro — Early User";
@@ -58639,6 +58644,7 @@ function adminCurrentAccessKey(account) {
   if (plan === "Trial") return "trial";
   if (plan === "Founding Member") return "founding";
   if (plan === "Pro — Early User") return "early_user";
+  if (plan === "Staff Plan") return "staff_plan";
   if (plan === "Pro Monthly" || plan === "Pro Annual") return "pro";
   return "free";
 }
@@ -58668,6 +58674,7 @@ function adminMembershipDisplayPrice(account) {
   if (label === "Founding Member") return "$9.99/month";
   if (label === "Pro Annual") return "$199/year";
   if (label === "Pro — Early User") return "$13.99/month";
+  if (label === "Staff Plan") return "$29.99/month";
   if (label === "Trial" || label === "Pro Monthly") return "$19.99/month";
   return account.monthlyPrice || "$0/month";
 }
@@ -58678,10 +58685,19 @@ function adminUserPlanBadge(account) {
   // ("Billing Review Required") whether fresh or historical — never "Payment Failed",
   // never "Ended"/"Canceled". Only the internal bucket key differs, for admin triage.
   if (status?.key === "needs_billing_review" || status?.key === "payment_failed" || status?.key === "past_due") {
-    return `<span class="aup-badge aup-badge--review" title="${escapeHtml(status.detail || "")}">🟤 Billing Review Required</span>`;
+    const staffReview = String(account?.billingOffer || "").trim().toLowerCase() === "staff_plan"
+      || adminMembershipPlanLabel(account) === "Staff Plan";
+    return `<span class="aup-badge aup-badge--review" title="${escapeHtml(status.detail || "")}">🟤 ${staffReview ? "Staff Plan · Billing Review Required" : "Billing Review Required"}</span>`;
   }
-  if (status?.key === "inactive") return `<span class="aup-badge aup-badge--canceled">🔴 Subscription Inactive</span>`;
+  if (status?.key === "inactive") {
+    const endedStaff = String(account?.previousPlan || "").trim() === "Staff Plan"
+      || String(account?.billingOffer || "").trim().toLowerCase() === "staff_plan";
+    return `<span class="aup-badge aup-badge--canceled">🔴 ${endedStaff ? "Staff Plan ended" : "Subscription Inactive"}</span>`;
+  }
   if (status?.key === "active_founding") return `<span class="aup-badge aup-badge--founding">⭐ Founding</span>`;
+  if (status?.key === "active_staff" || adminMembershipPlanLabel(account) === "Staff Plan") {
+    return `<span class="aup-badge aup-badge--pro" title="Staff Plan $29.99/month">👥 Staff Plan</span>`;
+  }
   if (status?.key === "active_early_user" || (status?.key === "active_pro" && adminMembershipPlanLabel(account) === "Pro — Early User")) {
     return `<span class="aup-badge aup-badge--pro" title="Early User billing $13.99/month">🌱 Pro — Early User</span>`;
   }
@@ -67153,13 +67169,6 @@ function showFoundingVsProConfirm(onChoice) {
   });
 }
 
-/**
- * Wrap around startCheckout() at every entry point that can lead to a "monthly"
- * (Regular Pro) checkout. Shows the Founding-vs-Pro confirmation only when the user
- * is eligible for Founding AND spots remain; otherwise behaves exactly like calling
- * startCheckout() directly (no extra step for founding checkouts, sold-out states,
- * or genuinely ineligible users).
- */
 async function startStaffPlanCheckout() {
   if (!requireBillingAccount()) return;
   if (!window.confirm("Continue to secure Stripe checkout for Staff Plan at $29.99/month?\n\nThis is a replacement monthly subscription: Pro for your account plus Add Staff for up to 5 staff members. There are no per-seat charges.")) {
@@ -67175,7 +67184,7 @@ async function startStaffPlanCheckout() {
     if (!stripeCheckoutConfig.checkoutEndpoint || !canUseStripeBackend()) {
       throw new Error("Stripe checkout is not available right now.");
     }
-    const response = await fetch(stripeCheckoutConfig.checkoutEndpoint, {
+    const response = await fetch("/api/staff-plan/upgrade", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -67188,6 +67197,12 @@ async function startStaffPlanCheckout() {
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data?.error || "Staff Plan checkout could not start.");
+    if (data?.upgraded) {
+      if (message) message.textContent = "Staff Plan is now active. Staff can be invited without a second subscription.";
+      await syncSubscriptionFromBackend(currentUser, { renderBilling: true, renderAccount: true });
+      renderStaffManagementPage({ refresh: true });
+      return;
+    }
     if (data?.url) {
       window.location.href = data.url;
       return;
@@ -67204,6 +67219,13 @@ async function startStaffPlanCheckout() {
   }
 }
 
+/**
+ * Wrap around startCheckout() at every entry point that can lead to a "monthly"
+ * (Regular Pro) checkout. Shows the Founding-vs-Pro confirmation only when the user
+ * is eligible for Founding AND spots remain; otherwise behaves exactly like calling
+ * startCheckout() directly (no extra step for founding checkouts, sold-out states,
+ * or genuinely ineligible users).
+ */
 async function startCheckoutWithFoundingGuard(type, trackingContext = "checkout") {
   // Refresh the founding count from the server before deciding whether to show the
   // confirmation — a stale client-side cache (e.g. from an earlier page load) must

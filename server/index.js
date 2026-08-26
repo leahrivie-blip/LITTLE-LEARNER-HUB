@@ -9,6 +9,7 @@ const accountAccess = require("../scripts/account-access.js");
 const staffBetaAccess = require("../scripts/staff-beta-access.js");
 const staffEntitlement = require("./staff-entitlement.js");
 const staffPlan = require("./staff-plan.js");
+const staffPlanUpgrade = require("./staff-plan-upgrade.js");
 const curriculumStandards = require("../scripts/curriculum-standards.js");
 const freeCurriculumSample = require("../scripts/free-curriculum-sample.js");
 const curriculumLessonAccessPlan = require("./curriculum-lesson-access-plan.js");
@@ -7793,6 +7794,7 @@ function planKeyFromStripe(subscription, user = {}) {
   const pendingPlan = String(user.pendingPlan || "").trim().toLowerCase();
   if (planConfig[pendingPlan]) return pendingPlan;
   if (user.foundingMemberActive || String(user.plan || "").trim() === "Founding") return "founding";
+  if (membershipAccess.membershipIsStaffPlan(user) && user.subscriptionCadence !== "annual") return "staff";
   if (membershipAccess.membershipIsEarlyUser(user) && user.subscriptionCadence !== "annual") return "early_user";
   if (user.subscriptionCadence === "annual") return "annual";
   return "monthly";
@@ -10783,9 +10785,165 @@ async function handlePromoValidation(request, response, url) {
   });
 }
 
-async function handleCheckout(request, response) {
+function staffPlanUsesSimulatedStripe() {
+  return STRIPE_CHECKOUT_SIMULATION
+    || /simulation/i.test(String(STRIPE_SECRET_KEY || ""));
+}
+
+async function loadStaffPlanStripeInventory(user, email) {
+  if (staffPlanUsesSimulatedStripe() || !isConfiguredValue(STRIPE_SECRET_KEY)) {
+    return null;
+  }
+  const staffPriceId = staffPlan.getStaffPlanPriceId();
+  const customers = await stripeGet(`customers?email=${encodeURIComponent(email)}&limit=10`);
+  const rows = Array.isArray(customers?.data) ? customers.data : [];
+  const subscriptionsByCustomer = {};
+  for (const customer of rows) {
+    const customerId = String(customer?.id || "").trim();
+    if (!customerId) continue;
+    const listed = await stripeGet(`subscriptions?customer=${encodeURIComponent(customerId)}&status=all&limit=20`);
+    subscriptionsByCustomer[customerId] = Array.isArray(listed?.data) ? listed.data : [];
+  }
+  if (user?.stripeCustomerId && !subscriptionsByCustomer[user.stripeCustomerId]) {
+    const listed = await stripeGet(`subscriptions?customer=${encodeURIComponent(user.stripeCustomerId)}&status=all&limit=20`);
+    subscriptionsByCustomer[user.stripeCustomerId] = Array.isArray(listed?.data) ? listed.data : [];
+  }
+  return staffPlanUpgrade.resolveAuthoritativeCustomer({
+    user,
+    customers: rows,
+    subscriptionsByCustomer,
+    staffPriceId,
+  });
+}
+
+async function persistStaffPlanReplacement(email, customerId, liveSubscription) {
+  const synced = upsertStripeSubscription(email, customerId, liveSubscription, { deferPersist: true });
+  upsertUser(email, {
+    pendingPlan: "",
+    staffPlanUpgradeLockAt: "",
+    priceLock: "",
+    billingOffer: "staff_plan",
+    planDisplayName: staffPlan.STAFF_PLAN_DISPLAY_NAME,
+    monthlyPrice: staffPlan.STAFF_PLAN_AMOUNT,
+  }, { deferPersist: true });
+  try {
+    await writeStoreAsync(writableStore());
+  } catch (error) {
+    error.persistFailed = true;
+    throw error;
+  }
+  return readStore().users?.[email] || synced;
+}
+
+/**
+ * Dedicated Staff Plan start: replace Monthly/Early in place, or allow new-user Checkout.
+ * Returns true when the HTTP response was already written.
+ */
+async function handleStaffPlanStart(request, response, { email, existingUser, body = {} } = {}) {
+  return staffPlanUpgrade.withEmailLock(email, async () => {
+    const freshUser = readStore().users?.[email] || existingUser || {};
+    let inventory = null;
+    try {
+      inventory = await loadStaffPlanStripeInventory(freshUser, email);
+    } catch (error) {
+      jsonResponse(response, 503, {
+        error: "Could not verify the current Stripe subscription before Staff Plan upgrade.",
+        code: "staff_plan_inventory_unavailable",
+      });
+      return true;
+    }
+    const decision = staffPlanUpgrade.classifyStaffPlanStart({
+      user: { ...freshUser, email },
+      email,
+      env: process.env,
+      inventory,
+      isConfiguredAdminEmail,
+    });
+    if (decision.action === "block") {
+      jsonResponse(response, decision.status, decision.payload);
+      return true;
+    }
+    if (decision.action === "create_checkout") {
+      upsertUser(email, {
+        staffPlanUpgradeLockAt: new Date().toISOString(),
+      }, { deferPersist: true });
+      try {
+        await writeStoreAsync(writableStore());
+      } catch (error) {
+        jsonResponse(response, storePersistenceFailureStatus(error), {
+          ok: false,
+          error: "Could not lock Staff Plan checkout.",
+          code: error?.code || "store_write_failed",
+        });
+        return true;
+      }
+      return false;
+    }
+    if (decision.action !== "replace") {
+      jsonResponse(response, 400, { error: "Staff Plan could not be started.", code: "staff_plan_start_failed" });
+      return true;
+    }
+    if (decision.localOnly && !staffPlanUsesSimulatedStripe()) {
+      jsonResponse(response, 409, {
+        error: staffPlanUpgrade.AMBIGUOUS_CUSTOMER_MESSAGE,
+        code: "ambiguous_stripe_customer",
+      });
+      return true;
+    }
+    upsertUser(email, {
+      staffPlanUpgradeLockAt: new Date().toISOString(),
+      pendingPlan: staffPlan.STAFF_PLAN_KEY,
+    }, { deferPersist: true });
+    try {
+      await writeStoreAsync(writableStore());
+    } catch (error) {
+      jsonResponse(response, storePersistenceFailureStatus(error), {
+        ok: false,
+        error: "Could not lock Staff Plan upgrade.",
+        code: error?.code || "store_write_failed",
+      });
+      return true;
+    }
+    try {
+      const replaced = await staffPlanUpgrade.replaceSubscriptionWithStaffPlan({
+        subscription: decision.subscription,
+        staffPriceId: decision.staffPriceId,
+        stripeRequest,
+        stripeGet,
+        simulation: staffPlanUsesSimulatedStripe(),
+      });
+      const saved = await persistStaffPlanReplacement(
+        email,
+        decision.customerId || replaced.subscription.customer || freshUser.stripeCustomerId,
+        replaced.subscription,
+      );
+      jsonResponse(response, 200, {
+        upgraded: true,
+        plan: staffPlan.STAFF_PLAN_KEY,
+        subscriptionId: saved.stripeSubscriptionId || replaced.subscription.id,
+        customerId: saved.stripeCustomerId || decision.customerId || "",
+        prorationBehavior: "none",
+        subscriptionIdRetained: replaced.subscriptionIdRetained,
+        previousPriceId: replaced.previousPriceId || "",
+        url: "",
+      });
+      return true;
+    } catch (error) {
+      upsertUser(email, { staffPlanUpgradeLockAt: "", pendingPlan: "" }, { deferPersist: true });
+      try { await writeStoreAsync(writableStore()); } catch { /* keep original error */ }
+      jsonResponse(response, 500, {
+        error: error.message || "Staff Plan replacement failed.",
+        code: error.code || "staff_plan_replace_failed",
+      });
+      return true;
+    }
+  });
+}
+
+async function handleCheckout(request, response, options = {}) {
   if (!requireStripe(response)) return;
   const body = await readJson(request);
+  if (options.forceStaffPlan) body.plan = staffPlan.STAFF_PLAN_KEY;
   const email = normalizeEmail(body.email);
   const store = readStore();
   seedDefaultPromoCodes(store);
@@ -10808,12 +10966,7 @@ async function handleCheckout(request, response) {
   }
   const existingUser = store.users?.[email] || {};
   if (requestedPlan === staffPlan.STAFF_PLAN_KEY) {
-    const staffCheckoutBlock = staffPlan.staffPlanCheckoutBlock({
-      user: existingUser,
-      requestedPlan,
-    });
-    if (staffCheckoutBlock) {
-      jsonResponse(response, staffCheckoutBlock.status, staffCheckoutBlock.payload);
+    if (await handleStaffPlanStart(request, response, { email, existingUser, body })) {
       return;
     }
   }
@@ -11039,6 +11192,7 @@ async function handleCheckout(request, response) {
     upsertUser(email, {
       stripeCustomerId: customer,
       pendingPlan: planKey,
+      staffPlanUpgradeLockAt: planKey === staffPlan.STAFF_PLAN_KEY ? new Date().toISOString() : (existingUser.staffPlanUpgradeLockAt || ""),
       subscriptionStatus: "Checkout Started",
       pendingPromoCode: planKey === staffPlan.STAFF_PLAN_KEY ? "" : (promo.valid ? promo.code : ""),
       pendingTrialDays: planKey === staffPlan.STAFF_PLAN_KEY
@@ -11642,6 +11796,7 @@ function staffInheritsOwnerProFromStore(user, storeRef = null) {
     members: listProgramMembers(store || {}, ownerEmail),
     ownerHasPersonalPro: membershipAccess.membershipHasProAccess(owner || {}),
     staffBetaOptions: { isConfiguredAdminEmail },
+    isConfiguredAdminEmail,
   });
 }
 
@@ -12123,6 +12278,20 @@ async function handleStripeWebhook(request, response) {
       if (userEntry) {
         const [email, user] = userEntry;
         const eventType = event.type === "customer.subscription.deleted" ? "deleted" : "updated";
+        const applyDecision = staffPlanUpgrade.shouldApplyStripeSubscriptionEvent({
+          user,
+          subscription,
+          eventType,
+        });
+        if (!applyDecision.apply) {
+          console.log(`[membership] webhook_unrelated_subscription_ignored event=${event.id} email=${email} reason=${applyDecision.reason}`);
+          if (event?.id) markProcessedStripeEvent(event.id, WEBHOOK_DEFER);
+          if (usePostgresStore() && postgresPool && databaseReady) {
+            if (!(await flushDurableStoreOrWebhookError(response))) return;
+          }
+          jsonResponse(response, 200, { received: true, ignored: true, reason: applyDecision.reason });
+          return;
+        }
         const eventCreated = Number(event.created || 0);
         const lastEventCreated = Number(user.lastStripeEventCreatedAt || 0);
         if (eventCreated && lastEventCreated && eventCreated < lastEventCreated) {
@@ -12185,23 +12354,28 @@ async function handleStripeWebhook(request, response) {
           }, WEBHOOK_DEFER);
         }
         if (!membershipAccess.membershipHasProAccess({ ...user, ...updates })) {
-          appendBillingEvent(email, "subscription_canceled", planKeyFromStripe(subscription, user), "$0", WEBHOOK_DEFER);
-          await emitAdminAlertSafe(readStore(), {
-            category: "billing",
-            type: "admin_subscription_canceled",
-            title: "Subscription canceled / ended",
-            preview: `${email} · ${saved.subscriptionStatus || "ended"}`,
-            email,
-            name: saved.name || user.name || "",
-            refId: subscription.id || `cancel:${email}`,
-            sendEmail: true,
-            emailKind: "Billing",
-            emailExtras: {
-              previousPlan: saved.previousPlan || user.previousPlan || user.plan || "",
-              subscriptionStatus: saved.subscriptionStatus || "ended",
-              endDate: saved.accessEndsAt || saved.currentPeriodEnd || "",
-            },
-          });
+          const reviewUser = { ...user, ...updates };
+          if (staffPlanUpgrade.isFalseCancellationAccessLoss(reviewUser)) {
+            console.log(`[membership] webhook_payment_problem_not_canceled event=${event.id} email=${email}`);
+          } else {
+            appendBillingEvent(email, "subscription_canceled", planKeyFromStripe(subscription, user), "$0", WEBHOOK_DEFER);
+            await emitAdminAlertSafe(readStore(), {
+              category: "billing",
+              type: "admin_subscription_canceled",
+              title: "Subscription canceled / ended",
+              preview: `${email} · ${saved.subscriptionStatus || "ended"}`,
+              email,
+              name: saved.name || user.name || "",
+              refId: subscription.id || `cancel:${email}`,
+              sendEmail: true,
+              emailKind: "Billing",
+              emailExtras: {
+                previousPlan: saved.previousPlan || user.previousPlan || user.plan || "",
+                subscriptionStatus: saved.subscriptionStatus || "ended",
+                endDate: saved.accessEndsAt || saved.currentPeriodEnd || "",
+              },
+            });
+          }
         } else if (updates.cancelAtPeriodEnd && !user.cancelAtPeriodEnd) {
           await emitAdminAlertSafe(readStore(), {
             category: "billing",
@@ -12251,6 +12425,19 @@ async function handleStripeWebhook(request, response) {
         });
       } else if (invoice.subscription) {
         const [email, existingUser] = userEntry;
+        const invoiceApply = staffPlanUpgrade.shouldApplyStripeInvoiceEvent({
+          user: existingUser,
+          invoice,
+        });
+        if (!invoiceApply.apply) {
+          console.log(`[membership] webhook_unrelated_invoice_ignored event=${event.id} email=${email} reason=${invoiceApply.reason}`);
+          if (event?.id) markProcessedStripeEvent(event.id, WEBHOOK_DEFER);
+          if (usePostgresStore() && postgresPool && databaseReady) {
+            if (!(await flushDurableStoreOrWebhookError(response))) return;
+          }
+          jsonResponse(response, 200, { received: true, ignored: true, reason: invoiceApply.reason });
+          return;
+        }
         const eventCreated = Number(event.created || 0);
         const lastEventCreated = Number(existingUser.lastStripeEventCreatedAt || 0);
         if (eventCreated && lastEventCreated && eventCreated < lastEventCreated) {
@@ -12347,6 +12534,19 @@ async function handleStripeWebhook(request, response) {
       const userEntry = findUserEntryByStripeCustomer(store, invoice.customer, invoice.customer_email);
       if (userEntry) {
         const [email, existing] = userEntry;
+        const failedApply = staffPlanUpgrade.shouldApplyStripeInvoiceEvent({
+          user: existing,
+          invoice,
+        });
+        if (!failedApply.apply) {
+          console.log(`[membership] webhook_unrelated_invoice_ignored event=${event.id} email=${email} reason=${failedApply.reason}`);
+          if (event?.id) markProcessedStripeEvent(event.id, WEBHOOK_DEFER);
+          if (usePostgresStore() && postgresPool && databaseReady) {
+            if (!(await flushDurableStoreOrWebhookError(response))) return;
+          }
+          jsonResponse(response, 200, { received: true, ignored: true, reason: failedApply.reason });
+          return;
+        }
         const eventCreated = Number(event.created || 0);
         const lastEventCreated = Number(existing.lastStripeEventCreatedAt || 0);
         if (eventCreated && lastEventCreated && eventCreated < lastEventCreated) {
@@ -12372,8 +12572,11 @@ async function handleStripeWebhook(request, response) {
           foundingMemberHistorical: wasFounding,
           foundingMember: wasFounding,
           foundingMemberNumber: existing?.foundingMemberNumber || null,
+          billingOffer: existing?.billingOffer || "",
           priceLock: wasFounding ? "Lifetime" : "",
-          previousPlan: wasFounding ? "Founding Member" : (existing?.previousPlan || "Pro"),
+          previousPlan: wasFounding
+            ? "Founding Member"
+            : (staffPlan.isStaffPlanOffer(existing) ? staffPlan.STAFF_PLAN_DISPLAY_NAME : (existing?.previousPlan || "Pro")),
           lastStripeSyncAt: new Date().toISOString(),
           lastFailedPaymentAt: new Date(Number(invoice.created || event.created || Date.now() / 1000) * 1000).toISOString(),
           nextPaymentRetryAt: invoice.next_payment_attempt
@@ -18870,6 +19073,30 @@ async function handleStaffInviteCreate(request, response) {
       if (!(await persistStoreOr503(lockedStore, response, "Could not save staff invite."))) {
         const error = new Error("persist_failed");
         error.persistFailed = true;
+        throw error;
+      }
+      const durableStore = ensureStaffInviteCollections(readStore());
+      const durableSeats = staffEntitlement.countStaffSeats({
+        invites: listProgramInvites(durableStore, ownerEmail),
+        members: listProgramMembers(durableStore, ownerEmail),
+      });
+      if (durableSeats.used > staffEntitlement.MAX_STAFF_SEATS) {
+        if (durableStore.staffInvites[token]) {
+          durableStore.staffInvites[token] = {
+            ...durableStore.staffInvites[token],
+            status: "revoked",
+            revokedAt: new Date().toISOString(),
+            revokeReason: "seat_cap_race",
+          };
+          await persistStoreOr503(durableStore, response, "Could not roll back extra staff seat.");
+        }
+        const error = new Error(staffEntitlement.STAFF_LIMIT_MESSAGE);
+        error.status = 409;
+        error.payload = {
+          error: staffEntitlement.STAFF_LIMIT_MESSAGE,
+          code: "staff_limit",
+          seats: durableSeats,
+        };
         throw error;
       }
       return nextInvite;
@@ -31924,6 +32151,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/site-content") return await handleAdminSiteContentSave(request, response);
     if ((request.method === "GET" || request.method === "POST") && url.pathname === "/api/validate-promo-code") return await handlePromoValidation(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/create-checkout-session") return await handleCheckout(request, response);
+    if (request.method === "POST" && url.pathname === "/api/staff-plan/upgrade") return await handleCheckout(request, response, { forceStaffPlan: true });
     if (request.method === "POST" && url.pathname === "/api/create-customer-portal-session") return await handlePortal(request, response);
     if (request.method === "POST" && (url.pathname === "/api/webhooks/stripe" || url.pathname === "/api/stripe/webhook")) return await handleStripeWebhook(request, response);
     if (request.method === "POST" && url.pathname === "/api/ai-generate") return await handleAiGenerate(request, response);

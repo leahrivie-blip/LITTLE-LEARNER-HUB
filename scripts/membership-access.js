@@ -312,6 +312,7 @@ function membershipCurrentAccessKey(user, nowMs = Date.now()) {
   if (plan === "Founding Member") return "founding";
   // Early User is still Pro entitlement — keep a distinct key for analytics/admin counts.
   if (plan === "Pro — Early User" || membershipIsEarlyUser(user)) return "early_user";
+  if (plan === "Staff Plan" || membershipIsStaffPlan(user)) return "staff_plan";
   if (plan === "Pro Monthly" || plan === "Pro Annual") return "pro";
   return "free";
 }
@@ -504,11 +505,12 @@ function membershipProductStatus(user, nowMs = Date.now()) {
 
   if (hasAccess) {
     const canceling = Boolean(user?.cancelAtPeriodEnd);
-    const isEarlyUser = membershipIsEarlyUser(user) && user?.subscriptionCadence !== "annual";
+    const isStaff = membershipIsStaffPlan(user) && user?.subscriptionCadence !== "annual";
+    const isEarlyUser = !isStaff && membershipIsEarlyUser(user) && user?.subscriptionCadence !== "annual";
     return {
-      key: isEarlyUser ? "active_early_user" : "active_pro",
+      key: isStaff ? "active_staff" : (isEarlyUser ? "active_early_user" : "active_pro"),
       adminKey: "active",
-      label: isEarlyUser ? "Active Early User" : "Active Pro",
+      label: isStaff ? "Active Staff Plan" : (isEarlyUser ? "Active Early User" : "Active Pro"),
       emoji: "🟢",
       tone: "success",
       hasProAccess: true,
@@ -516,10 +518,12 @@ function membershipProductStatus(user, nowMs = Date.now()) {
       banner: null,
       cta: null,
       detail: canceling
-        ? `${isEarlyUser ? "Early User" : "Pro"} access continues until ${user?.accessEndsAt || user?.currentPeriodEnd || "period end"}.`
-        : (isEarlyUser
-          ? "Your Early User Pro subscription is active at $13.99/month."
-          : "Your Pro subscription is active."),
+        ? `${isStaff ? "Staff Plan" : isEarlyUser ? "Early User" : "Pro"} access continues until ${user?.accessEndsAt || user?.currentPeriodEnd || "period end"}.`
+        : (isStaff
+          ? "Your Staff Plan is active at $29.99/month."
+          : isEarlyUser
+            ? "Your Early User Pro subscription is active at $13.99/month."
+            : "Your Pro subscription is active."),
       planLabel: membershipPlanDisplay(user, nowMs),
     };
   }
@@ -686,7 +690,9 @@ function stripeSubscriptionToMembershipUpdates(subscription, user = {}, eventTyp
       : new Date().toISOString();
     const previousPlan = endedDuringTrial
       ? "Pro Trial"
-      : (user.foundingMemberActive || user.plan === "Founding" ? "Founding Member" : "Pro");
+      : (user.foundingMemberActive || user.plan === "Founding"
+        ? "Founding Member"
+        : (membershipIsStaffPlan(user) || planKey === "staff" ? "Staff Plan" : "Pro"));
     return {
       ...base,
       plan: "Free",
@@ -717,7 +723,8 @@ function stripeSubscriptionToMembershipUpdates(subscription, user = {}, eventTyp
       foundingMemberHistorical: wasFounding,
       foundingMember: wasFounding,
       trialStatus: user.trialStatus || "",
-      previousPlan: wasFounding ? "Founding Member" : "Pro",
+      previousPlan: wasFounding ? "Founding Member" : (membershipIsStaffPlan(user) || planKey === "staff" ? "Staff Plan" : "Pro"),
+      billingOffer: (membershipIsStaffPlan(user) || planKey === "staff") ? "staff_plan" : (user.billingOffer || ""),
     };
   }
 
