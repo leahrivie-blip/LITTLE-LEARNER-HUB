@@ -56,6 +56,7 @@ function createCurriculumOperatorApi(deps) {
     readOperatorPrintableFile,
     unlinkOperatorPrintableResource,
     applyOperatorConnectedEnrichment,
+    applyOperatorConnectedActivityImages,
   } = deps;
 
   function printableCallAi() {
@@ -556,6 +557,7 @@ function createCurriculumOperatorApi(deps) {
       enrichmentMedia,
       store,
       mockGenerate,
+      preferPublicMediaUrls: imagesApi.commandRequestsConnectedAutoApply(job.command),
       alreadySucceededKeys: collectSucceededImageKeys(lr),
     });
 
@@ -572,41 +574,106 @@ function createCurriculumOperatorApi(deps) {
 
     let afterPlan = plan;
     let historyId = null;
+    let connectedImageApply = null;
+    const connectedAutoApply = imagesApi.commandRequestsConnectedAutoApply(job.command);
+
     if (imageRun.changed) {
-      if (typeof saveOperatorEnrichmentDraft !== "function") {
-        throw new Error("Draft save helper is not configured for image attach.");
+      if (connectedAutoApply && typeof applyOperatorConnectedActivityImages === "function") {
+        // Direct draft lesson save for connected auto-apply — owner sees images
+        // in the normal lesson editor without a separate Apply Enrichment click.
+        connectedImageApply = await applyOperatorConnectedActivityImages({
+          store,
+          lessonPlanId: plan.id,
+          imageActions: imageRun.actions,
+          enrichmentDraft: imageRun.enrichmentDraft,
+          adminEmail: sessionEmail,
+        });
+        if (!connectedImageApply?.ok) {
+          throw new Error(connectedImageApply?.error || "connected activity image draft save failed");
+        }
+        Object.assign(store, readStore());
+        const reloaded = schema.asArray(readSiteCurriculum(store).lessonPlans)
+          .find((p) => p.id === plan.id);
+        if (!reloaded) {
+          throw new Error("Post-save reload failed: lesson missing from store.");
+        }
+        afterPlan = reloaded;
+      } else {
+        if (typeof saveOperatorEnrichmentDraft !== "function") {
+          throw new Error("Draft save helper is not configured for image attach.");
+        }
+        const saveResult = await saveOperatorEnrichmentDraft({
+          store,
+          lessonPlanId: plan.id,
+          enrichmentDraft: imageRun.enrichmentDraft,
+          adminEmail: sessionEmail,
+        });
+        if (!saveResult?.ok) {
+          throw new Error(saveResult?.error || "enrichment_draft image save failed");
+        }
+        historyId = saveResult.versionId || null;
+        // Reload from persistence abstraction — do not trust the in-memory mutate alone.
+        Object.assign(store, readStore());
+        const reloaded = schema.asArray(readSiteCurriculum(store).lessonPlans)
+          .find((p) => p.id === plan.id);
+        if (!reloaded) {
+          throw new Error("Post-save reload failed: lesson missing from store.");
+        }
+        afterPlan = reloaded;
       }
-      const saveResult = await saveOperatorEnrichmentDraft({
-        store,
-        lessonPlanId: plan.id,
-        enrichmentDraft: imageRun.enrichmentDraft,
-        adminEmail: sessionEmail,
-      });
-      if (!saveResult?.ok) {
-        throw new Error(saveResult?.error || "enrichment_draft image save failed");
-      }
-      historyId = saveResult.versionId || null;
-      // Reload from persistence abstraction — do not trust the in-memory mutate alone.
-      Object.assign(store, readStore());
-      const reloaded = schema.asArray(readSiteCurriculum(store).lessonPlans)
-        .find((p) => p.id === plan.id);
-      if (!reloaded) {
-        throw new Error("Post-save reload failed: lesson missing from store.");
-      }
-      afterPlan = reloaded;
     }
 
-    const jobVerification = imagesApi.verifyImageJobDraft({
-      beforePlan: plan,
-      afterPlan,
-      actions: imageRun.actions,
-    });
+    Object.assign(store, readStore());
+    const curriculumAfter = readSiteCurriculum(store);
+    const activitiesAfterReload = schema.asArray(curriculumAfter.activities)
+      .filter((a) => a.lessonPlanId === plan.id);
+    if (connectedAutoApply && connectedImageApply?.ok) {
+      const reloadedPlan = schema.asArray(curriculumAfter.lessonPlans).find((p) => p.id === plan.id);
+      if (reloadedPlan) afterPlan = reloadedPlan;
+    }
+
+    const jobVerification = connectedAutoApply && connectedImageApply?.ok
+      ? imagesApi.verifyConnectedImageJobRecords({
+        beforePlan: plan,
+        afterPlan,
+        afterActivities: activitiesAfterReload,
+        actions: imageRun.actions,
+      })
+      : imagesApi.verifyImageJobDraft({
+        beforePlan: plan,
+        afterPlan,
+        actions: imageRun.actions,
+      });
 
     let restoredDraft = null;
     const verifiedActions = schema.asArray(imageRun.actions).map((action) => {
       if (action.status !== "success") return action;
-      const afterAct = afterPlan?.enrichmentDraft?.activities?.[action.activityId] || {};
       const assetField = action.field === "exampleImageUrl" ? "exampleMediaAssetId" : "setupMediaAssetId";
+
+      if (connectedAutoApply && connectedImageApply?.ok) {
+        const liveAct = activitiesAfterReload.find((a) => schema.text(a.id, 160) === schema.text(action.activityId, 160));
+        const attachedOk = schema.text(liveAct?.[action.field], 500) === schema.text(action.mediaUrl, 500)
+          && schema.text(liveAct?.[assetField], 160) === schema.text(action.mediaAssetId, 160)
+          && !imagesApi.isAdminOnlyEnrichmentMediaUrl(liveAct?.[action.field]);
+        if (attachedOk) {
+          return {
+            ...action,
+            verification: jobVerification,
+            status: "success",
+            persistedToLessonRecords: true,
+          };
+        }
+        return {
+          ...action,
+          status: "failed",
+          error: "Connected direct draft save did not show intended media on activity.",
+          retryable: true,
+          verification: jobVerification,
+          preservedExisting: Boolean(action.previousUrl),
+        };
+      }
+
+      const afterAct = afterPlan?.enrichmentDraft?.activities?.[action.activityId] || {};
       const attachedOk = schema.text(afterAct[action.field], 500) === schema.text(action.mediaUrl, 500)
         && schema.text(afterAct[assetField], 160) === schema.text(action.mediaAssetId, 160);
 
@@ -661,6 +728,7 @@ function createCurriculumOperatorApi(deps) {
       historyId,
       counts,
       imageBudgetDiagnostics: imageRun.imageBudgetDiagnostics || null,
+      connectedImageApply,
       error: ok ? null : "Post-save image job verification failed.",
     };
   }
