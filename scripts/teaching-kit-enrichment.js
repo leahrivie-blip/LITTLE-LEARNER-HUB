@@ -1821,6 +1821,20 @@
     const printableIds = asArray(week.printableIds).map(text).filter(Boolean).slice(0, 100);
     const printableIdeas = normalizePrintableIdeas(week.printableIdeas);
     const vocabCards = normalizeVocabCards(week.vocabCards);
+    const draftLearningDomains = asArray(week.learningDomains).map(text).filter(Boolean).slice(0, 8);
+    if (draftLearningDomains.length) {
+      nextPlan.learningDomains = draftLearningDomains;
+    }
+    if (vocabCards.length) {
+      const vocabWords = vocabCards.map((card) => {
+        if (typeof card === "string") return text(card);
+        if (card && typeof card === "object") return text(card.title || card.word || card.term || card.label);
+        return "";
+      }).filter(Boolean);
+      if (vocabWords.length) {
+        nextPlan.vocabularyWords = vocabWords.join(", ");
+      }
+    }
     if (printableIds.length) {
       const resources = asArray(options.resources);
       nextPlan.resourceIds = resources.length

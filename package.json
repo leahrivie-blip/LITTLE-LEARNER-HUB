@@ -35,6 +35,7 @@
     "test:curriculum-operator-nl-smoke-blockers": "NODE_ENV=test node scripts/test-curriculum-operator-nl-smoke-blockers.js",
     "test:curriculum-operator-lmw-intent-fix": "NODE_ENV=test node scripts/test-curriculum-operator-lmw-intent-fix.js",
     "test:curriculum-operator-learning-domains-hardening": "NODE_ENV=test node scripts/test-curriculum-operator-learning-domains-hardening.js",
+    "test:curriculum-operator-final-hardening": "NODE_ENV=test node scripts/test-curriculum-operator-final-hardening.js",
     "test:curriculum-operator-run-ui-feedback": "NODE_ENV=test node scripts/test-curriculum-operator-run-ui-feedback.js",
     "test:curriculum-operator-empty-changes": "NODE_ENV=test node scripts/test-curriculum-operator-empty-changes.js",
     "test:curriculum-operator-create-architect": "NODE_ENV=test node scripts/test-curriculum-operator-create-architect.js",

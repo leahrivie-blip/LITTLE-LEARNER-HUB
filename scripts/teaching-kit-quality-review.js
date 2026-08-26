@@ -82,6 +82,13 @@
     return null;
   }
 
+  function loadLessonRead() {
+    if (typeof module === "object" && typeof require === "function") {
+      try { return require("./curriculum-operator-lesson-read.js"); } catch (_e) { return null; }
+    }
+    return null;
+  }
+
   function loadDayFieldMapping() {
     if (root && root.LLHCurriculumDayFieldMapping) return root.LLHCurriculumDayFieldMapping;
     if (typeof module === "object" && typeof require === "function") {
@@ -374,6 +381,7 @@
     const body = corpus(plan, list, draft);
     const findings = [];
     const enrich = loadEnrichment();
+    const lessonRead = loadLessonRead();
     let completionPercent = 0;
     let weekdayCoverageLabel = "";
     let contentCompletionPercent = 0;
@@ -593,7 +601,10 @@
     const prep = text(week.teacherPreparation)
       || text(week.teacherToolkit?.teacherPreparation)
       || asArray(week.teacherToolkit?.prepChecklist).join(" ");
-    if (wordCount(prep) < 8) {
+    const prepSubstantial = wordCount(prep) >= 15
+      || (wordCount(text(week.teacherPreparation) || text(week.teacherToolkit?.teacherPreparation)) >= 8
+        && asArray(week.teacherToolkit?.prepChecklist).length >= 2);
+    if (!prepSubstantial) {
       findings.push(finding({
         code: "weak_teacher_prep",
         section: "teacher_prep",
@@ -620,12 +631,31 @@
       + (asArray(toolkit.materialSubstitutions || toolkit.substitutions).length ? 1 : 0)
     );
     if (toolkitScore < 6) {
+      const missingAreas = [];
+      if (!(text(toolkit.teacherPreparation) || text(week.teacherPreparation))) missingAreas.push("preparation notes");
+      if (!asArray(toolkit.teacherTips || toolkit.tips).length) missingAreas.push("toolkit tips");
+      if (!asArray(toolkit.setupCleanupShortcuts).length) missingAreas.push("setup/cleanup shortcuts");
+      if (!(asArray(toolkit.observationPrompts).length || asArray(toolkit.observationFocus).length)) {
+        missingAreas.push("observation prompts");
+      }
+      if (!asArray(toolkit.documentationPrompts).length) missingAreas.push("documentation prompts");
+      if (!text(toolkit.mixedAgeAdaptations)) missingAreas.push("mixed-age adaptations");
+      if (!text(toolkit.extraSupportAdaptations || toolkit.extraSupport)) missingAreas.push("extra support");
+      if (!text(toolkit.challengeExtensions || toolkit.extensions)) missingAreas.push("challenge extensions");
+      if (!text(toolkit.safetyInclusionNotes || toolkit.safetyNotes)) missingAreas.push("safety/inclusion notes");
+      if (!text(toolkit.endOfWeekReflection)) missingAreas.push("end-of-week reflection");
+      if (!(text(toolkit.familyConnection) || text(week.familyConnection) || text(plan?.familyConnection))) {
+        missingAreas.push("family connection");
+      }
+      if (!asArray(toolkit.materialSubstitutions || toolkit.substitutions).length) missingAreas.push("substitutions");
       findings.push(finding({
         code: "incomplete_toolkit",
         section: "toolkit",
-        severity: "blocking",
-        blocking: true,
-        message: `Teacher Toolkit is incomplete (${toolkitScore}/12 structured areas). Thin prep notes alone are not enough.`,
+        severity: prepSubstantial ? "medium" : "blocking",
+        blocking: !prepSubstantial,
+        message: prepSubstantial
+          ? `Teacher Toolkit completeness is ${toolkitScore}/12 structured areas${missingAreas.length ? ` — optional follow-up: ${missingAreas.slice(0, 4).join(", ")}` : ""}.`
+          : `Teacher Toolkit is incomplete (${toolkitScore}/12 structured areas). Thin prep notes alone are not enough.`,
         suggestion: "Add preparation, tips, substitutions, adaptations, observation/documentation prompts, safety/inclusion, and end-of-week reflection.",
         navigateTo: "week:toolkit",
       }));
@@ -652,7 +682,9 @@
     }
 
     // Vocabulary quality
-    const vocab = text(plan?.vocabularyWords) || asArray(week.vocabCards).map((c) => text(c?.title || c)).join(", ");
+    const vocab = lessonRead?.vocabularyTextFromSources
+      ? lessonRead.vocabularyTextFromSources(plan, week)
+      : (text(plan?.vocabularyWords) || asArray(week.vocabCards).map((c) => text(c?.title || c)).join(", "));
     if (!vocab) {
       findings.push(finding({
         code: "missing_vocabulary",
@@ -676,9 +708,11 @@
     const songEntries = asArray(week.songs).length ? asArray(week.songs) : asArray(plan?.songs);
     const enrichApi = loadEnrichment();
     const completeBooks = bookEntries.filter((book) => (
-      enrichApi?.bookRecordComplete ? enrichApi.bookRecordComplete(book) : (text(book?.title) && text(book?.author)
-        && (asArray(book?.afterReadingQuestions || book?.questions || book?.readAloudQuestions).length
-          || asArray(book?.beforeReadingQuestions).length))
+      lessonRead?.bookNeedsDiscussionGuide
+        ? !lessonRead.bookNeedsDiscussionGuide(book)
+        : (enrichApi?.bookRecordComplete ? enrichApi.bookRecordComplete(book) : (text(book?.title) && text(book?.author)
+          && (asArray(book?.afterReadingQuestions || book?.questions || book?.readAloudQuestions).length
+            || asArray(book?.beforeReadingQuestions).length)))
     ));
     const completeSongs = songEntries.filter((song) => (
       enrichApi?.songRecordComplete ? enrichApi.songRecordComplete(song) : (text(song?.title)
@@ -861,26 +895,29 @@
     }
     void activitiesInProgress;
 
-    // Weekday focus — "Theme focus coming soon" is a hard blocker.
+    // Weekday focus — optional for connected Operator upgrades (Phase 2.5 cannot repair dailyFocus).
     const weekdays = ["monday", "tuesday", "wednesday", "thursday", "friday"];
-    const placeholderDays = [];
-    const missingFocusDays = [];
-    weekdays.forEach((day) => {
-      const dayPlan = plan?.dailyPlans?.[day] || {};
-      const focus = text(dayPlan.theme || dayPlan.focus || dayPlan.objectives || week?.dailyFocus?.[day]);
-      if (!focus) missingFocusDays.push(day);
-      else if (/coming soon|theme focus coming soon|placeholder|tbd|todo/i.test(focus)) placeholderDays.push(day);
-    });
-    if (missingFocusDays.length || placeholderDays.length) {
-      findings.push(finding({
-        code: "missing_weekday_focus",
-        section: "weekly_plan",
-        severity: "blocking",
-        blocking: true,
-        message: `Weekday focus incomplete${missingFocusDays.length ? ` (missing: ${missingFocusDays.join(", ")})` : ""}${placeholderDays.length ? ` (placeholder: ${placeholderDays.join(", ")})` : ""}.`,
-        suggestion: "Replace “Theme focus coming soon” with a unique daily focus and teacher-facing details for each weekday.",
-        navigateTo: "week:weekly_plan",
-      }));
+    const skipWeekdayFocus = options.connectedOperatorPath === true || options.skipWeekdayFocusBlocker === true;
+    if (!skipWeekdayFocus) {
+      const placeholderDays = [];
+      const missingFocusDays = [];
+      weekdays.forEach((day) => {
+        const dayPlan = plan?.dailyPlans?.[day] || {};
+        const focus = text(dayPlan.theme || dayPlan.focus || dayPlan.objectives || week?.dailyFocus?.[day]);
+        if (!focus) missingFocusDays.push(day);
+        else if (/coming soon|theme focus coming soon|placeholder|tbd|todo/i.test(focus)) placeholderDays.push(day);
+      });
+      if (missingFocusDays.length || placeholderDays.length) {
+        findings.push(finding({
+          code: "missing_weekday_focus",
+          section: "weekly_plan",
+          severity: "blocking",
+          blocking: true,
+          message: `Weekday focus incomplete${missingFocusDays.length ? ` (missing: ${missingFocusDays.join(", ")})` : ""}${placeholderDays.length ? ` (placeholder: ${placeholderDays.join(", ")})` : ""}.`,
+          suggestion: "Replace “Theme focus coming soon” with a unique daily focus and teacher-facing details for each weekday.",
+          navigateTo: "week:weekly_plan",
+        }));
+      }
     }
     if (/coming soon|lorem ipsum|\[insert|\btbd\b|\btodo\b/i.test(body)) {
       findings.push(finding({

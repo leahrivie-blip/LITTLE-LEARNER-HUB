@@ -7,6 +7,7 @@
 const schema = require("./curriculum-operator-schema.js");
 const orchestrator = require("./curriculum-operator-orchestrator.js");
 const auditApi = require("./curriculum-operator-audit.js");
+const lessonRead = require("./curriculum-operator-lesson-read.js");
 
 const COVER_QUALITY_GENERIC = /default\.svg|generic-infant|generic-toddler|generic-preschool/i;
 
@@ -134,47 +135,60 @@ function detectStructuralReviewFlags(audit) {
 }
 
 function buildCoverPlan(plan, curriculum, options = {}) {
+  const command = options.command || {};
+  const coverIntent = lessonRead.resolveCoverIntent(command, options);
+  const forceReplace = options.forceReplace === true || coverIntent === "EXPLICIT_REPLACE";
   const quality = deriveCoverQuality(plan);
   const existingUrl = text(plan.coverImageUrl, 600);
-  if (!options.forceReplace && quality === "good") {
+  if (!forceReplace && quality === "good") {
     return {
       decision: "KEEP_EXISTING",
-      reason: "Existing cover is already strong.",
+      reason: coverIntent === "EXPLICIT_REPLACE"
+        ? "Existing cover is already strong — explicit replacement still requested."
+        : "Existing cover is already strong.",
       coverImageUrl: existingUrl,
       sourceActivityId: null,
       sourceActivityTitle: "",
+      coverIntent,
     };
   }
   const best = pickBestActivityImageForCover(plan, curriculum);
   if (!best?.url) {
     return {
-      decision: "KEEP_EXISTING",
-      reason: quality === "missing"
-        ? "No suitable activity image yet — cover will stay until images are generated."
-        : "No stronger activity image available — keeping current cover.",
+      decision: forceReplace ? "REPLACE_REQUESTED" : "KEEP_EXISTING",
+      reason: forceReplace
+        ? "Owner requested cover replacement — generation will run when a realistic source is available."
+        : (quality === "missing"
+          ? "No suitable activity image yet — cover will stay until images are generated."
+          : "No stronger activity image available — keeping current cover."),
       coverImageUrl: existingUrl,
       sourceActivityId: null,
       sourceActivityTitle: "",
+      coverIntent,
     };
   }
-  if (!options.forceReplace && quality === "good" && existingUrl === best.url) {
+  if (!forceReplace && quality === "good" && existingUrl === best.url) {
     return {
       decision: "KEEP_EXISTING",
       reason: "Best activity image matches the existing cover.",
       coverImageUrl: existingUrl,
       sourceActivityId: best.activityId,
       sourceActivityTitle: best.title,
+      coverIntent,
     };
   }
   return {
-    decision: "REPLACE",
-    reason: quality === "missing"
-      ? "Cover missing — assign realistic activity image."
-      : "Cover weak or generic — replace with strongest activity image.",
+    decision: forceReplace ? "REPLACE_REQUESTED" : "REPLACE",
+    reason: forceReplace
+      ? "Owner explicitly requested a new realistic cover."
+      : (quality === "missing"
+        ? "Cover missing — assign realistic activity image."
+        : "Cover weak or generic — replace with strongest activity image."),
     proposedCoverImageUrl: best.url,
     sourceActivityId: best.activityId,
     sourceActivityTitle: best.title,
     previousCoverImageUrl: existingUrl,
+    coverIntent,
   };
 }
 
@@ -220,16 +234,20 @@ function buildConnectedUpgradeCommand(lessonId, planTitle = "", options = {}) {
   }, { phase: 6 });
 }
 
-function buildConnectedUpgradePlan(curriculum, lessonId) {
+function buildConnectedUpgradePlan(curriculum, lessonId, options = {}) {
   const plan = schema.asArray(curriculum?.lessonPlans).find((p) => p && p.id === lessonId);
   if (!plan) {
     return { ok: false, code: "LESSON_NOT_FOUND", error: "Lesson not found." };
   }
   const audit = auditApi.auditLesson(plan, curriculum);
-  const coverPlan = buildCoverPlan(plan, curriculum);
   const command = buildConnectedUpgradeCommand(plan.id, plan.title, {
-    touchCover: coverPlan.decision === "REPLACE",
+    touchCover: options.touchCover === true,
+    rawCommand: options.rawCommand || "",
   });
+  const coverPlan = buildCoverPlan(plan, curriculum, { command });
+  if (coverPlan.decision === "REPLACE" || coverPlan.decision === "REPLACE_REQUESTED") {
+    command.actions = { ...(command.actions || {}), touchCover: true };
+  }
   const kitScope = orchestrator.normalizeKitScopeFlags(command.actions || {});
   const workPlan = orchestrator.buildFullKitWorkPlan({
     plan,
@@ -238,7 +256,9 @@ function buildConnectedUpgradePlan(curriculum, lessonId) {
     command,
   });
   workPlan.coverPlan = coverPlan;
-  workPlan.cover = coverPlan.decision === "REPLACE" ? "REPLACE_WITH_ACTIVITY_IMAGE" : "KEEP_EXISTING";
+  workPlan.cover = coverPlan.decision === "REPLACE" || coverPlan.decision === "REPLACE_REQUESTED"
+    ? "REPLACE_WITH_ACTIVITY_IMAGE"
+    : "KEEP_EXISTING";
   const ownerSummary = orchestrator.summarizeWorkPlanForOwner(workPlan);
   return {
     ok: true,
@@ -418,6 +438,36 @@ function applyOperatorCoverToMergedPlan(plan, enrichmentDraft) {
   };
 }
 
+/**
+ * Reload authoritative stored lesson and recompute final audit/readiness after connected auto-apply.
+ */
+function refreshLessonResultPostApply(lessonResult, plan, curriculum, options = {}) {
+  if (!lessonResult || !plan) return lessonResult;
+  const auditOptions = {
+    connectedOperatorPath: true,
+    skipWeekdayFocusBlocker: true,
+    printablesExcluded: options.printablesExcluded === true,
+    printableMutations: options.printableMutations || 0,
+  };
+  const finalAudit = auditApi.auditLesson(plan, curriculum, auditOptions);
+  const beforeScores = lessonResult.beforeScores || lessonResult.audit?.scores || {};
+  const afterScores = finalAudit.scores || {};
+  const executionScope = lessonRead.summarizeExecutionScope(lessonResult.kitScope, options.command || {});
+  return {
+    ...lessonResult,
+    auditAfter: finalAudit,
+    afterScores,
+    lessonReadiness: finalAudit.lessonReadiness || lessonRead.classifyLessonReadiness(finalAudit),
+    executionScope,
+    reportConsistency: finalAudit.reportConsistency,
+    readinessDelta: {
+      before: beforeScores.premiumReadinessPercent,
+      after: afterScores.premiumReadinessPercent,
+      changed: beforeScores.premiumReadinessPercent !== afterScores.premiumReadinessPercent,
+    },
+  };
+}
+
 module.exports = {
   deriveCoverQuality,
   isUsableActivityImageUrl,
@@ -430,4 +480,5 @@ module.exports = {
   canAutoApplyConnectedEnrichment,
   applyCoverToEnrichmentDraft,
   applyOperatorCoverToMergedPlan,
+  refreshLessonResultPostApply,
 };

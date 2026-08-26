@@ -234,6 +234,20 @@ function thumbFieldFor(imageField) {
   return imageField === "exampleImageUrl" ? "exampleImageThumbUrl" : "setupImageThumbUrl";
 }
 
+function parseProtectedActivityIds(command = {}) {
+  const raw = text(command?.rawCommand || "", 4000);
+  const ids = new Set(schema.asArray(command?.protectedActivityIds).map((id) => text(id, 160)).filter(Boolean));
+  const re = /\b(cur-act-[a-f0-9]{8,})\b/gi;
+  let match = re.exec(raw);
+  while (match) {
+    ids.add(text(match[1], 160));
+    match = re.exec(raw);
+  }
+  if (/giant floor drawing/i.test(raw)) ids.add("cur-act-0a02697c73ccac85");
+  if (/sponge squish painting/i.test(raw)) ids.add("cur-act-c36723f91d3a9637");
+  return ids;
+}
+
 function refineImageDecision(planItem, activity, patch = {}, options = {}) {
   const enrich = loadEnrichment();
   const view = enrich?.activityEnrichmentView
@@ -253,6 +267,27 @@ function refineImageDecision(planItem, activity, patch = {}, options = {}) {
   const activityId = text(planItem?.activityId || activity?.id || activity?.itemId, 160);
   const title = text(planItem?.activityTitle || activity?.title, 180);
   const field = primaryFieldForActivity(activity, patch, base);
+  const protectedIds = options.protectedActivityIds instanceof Set
+    ? options.protectedActivityIds
+    : parseProtectedActivityIds(options.command || {});
+
+  if (protectedIds.has(activityId)) {
+    return {
+      activityId,
+      activityTitle: title,
+      weekday: text(planItem?.weekday || activity?.dayOfWeek, 20),
+      field,
+      decision: "PROTECTED_KEEP",
+      reason: "Owner-protected activity image — do not replace in this job.",
+      concept: "",
+      existingUrl,
+      existingMediaAssetId: text(
+        patch?.[assetIdFieldFor(field)] || activity?.[assetIdFieldFor(field)],
+        160,
+      ),
+      status: "pending",
+    };
+  }
 
   let decision = base;
   let nextReason = reason;
@@ -266,7 +301,15 @@ function refineImageDecision(planItem, activity, patch = {}, options = {}) {
       nextReason = looksBroken
         ? "Existing image URL looks broken or placeholder; safe to replace after successful attach."
         : "Existing image looks like generic theme art rather than the real activity setup.";
+    } else if (options.auditExistingImages === true) {
+      decision = "REPLACE";
+      nextReason = "Owner requested audit/replace of existing activity images; queued for realistic replacement.";
     }
+  }
+
+  if (decision === "NOT_NEEDED" && existingUrl && options.replaceBadImages === true) {
+    decision = "KEEP";
+    nextReason = "Existing image present — owner requested audit; keeping until visual QA replacement passes.";
   }
 
   return {
@@ -307,9 +350,22 @@ function buildImageActionsFromAudit(plan, activities, audit, options = {}) {
 }
 
 function summarizeImageActions(actions) {
-  const counts = { KEEP: 0, GENERATE: 0, REPLACE: 0, NOT_NEEDED: 0, FAILED: 0, SUCCESS: 0 };
+  const counts = {
+    KEEP: 0,
+    GENERATE: 0,
+    REPLACE: 0,
+    NOT_NEEDED: 0,
+    FAILED: 0,
+    SUCCESS: 0,
+    PROTECTED_KEEP: 0,
+  };
   schema.asArray(actions).forEach((a) => {
     const d = normalizeDecision(a.decision);
+    if (d === "PROTECTED_KEEP") {
+      counts.PROTECTED_KEEP += 1;
+      counts.KEEP += 1;
+      return;
+    }
     if (counts[d] != null) counts[d] += 1;
     if (a.status === "failed") counts.FAILED += 1;
     if (a.status === "success" && WRITE_DECISIONS.includes(d)) counts.SUCCESS += 1;
@@ -988,7 +1044,12 @@ async function runImagePlanForLesson({
     };
   }
 
-  const rawActions = buildImageActionsFromAudit(plan, activities, audit, { replaceBadImages });
+  const rawActions = buildImageActionsFromAudit(plan, activities, audit, {
+    replaceBadImages,
+    auditExistingImages: replaceBadImages === true && touchImages !== false,
+    command,
+    protectedActivityIds: parseProtectedActivityIds(command || {}),
+  });
   const softMax = softImageGenerationBudget(lessonCount);
   const hardMax = Number(limits?.maxImageGenerations) || schema.DEFAULT_LIMITS.maxImageGenerations;
   const plannedBeforeBudget = plannedGenerationCount(rawActions);
@@ -1110,7 +1171,8 @@ async function runImagePlanForLesson({
       continue;
     }
 
-    if (decision === "KEEP" || decision === "NOT_NEEDED" || !WRITE_DECISIONS.includes(decision)) {
+    if (decision === "KEEP" || decision === "NOT_NEEDED" || decision === "PROTECTED_KEEP"
+      || !WRITE_DECISIONS.includes(decision)) {
       results.push({ ...action, decision, status: "skipped", idempotencyKey });
       continue;
     }
@@ -1300,6 +1362,7 @@ module.exports = {
   normalizeDecision,
   refineImageDecision,
   buildImageActionsFromAudit,
+  parseProtectedActivityIds,
   summarizeImageActions,
   plannedGenerationCount,
   softImageGenerationBudget,

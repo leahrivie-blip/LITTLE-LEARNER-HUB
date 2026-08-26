@@ -733,8 +733,8 @@ function createCurriculumOperatorApi(deps) {
     };
   }
 
-  function auditOneLesson(plan, curriculum) {
-    const audit = auditApi.auditLesson(plan, curriculum);
+  function auditOneLesson(plan, curriculum, options = {}) {
+    const audit = auditApi.auditLesson(plan, curriculum, options);
     const verification = auditApi.verifyAuditAgainstPlan(plan, audit);
     audit.verification = verification;
     return { audit, verification };
@@ -1104,9 +1104,9 @@ function createCurriculumOperatorApi(deps) {
       });
       let coverPlan = null;
       if (job.command.actions?.connectedUpgrade) {
-        coverPlan = connectedUpgradeApi.buildCoverPlan(plan, curriculum);
+        coverPlan = connectedUpgradeApi.buildCoverPlan(plan, curriculum, { command: job.command });
         workPlan.coverPlan = coverPlan;
-        workPlan.cover = coverPlan.decision === "REPLACE"
+        workPlan.cover = coverPlan.decision === "REPLACE" || coverPlan.decision === "REPLACE_REQUESTED"
           ? "REPLACE_WITH_ACTIVITY_IMAGE"
           : "KEEP_EXISTING";
       }
@@ -1572,8 +1572,10 @@ function createCurriculumOperatorApi(deps) {
       // Connected upgrade: assign cover from strongest activity image when plan says REPLACE.
       if (job.command.actions?.connectedUpgrade) {
         const coverCurriculum = readSiteCurriculum(store);
-        const currentCoverPlan = coverPlan || connectedUpgradeApi.buildCoverPlan(workingPlan, coverCurriculum);
-        if (currentCoverPlan.decision === "REPLACE") {
+        const currentCoverPlan = coverPlan || connectedUpgradeApi.buildCoverPlan(workingPlan, coverCurriculum, {
+          command: job.command,
+        });
+        if (currentCoverPlan.decision === "REPLACE" || currentCoverPlan.decision === "REPLACE_REQUESTED") {
           const preferIds = schema.asArray(imageActions)
             .filter((a) => a.status === "success")
             .map((a) => a.activityId);
@@ -1619,7 +1621,13 @@ function createCurriculumOperatorApi(deps) {
       Object.assign(store, readStore());
       const reloaded = schema.asArray(readSiteCurriculum(store).lessonPlans).find((p) => p.id === plan.id) || workingPlan;
       workingPlan = reloaded;
-      const finalKitAudit = auditOneLesson(workingPlan, readSiteCurriculum(store));
+      const auditOptions = {
+        connectedOperatorPath: job.command?.actions?.connectedUpgrade === true,
+        skipWeekdayFocusBlocker: job.command?.actions?.connectedUpgrade === true,
+        printablesExcluded: kitScope?.locks?.printables === true,
+        printableMutations: Number(printableCounts?.CREATE || 0) + Number(printableCounts?.REPLACE || 0),
+      };
+      const finalKitAudit = auditOneLesson(workingPlan, readSiteCurriculum(store), auditOptions);
       auditAfter = finalKitAudit.audit;
       afterScores = finalKitAudit.audit.scores;
 
@@ -1683,6 +1691,9 @@ function createCurriculumOperatorApi(deps) {
         workPlan,
         coverPlan,
         kitScope,
+        executionScope: workPlan.executionScope || null,
+        lessonReadiness: auditAfter?.lessonReadiness || null,
+        reportConsistency: auditAfter?.reportConsistency || null,
         imageActions,
         imageCounts,
         imageBudgetDiagnostics,
@@ -1833,11 +1844,13 @@ function createCurriculumOperatorApi(deps) {
   async function tryConnectedAutoApply(job, store, sessionEmail) {
     const applied = [];
     const skipped = [];
+    const refreshed = [];
     const actions = job?.command?.actions || {};
-    if (actions.planOnly || actions.connectedAutoApply === false) return { applied, skipped };
+    if (actions.planOnly || actions.connectedAutoApply === false) return { applied, skipped, refreshed };
     const autoApplyRequested = actions.connectedAutoApply === true || actions.connectedUpgrade === true;
-    if (!autoApplyRequested) return { applied, skipped };
-    for (const lr of schema.asArray(job.lessonResults)) {
+    if (!autoApplyRequested) return { applied, skipped, refreshed };
+    for (let i = 0; i < schema.asArray(job.lessonResults).length; i += 1) {
+      const lr = job.lessonResults[i];
       const gate = connectedUpgradeApi.canAutoApplyConnectedEnrichment(lr, job);
       if (!gate.ok) {
         skipped.push({ lessonId: lr.lessonId, ...gate });
@@ -1859,10 +1872,25 @@ function createCurriculumOperatorApi(deps) {
         adminEmail: sessionEmail,
         operatorJobId: job.id,
       });
-      if (result?.ok) applied.push({ lessonId: lr.lessonId, ...result });
-      else skipped.push({ lessonId: lr.lessonId, ...result });
+      if (result?.ok) {
+        applied.push({ lessonId: lr.lessonId, ...result });
+        Object.assign(store, readStore());
+        const curriculum = readSiteCurriculum(store);
+        const reloadedPlan = schema.asArray(curriculum.lessonPlans).find((p) => p.id === lr.lessonId);
+        if (reloadedPlan) {
+          const nextLr = connectedUpgradeApi.refreshLessonResultPostApply(lr, reloadedPlan, curriculum, {
+            command: job.command,
+            printablesExcluded: lr.kitScope?.locks?.printables === true,
+            printableMutations: 0,
+          });
+          job.lessonResults[i] = nextLr;
+          refreshed.push({ lessonId: lr.lessonId, lessonReadiness: nextLr.lessonReadiness });
+        }
+      } else {
+        skipped.push({ lessonId: lr.lessonId, ...result });
+      }
     }
-    return { applied, skipped };
+    return { applied, skipped, refreshed };
   }
 
   async function handle(request, response) {

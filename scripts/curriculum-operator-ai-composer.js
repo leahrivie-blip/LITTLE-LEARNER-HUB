@@ -643,6 +643,33 @@ function collectWorkItems(plan, activities, audit, options = {}) {
         fields,
       });
     });
+
+    if (options.upgradeActivities !== false && options.repairTeacherTips !== false) {
+      const enrich = loadEnrichment();
+      schema.asArray(activities).forEach((activity) => {
+        const activityId = text(activity.id || activity.itemId, 160);
+        if (!activityId || !allowedActivityIds.has(activityId)) return;
+        const draftAct = (plan?.enrichmentDraft?.activities || {})[activityId] || {};
+        const view = enrich?.activityEnrichmentView
+          ? enrich.activityEnrichmentView(activity, draftAct)
+          : { teacherTips: schema.asArray(draftAct.teacherTips || activity.teacherTips) };
+        const tips = schema.asArray(view.teacherTips);
+        if (tips.length) return;
+        const existing = activityRequests.find((row) => row.activityId === activityId);
+        if (existing) {
+          if (!existing.fields.some((f) => f.field === "teacherTips")) {
+            existing.fields.push({ field: "teacherTips", action: "FILL" });
+          }
+          return;
+        }
+        activityRequests.push({
+          activityId,
+          title: text(activity.title, 180),
+          decision: "IMPROVE",
+          fields: [{ field: "teacherTips", action: "FILL" }],
+        });
+      });
+    }
   }
 
   const songRequests = [];
@@ -1492,12 +1519,14 @@ async function composeUpgradeContent({
   upgradeActivities = true,
   touchSongs = true,
   touchBooks = true,
+  repairTeacherTips = true,
 } = {}) {
   const work = collectWorkItems(plan, activities, audit, {
     upgradeLesson,
     upgradeActivities,
     touchSongs,
     touchBooks,
+    repairTeacherTips,
   });
   if (!work.hasWork) {
     return {
