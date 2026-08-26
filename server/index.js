@@ -27,6 +27,7 @@ const restoreIndependentLesson = require("./curriculum-restore-independent-lesso
 const visualProductionImage = require("./visual-production-image.js");
 const visualProductionMedia = require("./visual-production-media.js");
 const curriculumSentinel = require("../scripts/curriculum-sentinel.js");
+const learningDomainsApi = require("../scripts/curriculum-learning-domains.js");
 const lessonPlanCoverAssign = require("../scripts/lesson-plan-cover-assign.js");
 const curriculumDeletedLessonTombstones = require("../scripts/curriculum-deleted-lesson-tombstones.js");
 const scheduleLib = require("./schedule-lib.js");
@@ -1771,11 +1772,7 @@ function generateCurriculumSeriesId() {
 }
 
 function normalizedCurriculumLearningDomains(value) {
-  const items = Array.isArray(value) ? value : [];
-  return items
-    .map((item) => normalizedShortText(item, 80))
-    .filter((item) => CURRICULUM_LEARNING_DOMAINS.has(item))
-    .slice(0, 6);
+  return learningDomainsApi.normalizeLearningDomainsValue(value, { allowEmpty: true }).value;
 }
 
 function normalizedCurriculumBookEntry(value) {

@@ -30,6 +30,7 @@ function seedPlan() {
     theme: "Colors",
     plan: "Free",
     status: "draft",
+    learningDomains: ["Creative Arts", "Language & Literacy"],
     weeklyOverview: "Children explore colors through process art all week with dot markers, paper, and teacher-guided language.",
     objectives: "",
     enrichmentDraft: { week: {}, activities: {} },

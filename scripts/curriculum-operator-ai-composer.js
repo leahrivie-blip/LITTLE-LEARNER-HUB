@@ -8,15 +8,10 @@
 "use strict";
 
 const schema = require("./curriculum-operator-schema.js");
+const learningDomainsApi = require("./curriculum-learning-domains.js");
 
-const CURRICULUM_LEARNING_DOMAINS = new Set([
-  "Social Emotional",
-  "Language & Literacy",
-  "Math",
-  "Science",
-  "Physical Development",
-  "Creative Arts",
-]);
+const CURRICULUM_LEARNING_DOMAINS = learningDomainsApi.CURRICULUM_LEARNING_DOMAINS_SET;
+const CURRICULUM_LEARNING_DOMAIN_LABELS = learningDomainsApi.CURRICULUM_LEARNING_DOMAINS;
 
 const WEEK_FIELDS = Object.freeze([
   "weeklyOverview",
@@ -534,16 +529,16 @@ function mapAuditWeekField(field) {
   return f;
 }
 
-function normalizeLearningDomainsValue(value) {
-  let list = value;
-  if (typeof list === "string") {
-    list = list.split(/[,;\n·|]/).map((s) => s.trim()).filter(Boolean);
-  }
-  if (!Array.isArray(list)) return [];
-  return list
-    .map((item) => text(item, 80))
-    .filter((item) => CURRICULUM_LEARNING_DOMAINS.has(item))
-    .slice(0, 6);
+function normalizeLearningDomainsValue(value, options = {}) {
+  return learningDomainsApi.normalizeLearningDomainsValue(value, options);
+}
+
+function isRepairableLearningDomainsValidationError(norm, field = "", requestedAction = "") {
+  if (text(field, 80) !== "learningDomains") return false;
+  if (!norm || norm.ok) return false;
+  if (norm.repairable !== true) return false;
+  const action = text(requestedAction, 20).toUpperCase();
+  return ["FILL", "IMPROVE", "REPLACE"].includes(action);
 }
 
 /**
@@ -787,6 +782,9 @@ function buildComposerSystemPrompt(ageRaw) {
     "Do not invent famous copyrighted song lyrics or book titles you do not know exist; for books prefer classroom-library search guidance.",
     "Activities in one week must feel intentionally connected to the theme without repeating the same idea.",
     "",
+    "Approved learningDomains labels (use exact spelling when returning learningDomains):",
+    CURRICULUM_LEARNING_DOMAIN_LABELS.join(", "),
+    "",
     "Age / Master standard:",
     standardsBlock,
     "",
@@ -970,6 +968,11 @@ function buildThinRepairUserPrompt(context, repairTargets, partialPlan) {
       "materials: name concrete classroom materials sized for the age group and tied to the activity title (≥8 words).",
     );
   }
+  if (targets.some((t) => t.field === "learningDomains")) {
+    fieldHints.push(
+      `learningDomains: return ONLY this field with 2-4 values from this EXACT approved list: ${CURRICULUM_LEARNING_DOMAIN_LABELS.join(", ")}. Base choices on the lesson's actual activities and materials — not the title alone.`,
+    );
+  }
   if (targets.some((t) => ["cleanupTips", "observationOpportunities", "teacherLanguage", "description", "objective", "steps", "setup", "preparation"].includes(t.field))) {
     fieldHints.push(
       "Other thin prose fields: write teacher-usable, activity-specific text (≥8 words). Do not return generic filler.",
@@ -999,8 +1002,16 @@ function normalizeChangeEntry(field, raw) {
   }
   let value = raw.value;
   if (field === "learningDomains") {
-    value = normalizeLearningDomainsValue(value);
-    if (!value.length) return { ok: false, error: "learningDomains must include at least one approved domain" };
+    const domainNorm = normalizeLearningDomainsValue(value);
+    if (!domainNorm.ok) {
+      return {
+        ok: false,
+        error: learningDomainsApi.learningDomainsErrorMessage(domainNorm, { stage: "composer_validation" }),
+        errorContext: learningDomainsApi.formatLearningDomainsValidationError(domainNorm, { stage: "composer_validation" }),
+        learningDomainsMeta: domainNorm,
+      };
+    }
+    value = domainNorm.value;
   } else if (field === "prepChecklist" || field === "observationFocus" || field === "milestones"
     || field === "vocabCards" || field === "teacherTips" || field === "vocabulary"
     || field === "observationPrompts") {
@@ -1155,12 +1166,16 @@ function validateComposerOutput(rawText, work, plan, options = {}) {
     const requestedAction = allowedWeek.get(field)?.action || allowedWeek.get(field)?.decision;
     const norm = coerceChangeEntry(field, extracted.weeklyIn[field], requestedAction);
     if (!norm.ok) {
-      if (collectThin && isRepairableThinValidationError(norm.error, field)) {
+      if (collectThin && (
+        isRepairableThinValidationError(norm.error, field)
+        || isRepairableLearningDomainsValidationError(norm.learningDomainsMeta, field, requestedAction)
+      )) {
         repairTargets.push({
           scope: "week",
           field,
           action: requestedAction,
           error: norm.error,
+          meta: norm.learningDomainsMeta || null,
         });
         continue;
       }
@@ -1168,6 +1183,7 @@ function validateComposerOutput(rawText, work, plan, options = {}) {
         ok: false,
         code: "invalid_change",
         error: norm.error,
+        errorContext: norm.errorContext || null,
         diagnostics: shapeDiagnostics([{ field, reason: "invalid_change", message: norm.error }]),
       };
     }
@@ -1640,6 +1656,13 @@ function buildOperatorAiFixtureResponse(userPrompt) {
     schema.asArray(payload.repairTargets).forEach((target) => {
       if (target.scope === "week") {
         const field = text(target.field, 80);
+        if (field === "learningDomains") {
+          weeklyChanges[field] = {
+            action: target.action || "FILL",
+            value: ["Creative Arts", "Physical Development", "Social Emotional"],
+          };
+          return;
+        }
         weeklyChanges[field] = {
           action: target.action || "IMPROVE",
           value: [
@@ -1759,6 +1782,13 @@ function buildOperatorAiFixtureResponse(userPrompt) {
   const weeklyChanges = {};
   schema.asArray(context.requestedWeek).forEach((req) => {
     const field = text(req.field, 80);
+    if (field === "learningDomains") {
+      weeklyChanges[field] = {
+        action: req.action || "FILL",
+        value: ["Creative Arts", "Physical Development", "Social Emotional"],
+      };
+      return;
+    }
     if (field === "prepChecklist" || field === "milestones" || field === "vocabCards" || field === "observationFocus") {
       weeklyChanges[field] = {
         action: req.action || "FILL",
@@ -1887,6 +1917,7 @@ module.exports = {
   weeklyChangesFromArray,
   normalizeActivitiesInput,
   isRepairableThinValidationError,
+  isRepairableLearningDomainsValidationError,
   buildRepairOnlyWork,
   mergeComposerValidatedPlans,
   buildThinRepairUserPrompt,
