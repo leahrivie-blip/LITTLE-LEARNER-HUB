@@ -149,6 +149,8 @@ async function materializePrintableVisuals({
   plan,
   activity,
   generateVisual,
+  visualAnalyzeFn,
+  skipVisualAttachQa = false,
   visualCache = new Map(),
   limits = {},
   alreadyUsed = 0,
@@ -183,15 +185,36 @@ async function materializePrintableVisuals({
     toGenerate.push(req);
   }
 
+  const promptBuilder = require("./visual-prompt-builder.js");
+  const qaGate = require("./visual-attach-quality-gate.js");
+
   for (const req of toGenerate) {
     if (keyToBuffer.has(req.key)) continue;
     let buffer = null;
+    const assetMode = promptBuilder.resolvePrintableAssetMode({
+      visualConcept: req.visualConcept,
+      visualSubject: req.name,
+      printableTitle: req.printableTitle,
+      printablePurpose: req.purpose,
+      ageBand: req.ageBand,
+      pageType: req.pageType,
+    });
+    const generationPrompt = promptBuilder.buildVisualPrompt({
+      assetMode,
+      ageBand: req.ageBand,
+      printableTitle: req.printableTitle,
+      printablePurpose: req.purpose,
+      visualConcept: req.visualConcept,
+      visualSubject: req.name,
+      activityTitle: req.activityTitle,
+      pageType: req.pageType,
+    }).generationPrompt;
     if (forceFixture || typeof generateVisual !== "function") {
       buffer = fixturePngBuffer();
     } else {
       // eslint-disable-next-line no-await-in-loop
       const out = await generateVisual({
-        prompt: buildVisualPrompt(req),
+        prompt: generationPrompt,
         printableTitle: req.printableTitle,
         pageKey: req.pageKey,
         visualConcept: req.visualConcept,
@@ -208,6 +231,34 @@ async function materializePrintableVisuals({
         ok: false,
         code: "visual_generation_failed",
         error: `Required visual failed for “${req.name}” (${req.visualConcept}).`,
+        usage: { generations },
+      };
+    }
+    // eslint-disable-next-line no-await-in-loop
+    const visualQa = await qaGate.assessVisualAttachQuality({
+      buffer,
+      mimeType: "image/png",
+      context: {
+        kind: "printable_visual",
+        assetMode,
+        printableTitle: req.printableTitle,
+        visualSubject: req.name,
+        visualConcept: req.visualConcept,
+        ageBand: req.ageBand,
+        pageType: req.pageType,
+        activityTitle: req.activityTitle,
+        generationPrompt,
+      },
+      analyzeFn: visualAnalyzeFn,
+      mock: forceFixture,
+      skip: skipVisualAttachQa === true,
+    });
+    if (!visualQa.ok) {
+      return {
+        ok: false,
+        code: "visual_qa_blocked",
+        error: visualQa.error || `Visual QA blocked printable “${req.name}”.`,
+        visualQa,
         usage: { generations },
       };
     }
