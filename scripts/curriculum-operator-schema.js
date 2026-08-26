@@ -208,6 +208,7 @@ const JOB_STATUSES = Object.freeze([
   "running",
   "paused",
   "completed",
+  "completed_with_gaps",
   "failed",
   "cancelled",
 ]);

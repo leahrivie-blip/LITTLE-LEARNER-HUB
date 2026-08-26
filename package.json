@@ -36,6 +36,7 @@
     "test:curriculum-operator-lmw-intent-fix": "NODE_ENV=test node scripts/test-curriculum-operator-lmw-intent-fix.js",
     "test:curriculum-operator-learning-domains-hardening": "NODE_ENV=test node scripts/test-curriculum-operator-learning-domains-hardening.js",
     "test:curriculum-operator-final-hardening": "NODE_ENV=test node scripts/test-curriculum-operator-final-hardening.js",
+    "test:curriculum-operator-persistence-reporting-fix": "NODE_ENV=test VISUAL_PRODUCTION_MOCK_GENERATE=1 node scripts/test-curriculum-operator-persistence-reporting-fix.js",
     "test:curriculum-operator-run-ui-feedback": "NODE_ENV=test node scripts/test-curriculum-operator-run-ui-feedback.js",
     "test:curriculum-operator-empty-changes": "NODE_ENV=test node scripts/test-curriculum-operator-empty-changes.js",
     "test:curriculum-operator-create-architect": "NODE_ENV=test node scripts/test-curriculum-operator-create-architect.js",

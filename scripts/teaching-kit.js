@@ -374,6 +374,27 @@
         .filter(Boolean)
         .slice(0, 16);
     }
+    if (Array.isArray(value.vocabCards)) {
+      out.vocabCards = value.vocabCards
+        .map((card) => {
+          if (card == null) return null;
+          if (typeof card === "string") {
+            const word = clampShortText(card, 120);
+            return word ? { word } : null;
+          }
+          if (typeof card !== "object") return null;
+          const word = clampShortText(card.word || card.title || card.term || card.label, 120);
+          if (!word) return null;
+          const normalized = { word };
+          const definition = clampShortText(card.definition || card.meaning, 400);
+          const example = clampShortText(card.example || card.sentence, 400);
+          if (definition) normalized.definition = definition;
+          if (example) normalized.example = example;
+          return normalized;
+        })
+        .filter(Boolean)
+        .slice(0, 40);
+    }
     if (Array.isArray(value.printableIds)) {
       out.printableIds = normalizedIdList(value.printableIds, 100, 160);
     }

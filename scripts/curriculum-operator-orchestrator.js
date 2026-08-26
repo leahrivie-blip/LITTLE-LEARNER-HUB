@@ -408,6 +408,8 @@ function parseExclusionHints(rawCommand) {
   if (/\bonly\s+(fix|improve|upgrade)\s+(the\s+)?(lesson\s+)?text\b/i.test(raw)
     || /\bonly\s+improve\s+activity\s+descriptions?\b/i.test(raw)
     || /\btext\s+only\b/i.test(raw)
+    || /\btext\s*(?:\/|and\s+)?content\s+only\b/i.test(raw)
+    || /\b(?:fix|repair)\s+(?:the\s+)?remaining\s+text\s*(?:\/|and\s+)?content\s+only\b/i.test(raw)
     || /\bonly\s+fix\s+(the\s+)?lesson\s+text\b/i.test(raw)) {
     flags.textOnly = true;
     flags.touchImages = false;
@@ -449,6 +451,13 @@ function parseExclusionHints(rawCommand) {
     || /\bdo\s+everything\s+except\s+books?\b/i.test(raw)) {
     flags.touchBooks = false;
     notes.push("Books locked by exclusion.");
+  }
+
+  if (/\bdo\s+not\s+(?:touch|change|update|make|create|generate)\s+(?:the\s+)?cover\b/i.test(raw)
+    || /\bdon['’]?t\s+(?:touch|change|make|create|generate)\s+(?:the\s+)?cover\b/i.test(raw)
+    || /\bwithout\s+(?:changing\s+)?(?:the\s+)?cover\b/i.test(raw)) {
+    flags.touchCover = false;
+    notes.push("Cover locked by exclusion.");
   }
 
   if (/\b(?:update|change|replace|create|generate|make|new)\s+(?:a\s+)?(?:realistic\s+)?(?:lesson\s+)?cover\b/i.test(raw)

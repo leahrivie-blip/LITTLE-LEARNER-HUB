@@ -111,6 +111,7 @@ function applyImageGenerationSoftBudget(actions, options = {}) {
 
   const writeIndexes = [];
   list.forEach((action, index) => {
+    if (normalizeDecision(action.decision) === "PROTECTED_KEEP") return;
     if (WRITE_DECISIONS.includes(normalizeDecision(action.decision))) writeIndexes.push(index);
   });
 
@@ -206,6 +207,7 @@ function normalizeDecision(decision) {
   if (key === "KEEP" || key === "KEEP_EXISTING") return "KEEP";
   if (key === "GENERATE") return "GENERATE";
   if (key === "REPLACE") return "REPLACE";
+  if (key === "PROTECTED_KEEP") return "PROTECTED_KEEP";
   if (key === "NOT_NEEDED" || key === "NOTNEEDED") return "NOT_NEEDED";
   return "NOT_NEEDED";
 }
@@ -237,6 +239,10 @@ function thumbFieldFor(imageField) {
 function parseProtectedActivityIds(command = {}) {
   const raw = text(command?.rawCommand || "", 4000);
   const ids = new Set(schema.asArray(command?.protectedActivityIds).map((id) => text(id, 160)).filter(Boolean));
+  schema.asArray(command?.actions?.protectedActivityIds).forEach((id) => {
+    const normalized = text(id, 160);
+    if (normalized) ids.add(normalized);
+  });
   const re = /\b(cur-act-[a-f0-9]{8,})\b/gi;
   let match = re.exec(raw);
   while (match) {

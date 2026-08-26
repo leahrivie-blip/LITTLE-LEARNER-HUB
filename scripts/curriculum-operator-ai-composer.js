@@ -646,20 +646,29 @@ function collectWorkItems(plan, activities, audit, options = {}) {
 
     if (options.upgradeActivities !== false && options.repairTeacherTips !== false) {
       const enrich = loadEnrichment();
+      const lessonReadApi = (() => {
+        try { return require("./curriculum-operator-lesson-read.js"); } catch (_e) { return null; }
+      })();
+      const dropActivityKeep = (activityId) => {
+        const keepIdx = activityKeep.findIndex((k) => k.activityId === activityId);
+        if (keepIdx >= 0) activityKeep.splice(keepIdx, 1);
+      };
       schema.asArray(activities).forEach((activity) => {
         const activityId = text(activity.id || activity.itemId, 160);
         if (!activityId || !allowedActivityIds.has(activityId)) return;
         const draftAct = (plan?.enrichmentDraft?.activities || {})[activityId] || {};
-        const view = enrich?.activityEnrichmentView
-          ? enrich.activityEnrichmentView(activity, draftAct)
-          : { teacherTips: schema.asArray(draftAct.teacherTips || activity.teacherTips) };
-        const tips = schema.asArray(view.teacherTips);
+        const tips = lessonReadApi?.getActivityTeacherTips
+          ? lessonReadApi.getActivityTeacherTips(activity, null, draftAct)
+          : (enrich?.activityEnrichmentView
+            ? enrich.activityEnrichmentView(activity, draftAct).teacherTips
+            : schema.asArray(draftAct.teacherTips || activity.teacherTips));
         if (tips.length) return;
         const existing = activityRequests.find((row) => row.activityId === activityId);
         if (existing) {
           if (!existing.fields.some((f) => f.field === "teacherTips")) {
             existing.fields.push({ field: "teacherTips", action: "FILL" });
           }
+          dropActivityKeep(activityId);
           return;
         }
         activityRequests.push({
@@ -668,6 +677,7 @@ function collectWorkItems(plan, activities, audit, options = {}) {
           decision: "IMPROVE",
           fields: [{ field: "teacherTips", action: "FILL" }],
         });
+        dropActivityKeep(activityId);
       });
     }
   }
@@ -1232,7 +1242,16 @@ function validateComposerOutput(rawText, work, plan, options = {}) {
     }
     if (!allowedActs.has(activityId)) {
       if (keepActs.has(activityId)) {
-        // Content KEEP ≠ invalid activity. Skip AI echoes for printable-only / week-only jobs.
+        const rawChanges = row.changes && typeof row.changes === "object" ? row.changes : {};
+        const fieldSource = Object.keys(rawChanges).length
+          ? rawChanges
+          : Object.fromEntries(
+            ACTIVITY_FIELDS
+              .filter((f) => Object.prototype.hasOwnProperty.call(row, f))
+              .map((f) => [f, row[f]]),
+          );
+        const echoedFields = Object.keys(fieldSource);
+        if (!echoedFields.length) continue;
         rejected.push({
           field: activityId,
           reason: "unrequested_activity",

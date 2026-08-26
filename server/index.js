@@ -3467,6 +3467,27 @@ function writeSiteCurriculumTouched(store, incomingCurriculum, {
         songs: Object.prototype.hasOwnProperty.call(incomingPlan, "songs")
           ? incomingPlan.songs
           : plan.songs,
+        learningDomains: Object.prototype.hasOwnProperty.call(incomingPlan, "learningDomains")
+          ? incomingPlan.learningDomains
+          : plan.learningDomains,
+        vocabularyWords: Object.prototype.hasOwnProperty.call(incomingPlan, "vocabularyWords")
+          ? incomingPlan.vocabularyWords
+          : plan.vocabularyWords,
+        coverImageUrl: Object.prototype.hasOwnProperty.call(incomingPlan, "coverImageUrl")
+          ? incomingPlan.coverImageUrl
+          : plan.coverImageUrl,
+        coverImageSource: Object.prototype.hasOwnProperty.call(incomingPlan, "coverImageSource")
+          ? incomingPlan.coverImageSource
+          : plan.coverImageSource,
+        coverQualityStatus: Object.prototype.hasOwnProperty.call(incomingPlan, "coverQualityStatus")
+          ? incomingPlan.coverQualityStatus
+          : plan.coverQualityStatus,
+        coverImageAlt: Object.prototype.hasOwnProperty.call(incomingPlan, "coverImageAlt")
+          ? incomingPlan.coverImageAlt
+          : plan.coverImageAlt,
+        thumbnailUrl: Object.prototype.hasOwnProperty.call(incomingPlan, "thumbnailUrl")
+          ? incomingPlan.thumbnailUrl
+          : plan.thumbnailUrl,
         resourceIds: Array.isArray(incomingPlan.resourceIds) ? incomingPlan.resourceIds : plan.resourceIds,
         ownerWorkspace: Object.prototype.hasOwnProperty.call(incomingPlan, "ownerWorkspace")
           ? incomingPlan.ownerWorkspace

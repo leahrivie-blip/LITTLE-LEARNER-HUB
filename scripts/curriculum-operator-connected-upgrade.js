@@ -134,40 +134,64 @@ function detectStructuralReviewFlags(audit) {
   };
 }
 
+function pickCoverInspirationActivity(plan, curriculum, preferActivityIds = []) {
+  const imageCandidate = pickBestActivityImageForCover(plan, curriculum, preferActivityIds);
+  if (imageCandidate?.activityId) return imageCandidate;
+  const prefer = new Set(schema.asArray(preferActivityIds).map((id) => text(id, 160)).filter(Boolean));
+  const acts = schema.asArray(curriculum?.activities).filter((a) => a && a.lessonPlanId === plan.id);
+  const ranked = acts.map((act) => ({
+    activityId: act.id,
+    title: text(act.title, 180),
+    url: "",
+    priority: prefer.has(text(act.id)) ? 20 : 0,
+  })).sort((a, b) => b.priority - a.priority || String(a.title).localeCompare(String(b.title)));
+  return ranked[0] || null;
+}
+
 function buildCoverPlan(plan, curriculum, options = {}) {
   const command = options.command || {};
   const coverIntent = lessonRead.resolveCoverIntent(command, options);
   const forceReplace = options.forceReplace === true || coverIntent === "EXPLICIT_REPLACE";
   const quality = deriveCoverQuality(plan);
   const existingUrl = text(plan.coverImageUrl, 600);
+  const preferActivityIds = schema.asArray(options.preferActivityIds).map((id) => text(id, 160)).filter(Boolean);
+  if (forceReplace) {
+    const inspiration = pickCoverInspirationActivity(plan, curriculum, preferActivityIds);
+    return {
+      decision: "GENERATE",
+      generationMode: "REALISTIC_LESSON_COVER",
+      reason: "Owner explicitly requested a dedicated realistic lesson cover.",
+      previousCoverImageUrl: existingUrl,
+      sourceActivityId: inspiration?.activityId || null,
+      sourceActivityTitle: inspiration?.title || "",
+      inspirationImageUrl: inspiration?.url || "",
+      coverIntent,
+    };
+  }
   if (!forceReplace && quality === "good") {
     return {
       decision: "KEEP_EXISTING",
-      reason: coverIntent === "EXPLICIT_REPLACE"
-        ? "Existing cover is already strong — explicit replacement still requested."
-        : "Existing cover is already strong.",
+      reason: "Existing cover is already strong.",
       coverImageUrl: existingUrl,
       sourceActivityId: null,
       sourceActivityTitle: "",
       coverIntent,
     };
   }
-  const best = pickBestActivityImageForCover(plan, curriculum);
+  const best = pickBestActivityImageForCover(plan, curriculum, preferActivityIds);
   if (!best?.url) {
     return {
-      decision: forceReplace ? "REPLACE_REQUESTED" : "KEEP_EXISTING",
-      reason: forceReplace
-        ? "Owner requested cover replacement — generation will run when a realistic source is available."
-        : (quality === "missing"
-          ? "No suitable activity image yet — cover will stay until images are generated."
-          : "No stronger activity image available — keeping current cover."),
+      decision: "KEEP_EXISTING",
+      reason: quality === "missing"
+        ? "No suitable activity image yet — cover will stay until images are generated."
+        : "No stronger activity image available — keeping current cover.",
       coverImageUrl: existingUrl,
       sourceActivityId: null,
       sourceActivityTitle: "",
       coverIntent,
     };
   }
-  if (!forceReplace && quality === "good" && existingUrl === best.url) {
+  if (quality === "good" && existingUrl === best.url) {
     return {
       decision: "KEEP_EXISTING",
       reason: "Best activity image matches the existing cover.",
@@ -178,12 +202,10 @@ function buildCoverPlan(plan, curriculum, options = {}) {
     };
   }
   return {
-    decision: forceReplace ? "REPLACE_REQUESTED" : "REPLACE",
-    reason: forceReplace
-      ? "Owner explicitly requested a new realistic cover."
-      : (quality === "missing"
-        ? "Cover missing — assign realistic activity image."
-        : "Cover weak or generic — replace with strongest activity image."),
+    decision: "REPLACE",
+    reason: quality === "missing"
+      ? "Cover missing — assign realistic activity image."
+      : "Cover weak or generic — replace with strongest activity image.",
     proposedCoverImageUrl: best.url,
     sourceActivityId: best.activityId,
     sourceActivityTitle: best.title,
@@ -409,7 +431,28 @@ function canAutoApplyConnectedEnrichment(lessonResult, job) {
 }
 
 function applyCoverToEnrichmentDraft(draft, coverPlan) {
-  if (!draft || !coverPlan || coverPlan.decision !== "REPLACE") return draft;
+  if (!draft || !coverPlan) return draft;
+  const operatorCover = coverPlan.operatorCover && typeof coverPlan.operatorCover === "object"
+    ? coverPlan.operatorCover
+    : null;
+  if (operatorCover?.coverImageUrl && operatorCover?.coverMediaAssetId) {
+    return {
+      ...draft,
+      operatorCover: {
+        ...operatorCover,
+        coverImageSource: text(operatorCover.coverImageSource, 40) || "generated",
+        coverQualityStatus: text(operatorCover.coverQualityStatus, 40) || "good",
+        generationMode: text(operatorCover.generationMode, 80) || "REALISTIC_LESSON_COVER",
+        updatedAt: operatorCover.updatedAt || new Date().toISOString(),
+      },
+    };
+  }
+  if (coverPlan.coverIntent === "EXPLICIT_REPLACE"
+    || coverPlan.generationMode === "REALISTIC_LESSON_COVER"
+    || coverPlan.decision === "GENERATE") {
+    return draft;
+  }
+  if (coverPlan.decision !== "REPLACE") return draft;
   const url = text(coverPlan.proposedCoverImageUrl, 600);
   if (!url) return draft;
   return {
@@ -428,7 +471,10 @@ function applyCoverToEnrichmentDraft(draft, coverPlan) {
 function applyOperatorCoverToMergedPlan(plan, enrichmentDraft) {
   const oc = enrichmentDraft?.operatorCover;
   const url = text(oc?.coverImageUrl, 600);
-  if (!url || !isUsableActivityImageUrl(url)) return plan;
+  if (!url) return plan;
+  const isLessonCoverAsset = /^lesson-cover-/i.test(text(oc?.coverMediaAssetId, 160))
+    || /^\/api\/media\/lesson-covers\//i.test(url);
+  if (!isLessonCoverAsset && !isUsableActivityImageUrl(url)) return plan;
   return {
     ...plan,
     coverImageUrl: url,
@@ -436,6 +482,104 @@ function applyOperatorCoverToMergedPlan(plan, enrichmentDraft) {
     coverQualityStatus: text(oc.coverQualityStatus, 40) || "good",
     thumbnailUrl: url,
   };
+}
+
+async function runDedicatedLessonCoverGeneration({
+  plan,
+  curriculum,
+  coverPlan,
+  apiKey = "",
+  model = "",
+  generateFn = null,
+  persistCoverFn = null,
+  mockGenerate = false,
+} = {}) {
+  if (!coverPlan || coverPlan.decision !== "GENERATE") {
+    return { ok: false, code: "cover_not_requested", coverPlan };
+  }
+  const promptBuilder = (() => {
+    try { return require("./visual-prompt-builder.js"); } catch (_e) { return null; }
+  })();
+  const visualProduction = (() => {
+    try { return require("../server/visual-production-image.js"); } catch (_e) { return null; }
+  })();
+  const lessonCoverMedia = (() => {
+    try { return require("../server/lesson-cover-media.js"); } catch (_e) { return null; }
+  })();
+  if (!promptBuilder?.buildVisualPrompt || !visualProduction?.generateVisualProductionImage) {
+    return { ok: false, code: "cover_generation_unavailable", error: "Cover generation helpers unavailable." };
+  }
+  const inspirationAct = schema.asArray(curriculum?.activities)
+    .find((a) => text(a.id, 160) === text(coverPlan.sourceActivityId, 160));
+  const promptBundle = promptBuilder.buildVisualPrompt({
+    assetMode: "REALISTIC_LESSON_COVER",
+    lessonTitle: plan?.title,
+    activityTitle: text(coverPlan.sourceActivityTitle || inspirationAct?.title || plan?.title, 180),
+    ageBand: plan?.age,
+    theme: plan?.theme,
+    representativeActivityTitle: text(coverPlan.sourceActivityTitle || inspirationAct?.title || plan?.title, 180),
+    materials: inspirationAct?.materials || plan?.weeklyMaterials,
+    setup: inspirationAct?.setup || plan?.weeklyOverview,
+    actionContext: text(inspirationAct?.objective || plan?.objectives || plan?.weeklyOverview, 400),
+  });
+  if (promptBundle?.shouldBlockGeneration && text(plan?.title) && text(plan?.age)) {
+    promptBundle.shouldBlockGeneration = false;
+    promptBundle.warnings = schema.asArray(promptBundle.warnings).filter((w) => !/^missing_context:/.test(String(w)));
+  }
+  if (promptBundle?.shouldBlockGeneration) {
+    return {
+      ok: false,
+      code: "cover_prompt_blocked",
+      error: `Cover prompt blocked: ${(promptBundle.missingContext || []).join(", ")}`,
+      promptBundle,
+    };
+  }
+  const generated = await visualProduction.generateVisualProductionImage({
+    apiKey,
+    model: model || process.env.OPENAI_IMAGE_MODEL || "gpt-image-2",
+    brief: promptBundle,
+  });
+  if (typeof persistCoverFn !== "function") {
+    return {
+      ok: false,
+      code: "cover_persist_unavailable",
+      error: "Lesson cover persistence helper unavailable.",
+      generated,
+      promptBundle,
+    };
+  }
+  const persisted = await persistCoverFn({
+    planId: plan?.id,
+    buffer: generated.buffer,
+    mimeType: generated.mimeType || "image/png",
+    fileName: `${text(plan?.id, 80) || "lesson"}-cover.png`,
+  });
+  if (!persisted?.ok) {
+    return {
+      ok: false,
+      code: persisted?.code || "cover_persist_failed",
+      error: persisted?.error || "Dedicated lesson cover could not be saved.",
+      generated,
+      promptBundle,
+    };
+  }
+  const mediaUrl = text(persisted.url || lessonCoverMedia?.lessonCoverMediaUrl?.(persisted.id), 600);
+  const nextCoverPlan = {
+    ...coverPlan,
+    status: "success",
+    operatorCover: {
+      coverMediaAssetId: persisted.id,
+      coverImageUrl: mediaUrl,
+      coverImageSource: "generated",
+      coverQualityStatus: "good",
+      generationMode: "REALISTIC_LESSON_COVER",
+      sourceActivityId: text(coverPlan.sourceActivityId, 160),
+      sourceActivityTitle: text(coverPlan.sourceActivityTitle, 180),
+      inspirationImageUrl: text(coverPlan.inspirationImageUrl, 600),
+      updatedAt: new Date().toISOString(),
+    },
+  };
+  return { ok: true, coverPlan: nextCoverPlan, generated, promptBundle, persisted };
 }
 
 /**
@@ -453,6 +597,11 @@ function refreshLessonResultPostApply(lessonResult, plan, curriculum, options = 
   const beforeScores = lessonResult.beforeScores || lessonResult.audit?.scores || {};
   const afterScores = finalAudit.scores || {};
   const executionScope = lessonRead.summarizeExecutionScope(lessonResult.kitScope, options.command || {});
+  const persistenceCheck = lessonRead.verifyConnectedAutoApplyPersistence({
+    beforePlan: options.beforePlan || lessonResult.beforePlan || {},
+    afterPlan: plan,
+    requestedFieldSuccess: options.requestedFieldSuccess || lessonResult.requestedFieldSuccess || [],
+  });
   return {
     ...lessonResult,
     auditAfter: finalAudit,
@@ -460,6 +609,10 @@ function refreshLessonResultPostApply(lessonResult, plan, curriculum, options = 
     lessonReadiness: finalAudit.lessonReadiness || lessonRead.classifyLessonReadiness(finalAudit),
     executionScope,
     reportConsistency: finalAudit.reportConsistency,
+    persistenceVerification: persistenceCheck,
+    persistenceMismatches: persistenceCheck.mismatches,
+    persistedDiff: persistenceCheck.persistedDiff,
+    contentPersistenceIncomplete: persistenceCheck.ok === false,
     readinessDelta: {
       before: beforeScores.premiumReadinessPercent,
       after: afterScores.premiumReadinessPercent,
@@ -473,6 +626,7 @@ module.exports = {
   isUsableActivityImageUrl,
   buildCoverPlan,
   pickBestActivityImageForCover,
+  pickCoverInspirationActivity,
   detectStructuralReviewFlags,
   buildConnectedUpgradeCommand,
   buildConnectedUpgradePlan,
@@ -480,5 +634,6 @@ module.exports = {
   canAutoApplyConnectedEnrichment,
   applyCoverToEnrichmentDraft,
   applyOperatorCoverToMergedPlan,
+  runDedicatedLessonCoverGeneration,
   refreshLessonResultPostApply,
 };
