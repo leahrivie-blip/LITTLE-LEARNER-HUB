@@ -758,6 +758,17 @@ function verifyImageJobDraft({ beforePlan, afterPlan, actions = [] }) {
   };
 }
 
+let visualAttachQaGate = null;
+function loadVisualAttachQaGate() {
+  if (visualAttachQaGate) return visualAttachQaGate;
+  try {
+    visualAttachQaGate = require("./visual-attach-quality-gate.js");
+  } catch (_error) {
+    visualAttachQaGate = null;
+  }
+  return visualAttachQaGate;
+}
+
 async function runImagePlanForLesson({
   plan,
   activities,
@@ -773,6 +784,8 @@ async function runImagePlanForLesson({
   apiKey,
   model,
   mockGenerate = false,
+  visualAnalyzeFn,
+  skipVisualAttachQa = false,
   alreadySucceededKeys = new Set(),
   lessonCount = 1,
   command = null,
@@ -944,13 +957,14 @@ async function runImagePlanForLesson({
         throw new Error(`Activity ${activityId} not found by exact id; refuse image attach.`);
       }
 
-      const prompt = buildActivityImagePrompt({
+      const promptBundle = buildActivityImagePromptBundle({
         plan,
         activity,
         draftActivity: draft.activities[activityId] || {},
         field: action.field,
         concept: action.concept,
       });
+      const prompt = promptBundle.generationPrompt;
 
       const generated = await generateActivityImageBuffer({
         apiKey,
@@ -960,6 +974,40 @@ async function runImagePlanForLesson({
         mock: mockGenerate,
       });
       generations += 1;
+
+      const enrich = loadEnrichment();
+      const view = enrich?.activityEnrichmentView
+        ? enrich.activityEnrichmentView(activity, draft.activities[activityId] || {})
+        : activity;
+      const qaGate = loadVisualAttachQaGate();
+      if (qaGate?.assessVisualAttachQuality) {
+        const visualQa = await qaGate.assessVisualAttachQuality({
+          buffer: generated.buffer,
+          mimeType: generated.mimeType || "image/png",
+          context: {
+            kind: "activity_photo",
+            assetMode: promptBundle.assetMode,
+            activityTitle: view?.title || activity?.title,
+            materials: view?.materials || activity?.materials,
+            setup: view?.setup || activity?.setup,
+            steps: view?.steps || activity?.steps,
+            ageBand: plan?.age || activity?.age || view?.ageModifications,
+            imagePurpose: action.field === "exampleImageUrl" ? "example" : "setup",
+            generationPrompt: prompt,
+          },
+          analyzeFn: visualAnalyzeFn,
+          apiKey,
+          model: process.env.LLH_OPERATOR_VISION_MODEL || process.env.OPENAI_MODEL || "gpt-4o-mini",
+          mock: mockGenerate,
+          skip: skipVisualAttachQa === true,
+        });
+        if (!visualQa.ok) {
+          const qaError = new Error(visualQa.error || "Visual attach QA blocked generated activity image.");
+          qaError.visualQaBlocked = true;
+          qaError.visualQa = visualQa;
+          throw qaError;
+        }
+      }
 
       const uploaded = await uploadActivityImageBuffer({
         uploadFn,
@@ -993,6 +1041,7 @@ async function runImagePlanForLesson({
         status: "success",
         idempotencyKey,
         promptPreview: text(prompt, 200),
+        assetMode: promptBundle.assetMode,
         mediaAssetId: uploaded.mediaAssetId,
         mediaUrl: uploaded.mediaUrl,
         thumbUrl: uploaded.thumbUrl,
@@ -1020,7 +1069,9 @@ async function runImagePlanForLesson({
         decision,
         status: "failed",
         error: text(error?.message || "image action failed", 400),
-        retryable: true,
+        code: error?.visualQaBlocked ? "visual_qa_blocked" : undefined,
+        visualQa: error?.visualQa || undefined,
+        retryable: !error?.visualQaBlocked,
         idempotencyKey,
         preservedExisting: Boolean(existingUrl),
       });
