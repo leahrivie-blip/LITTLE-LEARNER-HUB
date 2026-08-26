@@ -7147,6 +7147,107 @@ async function applyOperatorConnectedEnrichment({
 }
 
 /**
+ * Connected auto-apply image path: write successful QA-passed images onto the
+ * editable draft lesson/activity records immediately (public media URLs).
+ * Does NOT publish. Does NOT change Free/Pro or lesson status.
+ */
+async function applyOperatorConnectedActivityImages({
+  store,
+  lessonPlanId,
+  imageActions = [],
+  enrichmentDraft = null,
+  adminEmail = "",
+} = {}) {
+  const imagesApi = require("../scripts/curriculum-operator-images.js");
+  const id = normalizedShortText(lessonPlanId, 160);
+  if (!id) return { ok: false, code: "LESSON_NOT_FOUND", error: "lessonPlanId required" };
+
+  const siteContent = store.siteContent && typeof store.siteContent === "object"
+    ? store.siteContent
+    : defaultSiteContentStore();
+  const curriculum = siteContent.curriculum || defaultCurriculumStore();
+  const existingPlan = (curriculum.lessonPlans || []).find((item) => item.id === id);
+  if (!existingPlan) return { ok: false, code: "LESSON_NOT_FOUND", error: "Lesson plan not found." };
+
+  const beforeStatus = existingPlan.status;
+  const beforeAccess = existingPlan.plan === "Pro" ? "Pro" : "Free";
+  const linked = (curriculum.activities || []).filter((a) => a.lessonPlanId === id);
+  const appliedPlan = imagesApi.applySuccessfulImageActionsToLessonRecords({
+    plan: existingPlan,
+    activities: linked,
+    actions: imageActions,
+    enrichmentMediaApi: enrichmentMedia,
+  });
+  if (!appliedPlan.ok) {
+    return { ok: false, code: appliedPlan.code || "image_apply_failed", error: appliedPlan.error };
+  }
+  if (!appliedPlan.applied.length) {
+    return {
+      ok: true,
+      code: "no_successful_images",
+      applied: [],
+      published: false,
+      status: beforeStatus,
+      accessPlan: beforeAccess,
+    };
+  }
+
+  const assetIds = appliedPlan.applied
+    .map((row) => normalizedShortText(row.mediaAssetId, 160))
+    .filter((assetId) => enrichmentMedia.isEnrichmentMediaAssetId(assetId));
+  await promoteEnrichmentAssetsToPublished(store, assetIds, id);
+
+  const byId = new Map(appliedPlan.activities.map((a) => [normalizedShortText(a.id, 160), a]));
+  const nextActivities = (curriculum.activities || []).map((act) => {
+    if (normalizedShortText(act.lessonPlanId, 160) !== id) return act;
+    const updated = byId.get(normalizedShortText(act.id, 160));
+    return updated || act;
+  });
+
+  let nextDraft = enrichmentDraft && typeof enrichmentDraft === "object"
+    ? enrichmentDraft
+    : (existingPlan.enrichmentDraft && typeof existingPlan.enrichmentDraft === "object"
+      ? existingPlan.enrichmentDraft
+      : { week: {}, activities: {} });
+  nextDraft = imagesApi.stripSuccessfulImageFieldsFromEnrichmentDraft(nextDraft, imageActions);
+  if (!enrichmentDraftHasContent(nextDraft)) nextDraft = null;
+
+  const nextPlan = {
+    ...appliedPlan.plan,
+    id,
+    status: beforeStatus,
+    plan: beforeAccess,
+    enrichmentDraft: nextDraft,
+    updatedAt: new Date().toISOString(),
+    lastEditedBy: normalizedShortText(adminEmail, 180) || "curriculum-operator-connected-images",
+  };
+
+  const nextLessonPlans = (curriculum.lessonPlans || []).map((p) => (p.id === id ? nextPlan : p));
+  store.siteContent = {
+    ...siteContent,
+    curriculum: {
+      ...curriculum,
+      lessonPlans: nextLessonPlans,
+      activities: nextActivities,
+    },
+    updatedAt: nextPlan.updatedAt,
+  };
+  await writeStoreAsync(store);
+
+  return {
+    ok: true,
+    code: "connected_images_direct_draft_ok",
+    applied: appliedPlan.applied,
+    published: false,
+    autoPublish: false,
+    status: nextPlan.status,
+    accessPlan: nextPlan.plan,
+    lessonId: id,
+    customerVisibleUnchanged: nextPlan.status !== "published",
+  };
+}
+
+/**
  * Trusted new draft lesson create for AI Curriculum Operator Phase 7.
  * Mirrors admin createNewLesson + syncCurriculumActivitiesForLessonPlan.
  * Always status "draft". Never publishes.
@@ -32157,6 +32258,7 @@ const server = http.createServer(async (request, response) => {
           readOperatorPrintableFile,
           unlinkOperatorPrintableResource,
           applyOperatorConnectedEnrichment,
+          applyOperatorConnectedActivityImages,
           generateOperatorImage: async ({ prompt, mock }) => {
             const forceMock = mock === true
               || process.env.NODE_ENV === "test"

@@ -484,6 +484,133 @@ async function uploadActivityImageBuffer(deps, {
   };
 }
 
+/**
+ * Canonical lesson-editor media URLs (public path — not /api/admin/media/...).
+ * Visibility must be promoted separately so the public path can serve the asset.
+ */
+function canonicalPublicActivityImageUrls(mediaAssetId, enrichmentMediaApi) {
+  const id = text(mediaAssetId, 160);
+  if (!id) return null;
+  const api = enrichmentMediaApi || loadEnrichmentMedia();
+  if (!api?.publicEnrichmentMediaUrl) return null;
+  if (api.isEnrichmentMediaAssetId && !api.isEnrichmentMediaAssetId(id)) return null;
+  return {
+    mediaAssetId: id,
+    mediaUrl: text(api.publicEnrichmentMediaUrl(id, "full"), 500),
+    thumbUrl: text(api.publicEnrichmentMediaUrl(id, "thumb"), 500),
+  };
+}
+
+function isAdminOnlyEnrichmentMediaUrl(url) {
+  return /\/api\/admin\/media\/enrichment-photos\//i.test(text(url, 500));
+}
+
+function commandRequestsConnectedAutoApply(command) {
+  const actions = command?.actions || {};
+  if (actions.planOnly === true) return false;
+  if (actions.publish === true) return false;
+  if (actions.connectedAutoApply === false) return false;
+  return actions.connectedAutoApply === true || actions.connectedUpgrade === true;
+}
+
+/**
+ * Apply successful image actions onto editable draft lesson records
+ * (activities + dailyPlans). Does not publish. Uses public media URLs only.
+ */
+function applySuccessfulImageActionsToLessonRecords({
+  plan,
+  activities,
+  actions,
+  enrichmentMediaApi,
+} = {}) {
+  const nextPlan = plan && typeof plan === "object" ? JSON.parse(JSON.stringify(plan)) : null;
+  if (!nextPlan) {
+    return { ok: false, code: "missing_plan", error: "Lesson plan required.", activities: [], applied: [] };
+  }
+  const nextActivities = schema.asArray(activities).map((a) => ({ ...a }));
+  const applied = [];
+  const byId = new Map(nextActivities.map((a, index) => [text(a.id, 160), index]));
+
+  schema.asArray(actions).forEach((action) => {
+    if (action?.status !== "success") return;
+    if (!WRITE_DECISIONS.includes(normalizeDecision(action.decision))) return;
+    const activityId = text(action.activityId, 160);
+    const field = IMAGE_FIELDS.includes(action.field) ? action.field : "setupImageUrl";
+    const publicUrls = canonicalPublicActivityImageUrls(action.mediaAssetId, enrichmentMediaApi);
+    if (!publicUrls?.mediaUrl) return;
+    if (isAdminOnlyEnrichmentMediaUrl(publicUrls.mediaUrl)) return;
+
+    const idx = byId.get(activityId);
+    if (idx == null) return;
+    const act = nextActivities[idx];
+    const patch = {
+      [field]: publicUrls.mediaUrl,
+      [assetIdFieldFor(field)]: publicUrls.mediaAssetId,
+      [thumbFieldFor(field)]: publicUrls.thumbUrl,
+    };
+    nextActivities[idx] = { ...act, ...patch };
+
+    const itemId = text(act.itemId, 80);
+    const daily = nextPlan.dailyPlans && typeof nextPlan.dailyPlans === "object"
+      ? nextPlan.dailyPlans
+      : {};
+    Object.keys(daily).forEach((day) => {
+      const items = schema.asArray(daily[day]?.items);
+      if (!items.length) return;
+      daily[day] = {
+        ...(daily[day] || {}),
+        items: items.map((item) => {
+          const match = text(item.itemId, 80) === itemId
+            || text(item.id, 160) === activityId
+            || (text(item.title, 180) && text(item.title, 180) === text(act.title, 180));
+          if (!match) return item;
+          return { ...item, ...patch };
+        }),
+      };
+    });
+    nextPlan.dailyPlans = daily;
+    applied.push({
+      activityId,
+      field,
+      mediaAssetId: publicUrls.mediaAssetId,
+      mediaUrl: publicUrls.mediaUrl,
+      thumbUrl: publicUrls.thumbUrl,
+      previousUrl: text(action.previousUrl || act[field], 500),
+    });
+  });
+
+  return {
+    ok: true,
+    plan: nextPlan,
+    activities: nextActivities,
+    applied,
+  };
+}
+
+/**
+ * Remove successful image field mutations from enrichmentDraft so connected
+ * auto-apply does not re-strand admin URLs after a direct lesson save.
+ */
+function stripSuccessfulImageFieldsFromEnrichmentDraft(draftInput, actions) {
+  const draft = draftInput && typeof draftInput === "object"
+    ? JSON.parse(JSON.stringify(draftInput))
+    : { week: {}, activities: {} };
+  if (!draft.activities || typeof draft.activities !== "object") draft.activities = {};
+
+  schema.asArray(actions).forEach((action) => {
+    if (action?.status !== "success") return;
+    const activityId = text(action.activityId, 160);
+    if (!activityId || !draft.activities[activityId]) return;
+    const field = IMAGE_FIELDS.includes(action.field) ? action.field : "setupImageUrl";
+    const patch = draft.activities[activityId];
+    delete patch[field];
+    delete patch[assetIdFieldFor(field)];
+    delete patch[thumbFieldFor(field)];
+    if (!Object.keys(patch).length) delete draft.activities[activityId];
+  });
+  return draft;
+}
+
 function attachImageToEnrichmentDraft(draftInput, {
   lessonId,
   expectedLessonId,
@@ -758,6 +885,63 @@ function verifyImageJobDraft({ beforePlan, afterPlan, actions = [] }) {
   };
 }
 
+/**
+ * Verify connected auto-apply image persistence onto editable lesson activity records.
+ * enrichmentDraft image fields are intentionally stripped after direct save.
+ */
+function verifyConnectedImageJobRecords({
+  beforePlan,
+  afterPlan,
+  afterActivities = [],
+  actions = [],
+}) {
+  const checks = [];
+  const pass = (ok, code, message) => checks.push({ ok: Boolean(ok), code, message });
+
+  pass(beforePlan?.id && beforePlan.id === afterPlan?.id, "lesson_id", "Lesson ID unchanged.");
+  pass(text(beforePlan?.age) === text(afterPlan?.age), "age", "Age unchanged.");
+  pass(
+    (beforePlan?.plan === "Pro" ? "Pro" : "Free") === (afterPlan?.plan === "Pro" ? "Pro" : "Free"),
+    "access_plan",
+    "Access plan unchanged.",
+  );
+  pass(text(beforePlan?.title) === text(afterPlan?.title), "title", "Title unchanged.");
+  pass(afterPlan?.status === beforePlan?.status, "publish_status", "Lesson status unchanged (not published).");
+
+  const byId = new Map(
+    schema.asArray(afterActivities).map((a) => [text(a.id, 160), a]),
+  );
+  schema.asArray(actions).forEach((action) => {
+    if (action.status !== "success") return;
+    const act = byId.get(text(action.activityId, 160)) || {};
+    const field = IMAGE_FIELDS.includes(action.field) ? action.field : "setupImageUrl";
+    pass(
+      text(act[field], 500) === text(action.mediaUrl, 500),
+      `live_media_${action.activityId}`,
+      `Live activity ${action.activityId} has intended public media URL.`,
+    );
+    pass(
+      text(act[assetIdFieldFor(field)], 160) === text(action.mediaAssetId, 160),
+      `live_asset_${action.activityId}`,
+      `Live activity ${action.activityId} has intended media asset id.`,
+    );
+    pass(
+      !isAdminOnlyEnrichmentMediaUrl(act[field]),
+      `not_admin_url_${action.activityId}`,
+      `Live activity ${action.activityId} does not use admin-only media URL.`,
+    );
+    const draftAct = afterPlan?.enrichmentDraft?.activities?.[text(action.activityId, 160)] || {};
+    pass(
+      !text(draftAct[field], 500),
+      `draft_image_cleared_${action.activityId}`,
+      `Successful image cleared from enrichmentDraft for ${action.activityId}.`,
+    );
+  });
+
+  const failed = checks.filter((c) => !c.ok);
+  return { ok: failed.length === 0, checks, failed };
+}
+
 let visualAttachQaGate = null;
 function loadVisualAttachQaGate() {
   if (visualAttachQaGate) return visualAttachQaGate;
@@ -786,6 +970,7 @@ async function runImagePlanForLesson({
   mockGenerate = false,
   visualAnalyzeFn,
   skipVisualAttachQa = false,
+  preferPublicMediaUrls = false,
   alreadySucceededKeys = new Set(),
   lessonCount = 1,
   command = null,
@@ -1023,14 +1208,27 @@ async function runImagePlanForLesson({
         mimeType: generated.mimeType || "image/png",
       });
 
+      const usePublic = preferPublicMediaUrls === true
+        || commandRequestsConnectedAutoApply(command);
+      const publicUrls = usePublic
+        ? canonicalPublicActivityImageUrls(uploaded.mediaAssetId, enrichmentMedia || loadEnrichmentMedia())
+        : null;
+      const attachUrls = publicUrls?.mediaUrl
+        ? publicUrls
+        : {
+          mediaAssetId: uploaded.mediaAssetId,
+          mediaUrl: uploaded.mediaUrl,
+          thumbUrl: uploaded.thumbUrl,
+        };
+
       const attached = attachImageToEnrichmentDraft(draft, {
         lessonId: plan.id,
         expectedLessonId: plan.id,
         activityId,
         field: action.field,
-        mediaAssetId: uploaded.mediaAssetId,
-        mediaUrl: uploaded.mediaUrl,
-        thumbUrl: uploaded.thumbUrl,
+        mediaAssetId: attachUrls.mediaAssetId,
+        mediaUrl: attachUrls.mediaUrl,
+        thumbUrl: attachUrls.thumbUrl,
       });
       if (!attached.ok) throw new Error(attached.error || "attach failed");
       draft = attached.enrichmentDraft;
@@ -1042,10 +1240,11 @@ async function runImagePlanForLesson({
         idempotencyKey,
         promptPreview: text(prompt, 200),
         assetMode: promptBundle.assetMode,
-        mediaAssetId: uploaded.mediaAssetId,
-        mediaUrl: uploaded.mediaUrl,
-        thumbUrl: uploaded.thumbUrl,
+        mediaAssetId: attachUrls.mediaAssetId,
+        mediaUrl: attachUrls.mediaUrl,
+        thumbUrl: attachUrls.thumbUrl,
         previousUrl: existingUrl,
+        usedPublicMediaUrl: Boolean(publicUrls?.mediaUrl),
       });
     } catch (error) {
       // REPLACE/GENERATE failure: restore prior working image; never leave blank if one existed.
@@ -1113,9 +1312,15 @@ module.exports = {
   generateActivityImageBuffer,
   uploadActivityImageBuffer,
   attachImageToEnrichmentDraft,
+  canonicalPublicActivityImageUrls,
+  isAdminOnlyEnrichmentMediaUrl,
+  commandRequestsConnectedAutoApply,
+  applySuccessfulImageActionsToLessonRecords,
+  stripSuccessfulImageFieldsFromEnrichmentDraft,
   verifyAttachedImage,
   buildAllowedImageMutations,
   verifyImageJobDraft,
+  verifyConnectedImageJobRecords,
   runImagePlanForLesson,
   primaryFieldForActivity,
 };
