@@ -92,11 +92,14 @@ function parseOperatorCommand(rawCommand, options = {}) {
     touchDraft: exclusions.flags.touchDraft,
     textOnly: exclusions.flags.textOnly,
   });
+  const weeklyFieldScope = orchestrator.parseWeeklyFieldScope(raw);
+  if (weeklyFieldScope) actions.weeklyFieldScope = weeklyFieldScope;
   if (!exclusions.flags.touchImages) {
     actions.generateImages = false;
     actions.replaceBadImages = false;
   }
   if (!exclusions.flags.touchPrintables) actions.generatePrintables = false;
+  Object.assign(actions, orchestrator.applyTextOnlyAuditFlags(raw, actions));
 
   if (/\b(?:need|missing|without|weakest)\s+(?:activity\s+)?(?:pictures?|images?)\b/i.test(raw)
     || /\bactivity\s+(?:pictures?|images?)\b/i.test(raw)
@@ -446,6 +449,8 @@ function parseOperatorCommand(rawCommand, options = {}) {
   } else {
     actions.createLesson = false;
   }
+
+  Object.assign(actions, orchestrator.applyTextOnlyAuditFlags(raw, actions));
 
   const command = schema.normalizeOperatorCommand({
     rawCommand: raw,

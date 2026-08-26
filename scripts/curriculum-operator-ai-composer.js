@@ -555,9 +555,21 @@ function collectWorkItems(plan, activities, audit, options = {}) {
 
   if (options.upgradeLesson !== false) {
     const draftWeek = plan?.enrichmentDraft?.week || {};
+    const weeklyFieldScope = schema.asArray(options.weeklyFieldScope || options.command?.actions?.weeklyFieldScope)
+      .map((field) => mapAuditWeekField(field))
+      .filter(Boolean);
     schema.asArray(audit?.weeklyContent).forEach((fieldDec) => {
       const field = mapAuditWeekField(fieldDec.field);
       if (!WEEK_FIELDS.includes(field)) return;
+      if (weeklyFieldScope.length && !weeklyFieldScope.includes(field)) {
+        weekKeep.push({
+          field,
+          decision: "KEEP",
+          reason: "Out of scope for this command.",
+          preview: text(fieldDec.preview, 240),
+        });
+        return;
+      }
       if (!shouldWriteDecision(fieldDec.decision)) {
         weekKeep.push({
           field,
@@ -1539,6 +1551,8 @@ async function composeUpgradeContent({
   touchSongs = true,
   touchBooks = true,
   repairTeacherTips = true,
+  command = null,
+  weeklyFieldScope = null,
 } = {}) {
   const work = collectWorkItems(plan, activities, audit, {
     upgradeLesson,
@@ -1546,6 +1560,8 @@ async function composeUpgradeContent({
     touchSongs,
     touchBooks,
     repairTeacherTips,
+    command,
+    weeklyFieldScope: weeklyFieldScope || command?.actions?.weeklyFieldScope,
   });
   if (!work.hasWork) {
     return {

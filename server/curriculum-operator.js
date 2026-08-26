@@ -21,6 +21,7 @@ const jobApi = require("../scripts/curriculum-operator-job.js");
 const createApi = require("../scripts/curriculum-operator-create.js");
 const createArchitect = require("../scripts/curriculum-operator-create-architect.js");
 const connectedUpgradeApi = require("../scripts/curriculum-operator-connected-upgrade.js");
+const lessonRead = require("../scripts/curriculum-operator-lesson-read.js");
 const printableAgeBand = require("../scripts/curriculum-operator-printable-age-band.js");
 
 const ACTIONS = Object.freeze([
@@ -1075,7 +1076,12 @@ function createCurriculumOperatorApi(deps) {
     const songsBooks = wantsSongsBooks(job.command);
     try {
       job.progress.currentAction = "lesson.audit";
-      const before = auditOneLesson(plan, curriculum);
+      const auditOptions = {
+        command: job.command,
+        weeklyFieldScope: job.command?.actions?.weeklyFieldScope,
+        explicitVocabularyRepair: lessonRead.commandRequestsVocabularyRepair(job.command),
+      };
+      const before = auditOneLesson(plan, curriculum, auditOptions);
       if (!before.verification.ok) {
         return {
           ...workingLr,
@@ -1163,6 +1169,8 @@ function createCurriculumOperatorApi(deps) {
           touchBooks: songsBooks ? false : (job.command.actions.touchBooks !== false && job.command.actions.checkBooks !== false),
           editedBy: sessionEmail || (phaseNum >= 6 ? "curriculum-operator-phase6" : "curriculum-operator-phase25"),
           callAi: callOperatorAi,
+          command: job.command,
+          weeklyFieldScope: job.command?.actions?.weeklyFieldScope,
         });
 
         if (built.usage?.calls) {
@@ -1680,13 +1688,16 @@ function createCurriculumOperatorApi(deps) {
       Object.assign(store, readStore());
       const reloaded = schema.asArray(readSiteCurriculum(store).lessonPlans).find((p) => p.id === plan.id) || workingPlan;
       workingPlan = reloaded;
-      const auditOptions = {
+      const finalAuditOptions = {
         connectedOperatorPath: job.command?.actions?.connectedUpgrade === true,
         skipWeekdayFocusBlocker: job.command?.actions?.connectedUpgrade === true,
         printablesExcluded: kitScope?.locks?.printables === true,
         printableMutations: Number(printableCounts?.CREATE || 0) + Number(printableCounts?.REPLACE || 0),
+        command: job.command,
+        weeklyFieldScope: job.command?.actions?.weeklyFieldScope,
+        explicitVocabularyRepair: lessonRead.commandRequestsVocabularyRepair(job.command),
       };
-      const finalKitAudit = auditOneLesson(workingPlan, readSiteCurriculum(store), auditOptions);
+      const finalKitAudit = auditOneLesson(workingPlan, readSiteCurriculum(store), finalAuditOptions);
       auditAfter = finalKitAudit.audit;
       afterScores = finalKitAudit.audit.scores;
 

@@ -134,6 +134,8 @@ function verifyConnectedAutoApplyPersistence({
   beforePlan = {},
   afterPlan = {},
   requestedFieldSuccess = [],
+  command = {},
+  draftWeek = {},
 } = {}) {
   const mismatches = [];
   asArray(requestedFieldSuccess).forEach((entry) => {
@@ -151,13 +153,13 @@ function verifyConnectedAutoApplyPersistence({
       return;
     }
     if (key === "vocabularyWords" || key === "vocabCards") {
-      const vocab = vocabularyTextFromSources(afterPlan, {});
-      const cards = asArray(afterPlan?.teachingKit?.vocabCards);
-      if (!vocab && !cards.length) {
+      const quality = classifyVocabularyQuality(afterPlan, draftWeek);
+      const synced = Boolean(text(afterPlan?.vocabularyWords, 2000));
+      if (!quality.validCardCount || quality.state === "MALFORMED" || !synced) {
         mismatches.push({
           field: "vocabularyWords",
           code: "PERSISTENCE_MISMATCH",
-          message: "Vocabulary repair did not persist after reload.",
+          message: "Vocabulary repair did not persist as valid structured cards with synchronized plan text.",
         });
       }
       return;
@@ -170,32 +172,239 @@ function verifyConnectedAutoApplyPersistence({
       });
     }
   });
+  const requested = verifyRequestedOutcomes({
+    command,
+    afterPlan,
+    draftWeek,
+    composerAccepted: requestedFieldSuccess,
+  });
+  requested.gaps.forEach((gap) => mismatches.push(gap));
   return {
     ok: mismatches.length === 0,
     mismatches,
+    requestedOutcomes: requested.requestedOutcomes,
+    requestedOutcomeGaps: requested.gaps,
     persistedDiff: computePersistedPlanDiff(beforePlan, afterPlan),
   };
 }
 
-function vocabCardLabel(card) {
+const VOCAB_CARD_TERM_KEYS = ["word", "title", "term", "label"];
+
+function vocabCardTerm(card) {
   if (card == null) return "";
   if (typeof card === "string") return text(card, 200);
-  if (typeof card !== "object") return "";
-  return text(card.title || card.word || card.term || card.label, 200);
+  if (typeof card !== "object" || Array.isArray(card)) return "";
+  for (let i = 0; i < VOCAB_CARD_TERM_KEYS.length; i += 1) {
+    const value = text(card[VOCAB_CARD_TERM_KEYS[i]], 200);
+    if (value) return value;
+  }
+  return "";
+}
+
+function vocabCardLabel(card) {
+  const term = vocabCardTerm(card);
+  if (!term) return "";
+  if (typeof card === "object" && card && !Array.isArray(card)) {
+    const definition = text(card.definition || card.description || card.meaning, 400);
+    if (definition) return `${term} — ${definition}`;
+  }
+  return term;
+}
+
+function normalizeVocabTermKey(value) {
+  return text(value, 200).trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function isCombinedVocabularyList(value) {
+  const raw = text(value, 2000).trim();
+  if (!raw) return false;
+  if (/,/.test(raw)) {
+    const parts = raw.split(/,+/).map((part) => part.trim()).filter(Boolean);
+    if (parts.length >= 2) return true;
+  }
+  if (/;/.test(raw)) {
+    const parts = raw.split(/;+/).map((part) => part.trim()).filter(Boolean);
+    if (parts.length >= 2) return true;
+  }
+  if (/\n/.test(raw)) {
+    const parts = raw.split(/\n+/).map((part) => part.trim()).filter(Boolean);
+    if (parts.length >= 2) return true;
+  }
+  if (/\s+\/\s+/.test(raw) || (/\//.test(raw) && raw.split(/\s*\/\s*/).filter(Boolean).length >= 2)) {
+    return true;
+  }
+  return false;
+}
+
+function isValidVocabularyCard(card) {
+  if (card == null) return false;
+  if (typeof card === "string") {
+    const term = text(card, 200).trim();
+    return Boolean(term) && !isCombinedVocabularyList(term);
+  }
+  if (typeof card !== "object" || Array.isArray(card)) return false;
+  const term = vocabCardTerm(card);
+  if (!term || isCombinedVocabularyList(term)) return false;
+  return true;
+}
+
+function dedupeValidVocabularyCards(cards = []) {
+  const out = [];
+  const seen = new Set();
+  asArray(cards).forEach((card) => {
+    if (!isValidVocabularyCard(card)) return;
+    const key = normalizeVocabTermKey(vocabCardTerm(card));
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    out.push(card);
+  });
+  return out.slice(0, 40);
+}
+
+function getValidVocabularyCards(plan = {}, draftWeek = {}) {
+  const draftCards = dedupeValidVocabularyCards(asArray(draftWeek?.vocabCards));
+  if (draftCards.length) return draftCards;
+  return dedupeValidVocabularyCards(asArray(plan?.teachingKit?.vocabCards));
+}
+
+function vocabularyWordsFromValidCards(cards = []) {
+  return dedupeValidVocabularyCards(cards)
+    .map((card) => vocabCardTerm(card))
+    .filter(Boolean)
+    .join(", ");
+}
+
+function classifyVocabularyQuality(plan = {}, draftWeek = {}) {
+  const planString = text(plan?.vocabularyWords, 2000);
+  const rawCards = asArray(draftWeek?.vocabCards).length
+    ? asArray(draftWeek?.vocabCards)
+    : asArray(plan?.teachingKit?.vocabCards);
+  const validCards = dedupeValidVocabularyCards(rawCards);
+  const hasRawCards = rawCards.length > 0;
+  const planStringValid = Boolean(planString);
+
+  if (!validCards.length) {
+    if (hasRawCards) {
+      return {
+        state: "MALFORMED",
+        reason: "Legacy vocabulary is stored as a combined-word dump instead of structured cards.",
+        validCardCount: 0,
+        preview: text(vocabCardTerm(rawCards[0]) || planString, 160),
+      };
+    }
+    return {
+      state: "MISSING",
+      reason: planStringValid
+        ? "Vocabulary string exists but structured cards are missing."
+        : "Vocabulary is empty.",
+      validCardCount: 0,
+      preview: text(planString, 160),
+    };
+  }
+  if (!planStringValid) {
+    return {
+      state: "SYNC_NEEDED",
+      reason: "Structured vocabulary cards exist but plan.vocabularyWords is not synchronized.",
+      validCardCount: validCards.length,
+      preview: vocabularyWordsFromValidCards(validCards).slice(0, 160),
+    };
+  }
+  if (validCards.length < 4) {
+    return {
+      state: "THIN",
+      reason: "Structured vocabulary is present but thin.",
+      validCardCount: validCards.length,
+      preview: vocabularyWordsFromValidCards(validCards).slice(0, 160),
+    };
+  }
+  return {
+    state: "VALID",
+    reason: "Valid structured vocabulary present.",
+    validCardCount: validCards.length,
+    preview: vocabularyWordsFromValidCards(validCards).slice(0, 160),
+  };
+}
+
+function hasValidStructuredVocabularyAndSync(plan = {}, draftWeek = {}) {
+  const quality = classifyVocabularyQuality(plan, draftWeek);
+  return quality.state === "VALID" || quality.state === "THIN";
 }
 
 function vocabularyTextFromSources(plan = {}, draftWeek = {}) {
-  const published = text(plan?.vocabularyWords, 2000);
-  if (published) return published;
-  const teachingKitCards = asArray(plan?.teachingKit?.vocabCards);
-  if (teachingKitCards.length) {
-    return teachingKitCards.map(vocabCardLabel).filter(Boolean).join(", ");
-  }
-  const draftCards = asArray(draftWeek?.vocabCards);
-  if (draftCards.length) {
-    return draftCards.map(vocabCardLabel).filter(Boolean).join(", ");
-  }
+  const planString = text(plan?.vocabularyWords, 2000);
+  if (planString) return planString;
+  const validCards = getValidVocabularyCards(plan, draftWeek);
+  if (validCards.length) return vocabularyWordsFromValidCards(validCards);
   return "";
+}
+
+function commandRequestsVocabularyRepair(command = {}) {
+  const raw = text(command?.rawCommand || command?.task || "", 4000);
+  if (!/\bvocab/i.test(raw)) return false;
+  return /\b(repair|fix|fill|populate|missing|authoritative|remaining)\b/i.test(raw)
+    || /\bmake\s+sure\b/i.test(raw);
+}
+
+function commandRequestsLearningDomainsRepair(command = {}) {
+  const raw = text(command?.rawCommand || command?.task || "", 4000);
+  if (!/\blearning\s*domains?\b/i.test(raw)) return false;
+  return /\b(repair|fix|fill|populate|missing|authoritative|remaining)\b/i.test(raw)
+    || /\bmake\s+sure\b/i.test(raw)
+    || /\bdo\s+not\s+leave\s+learning\s*domains?\s+empty\b/i.test(raw);
+}
+
+function buildRequestedOutcomes(command = {}) {
+  const outcomes = {};
+  const raw = text(command?.rawCommand || command?.task || "", 4000);
+  const narrowDomainsAndVocab = /\bonly\s+(?:fix|prove|repair)\s+(?:the\s+)?(?:remaining\s+)?(?:learning\s+)?domains?\s+and\s+vocab/i.test(raw)
+    || /\b(?:fix|repair)\s+only\s+(?:learning\s+)?domains?\s+and\s+vocab/i.test(raw);
+  if (narrowDomainsAndVocab || commandRequestsLearningDomainsRepair(command)) {
+    outcomes.learningDomains = "valid_nonempty";
+  }
+  if (narrowDomainsAndVocab || commandRequestsVocabularyRepair(command)) {
+    outcomes.vocabulary = "valid_structured_and_synced";
+  }
+  return outcomes;
+}
+
+function evaluateRequestedOutcome(outcomeKey, plan = {}, draftWeek = {}) {
+  if (outcomeKey === "learningDomains") {
+    return asArray(plan?.learningDomains).length > 0;
+  }
+  if (outcomeKey === "vocabulary") {
+    const quality = classifyVocabularyQuality(plan, draftWeek);
+    const synced = Boolean(text(plan?.vocabularyWords, 2000));
+    return quality.validCardCount > 0 && quality.state !== "MALFORMED" && synced;
+  }
+  return true;
+}
+
+function verifyRequestedOutcomes({
+  command = {},
+  afterPlan = {},
+  draftWeek = {},
+  composerAccepted = [],
+} = {}) {
+  const requested = buildRequestedOutcomes(command);
+  const gaps = [];
+  Object.keys(requested).forEach((key) => {
+    if (evaluateRequestedOutcome(key, afterPlan, draftWeek)) return;
+    const composerTouched = asArray(composerAccepted).some((row) => {
+      const field = text(row?.field, 80);
+      if (key === "vocabulary") return field === "vocabCards" || field === "vocabularyWords";
+      if (key === "learningDomains") return field === "learningDomains";
+      return false;
+    });
+    gaps.push({
+      field: key,
+      code: composerTouched ? "PERSISTENCE_MISMATCH" : "REQUESTED_REPAIR_UNSATISFIED",
+      message: composerTouched
+        ? `${key} repair was accepted but authoritative stored state is still invalid.`
+        : `${key} repair was explicitly requested but no valid work completed.`,
+      requestedOutcome: requested[key],
+    });
+  });
+  return { ok: gaps.length === 0, gaps, requestedOutcomes: requested };
 }
 
 function learningDomainsFromSources(plan = {}, draftWeek = {}) {
@@ -252,7 +461,9 @@ function buildAuditPlanView(plan = {}, enrichmentDraft = null) {
   const draft = enrichmentDraft && typeof enrichmentDraft === "object" ? enrichmentDraft : {};
   const week = draft.week && typeof draft.week === "object" ? draft.week : {};
   const domains = learningDomainsFromSources(plan, week);
-  const vocabularyWords = vocabularyTextFromSources(plan, week);
+  const validCards = getValidVocabularyCards(plan, week);
+  const vocabularyWords = text(plan?.vocabularyWords, 2000)
+    || vocabularyWordsFromValidCards(validCards);
   const next = { ...plan };
   if (domains.length) next.learningDomains = domains.slice();
   if (vocabularyWords) next.vocabularyWords = vocabularyWords;
@@ -315,8 +526,11 @@ function assertReportConsistency(audit = {}, meta = {}) {
     issues.push("learning_domains_keep_vs_blocker");
   }
   const vocabField = weekly.find((f) => f.field === "vocabularyWords");
-  if (vocabField?.decision === "KEEP" && blockers.some((m) => /vocabulary is missing/i.test(m))) {
-    issues.push("vocabulary_keep_vs_blocker");
+  if (vocabField?.decision === "KEEP") {
+    const quality = classifyVocabularyQuality(meta.plan || {}, meta.week || {});
+    if (quality.state !== "VALID" && blockers.some((m) => /vocabulary is missing/i.test(m))) {
+      issues.push("vocabulary_keep_vs_blocker");
+    }
   }
   const prepField = weekly.find((f) => f.field === "teacherPreparation");
   if (prepField?.decision === "KEEP" && blockers.some((m) => /teacher preparation is weak or missing/i.test(m))) {
@@ -330,6 +544,20 @@ function assertReportConsistency(audit = {}, meta = {}) {
 
 module.exports = {
   vocabularyTextFromSources,
+  vocabCardTerm,
+  vocabCardLabel,
+  isCombinedVocabularyList,
+  isValidVocabularyCard,
+  dedupeValidVocabularyCards,
+  getValidVocabularyCards,
+  vocabularyWordsFromValidCards,
+  classifyVocabularyQuality,
+  hasValidStructuredVocabularyAndSync,
+  commandRequestsVocabularyRepair,
+  commandRequestsLearningDomainsRepair,
+  buildRequestedOutcomes,
+  evaluateRequestedOutcome,
+  verifyRequestedOutcomes,
   learningDomainsFromSources,
   learningDomainsText,
   getActivityTeacherTips,

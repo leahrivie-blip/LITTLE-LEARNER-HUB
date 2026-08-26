@@ -287,9 +287,22 @@ console.log("\n8) persistence mismatch + persisted diff reporting");
       { field: "learningDomains", action: "FILL" },
       { field: "vocabCards", action: "FILL" },
     ],
+    command: {
+      rawCommand: "Repair missing authoritative plan.learningDomains and plan.vocabularyWords on the draft.",
+    },
   });
   ok(check.ok === false, "missing domains/vocab detected as persistence mismatch");
   ok(check.mismatches.some((m) => m.code === "PERSISTENCE_MISMATCH"), "PERSISTENCE_MISMATCH emitted");
+  const unsatisfied = lessonRead.verifyConnectedAutoApplyPersistence({
+    beforePlan: before,
+    afterPlan: after,
+    requestedFieldSuccess: [{ field: "learningDomains", action: "FILL" }],
+    command: {
+      rawCommand: "Repair missing authoritative plan.vocabularyWords and plan.learningDomains on the draft.",
+    },
+  });
+  ok(unsatisfied.mismatches.some((m) => m.code === "REQUESTED_REPAIR_UNSATISFIED" && m.field === "vocabulary"),
+    "REQUESTED_REPAIR_UNSATISFIED emitted when vocab repair never ran");
   ok(check.persistedDiff.some((p) => p.startsWith("teachingKit.milestones")), "persisted diff reflects actual stored changes");
 }
 
