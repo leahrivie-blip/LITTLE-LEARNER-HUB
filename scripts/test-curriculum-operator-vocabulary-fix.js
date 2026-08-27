@@ -279,4 +279,56 @@ console.log("\n16) learningDomains control case unchanged");
   ok((reloaded.learningDomains || []).length >= 2, "learningDomains control case still persists");
 }
 
+console.log("\n17) vocab-only scope soft-skips activity echoes when upgradeActivities=false");
+{
+  const ACT_DOT = "cur-act-0199336343c8c28e";
+  const plan = {
+    id: LMW_ID,
+    title: "Little Makers Workshop",
+    vocabularyWords: "",
+    teachingKit: { vocabCards: [MALFORMED_CARD] },
+    enrichmentDraft: { week: {}, activities: {} },
+    dailyPlans: {
+      monday: { items: [{ itemId: ACT_DOT, title: "Dot Marker Color Pops" }] },
+      tuesday: { items: [] },
+      wednesday: { items: [] },
+      thursday: { items: [] },
+      friday: { items: [] },
+    },
+  };
+  const activities = [{
+    id: ACT_DOT,
+    lessonPlanId: LMW_ID,
+    title: "Dot Marker Color Pops",
+    objective: "Children press dot markers while teachers name colors.",
+  }];
+  const audit = auditApi.auditLesson(plan, { activities, resources: [] }, {
+    weeklyFieldScope: ["vocabCards"],
+  });
+  const work = composer.collectWorkItems(plan, activities, audit, {
+    upgradeLesson: true,
+    upgradeActivities: false,
+    weeklyFieldScope: ["vocabCards"],
+  });
+  ok(work.activityRequests.length === 0, "no activity mutation requests in vocab-only scope");
+  ok(work.activityKeep.some((k) => k.activityId === ACT_DOT), "lesson activities registered as KEEP");
+  const raw = JSON.stringify({
+    lessonId: LMW_ID,
+    weeklyChanges: {
+      vocabCards: {
+        action: "REPLACE",
+        value: VALID_CARDS,
+      },
+    },
+    activities: [{ activityId: ACT_DOT, changes: { objective: { action: "KEEP", value: "echo" } } }],
+  });
+  const validated = composer.validateComposerOutput(raw, work, plan);
+  ok(validated.ok, "activity echo does not fail vocab-only composer validation");
+  ok(validated.plan?.weeklyChanges?.vocabCards, "vocabCards mutation still accepted");
+  ok(
+    validated.diagnostics?.rejected?.some((r) => r.reason === "unrequested_activity" && r.field === ACT_DOT),
+    "activity echo recorded as unrequested_activity",
+  );
+}
+
 console.log(`\n${passed} assertions passed.`);

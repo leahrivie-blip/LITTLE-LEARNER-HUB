@@ -2418,7 +2418,7 @@ function createCurriculumOperatorApi(deps) {
           createdBy: session.email,
           status: mustConfirm ? "awaiting_confirm" : "planned",
         });
-        if (action === "run" && mustConfirm) {
+        if (action === "plan" || (action === "run" && mustConfirm)) {
           const bag = readJobs(store);
           bag.jobs = [planned, ...bag.jobs.filter((j) => j.id !== planned.id)].slice(0, 100);
           await writeJobs(store, bag);
