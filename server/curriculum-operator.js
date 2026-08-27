@@ -24,6 +24,7 @@ const connectedUpgradeApi = require("../scripts/curriculum-operator-connected-up
 const lessonRead = require("../scripts/curriculum-operator-lesson-read.js");
 const printableAgeBand = require("../scripts/curriculum-operator-printable-age-band.js");
 const allowlistApi = require("../scripts/curriculum-operator-mutation-allowlist.js");
+const executionScopeApi = require("../scripts/curriculum-operator-execution-scope.js");
 
 const ACTIONS = Object.freeze([
   "parse",
@@ -235,12 +236,10 @@ function createCurriculumOperatorApi(deps) {
       ? ["lesson.create", "lesson.validate"]
       : ["lesson.get", "lesson.audit", "asset.plan", "teachingKit.score"];
     if (upgrade) {
-      expected.push(
-        "lesson.updateFields",
-        "activity.update",
-        "lesson.saveDraft",
-        "lesson.validate",
-      );
+      expected.push("lesson.updateFields", "lesson.saveDraft", "lesson.validate");
+      if (executionScopeApi.activityUpdatesAllowed(command)) {
+        expected.push("activity.update");
+      }
     }
     if (songsBooks) {
       expected.push(
@@ -289,22 +288,7 @@ function createCurriculumOperatorApi(deps) {
       createdLessonId: row.createdLessonId || null,
       creationIdempotencyKey: row.creationIdempotencyKey || null,
     }));
-    let phaseNote = "Audit/plan only. No curriculum mutations.";
-    if (create) {
-      phaseNote = "Phase 7.5: AI lesson architect designs a new draft Teaching Kit, then trusted lesson.create + Phase 6 kit finish. NOT PUBLISHED. Access default Free unless Free/Pro specified. No deterministic production fallback.";
-    } else if (phase >= 6 && (upgrade || images || printables || songsBooks)) {
-      phaseNote = "Phase 6: full Teaching Kit finish into enrichmentDraft. NOT published. No lesson.create. Cover locked unless explicitly requested.";
-    } else if (songsBooks && phase === 5) {
-      phaseNote = "Phase 5: songs + books into enrichmentDraft only. NOT published. No image/printable regeneration. No new lessons.";
-    } else if (printables && phase === 4) {
-      phaseNote = "Phase 4.6: intelligent printables — no generic fallback success; optional generated_asset embeds. NOT published. No image regeneration. No new lessons.";
-    } else if (upgrade && images) {
-      phaseNote = "Phase 2.5+3: AI draft text + useful activity images into enrichmentDraft. NOT published. No printables.";
-    } else if (upgrade) {
-      phaseNote = "Phase 2.5: enrichmentDraft text only. NOT published. No image/printable changes.";
-    } else if (images) {
-      phaseNote = "Phase 3: activity images only (KEEP/GENERATE/REPLACE/NOT_NEEDED). NOT published. No printables.";
-    }
+    const phaseNote = executionScopeApi.buildScopeAwarePhaseNote(command);
     return {
       task: command.rawCommand,
       intent: command.intent,
@@ -1923,23 +1907,7 @@ function createCurriculumOperatorApi(deps) {
     const songsBooks = wantsSongsBooks(job.command);
     const create = wantsCreate(job.command);
     const phaseNum = Number(job.command?.completion?.phase) || Number(job.phase) || 1;
-    let startMsg = "Starting audit-only run.";
-    if (create) {
-      startMsg = "Starting Phase 7 new draft lesson create + Teaching Kit finish (no publish).";
-    } else if (phaseNum >= 6 && (upgrade || images || printables || songsBooks)) {
-      startMsg = "Starting Phase 6 full Teaching Kit finish (no publish, no lesson.create).";
-    } else if (songsBooks && phaseNum === 5) {
-      startMsg = "Starting Phase 5 songs+books run (no publish, no image/printable regeneration).";
-    } else if (printables && phaseNum === 4) {
-      startMsg = "Starting Phase 4 printable run (no publish, no image regeneration).";
-    } else if (upgrade && images) {
-      startMsg = "Starting Phase 2.5 draft upgrade + Phase 3 activity images (no publish).";
-    } else if (upgrade) {
-      startMsg = "Starting Phase 2.5 draft upgrade run (no publish).";
-    } else if (images) {
-      startMsg = "Starting Phase 3 activity image run (no publish).";
-    }
-    jobApi.appendLog(job, startMsg);
+    jobApi.appendLog(job, executionScopeApi.buildRunStartLogMessage(job.command));
 
     const results = [];
     for (let index = 0; index < job.lessonResults.length; index += 1) {
@@ -2420,6 +2388,21 @@ function createCurriculumOperatorApi(deps) {
       planSummary.needsConfirmation = Boolean(parsed.needsConfirmation);
       planSummary.confirmReasons = parsed.confirmReasons || [];
 
+      const scopeContradiction = executionScopeApi.detectPlannedScopeContradiction(command, planSummary);
+      if (scopeContradiction.blocked) {
+        jsonResponse(response, 409, {
+          ok: false,
+          code: "PLANNED_SCOPE_CONTRADICTION",
+          error: "Execution plan contradicts parsed weekly scope. Re-interpret before Run.",
+          command,
+          planSummary,
+          contradictions: scopeContradiction.contradictions,
+          confirmReasons: [...new Set([...(parsed.confirmReasons || []), ...scopeContradiction.confirmReasons])],
+          runBlocked: true,
+        });
+        return;
+      }
+
       const mustConfirm = planSummary.needsConfirmation
         && !body.confirm
         && (planSummary.confirmReasons.includes("ambiguous_scope")
@@ -2460,6 +2443,20 @@ function createCurriculumOperatorApi(deps) {
         status: "running",
       });
       const bag = readJobs(store);
+      const activeLock = jobApi.findActiveMutationJobForLessons(bag.jobs, planSummary.selectedLessonIds, {
+        excludeJobId: job.id,
+      });
+      if (activeLock) {
+        jsonResponse(response, 409, {
+          ok: false,
+          code: "LESSON_MUTATION_IN_PROGRESS",
+          error: `Another Operator job is already mutating lesson ${activeLock.lessonId}.`,
+          blockingJobId: activeLock.job.id,
+          lessonId: activeLock.lessonId,
+          runBlocked: true,
+        });
+        return;
+      }
       bag.jobs = [job, ...bag.jobs.filter((j) => j.id !== job.id)].slice(0, 100);
       await writeJobs(store, bag);
 
