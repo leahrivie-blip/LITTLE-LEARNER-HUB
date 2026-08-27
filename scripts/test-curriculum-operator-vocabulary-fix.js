@@ -331,4 +331,36 @@ console.log("\n17) vocab-only scope soft-skips activity echoes when upgradeActiv
   );
 }
 
+console.log("\n18) unknown weekly aliases soft-reject without blocking vocabCards");
+{
+  const plan = {
+    id: LMW_ID,
+    title: "Little Makers Workshop",
+    vocabularyWords: "",
+    teachingKit: { vocabCards: [MALFORMED_CARD] },
+    enrichmentDraft: { week: {}, activities: {} },
+  };
+  const audit = auditApi.auditLesson(plan, { activities: [], resources: [] }, {
+    weeklyFieldScope: ["vocabCards"],
+  });
+  const work = composer.collectWorkItems(plan, [], audit, {
+    upgradeLesson: true,
+    upgradeActivities: false,
+    weeklyFieldScope: ["vocabCards"],
+  });
+  const raw = JSON.stringify({
+    lessonId: LMW_ID,
+    weeklyChanges: {
+      learningObjectives: { action: "REPLACE", value: "Should be ignored" },
+      weeklyOverview: { action: "REPLACE", value: "Should be ignored" },
+      vocabCards: { action: "REPLACE", value: VALID_CARDS },
+    },
+    activities: [],
+  });
+  const validated = composer.validateComposerOutput(raw, work, plan);
+  ok(validated.ok, "vocabCards accepted when unknown weekly aliases are present");
+  ok(validated.plan?.weeklyChanges?.vocabCards, "vocabCards mutation preserved");
+  ok(validated.diagnostics?.rejected?.some((r) => r.field === "learningObjectives"), "learningObjectives soft-rejected");
+}
+
 console.log(`\n${passed} assertions passed.`);

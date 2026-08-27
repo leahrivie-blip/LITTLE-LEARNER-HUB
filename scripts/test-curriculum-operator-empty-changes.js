@@ -526,7 +526,7 @@ async function main() {
     ok(validated.ok === true, "learningDomains accepted as canonical weekly field");
   }
 
-  // Unsupported alias rejected
+  // Unsupported alias soft-rejected without blocking requested weekly fields
   {
     const raw = JSON.stringify({
       lessonId: LESSON_ID,
@@ -537,8 +537,9 @@ async function main() {
       activities: [],
     });
     const validated = composer.validateComposerOutput(raw, work, plan);
-    ok(validated.ok === false && validated.code === "unknown_field",
-      "unsupported aliases remain rejected");
+    ok(validated.ok === true, "unsupported aliases soft-reject without blocking requested fields");
+    ok(validated.diagnostics.rejected.some((r) => r.reason === "unknown_field"),
+      "unsupported alias recorded as unknown_field rejection");
   }
 
   // Plain string coercion
