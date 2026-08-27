@@ -694,6 +694,22 @@ function collectWorkItems(plan, activities, audit, options = {}) {
     }
   }
 
+  // Vocabulary-only and other narrow scopes set upgradeActivities=false. The model may still
+  // echo activity rows; register every lesson activity as KEEP so echoes soft-skip instead of
+  // failing the job as unknown_activity_id.
+  if (options.upgradeActivities === false) {
+    schema.asArray(activities).forEach((activity) => {
+      const activityId = text(activity.id || activity.itemId, 160);
+      if (!activityId || !allowedActivityIds.has(activityId)) return;
+      if (activityKeep.some((k) => k.activityId === activityId)) return;
+      activityKeep.push({
+        activityId,
+        decision: "KEEP",
+        title: text(activity.title, 180),
+      });
+    });
+  }
+
   const songRequests = [];
   if (options.touchSongs !== false) {
     schema.asArray(audit?.songs).forEach((songDec) => {
