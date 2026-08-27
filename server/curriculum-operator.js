@@ -23,6 +23,7 @@ const createArchitect = require("../scripts/curriculum-operator-create-architect
 const connectedUpgradeApi = require("../scripts/curriculum-operator-connected-upgrade.js");
 const lessonRead = require("../scripts/curriculum-operator-lesson-read.js");
 const printableAgeBand = require("../scripts/curriculum-operator-printable-age-band.js");
+const allowlistApi = require("../scripts/curriculum-operator-mutation-allowlist.js");
 
 const ACTIONS = Object.freeze([
   "parse",
@@ -132,6 +133,60 @@ function createCurriculumOperatorApi(deps) {
     });
     await writeStoreAsync(store);
     return store.curriculumOperatorJobs;
+  }
+
+  function getJobMutationAllowlist(job) {
+    if (job?.mutationAllowlist?.version) {
+      return allowlistApi.resumeUsesOriginalAllowlist(job);
+    }
+    return allowlistApi.buildMutationAllowlist(job?.command || {}, {
+      lessonIds: job?.command?.scope?.lessonIds,
+    });
+  }
+
+  function appendMutationViolationsToLessonResult(job, lessonId, violations = []) {
+    if (!violations.length) return;
+    job.lessonResults = schema.asArray(job.lessonResults).map((row) => {
+      if (text(row.lessonId, 160) !== text(lessonId, 160)) return row;
+      return allowlistApi.attachViolationsToLessonResult(row, violations);
+    });
+  }
+
+  async function saveDraftGuarded({
+    job,
+    store,
+    lessonPlanId,
+    enrichmentDraft,
+    adminEmail,
+    beforePlan,
+    stage = "enrichmentDraft.save",
+  }) {
+    const allowlist = getJobMutationAllowlist(job);
+    const gate = allowlistApi.validateEnrichmentDraftSave({
+      beforeDraft: beforePlan?.enrichmentDraft,
+      afterDraft: enrichmentDraft,
+      beforePlan,
+      allowlist,
+      lessonId: lessonPlanId,
+      stage,
+      command: job?.command || {},
+    });
+    if (gate.violations?.length) {
+      appendMutationViolationsToLessonResult(job, lessonPlanId, gate.violations);
+    }
+    if (typeof saveOperatorEnrichmentDraft !== "function") {
+      return { ok: false, error: "Draft save helper is not configured.", mutationGate: gate };
+    }
+    return saveOperatorEnrichmentDraft({
+      store,
+      lessonPlanId,
+      enrichmentDraft: gate.filteredDraft || enrichmentDraft,
+      adminEmail,
+    }).then((result) => ({ ...result, mutationGate: gate }));
+  }
+
+  function text(value, max = 4000) {
+    return schema.text(value, max);
   }
 
   function wantsUpgrade(command) {
@@ -361,14 +416,14 @@ function createCurriculumOperatorApi(deps) {
     let afterPlan = plan;
     let historyId = null;
     if (planned.changed && planned.enrichmentDraft) {
-      if (typeof saveOperatorEnrichmentDraft !== "function") {
-        throw new Error("Draft save helper is not configured.");
-      }
-      const saveResult = await saveOperatorEnrichmentDraft({
+      const saveResult = await saveDraftGuarded({
+        job,
         store,
         lessonPlanId: plan.id,
         enrichmentDraft: planned.enrichmentDraft,
         adminEmail: sessionEmail,
+        beforePlan: plan,
+        stage: "songsBooks.save",
       });
       if (!saveResult?.ok) {
         throw new Error(saveResult?.error || "enrichment_draft save failed");
@@ -450,14 +505,14 @@ function createCurriculumOperatorApi(deps) {
         ? async (payload) => unlinkOperatorPrintableResource({ ...payload, store, adminEmail: sessionEmail })
         : null,
       saveDraft: async ({ enrichmentDraft }) => {
-        if (typeof saveOperatorEnrichmentDraft !== "function") {
-          return { ok: false, error: "Draft save helper not configured." };
-        }
-        const saveResult = await saveOperatorEnrichmentDraft({
+        const saveResult = await saveDraftGuarded({
+          job,
           store,
           lessonPlanId: plan.id,
           enrichmentDraft,
           adminEmail: sessionEmail,
+          beforePlan: plan,
+          stage: "printables.save",
         });
         if (!saveResult?.ok) return { ok: false, error: saveResult?.error || "save failed" };
         Object.assign(store, readStore());
@@ -600,14 +655,14 @@ function createCurriculumOperatorApi(deps) {
         }
         afterPlan = reloaded;
       } else {
-        if (typeof saveOperatorEnrichmentDraft !== "function") {
-          throw new Error("Draft save helper is not configured for image attach.");
-        }
-        const saveResult = await saveOperatorEnrichmentDraft({
+        const saveResult = await saveDraftGuarded({
+          job,
           store,
           lessonPlanId: plan.id,
           enrichmentDraft: imageRun.enrichmentDraft,
           adminEmail: sessionEmail,
+          beforePlan: plan,
+          stage: "images.save",
         });
         if (!saveResult?.ok) {
           throw new Error(saveResult?.error || "enrichment_draft image save failed");
@@ -1102,6 +1157,22 @@ function createCurriculumOperatorApi(deps) {
 
       const phaseNum = Number(job.command?.completion?.phase) || Number(job.phase) || 1;
       const kitScope = orchestrator.normalizeKitScopeFlags(job.command.actions || {});
+      const mutationAllowlist = getJobMutationAllowlist(job);
+      lr.snapshotUpdatedAt = lr.snapshotUpdatedAt || plan.updatedAt || null;
+      const latestPlanRow = schema.asArray(readSiteCurriculum(store).lessonPlans).find((p) => p.id === plan.id);
+      if (allowlistApi.detectStaleLessonVersion(lr.snapshotUpdatedAt, latestPlanRow?.updatedAt)) {
+        return {
+          ...lr,
+          title: plan.title,
+          status: "failed",
+          error: "STALE_LESSON_VERSION — lesson changed since job snapshot; refusing content mutation.",
+          ownerReviewStatus: "BLOCKED",
+          actions: markSteps(lr.actions, schema.asArray(lr.actions).map((a) => a.type), "failed", {
+            error: "stale_lesson_version",
+            retryable: false,
+          }),
+        };
+      }
       const workPlan = orchestrator.buildFullKitWorkPlan({
         plan,
         audit: before.audit,
@@ -1171,7 +1242,12 @@ function createCurriculumOperatorApi(deps) {
           callAi: callOperatorAi,
           command: job.command,
           weeklyFieldScope: job.command?.actions?.weeklyFieldScope,
+          mutationAllowlist,
         });
+
+        if (schema.asArray(built.mutationViolations).length) {
+          appendMutationViolationsToLessonResult(job, plan.id, built.mutationViolations);
+        }
 
         if (built.usage?.calls) {
           job.costCounters.openaiCalls = (job.costCounters.openaiCalls || 0) + Number(built.usage.calls || 0);
@@ -1215,15 +1291,15 @@ function createCurriculumOperatorApi(deps) {
         updated = built.changed;
 
         if (built.changed.length) {
-          if (typeof saveOperatorEnrichmentDraft !== "function") {
-            throw new Error("Draft save helper is not configured.");
-          }
           job.progress.currentAction = "lesson.saveDraft";
-          const saveResult = await saveOperatorEnrichmentDraft({
+          const saveResult = await saveDraftGuarded({
+            job,
             store,
             lessonPlanId: plan.id,
             enrichmentDraft: built.enrichmentDraft,
             adminEmail: sessionEmail,
+            beforePlan: plan,
+            stage: "textUpgrade.save",
           });
           if (!saveResult?.ok) {
             throw new Error(saveResult?.error || "enrichment_draft save failed");
@@ -1306,6 +1382,11 @@ function createCurriculumOperatorApi(deps) {
       let songsBooksRan = false;
 
       if (songsBooks && !songsBooksComplete) {
+        if (!allowlistApi.phaseAllowed("songs", mutationAllowlist)
+          && !allowlistApi.phaseAllowed("books", mutationAllowlist)) {
+          songsBooksComplete = true;
+          jobApi.appendLog(job, `Songs/books skipped for “${plan.title}” — excluded by mutation allowlist.`, "info", plan.id);
+        } else {
         songsBooksRan = true;
         job.progress.currentAction = "song.audit";
         const sbAuditSource = auditOneLesson(workingPlan, readSiteCurriculum(store));
@@ -1343,6 +1424,7 @@ function createCurriculumOperatorApi(deps) {
           sbResult.ok ? "info" : "warn",
           plan.id,
         );
+        }
       } else if (songsBooks && songsBooksComplete) {
         jobApi.appendLog(job, `Skipping songs/books for “${plan.title}” (already complete).`, "info", plan.id);
       }
@@ -1357,6 +1439,10 @@ function createCurriculumOperatorApi(deps) {
       let imagesRan = false;
 
       if (images && !imagesComplete) {
+        if (!allowlistApi.phaseAllowed("images", mutationAllowlist)) {
+          imagesComplete = true;
+          jobApi.appendLog(job, `Images skipped for “${plan.title}” — excluded by mutation allowlist.`, "info", plan.id);
+        } else {
         imagesRan = true;
         job.progress.currentAction = "image.inspect";
         const imageAuditSource = auditOneLesson(workingPlan, readSiteCurriculum(store));
@@ -1442,6 +1528,7 @@ function createCurriculumOperatorApi(deps) {
           imageResult.ok ? "info" : "warn",
           plan.id,
         );
+        }
       } else if (images && imagesComplete) {
         jobApi.appendLog(job, `Skipping images for “${plan.title}” (already complete).`, "info", plan.id);
       }
@@ -1456,6 +1543,10 @@ function createCurriculumOperatorApi(deps) {
       let printablesRan = false;
 
       if (printables && !printablesComplete) {
+        if (!allowlistApi.phaseAllowed("printables", mutationAllowlist)) {
+          printablesComplete = true;
+          jobApi.appendLog(job, `Printables skipped for “${plan.title}” — excluded by mutation allowlist.`, "info", plan.id);
+        } else {
         printablesRan = true;
         job.progress.currentAction = "printable.plan";
         const printableAuditSource = auditOneLesson(workingPlan, readSiteCurriculum(store));
@@ -1543,6 +1634,7 @@ function createCurriculumOperatorApi(deps) {
           printableResult.ok ? "info" : "warn",
           plan.id,
         );
+        }
       } else if (printables && printablesComplete) {
         jobApi.appendLog(job, `Skipping printables for “${plan.title}” (already complete).`, "info", plan.id);
       }
@@ -1580,7 +1672,8 @@ function createCurriculumOperatorApi(deps) {
       }
 
       // Connected upgrade: dedicated REALISTIC_LESSON_COVER generation when explicitly requested.
-      if (job.command.actions?.connectedUpgrade && coverPlan?.decision === "GENERATE") {
+      if (job.command.actions?.connectedUpgrade && coverPlan?.decision === "GENERATE"
+        && allowlistApi.phaseAllowed("cover", mutationAllowlist)) {
         const coverCurriculum = readSiteCurriculum(store);
         const crypto = require("crypto");
         const path = require("path");
@@ -1615,18 +1708,19 @@ function createCurriculumOperatorApi(deps) {
             ? workingPlan.enrichmentDraft
             : {};
           const nextDraft = connectedUpgradeApi.applyCoverToEnrichmentDraft(currentDraft, coverPlan);
-          if (typeof saveOperatorEnrichmentDraft === "function") {
-            const coverSave = await saveOperatorEnrichmentDraft({
-              store,
-              lessonPlanId: plan.id,
-              enrichmentDraft: nextDraft,
-              adminEmail: sessionEmail,
-            });
-            if (coverSave?.ok) {
-              Object.assign(store, readStore());
-              workingPlan = schema.asArray(readSiteCurriculum(store).lessonPlans).find((p) => p.id === plan.id)
-                || workingPlan;
-            }
+          const coverSave = await saveDraftGuarded({
+            job,
+            store,
+            lessonPlanId: plan.id,
+            enrichmentDraft: nextDraft,
+            adminEmail: sessionEmail,
+            beforePlan: workingPlan,
+            stage: "cover.save",
+          });
+          if (coverSave?.ok) {
+            Object.assign(store, readStore());
+            workingPlan = schema.asArray(readSiteCurriculum(store).lessonPlans).find((p) => p.id === plan.id)
+              || workingPlan;
           }
         } else {
           jobApi.appendLog(
@@ -1637,7 +1731,8 @@ function createCurriculumOperatorApi(deps) {
           );
         }
       } else if (job.command.actions?.connectedUpgrade
-        && (coverPlan?.decision === "REPLACE" || coverPlan?.decision === "REPLACE_REQUESTED")) {
+        && (coverPlan?.decision === "REPLACE" || coverPlan?.decision === "REPLACE_REQUESTED")
+        && allowlistApi.phaseAllowed("cover", mutationAllowlist)) {
         const coverCurriculum = readSiteCurriculum(store);
         const currentCoverPlan = coverPlan || connectedUpgradeApi.buildCoverPlan(workingPlan, coverCurriculum, {
           command: job.command,
@@ -1663,18 +1758,19 @@ function createCurriculumOperatorApi(deps) {
               ? workingPlan.enrichmentDraft
               : {};
             const nextDraft = connectedUpgradeApi.applyCoverToEnrichmentDraft(currentDraft, coverPlan);
-            if (typeof saveOperatorEnrichmentDraft === "function") {
-              const coverSave = await saveOperatorEnrichmentDraft({
-                store,
-                lessonPlanId: plan.id,
-                enrichmentDraft: nextDraft,
-                adminEmail: sessionEmail,
-              });
-              if (coverSave?.ok) {
-                Object.assign(store, readStore());
-                workingPlan = schema.asArray(readSiteCurriculum(store).lessonPlans).find((p) => p.id === plan.id)
-                  || workingPlan;
-              }
+            const coverSave = await saveDraftGuarded({
+              job,
+              store,
+              lessonPlanId: plan.id,
+              enrichmentDraft: nextDraft,
+              adminEmail: sessionEmail,
+              beforePlan: workingPlan,
+              stage: "cover.replace.save",
+            });
+            if (coverSave?.ok) {
+              Object.assign(store, readStore());
+              workingPlan = schema.asArray(readSiteCurriculum(store).lessonPlans).find((p) => p.id === plan.id)
+                || workingPlan;
             }
           } else {
             coverPlan = currentCoverPlan;
@@ -1892,7 +1988,10 @@ function createCurriculumOperatorApi(deps) {
     job.lessonResults = results;
     const completed = results.filter((l) => l.status === "success").length;
     const failed = results.filter((l) => l.status === "failed").length;
-    const contentGaps = results.some((l) => l.contentPersistenceIncomplete === true);
+    const allowlist = getJobMutationAllowlist(job);
+    const completionEval = allowlistApi.evaluateJobCompletionStatus(results, job.command, allowlist);
+    const contentGaps = completionEval.contentGaps
+      || results.some((l) => l.contentPersistenceIncomplete === true);
     job.progress = {
       ...job.progress,
       completed,
@@ -1942,6 +2041,16 @@ function createCurriculumOperatorApi(deps) {
       Object.assign(store, readStore());
       const curriculumBefore = readSiteCurriculum(store);
       const beforePlan = schema.asArray(curriculumBefore.lessonPlans).find((p) => p.id === lr.lessonId) || null;
+      if (allowlistApi.detectStaleLessonVersion(lr.snapshotUpdatedAt, beforePlan?.updatedAt)) {
+        skipped.push({
+          lessonId: lr.lessonId,
+          ok: false,
+          code: "STALE_LESSON_VERSION",
+          message: "Lesson changed since job snapshot; connected auto-apply blocked.",
+        });
+        continue;
+      }
+      const mutationAllowlist = getJobMutationAllowlist(job);
       const result = await applyOperatorConnectedEnrichment({
         store,
         lessonPlanId: lr.lessonId,
@@ -1963,6 +2072,7 @@ function createCurriculumOperatorApi(deps) {
             requestedFieldSuccess,
             printablesExcluded: lr.kitScope?.locks?.printables === true,
             printableMutations: 0,
+            mutationAllowlist,
           });
           nextLr.proposedChanges = schema.asArray(lr.updated).slice();
           nextLr.persistedChanges = schema.asArray(nextLr.persistedDiff);
@@ -2129,7 +2239,7 @@ function createCurriculumOperatorApi(deps) {
           lessonPlans: schema.asArray(curriculum?.lessonPlans),
         });
 
-      const command = parsed.command;
+      let command = parsed.command;
       if (!command.rawCommand && !(command.scope.lessonIds?.length || command.scope.titles?.length)
         && !wantsCreate(command)) {
         jsonResponse(response, 400, {
@@ -2137,6 +2247,42 @@ function createCurriculumOperatorApi(deps) {
           code: "command_required",
         });
         return;
+      }
+
+      if (action === "run" && allowlistApi.isRunBlockedByConfirmations(parsed.confirmReasons, parsed.parseSafety)) {
+        jsonResponse(response, 409, {
+          ok: false,
+          code: parsed.parseSafety?.blocked ? "PARSED_INTENT_CONTRADICTION" : "RUN_BLOCKED",
+          error: "Dangerous interpretation — Run is blocked until scope/contradiction issues are resolved.",
+          command,
+          confirmReasons: parsed.confirmReasons || [],
+          parseSafety: parsed.parseSafety || null,
+          runBlocked: true,
+          needsConfirmation: true,
+        });
+        return;
+      }
+
+      if (action === "run") {
+        const revalidated = allowlistApi.revalidateRunScope(command, {
+          phase,
+          lessonPlans: schema.asArray(curriculum?.lessonPlans),
+          currentlySelectedLessonId: body.currentlySelectedLessonId,
+        });
+        if (!revalidated.ok) {
+          jsonResponse(response, 409, {
+            ok: false,
+            code: revalidated.code || "RUN_BLOCKED",
+            error: "Run blocked by pre-mutation safety revalidation.",
+            command: revalidated.reparsed?.command || command,
+            confirmReasons: revalidated.reparsed?.confirmReasons || parsed.confirmReasons || [],
+            parseSafety: revalidated.reparsed?.parseSafety || parsed.parseSafety || null,
+            runBlocked: true,
+          });
+          return;
+        }
+        parsed.command = revalidated.command;
+        command = revalidated.command;
       }
 
       if (command.actions.publish || command.completion.publish) {
