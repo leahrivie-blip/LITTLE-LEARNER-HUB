@@ -525,22 +525,26 @@ function normalizeOperatorCommand(raw = {}, options = {}) {
   } else if (phase6 || phase7) {
     // Phase 6/7: full Teaching Kit orchestration — exclusions are immutable.
     // Phase 7 may also create a new draft lesson, then reuse the same kit finish path.
-    const fullKit = intent === "finish_full_kit" || intent === "fix_lesson" || intent === "upgrade_batch"
+    const narrowScope = asArray(actions.weeklyFieldScope);
+    const vocabOnlyScope = narrowScope.length === 1 && narrowScope[0] === "vocabCards";
+    const fullKit = !vocabOnlyScope && (
+      intent === "finish_full_kit" || intent === "fix_lesson" || intent === "upgrade_batch"
       || intent === "create_lesson"
-      || actionsIn.finishFullKit === true;
+      || actionsIn.finishFullKit === true
+    );
     if (intent === "create_lesson" && phase7 && actions.createLesson) {
       // Base lesson text is created via trusted lesson.create — skip upgrade composer.
       actions.upgradeLesson = false;
       actions.upgradeActivities = false;
       actions.saveDraft = true;
-    } else if (fullKit || actions.upgradeLesson || actions.upgradeActivities) {
+    } else     if (fullKit || actions.upgradeLesson || actions.upgradeActivities) {
       if (actions.touchDraft !== false && !actions.textOnly) {
         actions.upgradeLesson = true;
         actions.upgradeActivities = true;
         actions.saveDraft = true;
-      } else if (actions.textOnly) {
+      } else if (actions.textOnly || vocabOnlyScope) {
         actions.upgradeLesson = true;
-        actions.upgradeActivities = true;
+        actions.upgradeActivities = vocabOnlyScope ? false : true;
         actions.saveDraft = true;
       }
     }

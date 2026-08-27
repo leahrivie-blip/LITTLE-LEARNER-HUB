@@ -8,6 +8,7 @@ const schema = require("./curriculum-operator-schema.js");
 const orchestrator = require("./curriculum-operator-orchestrator.js");
 const createApi = require("./curriculum-operator-create.js");
 const intentRouter = require("./curriculum-operator-intent-router.js");
+const commandSafety = require("./curriculum-operator-command-safety.js");
 
 function parseCount(command) {
   const m = String(command || "").match(/\b(?:top|next|first|the)?\s*(\d{1,2})\b/i)
@@ -66,14 +67,19 @@ function parseOperatorCommand(rawCommand, options = {}) {
   const plan = parsePlan(raw);
   let ageBand = parseAgeBand(raw);
   const phase = schema.clampInt(options.phase, 1, 8, 6);
-  let titles = extractNamedLessonHints(raw);
+  let titles = commandSafety.sanitizeLessonTitles(extractNamedLessonHints(raw), raw, options.lessonPlans || []);
+  const explicitBooleans = commandSafety.parseExplicitBooleanAssignments(raw);
   const ownerIntent = intentRouter.resolveOwnerIntent(raw, {
     phase,
     currentlySelectedLessonId: options.currentlySelectedLessonId,
     lessonPlans: options.lessonPlans || [],
   });
   if (ownerIntent.lessonReference.titles.length) {
-    titles = [...new Set([...titles, ...ownerIntent.lessonReference.titles])];
+    titles = commandSafety.sanitizeLessonTitles(
+      [...new Set([...titles, ...ownerIntent.lessonReference.titles])],
+      raw,
+      options.lessonPlans || [],
+    );
   }
   let lessonIds = ownerIntent.lessonReference.lessonIds.slice();
   let selection = ownerIntent.lessonReference.selection || "filter";
@@ -100,11 +106,21 @@ function parseOperatorCommand(rawCommand, options = {}) {
   }
   if (!exclusions.flags.touchPrintables) actions.generatePrintables = false;
   Object.assign(actions, orchestrator.applyTextOnlyAuditFlags(raw, actions));
+  Object.assign(actions, commandSafety.applyExplicitBooleanConstraints(actions, explicitBooleans));
+  if (commandSafety.isVocabularyOnlyCommand(raw)) {
+    actions.textOnly = true;
+    actions.weeklyFieldScope = ["vocabCards"];
+  }
+  Object.assign(actions, commandSafety.applyNarrowScopeLocks(actions, actions.weeklyFieldScope));
 
-  if (/\b(?:need|missing|without|weakest)\s+(?:activity\s+)?(?:pictures?|images?)\b/i.test(raw)
-    || /\bactivity\s+(?:pictures?|images?)\b/i.test(raw)
-    || /\bweak(?:est)?\s+activity\s+(?:pictures?|images?)\b/i.test(raw)
-    || /\bweakest\s+(?:activity\s+)?(?:pictures?|images?)\b/i.test(raw)) {
+  const mentionsImages = commandSafety.wantsPositiveImageIntent(raw, exclusions.flags);
+  const wantsImages = mentionsImages;
+
+  if (!commandSafety.isImagesExcluded(raw, exclusions.flags)
+    && (/\b(?:need|missing|without|weakest)\s+(?:activity\s+)?(?:pictures?|images?)\b/i.test(raw)
+      || /\bactivity\s+(?:pictures?|images?)\b/i.test(raw)
+      || /\bweak(?:est)?\s+activity\s+(?:pictures?|images?)\b/i.test(raw)
+      || /\bweakest\s+(?:activity\s+)?(?:pictures?|images?)\b/i.test(raw))) {
     selection = "needs_activity_images";
     actions.checkImages = true;
   } else if (/\b(weakest|lowest\s+readiness|need(?:s|ed)?\s+the\s+most\s+work|most\s+incomplete)\b/i.test(raw)) {
@@ -130,9 +146,6 @@ function parseOperatorCommand(rawCommand, options = {}) {
     selection = "currently_selected";
   }
 
-  const mentionsImages = /\b(picture|pictures|image|images|photo|photos)\b/i.test(raw);
-  const wantsImages = mentionsImages
-    && /\b(fix|make|generate|create|upgrade|replace|keep|need)\b/i.test(raw);
   const wantsSongsBooks = (
     /\b(songs?\s+and\s+books?|books?\s+and\s+songs?|song\/book|songs\/books)\b/i.test(raw)
     || (/\b(songs?|books?)\b/i.test(raw)
@@ -165,7 +178,9 @@ function parseOperatorCommand(rawCommand, options = {}) {
     && !isCreateCommand
     && !wantsSongsBooks
     && !printableFocusedFix
-    && !(imageFocusedFix && !wantsUpgrade);
+    && !(imageFocusedFix && !wantsUpgrade)
+    && !commandSafety.isVocabularyOnlyCommand(raw)
+    && !schema.asArray(actions.weeklyFieldScope).length;
 
   if (noTouchImages) {
     actions.touchImages = false;
@@ -242,7 +257,7 @@ function parseOperatorCommand(rawCommand, options = {}) {
       }
     }
     notes.push("Phase 6 full Teaching Kit finish — draft only, not published. Exclusions are immutable.");
-  } else if (wantsUpgrade && !wantsSongsBooks && !isCreateCommand) {
+  } else if (wantsUpgrade && !wantsSongsBooks && !isCreateCommand && !commandSafety.isVocabularyOnlyCommand(raw)) {
     intent = titles.length === 1 ? "fix_lesson" : (intent === "finish_images" ? intent : "upgrade_batch");
     actions.upgradeLesson = true;
     actions.upgradeActivities = true;
@@ -399,7 +414,7 @@ function parseOperatorCommand(rawCommand, options = {}) {
         actions.saveDraft = true;
         actions.replaceBadImages = true;
       }
-    } else if (!wantsSongsBooks) {
+    } else if (!wantsSongsBooks && !commandSafety.isVocabularyOnlyCommand(raw)) {
       intent = phase >= 6 ? "finish_full_kit" : "fix_lesson";
       actions.upgradeLesson = true;
       actions.upgradeActivities = true;
@@ -412,7 +427,7 @@ function parseOperatorCommand(rawCommand, options = {}) {
     }
   }
 
-  intentRouter.applyIntentRouting({
+  const routingState = {
     raw,
     phase,
     titles,
@@ -426,7 +441,16 @@ function parseOperatorCommand(rawCommand, options = {}) {
     isCreateCommand,
     ambiguous,
     confirmReasons,
-  }, ownerIntent);
+  };
+  intentRouter.applyIntentRouting(routingState, ownerIntent);
+  intent = routingState.intent;
+  Object.assign(actions, routingState.actions);
+  titles = routingState.titles;
+  lessonIds = routingState.lessonIds;
+  selection = routingState.selection;
+  notes.splice(0, notes.length, ...routingState.notes);
+  ambiguous = routingState.ambiguous;
+  isCreateCommand = routingState.isCreateCommand;
   selection = ownerIntent.lessonReference.lessonIds.length === 1
     ? "explicit_ids"
     : selection;
@@ -451,6 +475,32 @@ function parseOperatorCommand(rawCommand, options = {}) {
   }
 
   Object.assign(actions, orchestrator.applyTextOnlyAuditFlags(raw, actions));
+  Object.assign(actions, commandSafety.applyExplicitBooleanConstraints(actions, explicitBooleans));
+  Object.assign(actions, commandSafety.applyNarrowScopeLocks(actions, actions.weeklyFieldScope));
+  if (commandSafety.isConnectedUpgradeRequested(raw, explicitBooleans)) {
+    actions.connectedUpgrade = true;
+    if (explicitBooleans.connectedAutoApply !== false) actions.connectedAutoApply = true;
+  }
+
+  const explicitLessonIds = intentRouter.extractExplicitLessonIds(raw, options.lessonPlans || []);
+  const safety = commandSafety.validateParsedCommandSafety({
+    rawCommand: raw,
+    command: { actions, scope: { lessonIds, titles } },
+    explicitLessonIds,
+    resolvedLessonIds: lessonIds,
+    confirmReasons,
+  });
+  safety.reasons.forEach((reason) => confirmReasons.push(reason));
+  if (safety.blocked) {
+    ambiguous = true;
+    notes.push(`BLOCKED: ${safety.contradictions.map((c) => c.code).join(", ")}`);
+    actions.saveDraft = false;
+    actions.upgradeLesson = false;
+    actions.upgradeActivities = false;
+    actions.generateImages = false;
+    actions.generatePrintables = false;
+    actions.generateSongsBooks = false;
+  }
 
   const command = schema.normalizeOperatorCommand({
     rawCommand: raw,
@@ -478,6 +528,12 @@ function parseOperatorCommand(rawCommand, options = {}) {
     completion: { phase },
   }, { phase });
 
+  if (safety.blocked) {
+    command.completion.mutationsEnabled = false;
+    command.confirmations = command.confirmations || {};
+    command.confirmations.reasons = [...new Set([...(command.confirmations.reasons || []), ...safety.reasons])];
+  }
+
   return {
     command,
     ownerIntent: {
@@ -493,8 +549,11 @@ function parseOperatorCommand(rawCommand, options = {}) {
       || confirmReasons.includes("publish_requested")
       || confirmReasons.includes("unexpectedly_large_scope")
       || confirmReasons.includes("scope_review_required")
-      || confirmReasons.includes("possible_duplicate"),
+      || confirmReasons.includes("possible_duplicate")
+      || confirmReasons.includes("unexpected_scope_expansion")
+      || confirmReasons.includes("parsed_intent_contradiction"),
     confirmReasons: [...new Set(confirmReasons)],
+    parseSafety: safety,
     phase1Executable: true,
     phase2Executable: phase >= 2,
     mutationsStripped: !command.completion.mutationsEnabled,

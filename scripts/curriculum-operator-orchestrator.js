@@ -419,16 +419,20 @@ function parseExclusionHints(rawCommand) {
     notes.push("Text-only scope: images/printables/songs/books locked.");
   }
 
-  if (/\bdo\s+not\s+(?:touch|change|update|make|create|generate)\s+(?:the\s+|activity\s+)?(?:pictures?|images?)\b/i.test(raw)
+  if (/\bimages?\s*:\s*excluded\b/i.test(raw)
+    || /\b(?:do\s+not|don['’]?t)\s+(?:touch|change|update|make|create|generate|mutate)\s+(?:the\s+|activity\s+)?(?:pictures?|images?|photos?)\b/i.test(raw)
+    || /\bdo\s+not\s+(?:touch|change|update|make|create|generate)\s+(?:the\s+|activity\s+)?(?:pictures?|images?)\b/i.test(raw)
     || /\bdon['’]?t\s+(?:touch|change|make|create|generate)\s+(?:the\s+|activity\s+)?(?:pictures?|images?)\b/i.test(raw)
     || /\bwithout\s+(?:activity\s+)?(?:pictures?|images?)\b/i.test(raw)
     || /\bleave\s+(?:the\s+)?(?:pictures?|images?)\s+alone\b/i.test(raw)
-    || /\bkeep\s+(?:the\s+)?(?:current\s+)?(?:pictures?|images?)\b/i.test(raw)) {
+    || /\bkeep\s+(?:the\s+)?(?:current\s+)?(?:pictures?|images?)\b/i.test(raw)
+    || /\bno\s+image\s+(?:generation|mutation|work)\b/i.test(raw)) {
     flags.touchImages = false;
     notes.push("Images locked by exclusion.");
   }
 
-  if (/\bdo\s+not\s+(?:touch|change|update|make|create|generate)\s+(?:the\s+)?printables?\b/i.test(raw)
+  if (/\bprintables?\s*:\s*excluded\b/i.test(raw)
+    || /\bdo\s+not\s+(?:touch|change|update|make|create|generate)\s+(?:the\s+)?printables?\b/i.test(raw)
     || /\bdon['’]?t\s+(?:touch|change|make|create|generate)\s+(?:the\s+)?printables?\b/i.test(raw)
     || /\b(?:do\s+not\s+touch|don['’]?t\s+touch)\b[^.\n]*\bprintables?\b/i.test(raw)
     || /\bwithout\s+printables?\b/i.test(raw)
@@ -439,7 +443,9 @@ function parseExclusionHints(rawCommand) {
     notes.push("Printables locked by exclusion.");
   }
 
-  if (/\bdo\s+not\s+(?:touch|change)\s+(?:the\s+)?songs?\b/i.test(raw)
+  if (/\bsongs?\s*:\s*excluded\b/i.test(raw)
+    || /\bsongs?\s*:\s*excluded\s+from\s+mutation\b/i.test(raw)
+    || /\bdo\s+not\s+(?:touch|change|mutate)\s+(?:the\s+)?songs?\b/i.test(raw)
     || /\bdon['’]?t\s+(?:touch|change)\s+(?:the\s+)?songs?\b/i.test(raw)
     || /\b(?:do\s+not\s+touch|don['’]?t\s+touch)\b[^.\n]*\bsongs?\b/i.test(raw)
     || /\beverything\s+except\s+songs?\b/i.test(raw)) {
@@ -447,7 +453,9 @@ function parseExclusionHints(rawCommand) {
     notes.push("Songs locked by exclusion.");
   }
 
-  if (/\bdo\s+not\s+(?:touch|change)\s+(?:the\s+)?books?\b/i.test(raw)
+  if (/\bbooks?\s*:\s*excluded\b/i.test(raw)
+    || /\bbooks?\s*:\s*excluded\s+from\s+mutation\b/i.test(raw)
+    || /\bdo\s+not\s+(?:touch|change|mutate)\s+(?:the\s+)?books?\b/i.test(raw)
     || /\bdon['’]?t\s+(?:touch|change)\s+(?:the\s+)?books?\b/i.test(raw)
     || /\beverything\s+except\s+books?\b/i.test(raw)
     || /\bdo\s+everything\s+except\s+books?\b/i.test(raw)) {
@@ -462,7 +470,7 @@ function parseExclusionHints(rawCommand) {
     notes.push("Cover locked by exclusion.");
   }
 
-  if (/\b(?:update|change|replace|create|generate|make|new)\s+(?:a\s+)?(?:realistic\s+)?(?:lesson\s+)?cover\b/i.test(raw)
+  if (/\b(?:update|change|replace|create|generate|make|new)\s+(?:the\s+)?(?:a\s+)?(?:realistic\s+)?(?:lesson\s+)?cover\b/i.test(raw)
     || /\bREALISTIC_LESSON_COVER\b/i.test(raw)
     || /\brealistic\s+lesson\s+cover\b/i.test(raw)
     || /\band\s+update\s+(?:the\s+)?cover\b/i.test(raw)) {
@@ -475,6 +483,16 @@ function parseExclusionHints(rawCommand) {
 
 function parseWeeklyFieldScope(rawCommand) {
   const raw = String(rawCommand || "");
+  if (/\bweeklyfieldscope\b[^.\n]*\bvocab/i.test(raw)
+    && !/\b(?:learning\s+)?domains?\b/i.test(raw)) {
+    return ["vocabCards"];
+  }
+  if (/\bvocabular(?:y|ies)\s*[- ]?only\b/i.test(raw)
+    || /\btarget\s*:\s*vocabular(?:y|ies)\s*only\b/i.test(raw)
+    || /\b(?:fix|repair|upgrade|prove)\s+only\s+(?:the\s+)?vocabular(?:y|ies)\b/i.test(raw)
+    || /\bonly\s+(?:fix|repair|upgrade|prove)\s+(?:the\s+)?vocabular(?:y|ies)\b/i.test(raw)) {
+    return ["vocabCards"];
+  }
   if (/\bonly\s+(?:fix|prove|repair)\s+(?:the\s+)?(?:remaining\s+)?(?:learning\s+)?domains?\s+and\s+vocab/i.test(raw)
     || /\b(?:fix|repair)\s+only\s+(?:learning\s+)?domains?\s+and\s+vocab/i.test(raw)
     || /\bdo\s+not\s+change\s+any\s+other\s+content\b/i.test(raw)) {
@@ -486,11 +504,11 @@ function parseWeeklyFieldScope(rawCommand) {
 function applyTextOnlyAuditFlags(rawCommand, actions = {}) {
   const raw = String(rawCommand || "");
   const next = { ...actions };
-  const auditImagesOnly = /\baudit\b.{0,32}(?:the\s+)?(?:activity\s+)?(?:pictures?|images?)\b/i.test(raw)
-    && (/\bdo\s+not\s+replace\b/i.test(raw)
+  const auditImagesOnly = /\baudit\b.{0,48}(?:the\s+)?(?:activity\s+)?(?:pictures?|images?)\b/i.test(raw)
+    && (/\b(?:do\s+not|don['’]?t)\s+replace\b/i.test(raw)
       || !/\b(?:replace|generate|create|make)\b/i.test(raw));
-  const auditPrintablesOnly = /\baudit\b.{0,32}printables?\b/i.test(raw)
-    && (/\bdo\s+not\s+replace\b/i.test(raw)
+  const auditPrintablesOnly = /\baudit\b.{0,48}printables?\b/i.test(raw)
+    && (/\b(?:do\s+not|don['’]?t)\s+replace\b/i.test(raw)
       || !/\b(?:replace|generate|create|make)\b/i.test(raw));
   if (auditImagesOnly) {
     next.checkImages = true;

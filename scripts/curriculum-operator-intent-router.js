@@ -9,6 +9,7 @@
 const schema = require("./curriculum-operator-schema.js");
 const orchestrator = require("./curriculum-operator-orchestrator.js");
 const printableAgeBand = require("./curriculum-operator-printable-age-band.js");
+const commandSafety = require("./curriculum-operator-command-safety.js");
 
 const ROUTES = Object.freeze({
   CREATE_LESSON: "create_lesson",
@@ -78,7 +79,7 @@ function extractPrepositionTitles(command) {
   let match;
   while ((match = re.exec(textRaw))) {
     const candidate = match[1].trim();
-    if (!isAgeOrPlanNoiseTitle(candidate)) titles.push(candidate);
+    if (!isAgeOrPlanNoiseTitle(candidate) && !commandSafety.isGarbageTitleCandidate(candidate)) titles.push(candidate);
   }
   return titles;
 }
@@ -89,11 +90,12 @@ function extractPrepositionTitles(command) {
  */
 function extractLessonTitleHints(command) {
   const merged = [
+    ...commandSafety.extractStructuredLessonTitles(command),
     ...extractQuotedTitles(command),
     ...extractVerbLedTitles(command),
     ...extractPrepositionTitles(command),
   ];
-  return [...new Set(merged.map((t) => t.trim()).filter(Boolean))];
+  return commandSafety.sanitizeLessonTitles(merged, command);
 }
 
 function planRowSummary(plan) {
@@ -113,9 +115,17 @@ function planRowSummary(plan) {
  * @param {string} command
  * @param {object[]} lessonPlans
  */
-function matchLessonsFromCatalog(command, lessonPlans = []) {
+function matchLessonsFromCatalog(command, lessonPlans = [], options = {}) {
   const normalizedCommand = normalizeTitleKey(command);
   if (!normalizedCommand) return [];
+  const explicitIds = extractExplicitLessonIds(command, lessonPlans);
+  if (explicitIds.length === 1 && (
+    commandSafety.isOneLessonScopeCommand(command)
+    || commandSafety.isVocabularyOnlyCommand(command)
+    || /\bcur-lp-[a-f0-9]{16}\b/i.test(command)
+  )) {
+    return [];
+  }
   const plans = schema.asArray(lessonPlans).filter((p) => p && p.status !== "archived");
   const matches = [];
   plans.forEach((plan) => {
@@ -145,6 +155,8 @@ function matchLessonsFromCatalog(command, lessonPlans = []) {
 function isShortSelectedLessonMutation(rawCommand) {
   const raw = text(rawCommand);
   if (!raw) return false;
+  if (commandSafety.isVocabularyOnlyCommand(raw)) return false;
+  if (extractExplicitLessonIds(raw).length >= 1) return false;
   if (detectNewLessonIntent(raw, { existingLessonIntent: false })) return false;
   if (/\b(finish|improve|fix|upgrade|complete|edit)\s+(it|this)\b/i.test(raw)) return true;
   if (detectAssetCategories(raw).length) return true;
@@ -224,8 +236,15 @@ function requestsWeakImageReplacement(rawCommand) {
 function detectExistingLessonReferences(rawCommand, options = {}) {
   const raw = text(rawCommand);
   const hints = extractLessonTitleHints(raw).filter((t) => !isAgeOrPlanNoiseTitle(t));
-  const catalogMatches = matchLessonsFromCatalog(raw, options.lessonPlans || []);
   const explicitLessonIds = extractExplicitLessonIds(raw, options.lessonPlans || []);
+  const singleExplicitOnly = explicitLessonIds.length === 1 && (
+    commandSafety.isOneLessonScopeCommand(raw)
+    || commandSafety.isVocabularyOnlyCommand(raw)
+    || /\b(?:same|existing)\s+lesson\s+id\b/i.test(raw)
+  );
+  const catalogMatches = singleExplicitOnly
+    ? []
+    : matchLessonsFromCatalog(raw, options.lessonPlans || []);
   const selectedId = text(options.currentlySelectedLessonId, 160) || null;
   const selectedLesson = selectedId
     ? catalogMatches.find((m) => m.id === selectedId)
@@ -257,30 +276,34 @@ function detectExistingLessonReferences(rawCommand, options = {}) {
     if (!row?.id) return;
     if (!resolvedLessons.some((r) => r.id === row.id)) resolvedLessons.push(row);
   };
-  catalogMatches.forEach(pushUnique);
-  explicitLessonIds.forEach((id) => {
-    const row = schema.asArray(options.lessonPlans).map(planRowSummary).find((m) => m.id === id);
-    if (row) pushUnique(row);
-  });
+
+  if (explicitLessonIds.length >= 1) {
+    explicitLessonIds.forEach((id) => {
+      const row = schema.asArray(options.lessonPlans).map(planRowSummary).find((m) => m.id === id);
+      if (row) pushUnique(row);
+    });
+  } else {
+    catalogMatches.forEach(pushUnique);
+  }
 
   // Selected-lesson inheritance for short mutation commands (no "this lesson" required).
-  // Never override an explicit new-lesson create intent.
-  if (!newLessonIntent && selectedLesson && (refersToThisLesson || shortSelectedMutation)) {
+  // Never override explicit lesson IDs supplied in the command.
+  if (!explicitLessonIds.length && !newLessonIntent && selectedLesson && (refersToThisLesson || shortSelectedMutation)) {
     // If catalog matched a different named lesson, prefer the named match(es).
     if (!catalogMatches.length || catalogMatches.some((m) => m.id === selectedId)) {
       resolvedLessons.length = 0;
       pushUnique(selectedLesson);
     }
-  } else if (!newLessonIntent && selectedId && (refersToThisLesson || shortSelectedMutation) && selectedLesson) {
+  } else if (!explicitLessonIds.length && !newLessonIntent && selectedId && (refersToThisLesson || shortSelectedMutation) && selectedLesson) {
     pushUnique(selectedLesson);
   }
 
   if (ageScopedMatches.length === 1) pushUnique(ageScopedMatches[0]);
 
-  const titles = [...new Set([
+  const titles = commandSafety.sanitizeLessonTitles([
     ...hints,
     ...resolvedLessons.map((r) => r.title),
-  ].filter(Boolean))];
+  ], raw, options.lessonPlans || []);
 
   let source = null;
   if (resolvedLessons.length === 1 && explicitLessonIds.includes(resolvedLessons[0].id)) {
@@ -343,30 +366,37 @@ function detectNewLessonIntent(rawCommand, context = {}) {
   return false;
 }
 
-function detectAssetCategories(rawCommand) {
+function detectAssetCategories(rawCommand, exclusions = {}) {
   const raw = text(rawCommand);
   const found = [];
-  const printablesExcluded = isPrintablesExcludedCommand(raw);
+  const printablesExcluded = isPrintablesExcludedCommand(raw) || commandSafety.isPrintablesExcluded(raw, exclusions);
+  const imagesExcluded = commandSafety.isImagesExcluded(raw, exclusions);
+  const songsExcluded = commandSafety.isSongsExcluded(raw, exclusions);
+  const booksExcluded = commandSafety.isBooksExcluded(raw, exclusions);
 
-  const cover = isExplicitCoverRequestCommand(raw);
+  const cover = isExplicitCoverRequestCommand(raw) && exclusions.touchCover !== false;
   const printableStrong = !printablesExcluded && /\b(printable|printables|pdf|resource\s+pack)\b/i.test(raw);
   const printableTeachingAsset = !printablesExcluded && /\b(station\s+signs?|activity\s+cards?|maker\s+signs?|sorting\s+cards?|dramatic\s+play(?:\s+pack)?)\b/i.test(raw)
     && ACTION_VERBS.test(raw);
   const printable = !printablesExcluded && (printableStrong || printableTeachingAsset
-    || (/\bprintables?\b/i.test(raw) && ACTION_VERBS.test(raw)));
+    || (/\bprintables?\b/i.test(raw) && ACTION_VERBS.test(raw) && !/\bprintables?\s*:\s*excluded\b/i.test(raw)));
 
-  const image = /\b(picture|pictures|image|images|photo|photos|visuals?)\b/i.test(raw)
-    && (ACTION_VERBS.test(raw) || /\b(bad|better|weak)\b/i.test(raw));
+  const image = !imagesExcluded
+    && commandSafety.wantsPositiveImageIntent(raw, exclusions);
 
-  const songsBooksCombined = /\b(songs?\s+and\s+books?|books?\s+and\s+songs?|song\/book|songs\/books)\b/i.test(raw);
-  const songsBooksSingle = (/\b(songs?|books?)\b/i.test(raw) && ACTION_VERBS.test(raw));
+  const songsBooksCombined = !songsExcluded && !booksExcluded
+    && /\b(songs?\s+and\s+books?|books?\s+and\s+songs?|song\/book|songs\/books)\b/i.test(raw);
+  const songsBooksSingle = !songsExcluded && !booksExcluded
+    && (/\b(songs?|books?)\b/i.test(raw) && ACTION_VERBS.test(raw));
   const songsBooks = songsBooksCombined || songsBooksSingle;
 
   const multiAsset = [cover, printable, image, songsBooks].filter(Boolean).length > 1;
-  const broadUpgrade = multiAsset
+  const broadUpgrade = !commandSafety.isVocabularyOnlyCommand(raw)
+    && (multiAsset
     || /\bpublish[\s-]?ready\b/i.test(raw)
     || /\bauto[\s-]?apply\b/i.test(raw)
     || isDirectDraftSaveCommand(raw)
+    || commandSafety.isConnectedUpgradeRequested(raw, commandSafety.parseExplicitBooleanAssignments(raw))
     || (/\b(?:same|existing)\s+lesson\s+id\b/i.test(raw) && extractExplicitLessonIds(raw).length === 1)
     || (/\b(?:fix|upgrade|improve|finish|complete)\b/i.test(raw)
       && /\b(?:completely|everything|all\s+weak|teaching\s+kit|ready\s+for\s+(?:me\s+to\s+)?review)\b/i.test(raw))
@@ -377,7 +407,7 @@ function detectAssetCategories(rawCommand) {
     || orchestrator.isFullKitFinishCommand(raw)
     || (/\b(?:fix|upgrade|improve|finish|complete|edit)\b/i.test(raw)
       && /\bteaching\s+kit\b/i.test(raw)
-      && !printableStrong && !image && !cover && !songsBooksSingle);
+      && !printableStrong && !image && !cover && !songsBooksSingle));
 
   if (cover) found.push("cover");
   if (printable) found.push("printable");
@@ -437,11 +467,12 @@ function buildInheritedContext(resolvedLessons) {
 function resolveOwnerIntent(rawCommand, options = {}) {
   const raw = text(rawCommand);
   const phase = schema.clampInt(options.phase, 1, 8, 7);
+  const exclusions = orchestrator.parseExclusionHints(raw).flags;
   const lessonRef = detectExistingLessonReferences(raw, options);
   const newLessonIntent = detectNewLessonIntent(raw, {
     existingLessonIntent: lessonRef.existingLessonIntent,
   });
-  const assetCategories = detectAssetCategories(raw);
+  const assetCategories = detectAssetCategories(raw, exclusions);
   const assetCategory = pickPrimaryAssetCategory(assetCategories);
   const inherited = buildInheritedContext(lessonRef.resolvedLessons);
   const notes = [];
@@ -460,7 +491,11 @@ function resolveOwnerIntent(rawCommand, options = {}) {
   } else if (newLessonIntent) {
     route = ROUTES.CREATE_LESSON;
   } else if (lessonRef.existingLessonIntent) {
-    if (assetCategory === "cover") route = ROUTES.EXISTING_COVER;
+    if (commandSafety.isVocabularyOnlyCommand(raw)
+      || commandSafety.isConnectedUpgradeRequested(raw, commandSafety.parseExplicitBooleanAssignments(raw))
+      || isDirectDraftSaveCommand(raw)) {
+      route = ROUTES.EXISTING_CONNECTED_UPGRADE;
+    } else if (assetCategory === "cover") route = ROUTES.EXISTING_COVER;
     else if (assetCategory === "printable") route = ROUTES.EXISTING_PRINTABLE;
     else if (assetCategory === "image") route = ROUTES.EXISTING_IMAGE;
     else if (assetCategory === "songs_books") route = ROUTES.EXISTING_SONGS_BOOKS;
@@ -595,14 +630,18 @@ function applyIntentRouting(state, intent) {
   if (route === ROUTES.EXISTING_CONNECTED_UPGRADE) {
     state.isCreateCommand = false;
     state.actions.createLesson = false;
-    state.intent = phase >= 6 ? "finish_full_kit" : "fix_lesson";
-    state.actions.upgradeLesson = state.actions.touchDraft !== false;
-    state.actions.upgradeActivities = state.actions.touchDraft !== false;
-    state.actions.saveDraft = true;
+    if (commandSafety.isVocabularyOnlyCommand(state.raw)) {
+      commandSafety.applyVocabularyOnlyRouting(state);
+    } else {
+      state.intent = phase >= 6 ? "finish_full_kit" : "fix_lesson";
+      state.actions.upgradeLesson = state.actions.touchDraft !== false;
+      state.actions.upgradeActivities = state.actions.touchDraft !== false;
+      state.actions.saveDraft = true;
+    }
     const planOnly = state.actions.planOnly === true;
     if (phase >= 6) {
       state.actions.connectedUpgrade = true;
-      if (isDirectDraftSaveCommand(state.raw)) {
+      if (isDirectDraftSaveCommand(state.raw) || commandSafety.isConnectedUpgradeRequested(state.raw, commandSafety.parseExplicitBooleanAssignments(state.raw))) {
         state.actions.planOnly = false;
         state.actions.connectedAutoApply = true;
       } else {
@@ -620,7 +659,8 @@ function applyIntentRouting(state, intent) {
         state.actions.checkPrintables = false;
       }
       const effectivePlanOnly = state.actions.planOnly === true;
-      if (!effectivePlanOnly && !state.actions.textOnly) {
+      const narrowScope = schema.asArray(state.actions.weeklyFieldScope).length > 0 || state.actions.textOnly === true;
+      if (!effectivePlanOnly && !state.actions.textOnly && !narrowScope) {
         if (state.actions.touchSongs !== false || state.actions.touchBooks !== false) {
           state.actions.generateSongsBooks = true;
           state.actions.checkSongs = state.actions.touchSongs !== false;
