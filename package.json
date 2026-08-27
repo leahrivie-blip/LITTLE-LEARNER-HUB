@@ -40,6 +40,7 @@
     "test:curriculum-operator-vocabulary-fix": "NODE_ENV=test node scripts/test-curriculum-operator-vocabulary-fix.js",
     "test:curriculum-operator-command-safety": "NODE_ENV=test node scripts/test-curriculum-operator-command-safety.js",
     "test:curriculum-operator-mutation-allowlist": "NODE_ENV=test node scripts/test-curriculum-operator-mutation-allowlist.js",
+    "test:curriculum-operator-execution-scope": "NODE_ENV=test node scripts/test-curriculum-operator-execution-scope.js",
     "test:curriculum-operator-run-ui-feedback": "NODE_ENV=test node scripts/test-curriculum-operator-run-ui-feedback.js",
     "test:curriculum-operator-empty-changes": "NODE_ENV=test node scripts/test-curriculum-operator-empty-changes.js",
     "test:curriculum-operator-create-architect": "NODE_ENV=test node scripts/test-curriculum-operator-create-architect.js",

@@ -7,6 +7,7 @@
 const crypto = require("crypto");
 const schema = require("./curriculum-operator-schema.js");
 const allowlistApi = require("./curriculum-operator-mutation-allowlist.js");
+const executionScopeApi = require("./curriculum-operator-execution-scope.js");
 
 function nowIso() {
   return new Date().toISOString();
@@ -213,6 +214,30 @@ function normalizeOperatorJobStore(raw) {
   };
 }
 
+function findActiveMutationJob(jobs, lessonId) {
+  const id = schema.text(lessonId, 160);
+  return (Array.isArray(jobs) ? jobs : []).find((job) => {
+    const status = String(job?.status || "").toLowerCase();
+    if (!["running", "awaiting_confirm", "planned"].includes(status)) return false;
+    return schema.asArray(job?.lessonResults).some((lr) => {
+      if (schema.text(lr?.lessonId, 160) !== id && schema.text(lr?.createdLessonId, 160) !== id) return false;
+      const lrStatus = String(lr?.status || "").toLowerCase();
+      return lrStatus === "pending" || lrStatus === "running" || lrStatus === "";
+    });
+  }) || null;
+}
+
+function findActiveMutationJobForLessons(jobs, lessonIds = [], options = {}) {
+  const excludeJobId = schema.text(options.excludeJobId, 80);
+  for (const lessonId of schema.asArray(lessonIds)) {
+    const hit = findActiveMutationJob(jobs, lessonId);
+    if (hit && hit.id !== excludeJobId) {
+      return { job: hit, lessonId: schema.text(lessonId, 160) };
+    }
+  }
+  return null;
+}
+
 function createJobFromPlan({ command, planSummary, createdBy, status = "planned" }) {
   const lessons = schema.asArray(planSummary?.lessons);
   const phase = Number(command?.completion?.phase) || 1;
@@ -229,6 +254,7 @@ function createJobFromPlan({ command, planSummary, createdBy, status = "planned"
   const doSongsBooks = ((phase === 5) || (phase >= 6))
     && command?.actions?.generateSongsBooks === true
     && (command?.actions?.touchSongs !== false || command?.actions?.touchBooks !== false);
+  const allowActivityUpdate = executionScopeApi.activityUpdatesAllowed(command);
   const lessonRows = lessons.length
     ? lessons
     : (doCreate
@@ -283,10 +309,14 @@ function createJobFromPlan({ command, planSummary, createdBy, status = "planned"
       if (doUpgrade) {
         actions.push(
           { id: newStepId(), type: "lesson.updateFields", status: "pending", idempotencyKey: `update:${id}` },
-          { id: newStepId(), type: "activity.update", status: "pending", idempotencyKey: `actupdate:${id}` },
           { id: newStepId(), type: "lesson.saveDraft", status: "pending", idempotencyKey: `draft:${id}` },
           { id: newStepId(), type: "lesson.validate", status: "pending", idempotencyKey: `validate:${id}` },
         );
+        if (allowActivityUpdate) {
+          actions.push(
+            { id: newStepId(), type: "activity.update", status: "pending", idempotencyKey: `actupdate:${id}` },
+          );
+        }
       }
       // Phase 6/7 order after create (or existing): songs/books → images → printables
       if (doSongsBooks) {
@@ -359,22 +389,7 @@ function createJobFromPlan({ command, planSummary, createdBy, status = "planned"
     }),
     log: [],
   });
-  let createdMsg = `Job created (${status}). Audit-only — no curriculum mutations.`;
-  if (doCreate) {
-    createdMsg = `Job created (${status}). Phase 7 new draft lesson create + Teaching Kit finish — no publish.`;
-  } else if (phase >= 6 && (doUpgrade || doImages || doPrintables || doSongsBooks)) {
-    createdMsg = `Job created (${status}). Phase 6 full Teaching Kit finish — no publish / no lesson.create.`;
-  } else if (doSongsBooks && !doImages && !doPrintables && phase === 5) {
-    createdMsg = `Job created (${status}). Phase 5 songs+books — no publish / no image or printable regeneration.`;
-  } else if (doPrintables && phase === 4) {
-    createdMsg = `Job created (${status}). Phase 4 printables — no publish / no image regeneration.`;
-  } else if (doUpgrade && doImages) {
-    createdMsg = `Job created (${status}). Phase 2.5 text + Phase 3 images — no publish.`;
-  } else if (doUpgrade) {
-    createdMsg = `Job created (${status}). Phase 2 draft upgrade — no publish.`;
-  } else if (doImages) {
-    createdMsg = `Job created (${status}). Phase 3 activity images — no publish.`;
-  }
+  let createdMsg = executionScopeApi.buildJobCreatedLogMessage(status, command);
   appendLog(job, createdMsg);
   job.mutationAllowlist = allowlistApi.buildMutationAllowlist(command, {
     lessonIds: schema.asArray(command?.scope?.lessonIds),
@@ -454,5 +469,7 @@ module.exports = {
   normalizeOperatorJobStore,
   createJobFromPlan,
   buildOwnerSummary,
+  findActiveMutationJob,
+  findActiveMutationJobForLessons,
   nowIso,
 };

@@ -14,6 +14,7 @@ const DANGEROUS_CONFIRM_REASONS = Object.freeze([
   "multiple_lessons_matched",
   "ambiguous_scope",
   "missing_selected_lesson",
+  "planned_scope_contradiction",
 ]);
 
 const WEEKLY_FIELD_ALIASES = Object.freeze({

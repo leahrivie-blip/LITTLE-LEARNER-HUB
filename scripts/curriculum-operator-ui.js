@@ -46,6 +46,7 @@
     "multiple_lessons_matched",
     "ambiguous_scope",
     "missing_selected_lesson",
+    "planned_scope_contradiction",
   ];
 
   function isRunBlockedByParsed(parsed, planSummary) {
@@ -71,6 +72,9 @@
     }
     if (reasons.includes("parsed_intent_contradiction")) {
       return "Run blocked — parsed actions contradict explicit exclusions/constraints.";
+    }
+    if (reasons.includes("planned_scope_contradiction")) {
+      return "Run blocked — execution plan contradicts parsed weekly scope. Interpret again.";
     }
     if (reasons.includes("ambiguous_scope") || reasons.includes("missing_selected_lesson")) {
       return "Run blocked — command scope is ambiguous. Interpret again with an explicit lesson ID.";
