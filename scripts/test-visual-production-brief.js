@@ -327,6 +327,7 @@ function assertStaticContract() {
   ok(uiJs.includes("Make this visual") && uiJs.includes("Attach (blocked)"), "generate/attach UI gates present");
   ok(!uiJs.includes("if (!state.lessonId) {\n      state.cards = [];"), "refreshList does not hard-empty when lessonId is blank");
   ok(uiJs.includes('api("list", state.lessonId ? { lessonId: state.lessonId } : {})'), "refreshList lists all briefs when lesson filter is blank");
+  ok(uiJs.includes("typedLessonId") && uiJs.includes("form?.lessonId?.value"), "refreshList syncs Lesson ID input before listing");
   ok(uiJs.includes("void run(refreshList)"), "mount always refreshes planned visuals");
   ok(serverJs.includes("/api/admin/media/visual-production-previews/"), "admin preview media route registered");
   ok(serverJs.includes("OPENAI_IMAGE_MODEL"), "image model env wired server-side");

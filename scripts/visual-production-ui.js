@@ -398,6 +398,11 @@
   }
 
   async function refreshList() {
+    // Keep Refresh in sync with the Lesson ID field. Typing a filter and clicking
+    // Refresh must not ignore the input (state.lessonId alone only updates on Plan submit).
+    const form = host()?.querySelector("[data-vp-plan-form]");
+    const typedLessonId = String(form?.lessonId?.value || "").trim();
+    if (form) state.lessonId = typedLessonId;
     const data = await api("list", state.lessonId ? { lessonId: state.lessonId } : {});
     state.cards = Array.isArray(data.cards) ? data.cards : [];
     state.packs = Array.isArray(data.packs) ? data.packs : [];
