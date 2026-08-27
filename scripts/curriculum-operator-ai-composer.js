@@ -1001,6 +1001,22 @@ function summarizePartialComposerPlan(plan) {
   return { weeklyFields: week, activities: acts };
 }
 
+function buildVocabOnlyRepairUserPrompt(context, vocabRequest) {
+  const action = text(vocabRequest?.action, 20).toUpperCase() || "REPLACE";
+  return [
+    "REPAIR_VOCAB_CARDS_ONLY",
+    "Return JSON with ONLY weeklyChanges.vocabCards. Do NOT return activities, songs, books, or any other weekly fields.",
+    "Replace malformed combined-word cards with 4-6 valid structured cards using { word, definition } objects.",
+    "Each word must be ONE toddler-friendly concept (no comma-separated lists). Definitions must be teacher-usable (≥4 words).",
+    "",
+    JSON.stringify({
+      lesson: context.lesson,
+      weekContext: { vocabCards: context.weekContext?.vocabCards || [] },
+      requestedAction: action,
+    }, null, 2),
+  ].join("\n");
+}
+
 function buildThinRepairUserPrompt(context, repairTargets, partialPlan) {
   const targets = schema.asArray(repairTargets).map((t) => {
     if (t.scope === "week") {
@@ -1186,10 +1202,10 @@ function validateComposerOutput(rawText, work, plan, options = {}) {
     });
   }
 
-  // Hard-fail unsupported / forbidden / conflicting week keys (do not silently drop into empty_changes).
+  // Hard-fail only forbidden/conflicting week keys. Unknown aliases are soft-rejected so narrow
+  // vocab-only runs survive full-lesson dumps that omit the requested field.
   const hardWeekReject = extracted.rejected.find((row) => (
-    row.reason === "unknown_field"
-    || row.reason === "forbidden_field"
+    row.reason === "forbidden_field"
     || row.reason === "conflict_duplicate"
   ));
   if (hardWeekReject) {
@@ -1212,12 +1228,12 @@ function validateComposerOutput(rawText, work, plan, options = {}) {
       };
     }
     if (!WEEK_FIELDS.includes(field)) {
-      return {
-        ok: false,
-        code: "unknown_field",
-        error: `Unknown weekly field: ${field}`,
-        diagnostics: shapeDiagnostics([{ field, reason: "unknown_field", message: `Unknown weekly field: ${field}` }]),
-      };
+      rejected.push({
+        field,
+        reason: "unknown_field",
+        message: `Unknown weekly field: ${field}`,
+      });
+      continue;
     }
     if (!allowedWeek.has(field)) {
       // Soft-skip KEEP / out-of-scope week fields so full-lesson dumps still yield requested mutations.
@@ -1699,6 +1715,59 @@ async function composeUpgradeContent({
     }
     validatedPlan = strict.plan;
     diagnostics = strict.diagnostics || null;
+  } else if (!validated.ok && (validated.code === "empty_changes" || validated.code === "unknown_field")) {
+    const vocabRequest = work.weekRequests.find((r) => r.field === "vocabCards");
+    const vocabOnlyScope = schema.asArray(weeklyFieldScope || command?.actions?.weeklyFieldScope).length === 1
+      && schema.asArray(weeklyFieldScope || command?.actions?.weeklyFieldScope)[0] === "vocabCards";
+    if (vocabRequest && vocabOnlyScope && typeof callAi === "function") {
+      const vocabRepairPrompt = buildVocabOnlyRepairUserPrompt(context, vocabRequest);
+      usage.repairCalls = (usage.repairCalls || 0) + 1;
+      let vocabRaw;
+      try {
+        vocabRaw = await callAi(systemPrompt, vocabRepairPrompt);
+      } catch (error) {
+        return {
+          ok: false,
+          code: "vocab_repair_call_failed",
+          error: text(error?.message || "Vocabulary repair AI call failed", 500),
+          work,
+          usage: {
+            ...usage,
+            calls: usage.calls + 1,
+            inputChars: usage.inputChars + vocabRepairPrompt.length,
+          },
+          diagnostics: validated.diagnostics || null,
+        };
+      }
+      usage.calls += 1;
+      usage.inputChars += vocabRepairPrompt.length;
+      usage.outputChars += String(vocabRaw || "").length;
+      const vocabValidated = validateComposerOutput(vocabRaw, work, plan);
+      if (vocabValidated.ok) {
+        validatedPlan = vocabValidated.plan;
+        diagnostics = vocabValidated.diagnostics || null;
+      } else {
+        return {
+          ok: false,
+          code: vocabValidated.code || validated.code || "ai_validation_failed",
+          error: vocabValidated.error || validated.error || "AI output rejected.",
+          work,
+          usage,
+          diagnostics: vocabValidated.diagnostics || validated.diagnostics || null,
+          rawPreview: text(vocabRaw, 400),
+        };
+      }
+    } else {
+      return {
+        ok: false,
+        code: validated.code || "ai_validation_failed",
+        error: validated.error || "AI output rejected.",
+        work,
+        usage,
+        diagnostics: validated.diagnostics || null,
+        rawPreview: text(raw, 400),
+      };
+    }
   } else if (!validated.ok) {
     return {
       ok: false,
@@ -1731,6 +1800,31 @@ async function composeUpgradeContent({
  */
 function buildOperatorAiFixtureResponse(userPrompt) {
   const promptText = String(userPrompt || "");
+  if (promptText.includes("REPAIR_VOCAB_CARDS_ONLY")) {
+    let payload = {};
+    try {
+      const jsonStart = promptText.indexOf("{");
+      payload = JSON.parse(promptText.slice(jsonStart));
+    } catch (_e) {
+      payload = {};
+    }
+    const theme = text(payload.lesson?.theme || "making", 80);
+    return JSON.stringify({
+      lessonId: text(payload.lesson?.id, 160),
+      weeklyChanges: {
+        vocabCards: {
+          action: text(payload.requestedAction, 20).toUpperCase() || "REPLACE",
+          value: [
+            { word: "press", definition: `Push ${theme} materials down firmly with both hands.` },
+            { word: "stick", definition: "Attach one piece to another using tape or glue." },
+            { word: "roll", definition: "Move materials back and forth to make a shape." },
+            { word: "build", definition: "Stack or connect pieces to make something new." },
+          ],
+        },
+      },
+      activities: [],
+    });
+  }
   if (promptText.includes("REPAIR_THIN_FIELDS_ONLY")) {
     let payload = {};
     try {
