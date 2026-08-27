@@ -1443,7 +1443,18 @@ function validateComposerOutput(rawText, work, plan, options = {}) {
   };
 }
 
-function applyComposerPlanToDraft(previousDraft, validatedPlan, work) {
+function applyComposerPlanToDraft(previousDraft, validatedPlan, work, options = {}) {
+  let planInput = validatedPlan;
+  let mutationViolations = [];
+  if (options.mutationAllowlist) {
+    const allowlistApi = require("./curriculum-operator-mutation-allowlist.js");
+    const filtered = allowlistApi.filterComposerPlan(validatedPlan, options.mutationAllowlist, work, {
+      stage: "applyComposerPlanToDraft",
+      command: options.command || {},
+    });
+    planInput = filtered.plan;
+    mutationViolations = filtered.violations;
+  }
   const draft = previousDraft && typeof previousDraft === "object"
     ? JSON.parse(JSON.stringify(previousDraft))
     : { week: {}, activities: {} };
@@ -1457,7 +1468,7 @@ function applyComposerPlanToDraft(previousDraft, validatedPlan, work) {
     ...work.activityKeep.map((k) => `activity.${k.activityId}`),
   ];
 
-  Object.entries(validatedPlan.weeklyChanges || {}).forEach(([field, entry]) => {
+  Object.entries(planInput.weeklyChanges || {}).forEach(([field, entry]) => {
     if (field === "learningDomains") {
       draft.week.learningDomains = entry.value;
       intended.week.learningDomains = entry.value;
@@ -1500,7 +1511,7 @@ function applyComposerPlanToDraft(previousDraft, validatedPlan, work) {
     changed.push({ path: `week.${field}`, decision: entry.action, source: "ai" });
   });
 
-  schema.asArray(validatedPlan.activities).forEach((row) => {
+  schema.asArray(planInput.activities).forEach((row) => {
     const id = text(row.activityId, 160);
     if (!draft.activities[id] || typeof draft.activities[id] !== "object") draft.activities[id] = {};
     const intendedAct = {};
@@ -1517,9 +1528,9 @@ function applyComposerPlanToDraft(previousDraft, validatedPlan, work) {
     if (Object.keys(intendedAct).length) intended.activities[id] = intendedAct;
   });
 
-  if (schema.asArray(validatedPlan.songs).length) {
+  if (schema.asArray(planInput.songs).length) {
     if (!Array.isArray(draft.week.songs)) draft.week.songs = [];
-    validatedPlan.songs.forEach((song) => {
+    planInput.songs.forEach((song) => {
       const exists = draft.week.songs.some(
         (s) => text(s.linkedWeekday || s.suggestedWeekday).toLowerCase() === song.linkedWeekday,
       );
@@ -1529,13 +1540,13 @@ function applyComposerPlanToDraft(previousDraft, validatedPlan, work) {
     });
   }
 
-  if (schema.asArray(validatedPlan.books).length) {
-    draft.week.books = validatedPlan.books;
-    intended.week.books = validatedPlan.books;
+  if (schema.asArray(planInput.books).length) {
+    draft.week.books = planInput.books;
+    intended.week.books = planInput.books;
     changed.push({ path: "week.books", decision: "FILL", source: "ai" });
   }
 
-  return { enrichmentDraft: draft, changed, intended, kept };
+  return { enrichmentDraft: draft, changed, intended, kept, mutationViolations };
 }
 
 /**

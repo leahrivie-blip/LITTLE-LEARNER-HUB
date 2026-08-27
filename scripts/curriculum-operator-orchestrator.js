@@ -493,6 +493,11 @@ function parseWeeklyFieldScope(rawCommand) {
     || /\bonly\s+(?:fix|repair|upgrade|prove)\s+(?:the\s+)?vocabular(?:y|ies)\b/i.test(raw)) {
     return ["vocabCards"];
   }
+  if (/\b(?:learning\s+)?domains?\s*[- ]?only\b/i.test(raw)
+    || /\bonly\s+(?:fix|repair|upgrade|prove)\s+(?:the\s+)?(?:learning\s+)?domains?\b/i.test(raw)
+    || /\btarget\s*:\s*(?:learning\s+)?domains?\s*only\b/i.test(raw)) {
+    return ["learningDomains"];
+  }
   if (/\bonly\s+(?:fix|prove|repair)\s+(?:the\s+)?(?:remaining\s+)?(?:learning\s+)?domains?\s+and\s+vocab/i.test(raw)
     || /\b(?:fix|repair)\s+only\s+(?:learning\s+)?domains?\s+and\s+vocab/i.test(raw)
     || /\bdo\s+not\s+change\s+any\s+other\s+content\b/i.test(raw)) {

@@ -360,7 +360,10 @@ async function buildUpgradeDraft(plan, curriculum, audit, options = {}) {
     };
   }
 
-  const applied = composer.applyComposerPlanToDraft(previous, composed.validatedPlan, composed.work);
+  const applied = composer.applyComposerPlanToDraft(previous, composed.validatedPlan, composed.work, {
+    mutationAllowlist: options.mutationAllowlist || null,
+    command: options.command || {},
+  });
   applied.enrichmentDraft.updatedAt = new Date().toISOString();
   applied.enrichmentDraft.lastEditedBy = options.editedBy || "curriculum-operator-phase25";
   applied.enrichmentDraft.operatorPhase = 2.5;
@@ -377,6 +380,7 @@ async function buildUpgradeDraft(plan, curriculum, audit, options = {}) {
     usage: composed.usage || { calls: 1, inputChars: 0, outputChars: 0 },
     validatedPlan: composed.validatedPlan,
     composerDiagnostics: composed.diagnostics || null,
+    mutationViolations: applied.mutationViolations || [],
     mutations: {
       images: false,
       printables: false,

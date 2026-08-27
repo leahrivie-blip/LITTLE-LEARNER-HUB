@@ -6,6 +6,7 @@
 
 const crypto = require("crypto");
 const schema = require("./curriculum-operator-schema.js");
+const allowlistApi = require("./curriculum-operator-mutation-allowlist.js");
 
 function nowIso() {
   return new Date().toISOString();
@@ -375,6 +376,9 @@ function createJobFromPlan({ command, planSummary, createdBy, status = "planned"
     createdMsg = `Job created (${status}). Phase 3 activity images — no publish.`;
   }
   appendLog(job, createdMsg);
+  job.mutationAllowlist = allowlistApi.buildMutationAllowlist(command, {
+    lessonIds: schema.asArray(command?.scope?.lessonIds),
+  });
   return job;
 }
 

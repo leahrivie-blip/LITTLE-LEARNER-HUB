@@ -340,9 +340,12 @@ function vocabularyTextFromSources(plan = {}, draftWeek = {}) {
 
 function commandRequestsVocabularyRepair(command = {}) {
   const raw = text(command?.rawCommand || command?.task || "", 4000);
+  const scope = asArray(command?.actions?.weeklyFieldScope);
+  if (scope.includes("vocabCards") || scope.includes("vocabularyWords")) return true;
   if (!/\bvocab/i.test(raw)) return false;
-  return /\b(repair|fix|fill|populate|missing|authoritative|remaining)\b/i.test(raw)
-    || /\bmake\s+sure\b/i.test(raw);
+  return /\b(repair|fix|fill|populate|missing|authoritative|remaining|only|upgrade|prove)\b/i.test(raw)
+    || /\bmake\s+sure\b/i.test(raw)
+    || /\bvocabular(?:y|ies)\s*[- ]?only\b/i.test(raw);
 }
 
 function commandRequestsLearningDomainsRepair(command = {}) {

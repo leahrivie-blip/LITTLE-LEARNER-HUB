@@ -40,6 +40,44 @@
     return "Run job";
   }
 
+  const DANGEROUS_CONFIRM_REASONS = [
+    "unexpected_scope_expansion",
+    "parsed_intent_contradiction",
+    "multiple_lessons_matched",
+    "ambiguous_scope",
+    "missing_selected_lesson",
+  ];
+
+  function isRunBlockedByParsed(parsed, planSummary) {
+    if (parsed?.parseSafety?.blocked) return true;
+    const reasons = [
+      ...(parsed?.confirmReasons || []),
+      ...(planSummary?.confirmReasons || []),
+      ...(parsed?.command?.confirmations?.reasons || []),
+    ];
+    return reasons.some((reason) => DANGEROUS_CONFIRM_REASONS.includes(reason));
+  }
+
+  function runBlockMessage(parsed, planSummary) {
+    if (parsed?.parseSafety?.blocked) {
+      return "Run blocked — parsed intent contradicts the owner command. Fix scope/constraints, then Interpret again.";
+    }
+    const reasons = [
+      ...(parsed?.confirmReasons || []),
+      ...(planSummary?.confirmReasons || []),
+    ].filter((reason) => DANGEROUS_CONFIRM_REASONS.includes(reason));
+    if (reasons.includes("unexpected_scope_expansion") || reasons.includes("multiple_lessons_matched")) {
+      return "Run blocked — lesson scope expanded unexpectedly. Narrow to one explicit lesson ID.";
+    }
+    if (reasons.includes("parsed_intent_contradiction")) {
+      return "Run blocked — parsed actions contradict explicit exclusions/constraints.";
+    }
+    if (reasons.includes("ambiguous_scope") || reasons.includes("missing_selected_lesson")) {
+      return "Run blocked — command scope is ambiguous. Interpret again with an explicit lesson ID.";
+    }
+    return "Run blocked — resolve confirmation issues before running.";
+  }
+
   const state = {
     mounted: false,
     busy: false,
@@ -451,6 +489,8 @@
 
     const plan = state.planSummary;
     const job = state.job;
+    const runBlocked = isRunBlockedByParsed(state.commandParsed, plan);
+    const runBlockNotice = runBlocked ? runBlockMessage(state.commandParsed, plan) : "";
     el.innerHTML = `
       <div class="co-operator">
         <div class="section-heading">
@@ -466,9 +506,10 @@
           <span>Command</span>
           <textarea id="coCommandInput" rows="3" placeholder="Example: Create a Preschool Bakery lesson with 15 activities and leave it ready for review.">${esc(state.command)}</textarea>
         </label>
+        ${runBlockNotice ? `<p class="access-notice error" role="alert">${esc(runBlockNotice)}</p>` : ""}
         <div class="account-actions-row co-run-actions">
           <button type="button" class="ghost-button" id="coParseBtn" ${state.busy ? "disabled" : ""}>Interpret</button>
-          <button type="button" class="primary-button" id="coRunBtn" ${state.busy || state.runInFlight ? "disabled" : ""}>${esc(runButtonLabel(state.runPhase))}</button>
+          <button type="button" class="primary-button" id="coRunBtn" ${state.busy || state.runInFlight || runBlocked ? "disabled" : ""} title="${esc(runBlocked ? runBlockNotice : "")}">${esc(runButtonLabel(state.runPhase))}</button>
           <button type="button" class="ghost-button" id="coRefreshJobsBtn" ${state.busy ? "disabled" : ""}>Refresh jobs</button>
         </div>
         ${state.commandParsed ? `
@@ -700,6 +741,12 @@
 
   async function onRun() {
     if (state.runInFlight) return;
+    if (isRunBlockedByParsed(state.commandParsed, state.planSummary)) {
+      state.isError = true;
+      state.message = runBlockMessage(state.commandParsed, state.planSummary);
+      render();
+      return;
+    }
     const commandSnapshot = state.command;
     state.runInFlight = true;
     state.busy = true;

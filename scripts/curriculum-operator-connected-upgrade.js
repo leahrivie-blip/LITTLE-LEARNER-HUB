@@ -587,6 +587,7 @@ async function runDedicatedLessonCoverGeneration({
  */
 function refreshLessonResultPostApply(lessonResult, plan, curriculum, options = {}) {
   if (!lessonResult || !plan) return lessonResult;
+  const allowlistApi = require("./curriculum-operator-mutation-allowlist.js");
   const auditOptions = {
     connectedOperatorPath: true,
     skipWeekdayFocusBlocker: true,
@@ -604,6 +605,19 @@ function refreshLessonResultPostApply(lessonResult, plan, curriculum, options = 
     command: options.command || {},
     draftWeek: plan?.enrichmentDraft?.week || {},
   });
+  const allowlist = options.mutationAllowlist
+    || allowlistApi.buildMutationAllowlist(options.command || {}, {
+      lessonIds: [plan?.id].filter(Boolean),
+    });
+  const persistScope = allowlistApi.verifyPersistedMutationDiff(
+    options.beforePlan || lessonResult.beforePlan || {},
+    plan,
+    allowlist,
+  );
+  const mismatches = [...schema.asArray(persistenceCheck.mismatches)];
+  if (!persistScope.ok) {
+    mismatches.push(...persistScope.violations);
+  }
   const requestedOutcomeGaps = persistenceCheck.requestedOutcomeGaps || [];
   return {
     ...lessonResult,
@@ -613,11 +627,12 @@ function refreshLessonResultPostApply(lessonResult, plan, curriculum, options = 
     executionScope,
     reportConsistency: finalAudit.reportConsistency,
     persistenceVerification: persistenceCheck,
-    persistenceMismatches: persistenceCheck.mismatches,
+    persistenceMismatches: mismatches,
     requestedOutcomeGaps,
     requestedOutcomes: persistenceCheck.requestedOutcomes || {},
     persistedDiff: persistenceCheck.persistedDiff,
-    contentPersistenceIncomplete: persistenceCheck.ok === false,
+    unexpectedPersistedMutations: persistScope.unexpected || [],
+    contentPersistenceIncomplete: persistenceCheck.ok === false || !persistScope.ok,
     readinessDelta: {
       before: beforeScores.premiumReadinessPercent,
       after: afterScores.premiumReadinessPercent,
