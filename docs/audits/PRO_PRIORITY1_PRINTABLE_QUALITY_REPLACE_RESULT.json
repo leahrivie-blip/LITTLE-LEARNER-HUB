@@ -1,0 +1,75 @@
+{
+  "at": "2026-08-20T18:53:23.401Z",
+  "site": "https://littlelearnershubbyleah.com",
+  "uploads": [
+    {
+      "lessonId": "cur-lp-toddler-superhero-training-camp",
+      "title": "Kindness Mission Cards",
+      "old": "cur-res-d0766e0900173303",
+      "neu": "cur-res-ec8773d2e6fcfa31",
+      "oldStillExists": true,
+      "oldStatus": "draft",
+      "newStatus": "draft",
+      "newTitle": "Kindness Mission Cards",
+      "hasDraftInTitle": false
+    },
+    {
+      "lessonId": "cur-lp-toddler-superhero-training-camp",
+      "title": "Hero Movement Action Cards",
+      "old": "cur-res-f72e48f308860194",
+      "neu": "cur-res-d19f746a54747af0",
+      "oldStillExists": true,
+      "oldStatus": "draft",
+      "newStatus": "draft",
+      "newTitle": "Hero Movement Action Cards",
+      "hasDraftInTitle": false
+    },
+    {
+      "lessonId": "cur-lp-toddler-zoo-adventures",
+      "title": "Zoo Animal Picture Cards",
+      "old": "cur-res-47289150a016e6a4",
+      "neu": "cur-res-af447963e31c825e",
+      "oldStillExists": true,
+      "oldStatus": "draft",
+      "newStatus": "draft",
+      "newTitle": "Zoo Animal Picture Cards",
+      "hasDraftInTitle": false
+    },
+    {
+      "lessonId": "cur-lp-toddler-zoo-adventures",
+      "title": "Animal–Habitat Match Cards",
+      "old": "cur-res-ed3dd8cd112b51ba",
+      "neu": "cur-res-1aeac0279092a628",
+      "oldStillExists": true,
+      "oldStatus": "draft",
+      "newStatus": "draft",
+      "newTitle": "Animal–Habitat Match Cards",
+      "hasDraftInTitle": false
+    }
+  ],
+  "verify": [
+    {
+      "lessonId": "cur-lp-toddler-superhero-training-camp",
+      "title": "Superhero Training Camp",
+      "enrichmentPublished": false,
+      "planStatus": "published",
+      "printableIds": [
+        "cur-res-ec8773d2e6fcfa31",
+        "cur-res-d19f746a54747af0",
+        "cur-res-59fbca5ee3088b9c"
+      ],
+      "accessPlan": null
+    },
+    {
+      "lessonId": "cur-lp-toddler-zoo-adventures",
+      "title": "Zoo Adventures",
+      "enrichmentPublished": false,
+      "planStatus": "published",
+      "printableIds": [
+        "cur-res-af447963e31c825e",
+        "cur-res-1aeac0279092a628"
+      ],
+      "accessPlan": null
+    }
+  ]
+}
