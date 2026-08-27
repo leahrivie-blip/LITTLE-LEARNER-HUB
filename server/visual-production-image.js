@@ -8,7 +8,16 @@ const printableOverlay = require("./visual-production-printable-overlay.js");
 
 const BRAND_URL = "littlelearnershubbyleah.com";
 const OPENAI_IMAGES_URL = "https://api.openai.com/v1/images/generations";
-const REALISTIC_STYLES = new Set(["REALISTIC_PHOTO", "REALISTIC_CLASSROOM"]);
+const REALISTIC_STYLES = new Set([
+  "REALISTIC_PHOTO",
+  "REALISTIC_CLASSROOM",
+  "TEACHING_CARD_REALISTIC",
+]);
+const EDUCATIONAL_ILLUSTRATION_STYLES = new Set([
+  "SOFT_EDUCATIONAL_ILLUSTRATION",
+  "PLAYFUL_CHILDCARE_ILLUSTRATION",
+  "SIMPLE_OBJECT_ILLUSTRATION",
+]);
 const FLAT_PRINTABLE_STYLES = new Set([
   "FLAT_2D_ILLUSTRATION",
   "CLEAN_PRINTABLE",
@@ -28,6 +37,7 @@ try {
  */
 function imageSizeForBrief(visualStyle) {
   if (REALISTIC_STYLES.has(String(visualStyle || ""))) return "1536x1024";
+  if (EDUCATIONAL_ILLUSTRATION_STYLES.has(String(visualStyle || ""))) return "1024x1536";
   if (FLAT_PRINTABLE_STYLES.has(String(visualStyle || ""))) return "1024x1536";
   return "1024x1024";
 }
