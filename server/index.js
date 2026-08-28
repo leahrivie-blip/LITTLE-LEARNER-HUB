@@ -21,6 +21,7 @@ const aiAgeSafety = require("../scripts/ai-age-safety.js");
 const draftReviewModel = require("../scripts/curriculum-draft-review.js");
 const { createDraftReviewApi } = require("./curriculum-draft-review.js");
 const { createVisualProductionApi, mergeStorePreserveVisualProduction } = require("./visual-production.js");
+const { createBinderBuilderApi, mergeStorePreserveBinderBuilder } = require("./binder-builder.js");
 const { createCurriculumOperatorApi, mergeStorePreserveCurriculumOperatorJobs } = require("./curriculum-operator.js");
 const { createCurriculumOperatorOwnerPublishApi } = require("./curriculum-operator-owner-publish.js");
 const restoreIndependentLesson = require("./curriculum-restore-independent-lesson.js");
@@ -1108,6 +1109,7 @@ function defaultStore() {
     memberSessions: {},
     onboardingWelcome: defaultOnboardingWelcomeStore(),
     visualProduction: { briefs: [], updatedAt: "" },
+    binderBuilder: { drafts: [], updatedAt: "" },
   };
 }
 
@@ -1123,6 +1125,14 @@ function ensureMessagingStore(store) {
     : {};
   store.pushDeliveryLog = Array.isArray(store.pushDeliveryLog) ? store.pushDeliveryLog : [];
   store.pushConfig = store.pushConfig && typeof store.pushConfig === "object" ? store.pushConfig : {};
+  if (!store.binderBuilder || typeof store.binderBuilder !== "object") {
+    store.binderBuilder = { drafts: [], updatedAt: "" };
+  } else {
+    store.binderBuilder.drafts = Array.isArray(store.binderBuilder.drafts) ? store.binderBuilder.drafts : [];
+  }
+  if (!store.visualProduction || typeof store.visualProduction !== "object") {
+    store.visualProduction = { briefs: [], updatedAt: "" };
+  }
   adminMessagingInbox.ensureAdminMessagingSettings(store);
   return store;
 }
@@ -5974,6 +5984,7 @@ function applyStoreWriteMerges(store, { preferIncomingSiteContent = false } = {}
   next = mergeStorePreserveAdminSessions(next);
   next = mergeStorePreserveEmailCampaigns(next);
   next = mergeStorePreserveVisualProduction(next, storeCache);
+  next = mergeStorePreserveBinderBuilder(next, storeCache);
   next = mergeStorePreserveCurriculumOperatorJobs(next, storeCache);
   return next;
 }
@@ -32542,6 +32553,21 @@ const server = http.createServer(async (request, response) => {
         });
       }
       return await globalThis.__llhVisualProductionApi.handle(request, response);
+    }
+    if (request.method === "POST" && url.pathname === "/api/admin/curriculum/binder-builder") {
+      if (!globalThis.__llhBinderBuilderApi) {
+        globalThis.__llhBinderBuilderApi = createBinderBuilderApi({
+          readJson,
+          jsonResponse,
+          readStore,
+          writeStoreAsync,
+          requireTeachingKitOwnerAdminSession,
+          teachingKit,
+          normalizeEmail,
+          normalizedCurriculumStore,
+        });
+      }
+      return await globalThis.__llhBinderBuilderApi.handle(request, response);
     }
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/operator") {
       if (!globalThis.__llhCurriculumOperatorApi) {
