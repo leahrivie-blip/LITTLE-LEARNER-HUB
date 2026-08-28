@@ -1125,6 +1125,14 @@ function ensureMessagingStore(store) {
     : {};
   store.pushDeliveryLog = Array.isArray(store.pushDeliveryLog) ? store.pushDeliveryLog : [];
   store.pushConfig = store.pushConfig && typeof store.pushConfig === "object" ? store.pushConfig : {};
+  if (!store.binderBuilder || typeof store.binderBuilder !== "object") {
+    store.binderBuilder = { drafts: [], updatedAt: "" };
+  } else {
+    store.binderBuilder.drafts = Array.isArray(store.binderBuilder.drafts) ? store.binderBuilder.drafts : [];
+  }
+  if (!store.visualProduction || typeof store.visualProduction !== "object") {
+    store.visualProduction = { briefs: [], updatedAt: "" };
+  }
   adminMessagingInbox.ensureAdminMessagingSettings(store);
   return store;
 }
