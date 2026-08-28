@@ -73,7 +73,11 @@
   }
 
   function imageHtml(image, className) {
-    const url = asText(image?.url);
+    let url = asText(image?.url);
+    // Print-safe image refs only: relative app paths or http(s). Never javascript: etc.
+    if (url && !(url.startsWith("/") || /^https?:\/\//i.test(url))) {
+      url = "";
+    }
     if (!url) return `<div class="${esc(className)} bb-image-fallback" role="img" aria-label="Decorative placeholder"></div>`;
     const alt = esc(image?.alt || "Lesson image");
     return `<div class="${esc(className)}"><img src="${esc(url)}" alt="${alt}" loading="lazy" decoding="async" onerror="this.parentElement.classList.add('is-broken'); this.remove();"></div>`;
