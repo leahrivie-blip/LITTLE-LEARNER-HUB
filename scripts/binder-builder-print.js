@@ -50,6 +50,41 @@
     ].join("");
   }
 
+  /** Numbered teaching steps when the field has multiple lines; otherwise a short paragraph. */
+  function stepsBlock(title, body) {
+    const text = asText(body?.text != null ? body.text : body);
+    if (!text) return "";
+    const lines = text.split(/\n+/).map((line) => line.trim()).filter(Boolean);
+    if (lines.length > 1) {
+      return [
+        `<section class="bb-activity-section">`,
+        `<h4>${esc(title)}</h4>`,
+        `<ol class="bb-activity-steps">`,
+        ...lines.map((line) => `<li>${esc(line)}</li>`),
+        `</ol>`,
+        `</section>`,
+      ].join("");
+    }
+    return sectionBlock(title, body);
+  }
+
+  function learningBlock(title, body) {
+    const text = asText(body?.text != null ? body.text : body);
+    if (!text) return "";
+    const lines = text.split(/\n+/).map((line) => line.trim()).filter(Boolean);
+    if (lines.length > 1) {
+      return [
+        `<section class="bb-activity-section">`,
+        `<h4>${esc(title)}</h4>`,
+        `<ul class="bb-activity-learning">`,
+        ...lines.map((line) => `<li>${esc(line)}</li>`),
+        `</ul>`,
+        `</section>`,
+      ].join("");
+    }
+    return sectionBlock(title, body);
+  }
+
   function includedCallout(text) {
     const raw = asText(text);
     if (!raw) return "";
@@ -65,15 +100,25 @@
     ].join("");
   }
 
-  function imageHtml(image, className) {
+  /**
+   * Print image helper. By default omits markup when there is no URL (no empty placeholder).
+   * Cover may pass { allowFallback: true } for an intentional decorative fallback.
+   */
+  function imageHtml(image, className, options = {}) {
     let url = asText(image?.url);
     // Print-safe image refs only: relative app paths or http(s). Never javascript: etc.
     if (url && !(url.startsWith("/") || /^https?:\/\//i.test(url))) {
       url = "";
     }
-    if (!url) return `<div class="${esc(className)} bb-image-fallback" role="img" aria-label="Decorative placeholder"></div>`;
+    if (!url) {
+      if (options.allowFallback === true) {
+        return `<div class="${esc(className)} bb-image-fallback" role="img" aria-label="Decorative placeholder"></div>`;
+      }
+      return "";
+    }
     const alt = esc(image?.alt || "Lesson image");
-    return `<div class="${esc(className)}"><img src="${esc(url)}" alt="${alt}" loading="lazy" decoding="async" onerror="this.parentElement.classList.add('is-broken'); this.remove();"></div>`;
+    // onerror removes the whole frame so a broken URL never leaves an empty image box
+    return `<div class="${esc(className)}"><img src="${esc(url)}" alt="${alt}" loading="lazy" decoding="async" onerror="this.parentElement.remove();"></div>`;
   }
 
   function footerHtml(doc, pageLabel) {
@@ -92,7 +137,7 @@
     return [
       `<article class="bb-page bb-page-cover" data-bb-page="cover">`,
       `<div class="bb-cover-brand">Little Learner Hub</div>`,
-      imageHtml(doc.coverImage, "bb-cover-media"),
+      imageHtml(doc.coverImage, "bb-cover-media", { allowFallback: true }),
       `<div class="bb-cover-copy">`,
       `<p class="bb-cover-descriptor">${esc(doc.coverDescriptor)}</p>`,
       `<h1>${esc(doc.title)}</h1>`,
@@ -138,48 +183,46 @@
   }
 
   function renderDayDivider(doc, day) {
+    const media = imageHtml(day.image, "bb-divider-media");
+    const imageFree = media ? "" : " is-image-free";
     return [
-      `<article class="bb-page bb-page-divider" data-bb-page="dayDivider" data-bb-day="${esc(day.dayKey)}">`,
+      `<article class="bb-page bb-page-divider${imageFree}" data-bb-page="dayDivider" data-bb-day="${esc(day.dayKey)}">`,
       `<div class="bb-divider-inner">`,
       `<p class="bb-divider-day">${esc(day.label)}</p>`,
       `<h2>${esc(day.title?.text || day.label)}</h2>`,
       day.description?.text ? `<p class="bb-divider-today"><span>Today we…</span> ${esc(day.description.text)}</p>` : "",
-      imageHtml(day.image, "bb-divider-media"),
+      media,
       `</div>`,
       footerHtml(doc, day.label),
       `</article>`,
     ].join("");
   }
 
+  /**
+   * Customer-facing activity page content only (Phase 1).
+   * Omits materials, prep, shopping, assembly, cleanup, questions, support, challenge, safety.
+   */
   function renderActivityCard(activity) {
     return [
       `<section class="bb-activity-card" data-bb-activity="${esc(activity.id)}">`,
-      `<div class="bb-activity-head">`,
-      `<h3>${esc(activity.title)}</h3>`,
       imageHtml(activity.image, "bb-activity-media"),
-      `</div>`,
-      sectionBlock("Introduction", activity.introduction),
       sectionBlock("What We're Doing", activity.whatWereDoing),
-      sectionBlock("How To Do It", activity.howToDoIt),
-      sectionBlock("What Children Are Learning", activity.learning),
-      sectionBlock("Teacher Questions", activity.questions),
-      sectionBlock("Support & Adaptation", activity.support),
-      sectionBlock("Challenge / Extension", activity.challenge),
-      sectionBlock("Safety Note", activity.safety),
-      sectionBlock("Cleanup", activity.cleanup),
+      stepsBlock("How To Do It", activity.howToDoIt),
+      learningBlock("What They're Learning", activity.learning),
       includedCallout(activity.includedResources),
       `</section>`,
     ].join("");
   }
 
-  function renderDayPlans(doc, day) {
-    const cards = (day.activities || []).map(renderActivityCard).join("");
-    const body = cards || `<p class="bb-empty-note">No activities are configured for ${esc(day.label)}.</p>`;
+  /** One activity per printed page (Phase 1). Requires page.activityId from the page plan. */
+  function renderDayPlans(doc, day, page = {}) {
+    const activity = (day.activities || []).find((item) => item.id === page.activityId);
+    if (!activity) return "";
     return [
-      `<article class="bb-page bb-page-day-plans" data-bb-page="dayPlans" data-bb-day="${esc(day.dayKey)}">`,
-      `<header class="bb-page-header"><p class="bb-kicker">${esc(day.label)}</p><h2>${esc(day.title?.text || "Daily Plan")}</h2></header>`,
-      body,
-      footerHtml(doc, `${day.label} Activities`),
+      `<article class="bb-page bb-page-day-plans" data-bb-page="dayPlans" data-bb-day="${esc(day.dayKey)}" data-bb-activity-page="${esc(activity.id)}">`,
+      `<header class="bb-page-header"><p class="bb-kicker">${esc(day.label)}</p><h2>${esc(activity.title)}</h2></header>`,
+      renderActivityCard(activity),
+      footerHtml(doc, `${day.label} · ${activity.title}`),
       `</article>`,
     ].join("");
   }
@@ -315,7 +358,7 @@
       }
       if (page.type === "dayPlans") {
         const day = (document.days || []).find((item) => item.dayKey === page.dayKey);
-        return day ? renderDayPlans(document, day) : "";
+        return day ? renderDayPlans(document, day, page) : "";
       }
       if (page.type === "books") return renderBooks(document);
       if (page.type === "songs") return renderSongs(document);
