@@ -460,6 +460,13 @@
   gap: 14px;
   text-align: left;
 }
+.bb-page-divider.is-image-free .bb-divider-inner {
+  justify-items: center;
+  text-align: center;
+}
+.bb-page-divider.is-image-free .bb-divider-today {
+  max-width: 28rem;
+}
 .bb-divider-day {
   margin: 0;
   font-size: 1rem;
@@ -492,6 +499,14 @@
   margin-top: 0.2in;
 }
 
+/* Phase 1: one activity per page — glanceable teaching card, no empty image frames */
+.bb-page-day-plans .bb-activity-card {
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+}
 .bb-activity-card {
   break-inside: avoid;
   page-break-inside: avoid;
@@ -501,26 +516,17 @@
   margin-bottom: 14px;
   background: rgba(255, 255, 255, 0.86);
 }
-.bb-activity-head {
-  display: grid;
-  grid-template-columns: 1fr 1.35in;
-  gap: 12px;
-  align-items: start;
-  margin-bottom: 8px;
-}
-.bb-activity-head h3 {
-  margin: 0;
-  font-family: "Fraunces", Georgia, serif;
-  font-size: 1.25rem;
-}
 .bb-activity-media {
-  width: 1.35in;
-  height: 1.05in;
-  border-radius: 10px;
+  width: 100%;
+  max-width: 100%;
+  aspect-ratio: 16 / 10;
+  height: auto;
+  border-radius: 14px;
   overflow: hidden;
-  background: var(--bb-print-warm);
+  margin: 0 0 0.22in;
+  background: transparent;
 }
-.bb-activity-section { margin-top: 10px; }
+.bb-activity-section { margin-top: 12px; }
 .bb-activity-section h4 {
   margin: 0 0 4px;
   font-size: 0.78rem;
@@ -531,7 +537,20 @@
 .bb-activity-section p {
   margin: 0;
   line-height: 1.45;
-  font-size: 0.95rem;
+  font-size: 0.98rem;
+}
+.bb-activity-steps,
+.bb-activity-learning {
+  margin: 0;
+  padding-left: 1.15rem;
+  display: grid;
+  gap: 6px;
+  line-height: 1.45;
+  font-size: 0.98rem;
+}
+.bb-activity-steps li,
+.bb-activity-learning li {
+  padding-left: 2px;
 }
 
 .bb-included {

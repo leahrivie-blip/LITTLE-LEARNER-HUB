@@ -157,12 +157,12 @@
     return firstMeaningful(dayPlan?.theme, dayPlan?.focus, dayPlan?.title, firstActivityTitle);
   }
 
-  function dayImageFromSource(dayPlan) {
-    const items = Array.isArray(dayPlan?.items) ? dayPlan.items : [];
-    for (let i = 0; i < items.length; i += 1) {
-      const image = activityImage(items[i]);
-      if (image.url) return image;
-    }
+  /**
+   * Day-divider images must be true day-level assets only.
+   * Never inherit the first activity image (Phase 1 print polish).
+   * Owner may still set dayDraft.imageOverride explicitly.
+   */
+  function dayImageFromSource(_dayPlan) {
     return { url: "", alt: "", source: "" };
   }
 
@@ -495,11 +495,14 @@
         });
       }
       if (sections.dailyPlans !== false) {
-        pages.push({
-          type: "dayPlans",
-          dayKey,
-          label: `${WEEKDAY_LABELS[dayKey]} Activities`,
-          activityCount: day?.activities?.length || 0,
+        const activities = Array.isArray(day?.activities) ? day.activities : [];
+        activities.forEach((activity) => {
+          pages.push({
+            type: "dayPlans",
+            dayKey,
+            activityId: activity.id,
+            label: `${WEEKDAY_LABELS[dayKey]} · ${activity.title || "Activity"}`,
+          });
         });
       }
     });
@@ -530,6 +533,7 @@
     buildBinderDocument,
     buildPagePlan,
     dayDescriptionFromSource,
+    dayImageFromSource,
     dayTitleFromSource,
     activityHowTo,
     activityIntroduction,

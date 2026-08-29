@@ -343,10 +343,70 @@ function unitTests() {
   const forcedPages = transform.buildPagePlan(transform.buildBinderDocument(forced, preschool));
   ok(forcedPages.filter((p) => p.type === "dayPlans").length === 5, "dayPlans pages remain when dailyPlans forced");
 
+  // --- Phase 1 print polish regressions ---
+  const phase1Lesson = sampleLesson("Preschool", {
+    id: "cur-lp-bb-phase1-polish",
+    title: "Phase 1 Print Polish Sample",
+  });
+  // Monday has exampleImageUrl; Tuesday has none (see sampleLesson)
+  phase1Lesson.dailyPlans.monday.items.push({
+    itemId: "act-mon-2",
+    title: "Second Monday Activity",
+    description: "A second activity on the same day.",
+    steps: ["Step one.", "Step two."],
+    learningGoals: ["Sharing"],
+    activityCategory: "Literacy",
+  });
+  const phase1Before = JSON.stringify(phase1Lesson);
+  const phase1Draft = model.createDraftFromLesson(phase1Lesson);
+  const phase1Doc = transform.buildBinderDocument(phase1Draft, phase1Lesson);
+  const monDay = phase1Doc.days.find((d) => d.dayKey === "monday");
+  const tueDay = phase1Doc.days.find((d) => d.dayKey === "tuesday");
+  ok(!monDay.image?.url, "day divider does not inherit first activity image");
+  ok(transform.dayImageFromSource(phase1Lesson.dailyPlans.monday).url === "", "dayImageFromSource returns empty without day-level image");
+  ok(monDay.activities[0].image?.url === "https://example.com/acts/leaf-hunt.jpg", "activity keeps its own exampleImageUrl");
+  ok(!tueDay.activities[0].image?.url, "activity without image has empty image url");
+
+  const phase1Pages = transform.buildPagePlan(phase1Doc);
+  const monPlanPages = phase1Pages.filter((p) => p.type === "dayPlans" && p.dayKey === "monday");
+  ok(monPlanPages.length === 2, "one dayPlans page per monday activity");
+  ok(monPlanPages.every((p) => p.activityId), "each dayPlans page carries activityId");
+  ok(phase1Pages.filter((p) => p.type === "dayPlans").length === 6, "page plan emits one page per activity across the week");
+
+  const phase1Print = print.buildBinderPrintHtml(phase1Draft, phase1Lesson, { qrSvgByUrl: {} });
+  const activityPages = phase1Print.html.match(/data-bb-page="dayPlans"/g) || [];
+  ok(activityPages.length === 6, "print renders one activity page per activity");
+  ok((phase1Print.html.match(/data-bb-activity-page="/g) || []).length === 6, "each activity page tagged with activity id");
+
+  const withImgSlice = phase1Print.html.split('data-bb-activity-page="')[1] || "";
+  const monActId = monDay.activities[0].id;
+  const tueActId = tueDay.activities[0].id;
+  const withImgHtml = phase1Print.html.includes(`data-bb-activity-page="${monActId}"`)
+    ? phase1Print.html.split(`data-bb-activity-page="${monActId}"`)[1].split('data-bb-page=')[0]
+    : "";
+  const noImgHtml = phase1Print.html.includes(`data-bb-activity-page="${tueActId}"`)
+    ? phase1Print.html.split(`data-bb-activity-page="${tueActId}"`)[1].split('data-bb-page=')[0]
+    : "";
+  ok(/example\.com\/acts\/leaf-hunt\.jpg/.test(withImgHtml), "activity with image displays its own image url");
+  ok(/bb-activity-media/.test(withImgHtml), "activity with image renders media frame");
+  ok(!/bb-activity-media/.test(noImgHtml), "activity without image has no media frame");
+  ok(!/bb-image-fallback/.test(noImgHtml), "activity without image has no placeholder/fallback box");
+  ok(!/bb-image-fallback/.test(phase1Print.html.match(/data-bb-page="dayDivider"[\s\S]*?<\/article>/)?.[0] || ""), "day divider has no image fallback box");
+  ok(/is-image-free/.test(phase1Print.html), "image-free day divider marked intentionally");
+  ok(/What We're Doing/.test(phase1Print.html), "What We're Doing present on activity pages");
+  ok(/How To Do It/.test(phase1Print.html), "How To Do It present on activity pages");
+  ok(/What They're Learning/.test(phase1Print.html), "What They're Learning present on activity pages");
+  ok(/bb-activity-steps/.test(phase1Print.html), "How To Do It renders as numbered steps when multi-line");
+  ok(!/Teacher Questions|Support &amp; Adaptation|Challenge \/ Extension|Safety Note|Cleanup|Introduction/.test(phase1Print.html), "Teaching Kit detail fields omitted from customer print");
+  ok(!/GIANT MATERIALS LIST|weeklyMaterials|Preparation checklist|packing list|assembly|shopping list|laminat/i.test(phase1Print.html), "materials/prep/shopping/assembly never leak into customer print");
+  ok(JSON.stringify(phase1Lesson) === phase1Before, "Phase 1 print path does not mutate source lesson");
+
   // Print CSS keeps absolute footers (Chromium does not support CSS running())
   const printCss = fs.readFileSync(path.join(ROOT, "styles/binder-builder.css"), "utf8");
   ok(!/position:\s*running\s*\(/.test(printCss), "print CSS does not use unsupported running() footers");
   ok(/printing-binder-builder[\s\S]*\.bb-page-footer\s*\{\s*position:\s*absolute/.test(printCss), "print footers stay absolutely positioned");
+  ok(/is-image-free/.test(printCss), "CSS includes image-free divider polish");
+  ok(/bb-activity-steps/.test(printCss), "CSS includes activity step list styles");
 
   // Empty optional sections omitted
   draft.sections.books = true;
