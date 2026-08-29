@@ -145,6 +145,31 @@ async function main() {
     const afterMount = await page.inputValue('[data-bb-field="welcomeCopy"]');
     ok(afterMount === typed, "typed Binder Builder fields remain stable through Admin remount");
 
+    // Explicit blank welcome: clear → save → reopen path → remount → stays blank
+    const defaultWelcomeSnippet = "This binder is organized by day";
+    await page.fill('[data-bb-field="welcomeCopy"]', "");
+    await page.locator('[data-bb-action="save"]').first().click();
+    await page.waitForTimeout(400);
+    ok((await page.inputValue('[data-bb-field="welcomeCopy"]')) === "", "cleared welcome stays blank after save");
+    await page.evaluate(() => {
+      if (window.LLHBinderBuilderUi) window.LLHBinderBuilderUi.mount();
+    });
+    ok((await page.inputValue('[data-bb-field="welcomeCopy"]')) === "", "cleared welcome stays blank after remount");
+    await page.locator('[data-bb-step="review"]').click();
+    await page.locator('[data-bb-step="configure"]').click();
+    await page.waitForSelector('[data-bb-field="welcomeCopy"]', { timeout: 15000 });
+    ok((await page.inputValue('[data-bb-field="welcomeCopy"]')) === "", "cleared welcome stays blank after step change");
+    await page.locator('[data-bb-action="preview"]').click();
+    await page.waitForSelector(".bb-preview-frame .bb-page-cover", { timeout: 30000 });
+    const blankPreview = await page.locator(".bb-preview-frame").innerText();
+    ok(!new RegExp(defaultWelcomeSnippet, "i").test(blankPreview), "blank welcome preview omits default copy");
+    // Return to configure for remaining flow; restore typed content so later remount checks stay meaningful
+    await page.locator('[data-bb-step="configure"]').click();
+    await page.waitForSelector('[data-bb-field="welcomeCopy"]', { timeout: 15000 });
+    await page.fill('[data-bb-field="welcomeCopy"]', typed);
+    await page.locator('[data-bb-action="save"]').first().click();
+    await page.waitForTimeout(300);
+
     await page.locator('[data-bb-step="review"]').click();
     await page.waitForSelector("[data-bb-activity]", { timeout: 15000 });
     ok(await page.locator("[data-bb-activity]").count() >= 1, "review shows activities");
