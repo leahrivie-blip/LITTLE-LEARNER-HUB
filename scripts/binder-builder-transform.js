@@ -151,7 +151,10 @@
   }
 
   function dayTitleFromSource(dayPlan) {
-    return firstMeaningful(dayPlan?.theme, dayPlan?.focus, dayPlan?.title);
+    const firstActivityTitle = Array.isArray(dayPlan?.items) && dayPlan.items[0]
+      ? asText(dayPlan.items[0].title)
+      : "";
+    return firstMeaningful(dayPlan?.theme, dayPlan?.focus, dayPlan?.title, firstActivityTitle);
   }
 
   function dayImageFromSource(dayPlan) {
