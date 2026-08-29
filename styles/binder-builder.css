@@ -679,8 +679,12 @@
   .bb-page-cover {
     background: #fff;
   }
+  /* Keep absolute footers in print. CSS `running()` is not supported in Chromium print. */
   .bb-page-footer {
-    position: running(bbFooter);
+    position: absolute;
+    left: 0.45in;
+    right: 0.45in;
+    bottom: 0;
   }
   .bb-activity-card,
   .bb-book-card,

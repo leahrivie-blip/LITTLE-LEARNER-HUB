@@ -188,6 +188,18 @@ async function main() {
     await page.locator('[data-bb-step="preview"]').click();
     ok(await page.locator(".bb-preview-frame .bb-page").count() >= 8, "preview pages remain on laptop viewport");
 
+    // Narrow mobile admin usability
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.locator('[data-bb-step="configure"]').click();
+    await page.waitForSelector('[data-bb-field="welcomeCopy"]', { timeout: 15000 });
+    const welcomeBox = await page.locator('[data-bb-field="welcomeCopy"]').boundingBox();
+    const saveBtn = page.locator('[data-bb-action="save"]').first();
+    const saveBox = await saveBtn.boundingBox();
+    ok(welcomeBox && welcomeBox.width > 200, "welcome field usable on narrow mobile width");
+    ok(saveBox && saveBox.x + saveBox.width <= 390 + 1, "save button reachable within mobile viewport");
+    const overflowX = await page.evaluate(() => document.querySelector("#adminBinderBuilderApp")?.scrollWidth > document.querySelector("#adminBinderBuilderApp")?.clientWidth + 8);
+    ok(!overflowX, "Binder Builder admin does not horizontally overflow on mobile");
+
     // Public lesson browsing unchanged — homepage still loads
     await page.goto(`${BASE}/`, { waitUntil: "domcontentloaded" });
     ok(true, "public homepage still loads after Binder Builder use");
