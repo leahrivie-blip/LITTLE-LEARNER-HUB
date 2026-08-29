@@ -809,7 +809,7 @@
       });
     });
 
-    // Live URL validation without full re-render
+    // Live URL validation without full re-render (trim pasted whitespace before validating)
     root.querySelectorAll('[data-bb-book-field="resourceUrl"], [data-bb-song-field="resourceUrl"]').forEach((input) => {
       input.addEventListener("input", () => {
         const wrap = input.closest(".bb-review-card");
