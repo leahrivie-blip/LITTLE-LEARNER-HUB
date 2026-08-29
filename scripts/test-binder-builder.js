@@ -274,6 +274,9 @@ function unitTests() {
   const toddlerDraft = model.createDraftFromLesson(toddler);
   ok(transform.buildBinderDocument(toddlerDraft, toddler).ageGroup === "Toddler", "toddler lesson loads");
 
+  const thinDayTitle = transform.dayTitleFromSource({ items: [{ title: "Helper Hats" }] });
+  ok(thinDayTitle === "Helper Hats", "day title falls back to first activity when day theme missing");
+
   const valid = qr.validateBinderUrl("https://example.com/resource");
   ok(valid.ok === true, "QR accepts valid HTTPS URL");
   const invalid = qr.validateBinderUrl("not a url");
@@ -293,6 +296,7 @@ function unitTests() {
   ok(/Story Time/.test(printed.html), "story time section present");
   ok(/Music &amp; Movement|Music & Movement/.test(printed.html), "music section present");
   ok(!/undefined|null|N\/A/.test(printed.html.replace(/<[^>]+>/g, " ")), "no undefined/null/N/A text");
+  ok(!/Binder override|Using lesson content|sourceLessonId|data-bb-admin-chrome/i.test(printed.html), "print html has no admin/internal labels");
 
   draft.books[0].resourceUrl = "https://example.com/story/leaf-man";
   const withQrHtml = print.buildBinderPrintHtml(draft, preschool, {

@@ -39,19 +39,12 @@
     return esc(raw).replace(/\n/g, "<br>");
   }
 
-  function originBadge(origin) {
-    if (origin === "override") return `<span class="bb-origin bb-origin-override" data-bb-admin-only>Binder override</span>`;
-    if (origin === "source") return `<span class="bb-origin bb-origin-source" data-bb-admin-only>Using lesson content</span>`;
-    return "";
-  }
-
-  function sectionBlock(title, body, origin) {
+  function sectionBlock(title, body) {
     const text = asText(body?.text != null ? body.text : body);
     if (!text) return "";
     return [
       `<section class="bb-activity-section">`,
       `<h4>${esc(title)}</h4>`,
-      originBadge(body?.origin),
       `<p>${multiline(text)}</p>`,
       `</section>`,
     ].join("");
