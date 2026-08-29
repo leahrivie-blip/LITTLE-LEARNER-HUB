@@ -134,7 +134,8 @@
       welcome: bool(entry.welcome, defaults.welcome),
       weekAtAGlance: bool(entry.weekAtAGlance, defaults.weekAtAGlance),
       dailyDividers: bool(entry.dailyDividers, defaults.dailyDividers),
-      dailyPlans: bool(entry.dailyPlans, true),
+      // Required teaching pages — never allow accidental disable via API/draft payload.
+      dailyPlans: true,
       books: bool(entry.books, defaults.books),
       songs: bool(entry.songs, defaults.songs),
       learningCenters: bool(entry.learningCenters, defaults.learningCenters),

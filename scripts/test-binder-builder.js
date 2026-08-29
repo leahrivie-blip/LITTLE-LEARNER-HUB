@@ -320,6 +320,18 @@ function unitTests() {
   const toggled = transform.buildPagePlan(transform.buildBinderDocument(draft, preschool));
   ok(!toggled.some((p) => p.type === "books" || p.type === "songs"), "section toggles hide books/songs");
 
+  // Required daily teaching pages cannot be disabled (even via crafted payload)
+  draft.sections.dailyPlans = false;
+  const forced = model.normalizeBinderDraft(draft);
+  ok(forced.sections.dailyPlans === true, "normalize forces dailyPlans required");
+  const forcedPages = transform.buildPagePlan(transform.buildBinderDocument(forced, preschool));
+  ok(forcedPages.filter((p) => p.type === "dayPlans").length === 5, "dayPlans pages remain when dailyPlans forced");
+
+  // Print CSS keeps absolute footers (Chromium does not support CSS running())
+  const printCss = fs.readFileSync(path.join(ROOT, "styles/binder-builder.css"), "utf8");
+  ok(!/position:\s*running\s*\(/.test(printCss), "print CSS does not use unsupported running() footers");
+  ok(/printing-binder-builder[\s\S]*\.bb-page-footer\s*\{\s*position:\s*absolute/.test(printCss), "print footers stay absolutely positioned");
+
   // Empty optional sections omitted
   draft.sections.books = true;
   draft.books = [];
