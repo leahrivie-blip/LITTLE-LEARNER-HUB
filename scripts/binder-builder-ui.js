@@ -124,7 +124,8 @@
 
     draft.title = val("title") || draft.title;
     draft.coverDescriptor = val("coverDescriptor") || draft.coverDescriptor;
-    draft.welcomeCopy = val("welcomeCopy") || draft.welcomeCopy;
+    // Honor explicit blank welcome; do not treat "" as falsy fallback to prior text.
+    draft.welcomeCopy = val("welcomeCopy");
     draft.weekFocusOverride = val("weekFocusOverride");
     draft.developmentalFocusOverride = val("developmentalFocusOverride");
     draft.familyConnectionOverride = val("familyConnectionOverride");

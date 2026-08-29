@@ -266,6 +266,22 @@ function unitTests() {
   const resetDoc = transform.buildBinderDocument(draft, preschool);
   ok(resetDoc.days[0].activities[0].howToDoIt.origin === "source", "reset-to-source uses lesson content");
 
+  // Explicit blank welcome must persist (not falsy-fallback to default)
+  const beforeWelcomeLesson = JSON.stringify(preschool);
+  ok(Boolean(draft.welcomeCopy), "welcome starts with default binder copy");
+  draft.welcomeCopy = "";
+  const blankNormalized = model.normalizeBinderDraft(draft);
+  ok(blankNormalized.welcomeCopy === "", "normalize keeps explicit blank welcome");
+  const blankDoc = transform.buildBinderDocument(blankNormalized, preschool);
+  ok(blankDoc.welcomeCopy === "", "transform honors blank welcome (no default restore)");
+  const blankPrint = print.buildBinderPrintHtml(blankNormalized, preschool, { qrSvgByUrl: {} });
+  ok(!/This binder is organized by day/i.test(blankPrint.html), "blank welcome does not print default copy");
+  // Deliberate restore of default welcome (distinct from blank)
+  blankNormalized.welcomeCopy = model.DEFAULT_WELCOME_COPY;
+  const restored = model.normalizeBinderDraft(blankNormalized);
+  ok(restored.welcomeCopy === model.DEFAULT_WELCOME_COPY, "assigning DEFAULT_WELCOME_COPY restores default welcome");
+  ok(JSON.stringify(preschool) === beforeWelcomeLesson, "blank welcome path does not mutate source lesson");
+
   const infantDraft = model.createDraftFromLesson(infant);
   const infantDoc = transform.buildBinderDocument(infantDraft, infant);
   ok(infantDoc.ageGroup === "Infant", "infant lesson loads");
@@ -429,6 +445,39 @@ async function apiTests(ownerToken, otherToken, lessons) {
     body: { action: "save-draft", draft },
   });
   ok(saved2.json.draft.welcomeCopy.startsWith("Typed welcome that must remain stable"), "typed binder fields remain stable through save/sync");
+
+  // Explicit blank welcome persists through save/reopen/preview without mutating source
+  const lessonBytesBeforeBlank = JSON.stringify(lessonAfter.json.lesson);
+  draft.welcomeCopy = "";
+  const savedBlank = await request("POST", "/api/admin/curriculum/binder-builder", {
+    token: ownerToken,
+    body: { action: "save-draft", draft },
+  });
+  ok(savedBlank.status === 200 && savedBlank.json.draft.welcomeCopy === "", "save keeps explicit blank welcome");
+  const reopenBlank = await request("POST", "/api/admin/curriculum/binder-builder", {
+    token: ownerToken,
+    body: { action: "get-draft", draftId: draft.id },
+  });
+  ok(reopenBlank.json.draft.welcomeCopy === "", "reopen keeps explicit blank welcome");
+  const previewBlank = await request("POST", "/api/admin/curriculum/binder-builder", {
+    token: ownerToken,
+    body: { action: "preview", draft: reopenBlank.json.draft },
+  });
+  ok(previewBlank.status === 200, "preview succeeds with blank welcome");
+  ok(!/This binder is organized by day/i.test(previewBlank.json.html || ""), "blank welcome preview omits default copy");
+  const lessonBytesAfterBlank = await request("POST", "/api/admin/curriculum/binder-builder", {
+    token: ownerToken,
+    body: { action: "get-lesson", lessonId: infant.id },
+  });
+  ok(JSON.stringify(lessonBytesAfterBlank.json.lesson) === lessonBytesBeforeBlank, "blank welcome leaves source lesson byte-identical");
+
+  // Deliberate restore of default welcome remains available and distinct from blank
+  draft.welcomeCopy = model.DEFAULT_WELCOME_COPY;
+  const restoredWelcome = await request("POST", "/api/admin/curriculum/binder-builder", {
+    token: ownerToken,
+    body: { action: "save-draft", draft },
+  });
+  ok(restoredWelcome.json.draft.welcomeCopy === model.DEFAULT_WELCOME_COPY, "deliberate DEFAULT_WELCOME_COPY restore works");
 
   const dup = await request("POST", "/api/admin/curriculum/binder-builder", {
     token: ownerToken,

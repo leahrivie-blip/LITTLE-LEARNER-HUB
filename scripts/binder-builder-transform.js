@@ -445,7 +445,8 @@
         programName: asText(draft.personalization?.programName),
         subtitle: asText(draft.personalization?.subtitle),
       },
-      welcomeCopy: firstMeaningful(draft.welcomeCopy) || DEFAULT_WELCOME_COPY,
+      // Honor explicit blank binder welcome; only default when the field is missing.
+      welcomeCopy: draft.welcomeCopy == null ? DEFAULT_WELCOME_COPY : asText(draft.welcomeCopy),
       weekFocus,
       developmentalFocus,
       sections: draft.sections,

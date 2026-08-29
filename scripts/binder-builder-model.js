@@ -275,7 +275,8 @@
       theme: shortText(entry.theme, 120),
       coverImage: normalizeImageRef(entry.coverImage),
       coverDescriptor: shortText(entry.coverDescriptor, 120) || DEFAULT_DESCRIPTOR,
-      welcomeCopy: text(entry.welcomeCopy, 6000) || DEFAULT_WELCOME_COPY,
+      // null/undefined → default welcome; explicit "" stays intentionally blank.
+      welcomeCopy: entry.welcomeCopy == null ? DEFAULT_WELCOME_COPY : text(entry.welcomeCopy, 6000),
       weekFocusOverride: text(entry.weekFocusOverride, 2000),
       developmentalFocusOverride: text(entry.developmentalFocusOverride, 2000),
       personalization: normalizePersonalization(entry.personalization),
