@@ -4954,7 +4954,10 @@ async function initializeStorage() {
       console.log(`[admin-session-store] boot migration moved ${migration.migratedCount} legacy session(s) out of the shared store`);
     }
     adminSessionStore.startPruneScheduler();
-
+  } catch (error) {
+    console.error("[admin-session-store] initialization failed — admin login will still work, but may fall back to slower legacy storage:", error.message);
+  }
+  try {
     // Curriculum operator jobs: dedicated table/file (Stage 1 offload). Does not strip
     // legacy llh_store.curriculumOperatorJobs until an explicit migration apply.
     curriculumOperatorJobStore.configure({
@@ -4964,7 +4967,7 @@ async function initializeStorage() {
     await curriculumOperatorJobStore.initTable();
     await curriculumOperatorJobStore.loadFromStorage();
   } catch (error) {
-    console.error("[admin-session-store] initialization failed — admin login will still work, but may fall back to slower legacy storage:", error.message);
+    console.error("[curriculum-operator-job-store] initialization failed — operator jobs will fall back to llh_store bag:", error.message);
   }
   try {
     // Trim analyticsEvents only on the live store reference. Never rebuild users,
