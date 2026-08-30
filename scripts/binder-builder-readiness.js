@@ -33,6 +33,25 @@
    * @param {object} draftInput
    * @param {object|null|undefined} lesson
    */
+  /**
+   * Page uniqueness for duplicate detection.
+   * Phase 1: dayPlans are one activity per page — distinguish by stable sourceItemId
+   * (fallback: binder activityId). Other page types keep type:dayKey identity.
+   * @param {{ type?: string, dayKey?: string, sourceItemId?: string, activityId?: string }} page
+   */
+  function pageUniquenessKey(page) {
+    if (!page || typeof page !== "object") return "";
+    if (page.type === "dayPlans") {
+      const activityIdentity = asText(page.sourceItemId) || asText(page.activityId);
+      return `dayPlans:${page.dayKey || ""}:${activityIdentity}`;
+    }
+    return `${page.type}:${page.dayKey || ""}`;
+  }
+
+  /**
+   * @param {object} draftInput
+   * @param {object|null|undefined} lesson
+   */
   function evaluateBinderReadiness(draftInput, lesson) {
     const draft = normalizeBinderDraft(draftInput);
     const document = buildBinderDocument(draft, lesson);
@@ -62,9 +81,9 @@
       add("warn", "empty_welcome", "How to Use This Binder", "Welcome page is enabled but has no copy.");
     }
 
-    const pageTypes = pages.map((page) => `${page.type}:${page.dayKey || ""}`);
     const seen = new Set();
-    pageTypes.forEach((key) => {
+    pages.forEach((page) => {
+      const key = pageUniquenessKey(page);
       if (seen.has(key)) {
         add("block", "duplicate_page", "Preview", `Duplicate page detected (${key}).`);
       }
@@ -179,5 +198,6 @@
 
   return {
     evaluateBinderReadiness,
+    pageUniquenessKey,
   };
 });
