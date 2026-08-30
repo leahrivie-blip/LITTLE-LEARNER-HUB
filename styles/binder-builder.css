@@ -918,13 +918,16 @@
 }
 .bb-divider-frame {
   height: 100%;
+  max-height: 100%;
+  box-sizing: border-box;
   border: 1.5px solid rgba(61, 122, 90, 0.18);
   border-radius: 16px;
-  padding: 0.35in 0.35in 0.3in;
+  padding: 0.28in 0.3in 0.22in;
   display: grid;
   align-content: start;
-  gap: 12px;
+  gap: 10px;
   background: rgba(255, 255, 255, 0.78);
+  overflow: hidden;
 }
 .bb-page-divider .bb-divider-inner,
 .bb-page-divider .bb-divider-frame {
