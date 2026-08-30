@@ -501,6 +501,8 @@
             type: "dayPlans",
             dayKey,
             activityId: activity.id,
+            // Stable source activity identity for readiness uniqueness (Phase 1 one-per-page).
+            sourceItemId: asText(activity.sourceItemId),
             label: `${WEEKDAY_LABELS[dayKey]} · ${activity.title || "Activity"}`,
           });
         });

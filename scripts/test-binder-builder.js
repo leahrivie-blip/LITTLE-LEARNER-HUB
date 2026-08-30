@@ -401,6 +401,97 @@ function unitTests() {
   ok(!/GIANT MATERIALS LIST|weeklyMaterials|Preparation checklist|packing list|assembly|shopping list|laminat/i.test(phase1Print.html), "materials/prep/shopping/assembly never leak into customer print");
   ok(JSON.stringify(phase1Lesson) === phase1Before, "Phase 1 print path does not mutate source lesson");
 
+  // --- Phase 1 repair: readiness uniqueness + step number normalization ---
+  ok(
+    readiness.pageUniquenessKey({ type: "dayPlans", dayKey: "monday", sourceItemId: "act-a" })
+      !== readiness.pageUniquenessKey({ type: "dayPlans", dayKey: "monday", sourceItemId: "act-b" }),
+    "different Monday sourceItemIds produce distinct uniqueness keys",
+  );
+  ok(
+    readiness.pageUniquenessKey({ type: "dayPlans", dayKey: "monday", sourceItemId: "act-a", activityId: "bb-1" })
+      === readiness.pageUniquenessKey({ type: "dayPlans", dayKey: "monday", sourceItemId: "act-a", activityId: "bb-2" }),
+    "same sourceItemId is the primary activity identity (not title/draft id)",
+  );
+  ok(
+    readiness.pageUniquenessKey({ type: "dayDivider", dayKey: "monday" }) === "dayDivider:monday",
+    "non-activity pages keep type:dayKey uniqueness",
+  );
+  ok(
+    readiness.pageUniquenessKey({ type: "cover" }) === "cover:",
+    "cover uniqueness remains type-only",
+  );
+
+  const multiMonLesson = sampleLesson("Toddler", {
+    id: "cur-lp-bb-phase1-repair-multi",
+    title: "All About Me Style Multi",
+  });
+  multiMonLesson.dailyPlans.monday.items = [
+    { itemId: "act-mon-a", title: "Mirror Me", description: "Look in mirrors.", steps: ["1. Invite looking.", "2. Point to eyes.", "3. Make a silly face."], learningGoals: ["Self-awareness"], exampleImageUrl: "https://example.com/a.jpg" },
+    { itemId: "act-mon-b", title: "My Name Discovery", description: "Find name cards.", steps: ["Show two cards.", "Say a name.", "Find the photo."], learningGoals: ["Name recognition"] },
+    { itemId: "act-mon-c", title: "Family Photo Sharing", description: "Talk about family.", steps: ["1. Choose a photo", "2. Point to people", "3. Name relationships"], learningGoals: ["Belonging"], exampleImageUrl: "https://example.com/c.jpg" },
+  ];
+  // 3 activities × 5 days = 15 activity pages (All About Me Phase 1 shape)
+  ["tuesday", "wednesday", "thursday", "friday"].forEach((day, di) => {
+    multiMonLesson.dailyPlans[day].items = [0, 1, 2].map((i) => ({
+      itemId: `act-${day}-${i + 1}`,
+      title: `${day} Activity ${i + 1}`,
+      description: `Short ${day} activity.`,
+      steps: ["Do step one.", "Do step two."],
+      learningGoals: ["Practice"],
+      ...(i === 0 ? { exampleImageUrl: `https://example.com/${day}.jpg` } : {}),
+    }));
+  });
+  const multiBefore = JSON.stringify(multiMonLesson);
+  const multiDraft = model.createDraftFromLesson(multiMonLesson);
+  const multiDoc = transform.buildBinderDocument(multiDraft, multiMonLesson);
+  const multiPages = transform.buildPagePlan(multiDoc);
+  const multiDayPlans = multiPages.filter((p) => p.type === "dayPlans");
+  ok(multiDayPlans.length === 15, "All About Me Phase 1 structure still produces 15 activity pages");
+  ok(multiPages.filter((p) => p.type === "dayDivider").length === 5, "five day dividers remain");
+  ok(multiDayPlans.every((p) => p.sourceItemId), "dayPlans pages carry sourceItemId for uniqueness");
+  ok(!multiDoc.days.find((d) => d.dayKey === "monday").image?.url, "day dividers still never inherit activity images");
+
+  const multiReady = readiness.evaluateBinderReadiness(multiDraft, multiMonLesson);
+  ok(!multiReady.issues.some((i) => i.code === "duplicate_page"), "three different Monday sourceItemIds do not trigger duplicate_page");
+  ok(multiReady.canPrint === true, "valid multi-activity sample canPrint true (no false duplicate blockers)");
+
+  // True duplicate of SAME Monday sourceItemId must still block
+  const dupDraft = model.normalizeBinderDraft(JSON.parse(JSON.stringify(multiDraft)));
+  const dupMonActs = dupDraft.days.monday.activities;
+  ok(dupMonActs.length >= 2, "duplicate fixture has multiple monday activities");
+  dupMonActs[1].sourceItemId = dupMonActs[0].sourceItemId;
+  dupMonActs[1].id = "bb-act-forced-duplicate";
+  const dupReady = readiness.evaluateBinderReadiness(dupDraft, multiMonLesson);
+  ok(dupReady.issues.some((i) => i.code === "duplicate_page" && /dayPlans:monday:/.test(i.message)), "true duplicate same Monday sourceItemId triggers duplicate_page");
+  ok(dupReady.canPrint === false, "true duplicate blocks printing");
+
+  // Step normalization: pre-numbered vs unnumbered (print projection only)
+  const stepPrint = print.buildBinderPrintHtml(multiDraft, multiMonLesson, { qrSvgByUrl: {} });
+  const mirrorAct = multiDoc.days.find((d) => d.dayKey === "monday").activities[0];
+  const nameAct = multiDoc.days.find((d) => d.dayKey === "monday").activities[1];
+  const mirrorSlice = stepPrint.html.includes(`data-bb-activity-page="${mirrorAct.id}"`)
+    ? stepPrint.html.split(`data-bb-activity-page="${mirrorAct.id}"`)[1].split("</article>")[0]
+    : "";
+  const nameSlice = stepPrint.html.includes(`data-bb-activity-page="${nameAct.id}"`)
+    ? stepPrint.html.split(`data-bb-activity-page="${nameAct.id}"`)[1].split("</article>")[0]
+    : "";
+  ok(/<li>Invite looking\.<\/li>/.test(mirrorSlice), "pre-numbered source step renders once-numbered (prefix stripped)");
+  ok(!/<li>1\.\s*Invite looking\./.test(mirrorSlice), "pre-numbered prefix not left inside list item");
+  ok(/<li>Show two cards\.<\/li>/.test(nameSlice), "unnumbered source step still renders correctly");
+  ok(multiMonLesson.dailyPlans.monday.items[0].steps[0] === "1. Invite looking.", "source step text remains unchanged after preview/render");
+  ok(JSON.stringify(multiMonLesson) === multiBefore, "source lesson remains byte-identical after readiness/print repair path");
+
+  const repairHtml = stepPrint.html;
+  ok(!/Teacher Questions|weeklyMaterials|GIANT MATERIALS|packing list|assembly|shopping list/i.test(repairHtml), "customer print still omits materials/prep/TK sections");
+  const withImgRepair = mirrorAct;
+  const withoutImgRepair = nameAct;
+  ok(Boolean(withImgRepair.image?.url), "activity with image still has its own image");
+  ok(!withoutImgRepair.image?.url, "activity without image still has no image");
+  const withImgHtmlRepair = mirrorSlice;
+  const withoutImgHtmlRepair = nameSlice;
+  ok(/bb-activity-media/.test(withImgHtmlRepair), "image/no-image Phase 1 behavior: with-image keeps media");
+  ok(!/bb-activity-media|bb-image-fallback/.test(withoutImgHtmlRepair), "image/no-image Phase 1 behavior: without-image stays collapsed");
+
   // Print CSS keeps absolute footers (Chromium does not support CSS running())
   const printCss = fs.readFileSync(path.join(ROOT, "styles/binder-builder.css"), "utf8");
   ok(!/position:\s*running\s*\(/.test(printCss), "print CSS does not use unsupported running() footers");

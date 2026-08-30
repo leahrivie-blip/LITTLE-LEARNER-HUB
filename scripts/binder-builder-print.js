@@ -50,6 +50,14 @@
     ].join("");
   }
 
+  /**
+   * Print-only: strip a simple leading list number so <ol> does not double-number
+   * (e.g. source "1. Invite…" → li text "Invite…"). Does not mutate source data.
+   */
+  function stripLeadingStepNumber(line) {
+    return String(line || "").replace(/^\d+[\.\)]\s+/, "").trim();
+  }
+
   /** Numbered teaching steps when the field has multiple lines; otherwise a short paragraph. */
   function stepsBlock(title, body) {
     const text = asText(body?.text != null ? body.text : body);
@@ -60,7 +68,7 @@
         `<section class="bb-activity-section">`,
         `<h4>${esc(title)}</h4>`,
         `<ol class="bb-activity-steps">`,
-        ...lines.map((line) => `<li>${esc(line)}</li>`),
+        ...lines.map((line) => `<li>${esc(stripLeadingStepNumber(line))}</li>`),
         `</ol>`,
         `</section>`,
       ].join("");
