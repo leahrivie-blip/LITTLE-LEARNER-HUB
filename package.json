@@ -27,6 +27,7 @@
     "test:teaching-kit-complete-kit-generation": "NODE_ENV=test node scripts/test-teaching-kit-complete-kit-generation.js",
     "test:teaching-kit-ai-teacher-assistant": "NODE_ENV=test node scripts/test-teaching-kit-ai-teacher-assistant.js",
     "test:teaching-kit-curriculum-director": "NODE_ENV=test node scripts/test-teaching-kit-curriculum-director.js",
+    "test:curriculum-operator-jobs-stage2": "NODE_ENV=test node scripts/test-curriculum-operator-jobs-stage2.js",
     "test:curriculum-operator-phase1": "NODE_ENV=test node scripts/test-curriculum-operator-phase1.js",
     "test:curriculum-operator-phase2": "NODE_ENV=test node scripts/test-curriculum-operator-phase2.js",
     "test:curriculum-operator-phase25": "NODE_ENV=test node scripts/test-curriculum-operator-phase25.js",
