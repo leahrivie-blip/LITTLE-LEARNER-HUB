@@ -12,7 +12,10 @@
  *   ... --simulate-fixture --confirm-hot-store-cutover   # also rewrites fixture bag in memory/report
  *
  * PRODUCTION POSTGRES APPLY IS LOCKED in this PR:
- *   --postgres --apply  → always refused
+ *   --postgres --apply  → always refused (assertProductionApplyUnlocked)
+ *
+ * Execution engine (still locked for production):
+ *   scripts/lib/curriculum-operator-jobs-stage2-execute.js
  *
  * Never prints secrets or lesson content — ids/status/bytes/hashes only.
  */
@@ -20,8 +23,8 @@
 
 const fs = require("node:fs");
 const path = require("node:path");
-const jobApi = require("./curriculum-operator-job.js");
 const stage2 = require("./lib/curriculum-operator-jobs-stage2.js");
+const execute = require("./lib/curriculum-operator-jobs-stage2-execute.js");
 const {
   createCurriculumOperatorJobStore,
 } = require("../server/curriculum-operator-job-store.js");
@@ -151,7 +154,15 @@ Production Postgres --apply is REFUSED in this PR.
   }
 
   if (args.apply && args.postgres) {
+    // Final hard lock — execution engine also refuses; keep CLI fail-closed before connect.
     stage2.assertProductionApplyUnlocked(args);
+    // Unreachable until a future unlock PR: execute.runStage2Execution({ mode:"postgres", apply:true, ... })
+    await execute.runStage2Execution({
+      mode: "postgres",
+      apply: true,
+      confirmMigrate: args.confirmMigrate,
+      confirmCutover: args.confirmCutover,
+    });
   }
 
   let store;
