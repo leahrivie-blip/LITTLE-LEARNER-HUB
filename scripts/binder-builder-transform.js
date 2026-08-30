@@ -106,6 +106,23 @@
     return firstMeaningful(item?.extraSupport, item?.adaptations, item?.ageModifications, item?.mixedAgeAdaptations);
   }
 
+  /**
+   * Short activity-level materials only — never weeklyMaterials / shopping lists.
+   * @param {object|null|undefined} item
+   */
+  function activityMaterials(item) {
+    return firstMeaningful(
+      item?.materials,
+      item?.materialsNeeded,
+      item?.whatYouNeed,
+      item?.materialsList,
+    );
+  }
+
+  function activityCategoryLabel(item) {
+    return firstMeaningful(item?.activityCategory, item?.category, item?.type);
+  }
+
   function activityChallenge(item) {
     return firstMeaningful(item?.extensions, item?.challengeExtension);
   }
@@ -267,15 +284,19 @@
           const imagePick = act.imageOverride?.url
             ? act.imageOverride
             : (useSource ? activityImage(source) : { url: "", alt: "", source: "" });
+          const materials = pickOverrideOrSource(act.materialsOverride, activityMaterials(source), useSource);
+          const category = firstMeaningful(act.activityCategory, activityCategoryLabel(source));
           const included = asText(act.includedResources);
           return {
             id: act.id,
             sourceItemId: act.sourceItemId,
             title,
+            category,
             introduction,
             whatWereDoing,
             howToDoIt,
             learning,
+            materials,
             questions,
             support,
             challenge,
@@ -466,23 +487,24 @@
   }
 
   /**
-   * Ordered page list for preview/print (excludes disabled optional sections).
+   * Content pages only (no cover / TOC). Used by finalizePrintPagePlan.
    * Daily teaching pages stay required when dailyPlans is enabled (default true).
    * @param {object} document
    */
-  function buildPagePlan(document) {
+  function buildContentPagePlan(document) {
     const doc = document || {};
     const sections = doc.sections || {};
-    /** @type {Array<{ type: string, dayKey?: string, label: string }>} */
+    /** @type {Array<{ type: string, dayKey?: string, label: string, activityId?: string, sourceItemId?: string }>} */
     const pages = [];
-
-    pages.push({ type: "cover", label: "Front Cover" });
 
     if (sections.welcome !== false) {
       pages.push({ type: "welcome", label: "How to Use This Binder" });
     }
     if (sections.weekAtAGlance !== false) {
       pages.push({ type: "weekAtAGlance", label: "Week at a Glance" });
+    }
+    if (sections.weeklyGridCalendar !== false) {
+      pages.push({ type: "weeklyGridCalendar", label: "Weekly Grid Calendar" });
     }
 
     WEEKDAYS.forEach((dayKey) => {
@@ -501,7 +523,6 @@
             type: "dayPlans",
             dayKey,
             activityId: activity.id,
-            // Stable source activity identity for readiness uniqueness (Phase 1 one-per-page).
             sourceItemId: asText(activity.sourceItemId),
             label: `${WEEKDAY_LABELS[dayKey]} · ${activity.title || "Activity"}`,
           });
@@ -528,17 +549,32 @@
     return pages;
   }
 
+  /**
+   * Ordered page list for preview/print (excludes disabled optional sections).
+   * Includes cover. Print HTML adds TOC via finalizePrintPagePlan.
+   * @param {object} document
+   */
+  function buildPagePlan(document) {
+    const pages = [{ type: "cover", label: "Front Cover" }, ...buildContentPagePlan(document)];
+    pages.forEach((page, index) => {
+      page.pageNumber = index + 1;
+    });
+    return pages;
+  }
+
   return {
     asText,
     firstMeaningful,
     pickOverrideOrSource,
     buildBinderDocument,
+    buildContentPagePlan,
     buildPagePlan,
     dayDescriptionFromSource,
     dayImageFromSource,
     dayTitleFromSource,
     activityHowTo,
     activityIntroduction,
+    activityMaterials,
     inferLearningCenters,
   };
 });

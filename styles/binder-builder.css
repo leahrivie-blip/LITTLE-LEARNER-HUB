@@ -369,41 +369,68 @@
   position: absolute;
   left: var(--bb-page-pad-left);
   right: var(--bb-page-pad-right);
-  bottom: 0.28in;
-  height: 0.42in;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  gap: 10px;
-  font-size: 0.68rem;
-  color: var(--bb-print-muted);
+  bottom: 0.22in;
+  height: 0.48in;
+  display: block;
   border-top: 1px solid var(--bb-print-line);
-  padding-top: 6px;
   box-sizing: border-box;
-  background: #fff;
+  background: var(--bb-print-warm);
   z-index: 2;
+  pointer-events: none;
+}
+.bb-footer-brand {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 0.08in;
+  font-family: "Plus Jakarta Sans", "Segoe UI", sans-serif;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--bb-print-accent);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.bb-footer-page {
+  position: absolute;
+  right: 0;
+  bottom: 0.08in;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--bb-print-muted);
 }
 
 .bb-page-cover {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  align-content: stretch;
+  padding: 0.4in 0.5in 0.45in 0.55in;
   background:
-    radial-gradient(circle at 18% 12%, rgba(61, 122, 90, 0.12), transparent 42%),
+    radial-gradient(circle at 18% 12%, rgba(61, 122, 90, 0.14), transparent 42%),
     linear-gradient(165deg, #f7faf7 0%, #eef5f0 45%, #f8f4ee 100%);
 }
+.bb-cover-frame {
+  height: 100%;
+  border: 2px solid rgba(61, 122, 90, 0.28);
+  border-radius: 18px;
+  padding: 0.35in 0.4in;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.72);
+}
 .bb-cover-brand {
+  margin: 0;
   font-family: "Fraunces", Georgia, serif;
-  font-size: 1.25rem;
+  font-size: 1.35rem;
   font-weight: 700;
   color: var(--bb-print-accent);
 }
 .bb-cover-media {
-  margin: 0.28in 0;
-  border-radius: 16px;
+  margin: 0;
+  border-radius: 14px;
   overflow: hidden;
   min-height: 0;
-  max-height: 4.1in;
-  height: 4.1in;
+  max-height: 4.2in;
+  height: 4.0in;
   background: linear-gradient(145deg, #e8f0ea, #f3ebe1);
 }
 .bb-cover-media img,
@@ -432,9 +459,9 @@
   line-height: 1.08;
 }
 .bb-cover-descriptor {
-  margin: 0 0 10px;
+  margin: 0;
   font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   font-size: 0.78rem;
   color: var(--bb-print-accent);
@@ -754,9 +781,299 @@
 /* Preview-only: hide admin-only markers inside the printable surface */
 .bb-print-root [data-bb-admin-only] { display: none !important; }
 
+/* ----- Redesign: day tones, TOC, welcome, grid calendar, richer dividers ----- */
+.bb-print-root {
+  --bb-day-monday: #dce8df;
+  --bb-day-tuesday: #d9e7f2;
+  --bb-day-wednesday: #f3e8c8;
+  --bb-day-thursday: #f3ddd0;
+  --bb-day-friday: #e5dff0;
+}
+.bb-day-monday { --bb-day-tint: var(--bb-day-monday); }
+.bb-day-tuesday { --bb-day-tint: var(--bb-day-tuesday); }
+.bb-day-wednesday { --bb-day-tint: var(--bb-day-wednesday); }
+.bb-day-thursday { --bb-day-tint: var(--bb-day-thursday); }
+.bb-day-friday { --bb-day-tint: var(--bb-day-friday); }
+
+.bb-banner-header {
+  background: linear-gradient(90deg, rgba(61, 122, 90, 0.14), rgba(246, 240, 231, 0.2));
+  border-radius: 12px;
+  padding: 10px 12px;
+  margin-bottom: 0.2in;
+  border: 1px solid rgba(61, 122, 90, 0.12);
+}
+.bb-banner-header h2 { font-size: 1.55rem; }
+
+.bb-toc-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 7px;
+}
+.bb-toc-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: end;
+  gap: 8px;
+  font-size: 0.95rem;
+}
+.bb-toc-row.is-indent {
+  padding-left: 0.35in;
+  font-size: 0.9rem;
+  color: var(--bb-print-muted);
+}
+.bb-toc-dots {
+  border-bottom: 1px dotted rgba(36, 49, 42, 0.35);
+  margin-bottom: 4px;
+  min-width: 12px;
+}
+.bb-toc-page {
+  font-weight: 700;
+  color: var(--bb-print-accent);
+  min-width: 1.2rem;
+  text-align: right;
+}
+
+.bb-welcome-grid {
+  display: grid;
+  gap: 10px;
+  margin-top: 0.15in;
+}
+.bb-welcome-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  align-items: start;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(246, 240, 231, 0.7);
+  border: 1px solid rgba(61, 122, 90, 0.12);
+}
+.bb-welcome-num {
+  margin: 0;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: var(--bb-print-accent);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+.bb-welcome-card p:last-child {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.4;
+}
+.bb-quick-start {
+  margin: 0 0 0.15in;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(61, 122, 90, 0.1);
+  border: 1px solid rgba(61, 122, 90, 0.2);
+}
+.bb-quick-start-label {
+  margin: 0 0 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--bb-print-accent);
+}
+.bb-quick-start p:last-child { margin: 0; font-size: 1rem; }
+
+.bb-week-planner-day {
+  background: color-mix(in srgb, var(--bb-day-tint, #fff) 55%, #fff);
+}
+.bb-week-extra {
+  margin: 6px 0 0;
+  font-size: 0.7rem;
+  line-height: 1.25;
+  color: var(--bb-print-muted);
+}
+.bb-week-extra span {
+  display: block;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  color: var(--bb-print-accent);
+  font-size: 0.62rem;
+}
+
+.bb-page-divider {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--bb-day-tint, #f6f0e7) 70%, #fff), #fff 55%);
+}
+.bb-divider-frame {
+  height: 100%;
+  border: 1.5px solid rgba(61, 122, 90, 0.18);
+  border-radius: 16px;
+  padding: 0.35in 0.35in 0.3in;
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.78);
+}
+.bb-page-divider .bb-divider-inner,
+.bb-page-divider .bb-divider-frame {
+  min-height: 0;
+}
+.bb-divider-focus,
+.bb-divider-plan {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bb-day-tint, #f6f0e7) 65%, #fff);
+  border: 1px solid rgba(36, 49, 42, 0.08);
+}
+.bb-divider-focus-label,
+.bb-divider-plan-label {
+  margin: 0 0 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--bb-print-accent);
+}
+.bb-divider-focus p:last-child,
+.bb-divider-plan p:last-child { margin: 0; }
+.bb-divider-acts {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 4px;
+  font-size: 0.95rem;
+}
+
+.bb-activity-type {
+  margin: 4px 0 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--bb-print-accent);
+}
+.bb-page-day-plans {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--bb-day-tint, #f6f0e7) 45%, #fff), #fff 32%);
+}
+.bb-teacher-tip {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(61, 122, 90, 0.08);
+  border: 1px dashed rgba(61, 122, 90, 0.28);
+}
+.bb-teacher-tip-label {
+  margin: 0 0 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--bb-print-accent);
+}
+.bb-teacher-tip p:last-child { margin: 0; font-size: 0.9rem; }
+
+.bb-family-card,
+.bb-end-block,
+.bb-book-card,
+.bb-song-card {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(246, 240, 231, 0.55);
+  border: 1px solid rgba(61, 122, 90, 0.1);
+  margin-bottom: 10px;
+}
+
+/* Landscape weekly grid calendar */
+.bb-page-grid-calendar {
+  --bb-page-w: 11in;
+  --bb-page-h: 8.5in;
+  width: 11in;
+  height: 8.5in;
+  min-height: 8.5in;
+  max-height: 8.5in;
+  padding: 0.35in 0.4in 0.7in 0.45in;
+}
+.bb-grid-header { margin-bottom: 0.12in; }
+.bb-grid-theme {
+  margin: 4px 0 0;
+  font-size: 0.85rem;
+  color: var(--bb-print-muted);
+}
+.bb-week-grid {
+  display: grid;
+  grid-template-columns: 1.35in repeat(5, minmax(0, 1fr));
+  grid-auto-rows: minmax(0.55in, 1fr);
+  gap: 0;
+  border: 1px solid rgba(36, 49, 42, 0.16);
+  border-radius: 10px;
+  overflow: hidden;
+  min-height: 5.8in;
+  background: #fff;
+}
+.bb-grid-corner {
+  background: rgba(61, 122, 90, 0.1);
+  border-right: 1px solid rgba(36, 49, 42, 0.12);
+  border-bottom: 1px solid rgba(36, 49, 42, 0.12);
+}
+.bb-grid-day-head {
+  display: grid;
+  place-items: center;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--bb-print-ink);
+  background: color-mix(in srgb, var(--bb-day-tint, #e8efe9) 80%, #fff);
+  border-right: 1px solid rgba(36, 49, 42, 0.12);
+  border-bottom: 1px solid rgba(36, 49, 42, 0.12);
+  padding: 6px 4px;
+}
+.bb-grid-row-label {
+  display: grid;
+  align-items: center;
+  padding: 6px 8px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--bb-print-accent);
+  background: rgba(246, 240, 231, 0.85);
+  border-right: 1px solid rgba(36, 49, 42, 0.12);
+  border-bottom: 1px solid rgba(36, 49, 42, 0.12);
+}
+.bb-grid-cell {
+  padding: 6px 7px;
+  font-size: 0.72rem;
+  line-height: 1.25;
+  border-right: 1px solid rgba(36, 49, 42, 0.1);
+  border-bottom: 1px solid rgba(36, 49, 42, 0.1);
+  background: color-mix(in srgb, var(--bb-day-tint, #fff) 28%, #fff);
+  overflow: hidden;
+}
+.bb-grid-cell.is-empty { color: var(--bb-print-muted); }
+.bb-grid-dash { opacity: 0.55; }
+.bb-grid-notes {
+  background:
+    repeating-linear-gradient(
+      transparent,
+      transparent 17px,
+      rgba(36, 49, 42, 0.08) 17px,
+      rgba(36, 49, 42, 0.08) 18px
+    ),
+    color-mix(in srgb, var(--bb-day-tint, #fff) 18%, #fff);
+  min-height: 0.7in;
+}
+
 @media print {
   @page {
     size: letter portrait;
+    margin: 0;
+  }
+  @page bb-landscape {
+    size: letter landscape;
     margin: 0;
   }
 
@@ -793,23 +1110,31 @@
     border: 0;
     border-radius: 0;
     box-shadow: none;
-    background: #fff;
+    background: #fffefb;
     overflow: hidden;
     page-break-after: always;
     break-after: page;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
   }
-  .bb-page-cover {
-    background: #fff;
+  .bb-page-grid-calendar {
+    page: bb-landscape;
+    width: 11in;
+    height: 8.5in;
+    min-height: 8.5in;
+    max-height: 8.5in;
+    padding: 0.3in 0.35in 0.65in 0.4in;
   }
-  /* Absolute footer stays inside reserved bottom pad — never overlaps teaching content */
+  .bb-page-cover {
+    background: #fffefb;
+  }
   .bb-page-footer {
     position: absolute;
     left: var(--bb-page-pad-left);
     right: var(--bb-page-pad-right);
-    bottom: 0.28in;
-    height: 0.42in;
+    bottom: 0.2in;
+    height: 0.45in;
+    background: transparent;
   }
   .bb-page-day-plans,
   .bb-activity-card,
@@ -817,7 +1142,9 @@
   .bb-activity-section,
   .bb-book-card,
   .bb-song-card,
-  .bb-week-planner-day {
+  .bb-week-planner-day,
+  .bb-week-grid,
+  .bb-toc-row {
     break-inside: avoid;
     page-break-inside: avoid;
   }
@@ -828,7 +1155,15 @@
   .bb-qr-code,
   .bb-qr-code svg,
   .bb-week-planner-day,
-  .bb-activity-section {
+  .bb-activity-section,
+  .bb-grid-day-head,
+  .bb-grid-cell,
+  .bb-banner-header,
+  .bb-day-monday,
+  .bb-day-tuesday,
+  .bb-day-wednesday,
+  .bb-day-thursday,
+  .bb-day-friday {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }

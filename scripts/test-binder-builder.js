@@ -393,9 +393,9 @@ function unitTests() {
   ok(!/bb-image-fallback/.test(noImgHtml), "activity without image has no placeholder/fallback box");
   ok(!/bb-image-fallback/.test(phase1Print.html.match(/data-bb-page="dayDivider"[\s\S]*?<\/article>/)?.[0] || ""), "day divider has no image fallback box");
   ok(/is-image-free/.test(phase1Print.html), "image-free day divider marked intentionally");
-  ok(/What We're Doing/.test(phase1Print.html), "What We're Doing present on activity pages");
+  ok(/What We Are Doing|What We're Doing/.test(phase1Print.html), "What We Are Doing present on activity pages");
   ok(/How To Do It/.test(phase1Print.html), "How To Do It present on activity pages");
-  ok(/What They're Learning/.test(phase1Print.html), "What They're Learning present on activity pages");
+  ok(/What Children Are Learning|What They're Learning/.test(phase1Print.html), "What Children Are Learning present on activity pages");
   ok(/bb-activity-steps/.test(phase1Print.html), "How To Do It renders as numbered steps when multi-line");
   ok(!/Teacher Questions|Support &amp; Adaptation|Challenge \/ Extension|Safety Note|Cleanup|Introduction/.test(phase1Print.html), "Teaching Kit detail fields omitted from customer print");
   ok(!/GIANT MATERIALS LIST|weeklyMaterials|Preparation checklist|packing list|assembly|shopping list|laminat/i.test(phase1Print.html), "materials/prep/shopping/assembly never leak into customer print");
@@ -495,7 +495,9 @@ function unitTests() {
   // --- Physical print fit / weekly planner regressions ---
   const printPageContainers = (stepPrint.html.match(/<article class="bb-page\b/g) || []).length;
   ok(printPageContainers === stepPrint.pages.length, "one generated Binder page = one print-page container");
-  ok(printPageContainers === multiPages.length, "print-page containers match page plan for this binder");
+  ok(stepPrint.pages[0]?.type === "cover", "print plan starts with cover");
+  ok(stepPrint.pages.some((p) => p.type === "tableOfContents"), "print plan includes Table of Contents");
+  ok(stepPrint.pages.some((p) => p.type === "weeklyGridCalendar"), "print plan includes Weekly Grid Calendar");
   ok((stepPrint.html.match(/data-bb-page="/g) || []).length === stepPrint.pages.length, "data-bb-page markers match page plan");
 
   const printCss = fs.readFileSync(path.join(ROOT, "styles/binder-builder.css"), "utf8");
@@ -519,6 +521,49 @@ function unitTests() {
   ok((weekHtml.match(/bb-week-planner-day/g) || []).length === 5, "weekly planner has five weekday columns");
   ok(multiReady.canPrint === true && multiReady.status === "READY", "existing readiness remains READY / canPrint true after print-fit changes");
   ok(JSON.stringify(multiMonLesson) === multiBefore, "source lesson remains unchanged after print-fit render");
+
+  // --- Print redesign: TOC, footer brand/page numbers, grid calendar ---
+  ok(/data-bb-page="tableOfContents"/.test(stepPrint.html), "Table of Contents exists in print HTML");
+  ok(/bb-footer-brand/.test(stepPrint.html) && /Little Learner Hub/.test(stepPrint.html), "Little Learner Hub brand footer is present");
+  ok(/bb-footer-page">Page \d+/.test(stepPrint.html), "sequential Page N markers are present");
+  ok(!/bb-page-cover[\s\S]{0,200}bb-footer-brand/.test(stepPrint.html), "cover does not use content footer branding");
+  const tocSlice = stepPrint.html.includes('data-bb-page="tableOfContents"')
+    ? stepPrint.html.split('data-bb-page="tableOfContents"')[1].split("</article>")[0]
+    : "";
+  ok(/Weekly Grid Calendar/.test(tocSlice), "TOC lists Weekly Grid Calendar");
+  ok(/How to Use This Binder/.test(tocSlice), "TOC lists How to Use This Binder");
+  const gridPage = stepPrint.pages.find((p) => p.type === "weeklyGridCalendar");
+  ok(gridPage && Number.isFinite(gridPage.pageNumber), "grid calendar has a final page number");
+  ok(new RegExp(`Weekly Grid Calendar[\\s\\S]{0,120}${gridPage.pageNumber}`).test(tocSlice), "TOC page number matches final grid calendar page");
+  ok(/data-bb-page="weeklyGridCalendar"/.test(stepPrint.html), "Weekly Grid Calendar appears in the PDF HTML");
+  ok(/data-bb-week-grid/.test(stepPrint.html), "grid calendar markup is present");
+  ok(["monday", "tuesday", "wednesday", "thursday", "friday"].every((d) => stepPrint.html.includes(`data-bb-grid-day="${d}"`)), "Monday-Friday grid columns are present");
+  ok(["focus", "main", "second", "additional", "story", "song", "notes"].every((r) => stepPrint.html.includes(`data-bb-grid-row="${r}"`)), "required planning rows are present");
+  ok(plannerTitles.every((title) => {
+    const gridHtml = stepPrint.html.split('data-bb-page="weeklyGridCalendar"')[1]?.split("</article>")[0] || "";
+    return gridHtml.includes(title);
+  }), "included activities appear under the grid for their week");
+  ok(!/GIANT MATERIALS LIST|Preparation checklist|shopping list/i.test(stepPrint.html), "grid/print redesign does not invent materials content");
+  ok(stepPrint.validation?.ok === true, "print validation gate passes for multi-activity binder");
+  ok(!/bb-browser-chrome/.test(stepPrint.html), "date/time/browser chrome markers are absent from authored HTML");
+  ok(!/https?:\/\/localhost|about:blank/.test(stepPrint.html.split("bb-print-root")[1] || ""), "browser title/URL chrome is absent from binder content");
+  // Excluded activity does not appear in grid
+  const omitDraft = model.normalizeBinderDraft(JSON.parse(JSON.stringify(multiDraft)));
+  omitDraft.days.monday.activities[2].omit = true;
+  const omitBefore = JSON.stringify(multiMonLesson);
+  const omitPrint = print.buildBinderPrintHtml(omitDraft, multiMonLesson, { qrSvgByUrl: {} });
+  const omitGrid = omitPrint.html.split('data-bb-page="weeklyGridCalendar"')[1]?.split("</article>")[0] || "";
+  ok(!omitGrid.includes("Family Photo Sharing"), "excluded activities do not appear in the grid");
+  ok(JSON.stringify(multiMonLesson) === omitBefore, "source lesson remains byte-identical after omit/grid regenerate");
+  // Reorder updates grid
+  const reorderDraft = model.normalizeBinderDraft(JSON.parse(JSON.stringify(multiDraft)));
+  const reorderMonActs = reorderDraft.days.monday.activities;
+  reorderDraft.days.monday.activities = [reorderMonActs[1], reorderMonActs[0], reorderMonActs[2]];
+  const reorderPrint = print.buildBinderPrintHtml(reorderDraft, multiMonLesson, { qrSvgByUrl: {} });
+  const reorderGrid = reorderPrint.html.split('data-bb-page="weeklyGridCalendar"')[1]?.split("</article>")[0] || "";
+  const mainMondayHtml = (reorderGrid.match(/data-bb-grid-row="main" data-bb-grid-day="monday"[^>]*>([\s\S]*?)<\/div>/) || [])[1] || "";
+  ok(/My Name Discovery/.test(mainMondayHtml), "activity reordering updates the grid main activity cell");
+  ok(JSON.stringify(multiMonLesson) === multiBefore, "source lesson remains unchanged after redesign render paths");
 
   // Empty optional sections omitted
   draft.sections.books = true;

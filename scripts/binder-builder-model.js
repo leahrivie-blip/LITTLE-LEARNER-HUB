@@ -66,6 +66,7 @@
     return {
       welcome: true,
       weekAtAGlance: true,
+      weeklyGridCalendar: true,
       dailyDividers: true,
       dailyPlans: true,
       books: true,
@@ -133,6 +134,7 @@
     return {
       welcome: bool(entry.welcome, defaults.welcome),
       weekAtAGlance: bool(entry.weekAtAGlance, defaults.weekAtAGlance),
+      weeklyGridCalendar: bool(entry.weeklyGridCalendar, defaults.weeklyGridCalendar),
       dailyDividers: bool(entry.dailyDividers, defaults.dailyDividers),
       // Required teaching pages — never allow accidental disable via API/draft payload.
       dailyPlans: true,
