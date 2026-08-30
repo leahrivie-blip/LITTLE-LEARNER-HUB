@@ -117,6 +117,23 @@ function writeStatus() {
   }
 }
 
+function conflictUpsertFailureError() {
+  const ctrl = readControl();
+  if (ctrl.failWithNotAccepting) {
+    const err = new Error("the database system is not yet accepting connections");
+    err.code = "57P03";
+    return err;
+  }
+  if (ctrl.failWithRecoveryMode) {
+    const err = new Error("the database system is in recovery mode");
+    err.code = "57P03";
+    return err;
+  }
+  const err = new Error("Connection terminated unexpectedly");
+  err.code = "ECONNRESET";
+  return err;
+}
+
 function shouldFailConflictUpsert() {
   const ctrl = readControl();
   if (ctrl.failAllConflictUpserts) return true;
@@ -319,9 +336,7 @@ Module.prototype.require = function mockPgRequire(id) {
                 state.conflictUpsertFailures += 1;
                 state.activeConflictUpserts = Math.max(0, state.activeConflictUpserts - 1);
                 writeStatus();
-                const err = new Error("Connection terminated unexpectedly");
-                err.code = "ECONNRESET";
-                throw err;
+                throw conflictUpsertFailureError();
               }
             } else if (text.includes("INSERT INTO llh_store")) {
               state.bootstrapInserts += 1;
