@@ -84,7 +84,8 @@ async function loadStoreFromPostgresReadOnly(recordId) {
   });
   await client.connect();
   try {
-    await client.query("SET default_transaction_read_only = on").catch(() => {});
+    // Fail closed: refuse preflight unless session is proven read-only.
+    const readOnly = await stage2.enforcePostgresSessionReadOnly(client);
     const result = await client.query(
       `SELECT data, updated_at, ${stage2.LLH_STORE_UPDATED_AT_EXACT_SQL} AS updated_at_exact
        FROM llh_store WHERE id = $1`,
@@ -106,9 +107,11 @@ async function loadStoreFromPostgresReadOnly(recordId) {
       storeUpdatedAt: result.rows[0].updated_at,
       storeUpdatedAtExact: result.rows[0].updated_at_exact,
       dedicatedCount,
+      readOnly,
       client,
     };
   } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
     await client.end().catch(() => {});
     throw error;
   }
@@ -231,17 +234,30 @@ Production Postgres --apply is REFUSED in this PR.
     throw new Error("Fixture simulate requires --confirm-migrate-operator-jobs");
   }
 
-  const backup = {
+  // Fixture-only proof — never treated as production-grade.
+  const backup = stage2.buildBackupProof({
+    kind: stage2.BACKUP_KIND_FIXTURE,
     id: args.backupId || `fixture-backup-${manifest.runId}`,
     verified: true,
-  };
+    source: stage2.REQUIRED_BACKUP_SOURCE,
+    migrationRunId: manifest.runId,
+    productionBuildSha: manifest.productionBuildSha || "fixture-build",
+    sourceJobCount: manifest.jobCount,
+    sourceAggregateHash: manifest.aggregateHash,
+    storeUpdatedAtExact: manifest.storeUpdatedAtExact || "fixture-cas",
+    storeFingerprint: manifest.storeFingerprint || stage2.stableSha256(store),
+    createdAt: new Date().toISOString(),
+  });
   const simulation = await stage2.simulateStage2OnFixtureStore({
     store,
     backup,
+    runId: manifest.runId,
     expectations: {
       expectedSourceCount: args.expectedSourceCount,
       expectedSourceHash: args.expectedSourceHash || undefined,
       expectedStoreUpdatedAt: args.expectedStoreUpdatedAt || undefined,
+      fixtureStoreUpdatedAtExact: manifest.storeUpdatedAtExact || "fixture-cas",
+      expectedProductionBuildSha: manifest.productionBuildSha || "fixture-build",
     },
     applyHotRewrite: args.confirmCutover === true,
   });

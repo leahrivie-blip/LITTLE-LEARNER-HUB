@@ -334,6 +334,35 @@ Normal app runtime never enters this sequence.
 | `scripts/migrate-curriculum-operator-jobs-stage2.js` | CLI (dry-run default; production apply refused) |
 | `scripts/test-curriculum-operator-jobs-stage2.js` | Regression suite (30 gates) |
 
+## Hardening (PR #800 review)
+
+### Backup proof (GAP 1)
+`verified: true` alone is **not** enough for production-grade cutover.
+`assertBackupMatchesSource()` requires a proof bound to:
+
+- backup id, verified, source=`pre-operator-jobs-stage2`
+- migration run id, production build SHA (when build binding required)
+- source job count, source aggregate hash
+- exact `llh_store` `updated_at::text` CAS token
+- full-store fingerprint, createdAt
+
+Fixture proofs must be explicitly `kind: "fixture"` / `fixture: true` and are refused by `requireProductionGrade`.
+
+### Destination-newer reconciliation (GAP 2)
+Timestamp-newer dedicated rows become `newerDestinationPendingReconcile` — **not** automatic matches.
+`reconcileNewerDestinationsAgainstLive()` must confirm live payload hash equals dedicated newer row (or STOP).
+Cutover gate fails while any pending reconcile / same-timestamp divergence / malformed newer row remains.
+
+### Postgres read-only fail-closed (GAP 3)
+`enforcePostgresSessionReadOnly()` SETs read-only, confirms via `SHOW`, then `BEGIN READ ONLY` + `SHOW transaction_read_only`.
+Any SET/confirm failure aborts before reading migration state (no silent `.catch`).
+
+### Rollback same-timestamp conflict (GAP 4)
+If `live.updatedAt === backup.updatedAt` and hashes differ → `stage2_rollback_same_timestamp_conflict` (STOP).
+Genuinely newer live jobs and live-only new IDs are preserved.
+
+---
+
 ## What this PR does NOT do
 
 - Does not migrate production historical jobs  

@@ -75,7 +75,31 @@ function build53Store() {
 }
 
 function verifiedBackup(id = "backup_test") {
-  return { id, verified: true };
+  // Clearly marked fixture proof — NOT production-grade.
+  return {
+    kind: stage2.BACKUP_KIND_FIXTURE,
+    fixture: true,
+    id,
+    verified: true,
+    source: stage2.REQUIRED_BACKUP_SOURCE,
+  };
+}
+
+function productionBackupProof(manifest, overrides = {}) {
+  return stage2.buildBackupProof({
+    kind: stage2.BACKUP_KIND_PRODUCTION,
+    id: overrides.id || "backup_2026-08-30T00:00:00.000Z_stage2",
+    verified: true,
+    source: stage2.REQUIRED_BACKUP_SOURCE,
+    migrationRunId: manifest.runId,
+    productionBuildSha: manifest.productionBuildSha || "prod-sha",
+    sourceJobCount: manifest.jobCount,
+    sourceAggregateHash: manifest.aggregateHash,
+    storeUpdatedAtExact: manifest.storeUpdatedAtExact || "2026-08-30 00:00:00.000000+00",
+    storeFingerprint: manifest.storeFingerprint,
+    createdAt: "2026-08-30T00:00:00.000Z",
+    ...overrides,
+  });
 }
 
 async function main() {
@@ -357,7 +381,336 @@ async function main() {
   assert.equal(typeof rt.setHotStoreCutoverEnabled, "undefined");
   console.log("PASS  30");
 
-  console.log("\nAll Stage 2 design/tooling tests passed.");
+  // --- Hardening regressions (31–44) ---
+
+  console.log("31) Backup verified boolean alone is insufficient for production-grade gate");
+  const m31 = stage2.buildSourceManifest(build53Store(), {
+    runId: "run-31",
+    storeUpdatedAtExact: "cas-31",
+    productionBuildSha: "sha-31",
+  });
+  let e31 = null;
+  try {
+    stage2.assertBackupMatchesSource(
+      { id: "backup_only_verified", verified: true },
+      m31,
+      { requireProductionGrade: true },
+    );
+  } catch (error) { e31 = error; }
+  assert.equal(e31?.code, "stage2_backup_proof_incomplete");
+  assert.equal(stage2.isProductionGradeBackupProof({ id: "x", verified: true }), false);
+  console.log("PASS  31");
+
+  console.log("32) Backup source hash mismatch blocks");
+  let e32 = null;
+  try {
+    stage2.assertBackupMatchesSource(
+      productionBackupProof(m31, { sourceAggregateHash: "deadbeef" }),
+      m31,
+      { requireProductionGrade: true },
+    );
+  } catch (error) { e32 = error; }
+  assert.equal(e32?.code, "stage2_backup_source_hash_mismatch");
+  console.log("PASS  32");
+
+  console.log("33) Backup CAS mismatch blocks");
+  let e33 = null;
+  try {
+    stage2.assertBackupMatchesSource(
+      productionBackupProof(m31, { storeUpdatedAtExact: "wrong-cas" }),
+      m31,
+      { requireProductionGrade: true },
+    );
+  } catch (error) { e33 = error; }
+  assert.equal(e33?.code, "stage2_backup_cas_mismatch");
+  console.log("PASS  33");
+
+  console.log("34) Backup wrong source/type blocks");
+  let e34 = null;
+  try {
+    stage2.assertBackupMatchesSource(
+      productionBackupProof(m31, { source: "daily" }),
+      m31,
+      { requireProductionGrade: true },
+    );
+  } catch (error) { e34 = error; }
+  assert.equal(e34?.code, "stage2_backup_wrong_source");
+  console.log("PASS  34");
+
+  console.log("35) Backup run-id mismatch blocks where required");
+  let e35 = null;
+  try {
+    stage2.assertBackupMatchesSource(
+      productionBackupProof(m31, { migrationRunId: "other-run" }),
+      m31,
+      { requireProductionGrade: true },
+    );
+  } catch (error) { e35 = error; }
+  assert.equal(e35?.code, "stage2_backup_run_id_mismatch");
+  // Fixture proofs remain distinct from production-grade.
+  assert.equal(stage2.isFixtureBackupProof(verifiedBackup("fx")), true);
+  assert.equal(stage2.isProductionGradeBackupProof(verifiedBackup("fx")), false);
+  assert.equal(stage2.isProductionGradeBackupProof(productionBackupProof(m31)), true);
+  console.log("PASS  35");
+
+  console.log("36) Destination newer is not automatically cutover-safe");
+  const store36 = build53Store();
+  const source36 = store36.curriculumOperatorJobs.jobs.map((j) => ({ ...j }));
+  const dest36 = source36.map((j) => (
+    j.id === "opjob_term_0"
+      ? makeJob({
+        id: "opjob_term_0",
+        status: "completed",
+        updatedAt: "2026-09-01T00:00:00.000Z",
+        lessonResults: fatLr(5),
+      })
+      : j
+  ));
+  const manifest36 = stage2.buildSourceManifest({
+    ...store36,
+    curriculumOperatorJobs: { jobs: source36, updatedAt: "2026-08-30T00:00:00.000Z" },
+  });
+  const v36 = stage2.verifyDestinationAgainstSource(manifest36, dest36);
+  assert.ok(v36.newerDestinationPendingReconcileCount > 0);
+  assert.equal(v36.cutoverAllowed, false);
+  let e36 = null;
+  try { stage2.assertCutoverVerificationGate(v36); } catch (error) { e36 = error; }
+  assert.equal(e36?.code, "stage2_newer_destination_unreconciled");
+  console.log("PASS  36");
+
+  console.log("37) Destination newer + live matches dedicated → reconciles safe");
+  const liveMatch36 = {
+    ...store36,
+    curriculumOperatorJobs: { jobs: dest36, updatedAt: "2026-09-01T00:00:00.000Z" },
+  };
+  const r37 = stage2.reconcileNewerDestinationsAgainstLive({
+    verification: v36,
+    destinationJobs: dest36,
+    liveStore: liveMatch36,
+  });
+  assert.equal(r37.newerDestinationPendingReconcileCount, 0);
+  assert.ok(r37.newerDestinationReconciledCount >= 1);
+  assert.equal(r37.cutoverAllowed, true);
+  stage2.assertCutoverVerificationGate(r37);
+  console.log("PASS  37");
+
+  console.log("38) Destination newer + live disagrees / still old source → blocks");
+  const liveOld36 = {
+    ...store36,
+    curriculumOperatorJobs: { jobs: source36, updatedAt: "2026-08-30T00:00:00.000Z" },
+  };
+  const r38 = stage2.reconcileNewerDestinationsAgainstLive({
+    verification: v36,
+    destinationJobs: dest36,
+    liveStore: liveOld36,
+  });
+  assert.ok(r38.newerDestinationPendingReconcileCount > 0);
+  assert.equal(r38.cutoverAllowed, false);
+  let e38 = null;
+  try { stage2.assertCutoverVerificationGate(r38); } catch (error) { e38 = error; }
+  assert.equal(e38?.code, "stage2_newer_destination_unreconciled");
+  console.log("PASS  38");
+
+  console.log("39) Same timestamp divergent destination → blocks");
+  const destSameTs = source36.map((j) => (
+    j.id === "opjob_term_0"
+      ? makeJob({
+        id: "opjob_term_0",
+        status: "failed",
+        updatedAt: j.updatedAt,
+        lessonResults: fatLr(1),
+      })
+      : j
+  ));
+  const v39 = stage2.verifyDestinationAgainstSource(manifest36, destSameTs);
+  assert.ok(v39.hashMismatchCount > 0 || v39.conflictCount > 0);
+  assert.equal(v39.cutoverAllowed, false);
+  // Also: destination-newer pending with live same-ts divergent hash
+  const destNewer39 = source36.map((j) => (
+    j.id === "opjob_term_0"
+      ? makeJob({
+        id: "opjob_term_0",
+        status: "completed",
+        updatedAt: "2026-09-01T00:00:00.000Z",
+        lessonResults: fatLr(4),
+      })
+      : j
+  ));
+  const liveDivergent39 = {
+    ...store36,
+    curriculumOperatorJobs: {
+      jobs: source36.map((j) => (
+        j.id === "opjob_term_0"
+          ? makeJob({
+            id: "opjob_term_0",
+            status: "failed",
+            updatedAt: "2026-09-01T00:00:00.000Z",
+            lessonResults: fatLr(2),
+          })
+          : j
+      )),
+      updatedAt: "2026-09-01T00:00:00.000Z",
+    },
+  };
+  const v39b = stage2.verifyDestinationAgainstSource(manifest36, destNewer39);
+  const r39 = stage2.reconcileNewerDestinationsAgainstLive({
+    verification: v39b,
+    destinationJobs: destNewer39,
+    liveStore: liveDivergent39,
+  });
+  assert.ok(r39.conflictCount > 0);
+  assert.equal(r39.cutoverAllowed, false);
+  let e39 = null;
+  try { stage2.assertCutoverVerificationGate(r39); } catch (error) { e39 = error; }
+  assert.equal(e39?.code, "stage2_unsafe_conflict");
+  console.log("PASS  39");
+
+  console.log("39b) Destination newer malformed/missing expected data → STOP");
+  const destMalformed = source36.map((j) => (
+    j.id === "opjob_term_0"
+      ? {
+        id: "opjob_term_0",
+        status: "completed",
+        updatedAt: "2026-09-01T00:00:00.000Z",
+        createdAt: "2026-08-01T00:00:00.000Z",
+        lessonResults: [], // regressed from source fat results
+      }
+      : j
+  ));
+  const vMal = stage2.verifyDestinationAgainstSource(manifest36, destMalformed);
+  assert.ok(vMal.conflictCount > 0);
+  assert.equal(vMal.cutoverAllowed, false);
+  console.log("PASS  39b");
+
+  console.log("40) PostgreSQL read-only SET failure aborts");
+  let sawSelect40 = false;
+  const mockSetFail = {
+    async query(sql) {
+      if (/SET default_transaction_read_only/i.test(sql)) {
+        throw new Error("permission denied to set parameter");
+      }
+      if (/SELECT/i.test(sql)) sawSelect40 = true;
+      return { rows: [] };
+    },
+  };
+  let e40 = null;
+  try {
+    await stage2.enforcePostgresSessionReadOnly(mockSetFail);
+  } catch (error) { e40 = error; }
+  assert.equal(e40?.code, "stage2_postgres_readonly_set_failed");
+  assert.equal(sawSelect40, false);
+  console.log("PASS  40");
+
+  console.log("41) PostgreSQL read-only confirmation failure aborts");
+  let sawSelect41 = false;
+  const mockConfirmFail = {
+    async query(sql) {
+      if (/SET default_transaction_read_only/i.test(sql)) return { rows: [] };
+      if (/SHOW default_transaction_read_only/i.test(sql)) {
+        return { rows: [{ default_transaction_read_only: "off" }] };
+      }
+      if (/SELECT/i.test(sql)) sawSelect41 = true;
+      return { rows: [] };
+    },
+  };
+  let e41 = null;
+  try {
+    await stage2.enforcePostgresSessionReadOnly(mockConfirmFail);
+  } catch (error) { e41 = error; }
+  assert.equal(e41?.code, "stage2_postgres_readonly_confirm_failed");
+  assert.equal(sawSelect41, false);
+
+  // Confirmed read-only → preflight SET/SHOW/BEGIN allowed (no app SELECT yet).
+  const mockOk = {
+    async query(sql) {
+      if (/SET default_transaction_read_only/i.test(sql)) return { rows: [] };
+      if (/SHOW default_transaction_read_only/i.test(sql)) {
+        return { rows: [{ default_transaction_read_only: "on" }] };
+      }
+      if (/BEGIN READ ONLY/i.test(sql)) return { rows: [] };
+      if (/SHOW transaction_read_only/i.test(sql)) {
+        return { rows: [{ transaction_read_only: "on" }] };
+      }
+      throw new Error(`unexpected sql in mockOk: ${sql}`);
+    },
+  };
+  const ok41 = await stage2.enforcePostgresSessionReadOnly(mockOk);
+  assert.equal(ok41.readOnly, true);
+  assert.equal(ok41.transactionReadOnly, "on");
+  console.log("PASS  41");
+
+  console.log("42) Rollback same-timestamp hash divergence blocks");
+  const backup42 = build53Store();
+  const live42 = build53Store();
+  const idx = live42.curriculumOperatorJobs.jobs.findIndex((j) => j.id === "opjob_term_0");
+  live42.curriculumOperatorJobs.jobs[idx] = makeJob({
+    id: "opjob_term_0",
+    status: "failed",
+    updatedAt: backup42.curriculumOperatorJobs.jobs[idx].updatedAt,
+    lessonResults: fatLr(1),
+  });
+  let e42 = null;
+  try {
+    stage2.simulateRollbackFromBackup({
+      liveStore: live42,
+      backupStore: backup42,
+      expectedLiveUpdatedAt: "t",
+      liveUpdatedAt: "t",
+    });
+  } catch (error) { e42 = error; }
+  assert.equal(e42?.code, "stage2_rollback_same_timestamp_conflict");
+  console.log("PASS  42");
+
+  console.log("43) Rollback preserves genuinely newer live job");
+  const backup43 = build53Store();
+  const live43 = build53Store();
+  const newer = makeJob({
+    id: "opjob_term_0",
+    status: "completed",
+    updatedAt: "2026-09-10T00:00:00.000Z",
+    lessonResults: fatLr(6),
+  });
+  live43.curriculumOperatorJobs.jobs = live43.curriculumOperatorJobs.jobs.map((j) => (
+    j.id === "opjob_term_0" ? newer : j
+  ));
+  const rolled43 = stage2.simulateRollbackFromBackup({
+    liveStore: live43,
+    backupStore: backup43,
+    expectedLiveUpdatedAt: "t",
+    liveUpdatedAt: "t",
+  });
+  const kept43 = rolled43.curriculumOperatorJobs.jobs.find((j) => j.id === "opjob_term_0");
+  assert.equal(kept43.updatedAt, "2026-09-10T00:00:00.000Z");
+  assert.equal(kept43.lessonResults.length, 6);
+  console.log("PASS  43");
+
+  console.log("44) Rollback preserves new live id absent from backup");
+  const backup44 = build53Store();
+  const live44 = {
+    ...backup44,
+    curriculumOperatorJobs: {
+      jobs: [
+        ...buildHotStoreJobBag(backup44.curriculumOperatorJobs).bag.jobs,
+        makeJob({
+          id: "opjob_brand_new",
+          status: "running",
+          updatedAt: "2026-09-11T00:00:00.000Z",
+          lessonResults: fatLr(1),
+        }),
+      ],
+      updatedAt: "2026-09-11T00:00:00.000Z",
+    },
+  };
+  const rolled44 = stage2.simulateRollbackFromBackup({
+    liveStore: live44,
+    backupStore: backup44,
+    expectedLiveUpdatedAt: "t",
+    liveUpdatedAt: "t",
+  });
+  assert.ok(rolled44.curriculumOperatorJobs.jobs.some((j) => j.id === "opjob_brand_new"));
+  console.log("PASS  44");
+
+  console.log("\nAll Stage 2 design/tooling tests passed (including hardening 31–44).");
 }
 
 main().catch((error) => {
