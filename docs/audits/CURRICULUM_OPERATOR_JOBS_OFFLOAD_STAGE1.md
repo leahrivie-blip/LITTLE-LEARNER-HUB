@@ -43,6 +43,18 @@
 
 If Postgres is the intended store: **full operator job must persist to PostgreSQL before** `llh_store` may replace that job with a terminal stub. Local side-file must never act as a durability substitute.
 
+### Stage 1 vs Stage 2 cutover boundary
+
+| Capability | Stage 1 (this PR) | Stage 2 (future, authorized) |
+|---|---|---|
+| Create dedicated table / dual-read | Yes | — |
+| Dual-write **changed/new** jobs only | Yes | — |
+| Bulk-migrate all legacy jobs via normal API | **No** | Explicit migration script only |
+| Hot-cap / stub `llh_store` historical bag | **No** (`isHotStoreCutoverEnabled() === false`) | Only after dry-run → backup → migrate → verify |
+| Production Postgres migration `--apply` | **Refused** by script | Separately authorized |
+
+Ordinary Operator HTTP traffic must never substitute for Stage 2.
+
 ## What Stage 1 does NOT do
 
 - Does not auto-migrate production blob → table on boot.

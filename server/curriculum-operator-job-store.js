@@ -188,14 +188,31 @@ function createCurriculumOperatorJobStore({ localFilePath = null } = {}) {
     return initialized === true;
   }
 
-  /** True only when dedicated persistence can accept verified full-job writes. */
-  function canSafelyCapHotStore() {
+  /**
+   * Stage 1: historical hot-store cutover is ALWAYS disabled.
+   * Stage 2 (explicit migration tooling) is the only authorized path to enable cutover
+   * after dry-run → backup → migrate → verify. Normal runtime must never flip this.
+   */
+  function isHotStoreCutoverEnabled() {
+    return false;
+  }
+
+  /** True when dedicated backend can accept verified full-job writes (not the same as cutover). */
+  function canSafelyPersistDedicated() {
     return isReady();
   }
 
-  /** @deprecated Prefer canSafelyCapHotStore — kept for callers; never true merely because a path string exists. */
+  /**
+   * True only when dedicated persistence is ready AND Stage-2 cutover has been authorized.
+   * Stage 1 always returns false.
+   */
+  function canSafelyCapHotStore() {
+    return canSafelyPersistDedicated() && isHotStoreCutoverEnabled();
+  }
+
+  /** @deprecated Prefer canSafelyPersistDedicated / canSafelyCapHotStore. */
   function isConfigured() {
-    return canSafelyCapHotStore();
+    return canSafelyPersistDedicated();
   }
 
   function requiresDurableBackend() {
@@ -475,6 +492,8 @@ function createCurriculumOperatorJobStore({ localFilePath = null } = {}) {
     mergeWithLegacyBag,
     backendMode,
     isReady,
+    isHotStoreCutoverEnabled,
+    canSafelyPersistDedicated,
     canSafelyCapHotStore,
     isConfigured,
     requiresDurableBackend,
@@ -485,10 +504,38 @@ function createCurriculumOperatorJobStore({ localFilePath = null } = {}) {
   };
 }
 
+/**
+ * Jobs newly created or whose updatedAt advanced vs the prior llh_store bag.
+ * Used so ordinary Stage-1 writes dual-write ONLY the mutation — never bulk-seed
+ * the entire legacy history into the dedicated table.
+ */
+function selectJobsChangedInWrite(previousBag, nextBag) {
+  const previous = jobApi.normalizeOperatorJobStore(previousBag || {});
+  const next = jobApi.normalizeOperatorJobStore(nextBag || {});
+  const prevById = new Map();
+  for (const job of previous.jobs) {
+    if (job?.id) prevById.set(job.id, job);
+  }
+  const changed = [];
+  for (const job of next.jobs) {
+    if (!job?.id) continue;
+    const prev = prevById.get(job.id);
+    if (!prev) {
+      changed.push(job);
+      continue;
+    }
+    const prevMs = Date.parse(prev.updatedAt || "") || 0;
+    const nextMs = Date.parse(job.updatedAt || "") || 0;
+    if (nextMs > prevMs) changed.push(job);
+  }
+  return changed;
+}
+
 module.exports = {
   createCurriculumOperatorJobStore,
   buildHotStoreJobBag,
   toHotStoreStub,
+  selectJobsChangedInWrite,
   isActiveStatus,
   isTerminalStatus,
   ACTIVE_STATUSES,

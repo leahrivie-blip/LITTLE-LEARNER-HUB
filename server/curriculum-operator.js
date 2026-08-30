@@ -133,11 +133,20 @@ function createCurriculumOperatorApi(deps) {
 
   async function writeJobs(store, nextJobs) {
     const stamp = jobApi.nowIso();
+    const previous = jobApi.normalizeOperatorJobStore(store?.curriculumOperatorJobs);
     const normalized = jobApi.normalizeOperatorJobStore({
       ...nextJobs,
       updatedAt: stamp,
     });
+    const jobStoreApi = require("./curriculum-operator-job-store.js");
+    // Only jobs created or advanced in THIS mutation — never bulk-seed legacy history.
+    const changedJobs = jobStoreApi.selectJobsChangedInWrite(previous, normalized);
 
+    const canPersist = Boolean(
+      operatorJobStore
+      && typeof operatorJobStore.canSafelyPersistDedicated === "function"
+      && operatorJobStore.canSafelyPersistDedicated(),
+    );
     const canCap = Boolean(
       operatorJobStore
       && typeof operatorJobStore.canSafelyCapHotStore === "function"
@@ -149,13 +158,10 @@ function createCurriculumOperatorApi(deps) {
       && operatorJobStore.requiresDurableBackend(),
     );
 
-    if (canCap) {
-      // Persist FULL jobs to dedicated storage first. Cap ONLY after verified success.
-      // Do not mutate store.curriculumOperatorJobs to stubs before this completes.
+    if (canPersist && changedJobs.length) {
       try {
-        await operatorJobStore.upsertJobs(normalized.jobs);
+        await operatorJobStore.upsertJobs(changedJobs);
       } catch (error) {
-        // Fail closed: leave caller's store untouched (full legacy representation preserved).
         const err = new Error(
           error?.message || "Could not persist curriculum operator jobs to dedicated storage.",
         );
@@ -163,16 +169,18 @@ function createCurriculumOperatorApi(deps) {
         err.cause = error;
         throw err;
       }
-      const jobStoreApi = require("./curriculum-operator-job-store.js");
+    } else if (requiresPostgres && !canPersist && changedJobs.length) {
+      console.warn(
+        "[curriculum-operator] dedicated Postgres job store not ready — "
+        + "preserving full llh_store jobs (no dedicated dual-write; no hot-cap)",
+      );
+    }
+
+    // Stage 1: hot-store cutover is disabled. Keep FULL legacy-compatible bag always.
+    // Stage 2 may enable canSafelyCapHotStore only after explicit migrate+verify.
+    if (canCap) {
       store.curriculumOperatorJobs = jobStoreApi.buildHotStoreJobBag(normalized).bag;
     } else {
-      // Dedicated backend not safely ready (e.g. Postgres intended but recovering):
-      // keep FULL jobs in llh_store. Never stub from local-file substitute.
-      if (requiresPostgres) {
-        console.warn(
-          "[curriculum-operator] dedicated Postgres job store not ready — preserving full llh_store jobs (no hot-cap)",
-        );
-      }
       store.curriculumOperatorJobs = normalized;
     }
 

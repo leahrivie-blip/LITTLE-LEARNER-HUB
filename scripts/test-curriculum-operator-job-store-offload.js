@@ -15,6 +15,7 @@ const jobApi = require("./curriculum-operator-job.js");
 const {
   createCurriculumOperatorJobStore,
   buildHotStoreJobBag,
+  selectJobsChangedInWrite,
   byteLen,
 } = require("../server/curriculum-operator-job-store.js");
 
@@ -207,7 +208,8 @@ async function main() {
   await storeI2.initTable();
   await storeI2.loadFromStorage();
   assert.equal(storeI2.backendMode(), "postgres");
-  assert.equal(storeI2.canSafelyCapHotStore(), true);
+  assert.equal(storeI2.canSafelyPersistDedicated(), true);
+  assert.equal(storeI2.canSafelyCapHotStore(), false);
   let failed = null;
   try {
     await storeI2.upsertJob(makeJob({ id: "opjob_failclosed", status: "completed", lessonResults: fatLessonResults(2) }));
@@ -372,14 +374,25 @@ async function main() {
   });
   await storeN2.initTable();
   await storeN2.loadFromStorage();
-  const termN2 = makeJob({ id: "opjob_n2", status: "completed", lessonResults: fatLessonResults(2) });
+  const termN2 = makeJob({
+    id: "opjob_n2",
+    status: "completed",
+    updatedAt: "2026-08-01T00:00:00.000Z",
+    lessonResults: fatLessonResults(2),
+  });
   const storeRefN2 = {
     store: { curriculumOperatorJobs: { jobs: [termN2], updatedAt: "" } },
   };
   const apiN2 = makeWriteApi(storeN2, storeRefN2);
+  const mutatedN2 = makeJob({
+    id: "opjob_n2",
+    status: "completed",
+    updatedAt: "2026-08-02T00:00:00.000Z",
+    lessonResults: fatLessonResults(2),
+  });
   let n2err = null;
   try {
-    await apiN2.writeJobs(storeRefN2.store, { jobs: [termN2] });
+    await apiN2.writeJobs(storeRefN2.store, { jobs: [mutatedN2] });
   } catch (error) {
     n2err = error;
   }
@@ -388,13 +401,14 @@ async function main() {
   assert.ok(afterN2.lessonResults.length === 2, "lessonResults not replaced with []");
   console.log("PASS  N2");
 
-  console.log("N3) Postgres recovers — dedicated becomes usable; still never uses side-file");
+  console.log("N3) Postgres recovers — dedicated becomes usable; Stage 1 never uses side-file or hot-cap");
   const sideN3 = tmp("n3-side");
   const dbN3 = new Map();
   let n3Ready = false;
   const storeN3 = createCurriculumOperatorJobStore({ localFilePath: sideN3 });
   storeN3.configure({ intendedPostgres: true, pool: null });
   assert.equal(storeN3.canSafelyCapHotStore(), false);
+  assert.equal(storeN3.isHotStoreCutoverEnabled(), false);
 
   const poolN3 = {
     query: async (sql, params = []) => {
@@ -429,18 +443,32 @@ async function main() {
   await storeN3.initTable();
   await storeN3.loadFromStorage();
   assert.equal(storeN3.backendMode(), "postgres");
-  assert.equal(storeN3.canSafelyCapHotStore(), true);
+  assert.equal(storeN3.canSafelyPersistDedicated(), true);
+  assert.equal(storeN3.isHotStoreCutoverEnabled(), false);
+  assert.equal(storeN3.canSafelyCapHotStore(), false, "Stage 1 cutover remains disabled after recovery");
   n3Ready = true;
 
-  const termN3 = makeJob({ id: "opjob_n3", status: "completed", lessonResults: fatLessonResults(2) });
-  const storeRefN3 = { store: { curriculumOperatorJobs: { jobs: [termN3], updatedAt: "" } } };
+  const termN3 = makeJob({
+    id: "opjob_n3",
+    status: "completed",
+    updatedAt: "2026-08-10T00:00:00.000Z",
+    lessonResults: fatLessonResults(2),
+  });
+  const storeRefN3 = {
+    store: {
+      curriculumOperatorJobs: {
+        jobs: [makeJob({ id: "opjob_n3", status: "completed", updatedAt: "2026-08-01T00:00:00.000Z", lessonResults: fatLessonResults(2) })],
+        updatedAt: "",
+      },
+    },
+  };
   const apiN3 = makeWriteApi(storeN3, storeRefN3);
   await apiN3.writeJobs(storeRefN3.store, { jobs: [termN3] });
   const hotN3 = storeRefN3.store.curriculumOperatorJobs.jobs.find((j) => j.id === "opjob_n3");
-  assert.equal(hotN3.lessonResults.length, 0, "hot stub only after verified dedicated persist");
-  assert.equal(hotN3.hotStoreStub, true);
+  assert.ok(hotN3.lessonResults.length === 2, "Stage 1 keeps FULL lessonResults in llh_store after dedicated dual-write");
+  assert.notEqual(hotN3.hotStoreStub, true);
   const dedicatedN3 = await storeN3.getJob("opjob_n3");
-  assert.ok(dedicatedN3.lessonResults.length === 2);
+  assert.ok(dedicatedN3.lessonResults.length === 2, "changed job dual-written to dedicated");
   assert.equal(fs.existsSync(sideN3), false, "side-file never used as transition mechanism");
   void n3Ready;
   console.log("PASS  N3");
@@ -451,7 +479,9 @@ async function main() {
   storeN4.configure({ intendedPostgres: false });
   await storeN4.loadFromStorage();
   assert.equal(storeN4.backendMode(), "local-file");
-  assert.equal(storeN4.canSafelyCapHotStore(), true);
+  assert.equal(storeN4.canSafelyPersistDedicated(), true);
+  assert.equal(storeN4.isHotStoreCutoverEnabled(), false);
+  assert.equal(storeN4.canSafelyCapHotStore(), false, "Stage 1 cutover disabled even in local mode");
   await storeN4.upsertJob(makeJob({ id: "opjob_n4", status: "running" }));
   assert.ok(fs.existsSync(fileN4));
   console.log("PASS  N4");
@@ -553,6 +583,132 @@ async function main() {
   assert.equal(cachedN7.lessonResults[0].title, "db-newer");
   assert.equal(cachedN7.status, "completed");
   console.log("PASS  N7");
+
+  // —— Stage-boundary regressions (blocking: no implicit historical migration) ——
+  console.log("O1) First ordinary Operator mutation does NOT bulk-migrate/hot-cap history");
+  const dbO1 = new Map();
+  let o1InsertIds = [];
+  const storeO1 = createCurriculumOperatorJobStore({ localFilePath: tmp("o1-unused") });
+  storeO1.configure({
+    intendedPostgres: true,
+    pool: {
+      query: async (sql, params = []) => {
+        const s = String(sql);
+        if (/CREATE TABLE|CREATE INDEX/i.test(s)) return { rows: [], rowCount: 0 };
+        if (/SELECT id, data FROM llh_curriculum_operator_jobs ORDER BY/i.test(s)) {
+          return { rows: Array.from(dbO1.values()).map((d) => ({ id: d.id, data: d })), rowCount: dbO1.size };
+        }
+        if (/SELECT data FROM llh_curriculum_operator_jobs WHERE id/i.test(s)) {
+          const row = dbO1.get(params[0]);
+          return row ? { rows: [{ data: row }], rowCount: 1 } : { rows: [], rowCount: 0 };
+        }
+        if (/INSERT INTO\s+llh_curriculum_operator_jobs/i.test(s)) {
+          const id = params[0];
+          const incoming = JSON.parse(params[6]);
+          o1InsertIds.push(id);
+          dbO1.set(id, incoming);
+          return { rows: [{ data: incoming }], rowCount: 1 };
+        }
+        throw new Error(`unexpected SQL in O1: ${s.slice(0, 100)}`);
+      },
+    },
+  });
+  await storeO1.initTable();
+  await storeO1.loadFromStorage();
+  assert.equal(storeO1._memorySize(), 0, "dedicated starts empty");
+  assert.equal(storeO1.isHotStoreCutoverEnabled(), false);
+
+  const legacy53 = Array.from({ length: 53 }, (_, i) => makeJob({
+    id: `opjob_hist_${i}`,
+    status: i === 0 ? "running" : (i % 3 === 0 ? "failed" : "completed"),
+    updatedAt: `2026-08-${String((i % 28) + 1).padStart(2, "0")}T00:00:00.000Z`,
+    lessonResults: fatLessonResults(2),
+  }));
+  const beforeBytes = byteLen({ jobs: legacy53 });
+  const storeRefO1 = {
+    store: {
+      curriculumOperatorJobs: { jobs: legacy53, updatedAt: "2026-08-30T00:00:00.000Z" },
+      siteContent: { curriculum: { lessonPlans: [{ id: "cur-lp-x" }], activities: [] } },
+      users: { "u@example.com": { email: "u@example.com" } },
+    },
+  };
+  // Simulate ordinary mutation: readJobs merge → touch ONE job → writeJobs
+  const apiO1 = makeWriteApi(storeO1, storeRefO1);
+  const bagO1 = apiO1.readJobs(storeRefO1.store);
+  assert.equal(bagO1.jobs.length, 53);
+  const target = bagO1.jobs.find((j) => j.id === "opjob_hist_0");
+  target.status = "running";
+  target.progress = { ...(target.progress || {}), completed: 1 };
+  target.updatedAt = "2026-08-30T12:00:00.000Z";
+  const changedDetect = selectJobsChangedInWrite(storeRefO1.store.curriculumOperatorJobs, { jobs: bagO1.jobs });
+  assert.equal(changedDetect.length, 1, "only the mutated job is considered changed");
+  assert.equal(changedDetect[0].id, "opjob_hist_0");
+
+  await apiO1.writeJobs(storeRefO1.store, bagO1);
+  assert.deepEqual(o1InsertIds, ["opjob_hist_0"], "only the changed job dual-written to dedicated");
+  assert.equal(dbO1.size, 1);
+  assert.equal(storeRefO1.store.curriculumOperatorJobs.jobs.length, 53, "no legacy records disappear");
+  for (const job of storeRefO1.store.curriculumOperatorJobs.jobs) {
+    if (job.id === "opjob_hist_0") {
+      assert.ok(job.lessonResults.length > 0);
+      continue;
+    }
+    assert.ok(job.lessonResults.length > 0, `${job.id} must keep full lessonResults`);
+    assert.notEqual(job.hotStoreStub, true, `${job.id} must not be stubbed`);
+  }
+  assert.ok(byteLen(storeRefO1.store.curriculumOperatorJobs) > beforeBytes * 0.5, "hot bag remains historically large");
+  assert.equal(storeRefO1.store.users["u@example.com"].email, "u@example.com");
+  console.log("PASS  O1");
+
+  console.log("O2) Stage 1 restart — no boot migration / no boot hot-cap");
+  const fileO2Dedicated = tmp("o2-dedicated");
+  // Seed dedicated with the one dual-written job from a prior session
+  const storeO2a = createCurriculumOperatorJobStore({ localFilePath: fileO2Dedicated });
+  storeO2a.configure({ intendedPostgres: false });
+  await storeO2a.loadFromStorage();
+  await storeO2a.upsertJob(makeJob({
+    id: "opjob_hist_0",
+    status: "running",
+    updatedAt: "2026-08-30T12:00:00.000Z",
+    lessonResults: fatLessonResults(1),
+  }));
+  const legacyO2 = Array.from({ length: 53 }, (_, i) => makeJob({
+    id: `opjob_hist_${i}`,
+    status: i === 0 ? "running" : "completed",
+    updatedAt: `2026-08-${String((i % 28) + 1).padStart(2, "0")}T00:00:00.000Z`,
+    lessonResults: fatLessonResults(2),
+  }));
+  const bagHashBefore = crypto.createHash("sha256")
+    .update(JSON.stringify(legacyO2.map((j) => ({ id: j.id, status: j.status, lr: j.lessonResults.length }))))
+    .digest("hex");
+
+  // Restart: new process-equivalent store, load dedicated, merge with full legacy — no rewrite
+  const storeO2b = createCurriculumOperatorJobStore({ localFilePath: fileO2Dedicated });
+  storeO2b.configure({ intendedPostgres: false });
+  const loadedO2 = await storeO2b.loadFromStorage();
+  assert.equal(loadedO2.loaded, 1);
+  assert.equal(storeO2b.isHotStoreCutoverEnabled(), false);
+  assert.equal(storeO2b.canSafelyCapHotStore(), false);
+  const mergedO2 = storeO2b.mergeWithLegacyBag({ jobs: legacyO2, updatedAt: "2026-08-30T00:00:00.000Z" });
+  assert.equal(mergedO2.jobs.length, 53);
+  assert.ok(mergedO2.jobs.every((j) => (j.lessonResults || []).length > 0), "full historical fallback available");
+  const bagHashAfter = crypto.createHash("sha256")
+    .update(JSON.stringify(legacyO2.map((j) => ({ id: j.id, status: j.status, lr: j.lessonResults.length }))))
+    .digest("hex");
+  assert.equal(bagHashBefore, bagHashAfter, "initialization alone must not rewrite legacy bag");
+  console.log("PASS  O2");
+
+  console.log("O3) Explicit cutover helper is disabled by default / cannot activate accidentally");
+  const storeO3 = createCurriculumOperatorJobStore({ localFilePath: tmp("o3") });
+  storeO3.configure({ intendedPostgres: false });
+  await storeO3.loadFromStorage();
+  assert.equal(storeO3.isHotStoreCutoverEnabled(), false);
+  assert.equal(storeO3.canSafelyPersistDedicated(), true);
+  assert.equal(storeO3.canSafelyCapHotStore(), false);
+  // No public enable API — Stage 2 tooling must add an explicit path later.
+  assert.equal(typeof storeO3.enableHotStoreCutover, "undefined");
+  assert.equal(typeof storeO3.setHotStoreCutoverEnabled, "undefined");
+  console.log("PASS  O3");
 
   console.log("\nAll curriculumOperatorJobs offload Stage-1 tests passed.");
 }
