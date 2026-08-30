@@ -264,7 +264,7 @@ Explicit rollback **before** Stage 2 execution is authorized:
 4. Verify all historical jobs / full `lessonResults` restored  
 5. Leave dedicated rows intact by default (additional safety)  
 
-Preferred: restore hot legacy bag; keep dedicated table.
+Preferred: restore hot legacy bag; keep dedicated table. Same-timestamp divergent **full** payloads STOP; raw `hotStoreStub` live rows may be restored from full backup.
 
 Tooling simulation: `simulateRollbackFromBackup()`.
 
