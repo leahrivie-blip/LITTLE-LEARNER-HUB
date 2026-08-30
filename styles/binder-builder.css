@@ -696,6 +696,9 @@
   break-inside: avoid;
   page-break-inside: avoid;
   margin-bottom: 14px;
+}
+.bb-center-card,
+.bb-end-block {
   padding-bottom: 10px;
   border-bottom: 1px solid var(--bb-print-line);
 }
@@ -916,47 +919,142 @@
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--bb-day-tint, #f6f0e7) 70%, #fff), #fff 55%);
 }
+.bb-divider-accent {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 0.22in;
+  background: color-mix(in srgb, var(--bb-day-tint, #dce8df) 85%, var(--bb-print-accent));
+}
 .bb-divider-frame {
   height: 100%;
   max-height: 100%;
   box-sizing: border-box;
   border: 1.5px solid rgba(61, 122, 90, 0.18);
   border-radius: 16px;
-  padding: 0.28in 0.3in 0.22in;
+  padding: 0.42in 0.38in 0.35in 0.42in;
   display: grid;
   align-content: start;
-  gap: 10px;
-  background: rgba(255, 255, 255, 0.78);
+  gap: 14px;
+  background: rgba(255, 255, 255, 0.82);
   overflow: hidden;
+  position: relative;
 }
-.bb-page-divider .bb-divider-inner,
-.bb-page-divider .bb-divider-frame {
-  min-height: 0;
+.bb-page-divider .bb-divider-day {
+  font-size: 0.85rem;
+  letter-spacing: 0.22em;
+}
+.bb-page-divider h2 {
+  font-size: 2rem;
+  line-height: 1.1;
+  max-width: 18rem;
 }
 .bb-divider-focus,
 .bb-divider-plan {
-  padding: 10px 12px;
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--bb-day-tint, #f6f0e7) 65%, #fff);
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--bb-day-tint, #f6f0e7) 72%, #fff);
   border: 1px solid rgba(36, 49, 42, 0.08);
 }
 .bb-divider-focus-label,
 .bb-divider-plan-label {
-  margin: 0 0 4px;
+  margin: 0 0 6px;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  font-size: 0.7rem;
+  font-size: 0.72rem;
   font-weight: 700;
   color: var(--bb-print-accent);
 }
-.bb-divider-focus p:last-child,
-.bb-divider-plan p:last-child { margin: 0; }
+.bb-divider-focus p:last-child {
+  margin: 0;
+  font-size: 1.05rem;
+  line-height: 1.4;
+}
 .bb-divider-acts {
   margin: 0;
-  padding-left: 1.1rem;
+  padding-left: 1.15rem;
   display: grid;
-  gap: 4px;
+  gap: 8px;
+  font-size: 1.05rem;
+  line-height: 1.35;
+  font-weight: 600;
+}
+.bb-divider-ornament {
+  justify-self: end;
+  width: 1.1in;
+  height: 1.1in;
+  margin-top: 0.2in;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 35% 35%, rgba(255, 255, 255, 0.9), transparent 42%),
+    color-mix(in srgb, var(--bb-day-tint, #dce8df) 80%, var(--bb-print-accent));
+  opacity: 0.85;
+}
+
+.bb-resource-grid {
+  display: grid;
+  gap: 12px;
+}
+.bb-book-card,
+.bb-song-card {
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: rgba(246, 240, 231, 0.6);
+  border: 1px solid rgba(61, 122, 90, 0.12);
+  display: grid;
+  gap: 8px;
+}
+.bb-book-card h3,
+.bb-song-card h3 {
+  margin: 0;
+  font-family: "Fraunces", Georgia, serif;
+  font-size: 1.25rem;
+}
+.bb-book-author {
+  margin: 0;
+  color: var(--bb-print-muted);
   font-size: 0.95rem;
+}
+.bb-talk-about {
+  margin: 4px 0 0;
+  font-size: 0.92rem;
+  line-height: 1.35;
+  color: var(--bb-print-ink);
+}
+.bb-qr-figure {
+  margin: 6px 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid rgba(61, 122, 90, 0.14);
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+  width: fit-content;
+  max-width: 100%;
+}
+.bb-qr-code {
+  width: 1.55in;
+  height: 1.55in;
+}
+.bb-qr-code svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.bb-qr-label {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--bb-print-accent);
+}
+.bb-url-hint {
+  margin: 4px 0 8px;
+  font-size: 0.85rem;
+  color: var(--bb-muted);
 }
 
 .bb-activity-type {
@@ -989,9 +1087,7 @@
 .bb-teacher-tip p:last-child { margin: 0; font-size: 0.9rem; }
 
 .bb-family-card,
-.bb-end-block,
-.bb-book-card,
-.bb-song-card {
+.bb-end-block {
   padding: 12px 14px;
   border-radius: 12px;
   background: rgba(246, 240, 231, 0.55);

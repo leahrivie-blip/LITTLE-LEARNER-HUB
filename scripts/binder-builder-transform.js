@@ -357,6 +357,9 @@
           firstMeaningful(source?.alternativeBooks),
           useSource,
         );
+        const qrSvg = resourceUrl && book.qrEnabled !== false
+          ? (qrSvgByUrl[resourceUrl] || qrSvgByUrl[asText(book.resourceUrl)] || "")
+          : "";
         return {
           id: book.id,
           title: firstMeaningful(book.title, source?.title),
@@ -368,7 +371,7 @@
           alternative,
           resourceUrl,
           qrEnabled: book.qrEnabled !== false && Boolean(resourceUrl),
-          qrSvg: resourceUrl && book.qrEnabled !== false ? (qrSvgByUrl[resourceUrl] || "") : "",
+          qrSvg,
         };
       })
       .filter((book) => book.title);
@@ -397,6 +400,9 @@
         const lyrics = allowLyrics
           ? pickOverrideOrSource(song.lyricsOverride, source?.lyrics, useSource)
           : { text: "", origin: "empty" };
+        const qrSvg = resourceUrl && song.qrEnabled !== false
+          ? (qrSvgByUrl[resourceUrl] || qrSvgByUrl[asText(song.resourceUrl)] || "")
+          : "";
         return {
           id: song.id,
           title: firstMeaningful(song.title, source?.title),
@@ -406,7 +412,7 @@
           lyrics,
           resourceUrl,
           qrEnabled: song.qrEnabled !== false && Boolean(resourceUrl),
-          qrSvg: resourceUrl && song.qrEnabled !== false ? (qrSvgByUrl[resourceUrl] || "") : "",
+          qrSvg,
         };
       })
       .filter((song) => song.title);

@@ -565,6 +565,101 @@ function unitTests() {
   ok(/My Name Discovery/.test(mainMondayHtml), "activity reordering updates the grid main activity cell");
   ok(JSON.stringify(multiMonLesson) === multiBefore, "source lesson remains unchanged after redesign render paths");
 
+  // --- Story/Music QR polish + day divider polish ---
+  const qrLesson = sampleLesson("Toddler", { id: "cur-lp-bb-qr-polish", title: "QR Polish Sample" });
+  qrLesson.books = [
+    {
+      title: "I Like Myself!",
+      author: "Karen Beaumont",
+      whyThisBook: "Celebrates uniqueness.",
+      beforeReadingQuestions: ["What do you like about you?"],
+      resourceUrl: "",
+    },
+    {
+      title: "No Link Book",
+      author: "A. Author",
+      resourceUrl: "",
+    },
+  ];
+  qrLesson.songs = [
+    {
+      title: "Hello Friends",
+      whenToUse: "Morning Meeting",
+      motions: "Wave hello",
+      teacherDirections: "Sing slowly",
+      resourceUrl: "",
+    },
+    {
+      title: "Quiet Transition",
+      whenToUse: "Cleanup",
+      motions: "Tip-toe",
+      resourceUrl: "",
+    },
+  ];
+  const qrBefore = JSON.stringify(qrLesson);
+  const qrDraft = model.createDraftFromLesson(qrLesson);
+  qrDraft.books[0].resourceUrl = "https://www.youtube.com/watch?v=approvedStory1";
+  qrDraft.books[0].qrEnabled = true;
+  qrDraft.books[1].resourceUrl = "";
+  qrDraft.songs[0].resourceUrl = "https://www.youtube.com/watch?v=approvedSong1";
+  qrDraft.songs[0].qrEnabled = true;
+  qrDraft.songs[1].resourceUrl = "";
+  // Keep sample valid for canPrint READY (tuesday fixture starts empty).
+  if (qrDraft.days?.tuesday?.activities?.[0]) qrDraft.days.tuesday.activities[0].howToDoItOverride = "Stamp leaves gently.";
+  const storySvg = "<svg xmlns='http://www.w3.org/2000/svg'><rect width='1' height='1'/></svg>";
+  const songSvg = "<svg xmlns='http://www.w3.org/2000/svg'><circle r='1'/></svg>";
+  const qrPrint = print.buildBinderPrintHtml(qrDraft, qrLesson, {
+    qrSvgByUrl: {
+      "https://www.youtube.com/watch?v=approvedStory1": storySvg,
+      "https://www.youtube.com/watch?v=approvedSong1": songSvg,
+    },
+  });
+  const storyHtml = qrPrint.html.split('data-bb-page="books"')[1]?.split("</article>")[0] || "";
+  const musicHtml = qrPrint.html.split('data-bb-page="songs"')[1]?.split("</article>")[0] || "";
+  ok(/bb-qr-figure/.test(storyHtml) && /Scan to watch\/listen/.test(storyHtml), "approved Story Time URL renders a QR");
+  ok(/No Link Book/.test(storyHtml), "story without URL still prints title");
+  const noLinkBookCard = storyHtml.split("No Link Book")[1]?.split("</section>")[0] || "";
+  ok(!/bb-qr-figure|bb-qr-code|bb-image-fallback/.test(noLinkBookCard), "story with no URL renders no QR and no empty placeholder");
+  ok(/bb-qr-figure/.test(musicHtml) && /Scan to play/.test(musicHtml), "approved song URL renders a QR");
+  const quietCard = musicHtml.split("Quiet Transition")[1]?.split("</section>")[0] || "";
+  ok(!/bb-qr-figure|bb-qr-code/.test(quietCard), "song with no URL renders no QR and no empty placeholder");
+  ok(!/youtube\.com\/watch\?v=approved/.test(storyHtml + musicHtml), "customer print does not show raw YouTube URLs");
+  ok(/When to Use/.test(musicHtml) && /Movement/.test(musicHtml), "song cards keep when-to-use and movement cues");
+
+  qrDraft.books[0].resourceUrl = "bad://not-a-valid-url";
+  const badQrPrint = print.buildBinderPrintHtml(qrDraft, qrLesson, {
+    qrSvgByUrl: { "bad://not-a-valid-url": storySvg },
+  });
+  const badStory = badQrPrint.html.split('data-bb-page="books"')[1]?.split("</article>")[0] || "";
+  ok(!/bb-qr-figure/.test(badStory), "invalid URL does not render a QR");
+  const badReady = readiness.evaluateBinderReadiness(qrDraft, qrLesson);
+  ok(badReady.issues.some((i) => i.code === "invalid_story_qr"), "invalid URL surfaces owner-side validation via readiness");
+
+  // Restore valid override and prove persistence through normalize (binder-only)
+  qrDraft.books[0].resourceUrl = "https://www.youtube.com/watch?v=approvedStory1";
+  const persisted = model.normalizeBinderDraft(JSON.parse(JSON.stringify(qrDraft)));
+  ok(persisted.books[0].resourceUrl === "https://www.youtube.com/watch?v=approvedStory1", "binder-only story/song URL override persists");
+  ok(JSON.stringify(qrLesson) === qrBefore, "binder-only URL override does not mutate source lesson");
+  ok(typeof qr.qrFigureHtml === "function" && typeof qr.validateBinderUrl === "function", "existing QR validation/generation is reused");
+
+  const mondayDivider = qrPrint.html.split('data-bb-day="monday"')[0].includes('data-bb-page="dayDivider"')
+    ? qrPrint.html.split('data-bb-page="dayDivider"')[1]?.split("</article>")[0]
+    : (qrPrint.html.match(/data-bb-page="dayDivider"[^>]*data-bb-day="monday"[\s\S]*?<\/article>/) || [])[0] || "";
+  const monDiv = (qrPrint.html.match(/<article class="bb-page bb-page-divider[^"]*" data-bb-page="dayDivider" data-bb-day="monday"[\s\S]*?<\/article>/) || [])[0] || "";
+  ok(/Today We’re Exploring|Today We're Exploring/.test(monDiv), "day divider uses exploring focus label");
+  ok(/Today’s Activities|Today's Activities/.test(monDiv), "day divider lists today’s activities heading");
+  const monTitles = (qrPrint.document.days.find((d) => d.dayKey === "monday")?.activities || []).map((a) => a.title);
+  ok(monTitles.length >= 1 && monTitles.every((t) => monDiv.includes(t)), "day divider lists the correct real activity titles for that day");
+  ok(!/bb-activity-media/.test(monDiv) && !/bb-image-fallback/.test(monDiv), "divider does not inherit first activity image");
+  ok(/data-bb-week-planner/.test(qrPrint.html) && /data-bb-week-grid/.test(qrPrint.html), "weekly planner/calendar remains unchanged");
+  ok(/What We Are Doing|What We're Doing/.test(qrPrint.html) && /How To Do It/.test(qrPrint.html), "activity pages remain unchanged");
+  ok((qrPrint.html.match(/<article class="bb-page\b/g) || []).length === qrPrint.pages.length, "one logical page = one print page");
+  qrDraft.books[0].resourceUrl = "https://www.youtube.com/watch?v=approvedStory1";
+  const readyQr = readiness.evaluateBinderReadiness(qrDraft, qrLesson);
+  ok(readyQr.canPrint === true && readyQr.status === "READY", "readiness remains READY / canPrint true for valid sample");
+  ok(!/printablePlacement|shopping list|materials assembly|Phase 2/i.test(qrPrint.html), "no Phase 2 markers or functionality introduced");
+  ok(JSON.stringify(qrLesson) === qrBefore, "source lesson remains byte-identical after QR/divider polish path");
+
   // Empty optional sections omitted
   draft.sections.books = true;
   draft.books = [];

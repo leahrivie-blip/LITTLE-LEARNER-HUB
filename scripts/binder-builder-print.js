@@ -394,16 +394,21 @@
         `</ul>`,
       ].join("")
       : "";
+    const focusText = asText(day.description?.text) || asText(day.title?.text);
     return [
       `<article class="bb-page bb-page-divider${imageFree} ${dayToneClass(day.dayKey)}" data-bb-page="dayDivider" data-bb-day="${esc(day.dayKey)}">`,
+      `<div class="bb-divider-accent" aria-hidden="true"></div>`,
       `<div class="bb-divider-frame">`,
       `<p class="bb-divider-day">${esc(day.label)}</p>`,
       `<h2>${esc(day.title?.text || day.label)}</h2>`,
-      day.description?.text
-        ? `<aside class="bb-divider-focus"><p class="bb-divider-focus-label">Today’s Focus</p><p>${esc(day.description.text)}</p></aside>`
+      focusText
+        ? `<aside class="bb-divider-focus"><p class="bb-divider-focus-label">Today We’re Exploring</p><p>${esc(focusText)}</p></aside>`
         : "",
-      list ? `<div class="bb-divider-plan"><p class="bb-divider-plan-label">Today’s Activities</p>${list}</div>` : "",
+      list
+        ? `<div class="bb-divider-plan"><p class="bb-divider-plan-label">Today’s Activities</p>${list}</div>`
+        : "",
       media,
+      `<div class="bb-divider-ornament" aria-hidden="true"></div>`,
       `</div>`,
       footerHtml(page.pageNumber),
       `</article>`,
@@ -445,27 +450,27 @@
     ].join("");
   }
 
+  function talkAboutPrompt(book) {
+    return asText(book?.questions?.text) || asText(book?.beforeReading?.text) || asText(book?.connection?.text);
+  }
+
   function renderBooks(doc, page) {
     const entries = (doc.books || []).map((book) => {
       const validated = book.resourceUrl ? validateBinderUrl(book.resourceUrl) : { ok: false };
-      const qrHtml = book.qrEnabled && validated.ok
+      const qrHtml = book.qrEnabled && validated.ok && book.qrSvg
         ? qrFigureHtml({
           url: validated.url,
           svg: book.qrSvg,
-          title: book.title,
-          label: "Scan for Story Resource",
+          label: "Scan to watch/listen",
         })
         : "";
+      const talk = talkAboutPrompt(book);
       return [
-        `<section class="bb-book-card">`,
+        `<section class="bb-book-card" data-bb-book-card="${esc(book.id || book.title || "")}">`,
         `<h3>${esc(book.title)}</h3>`,
-        book.author ? `<p class="bb-muted">by ${esc(book.author)}</p>` : "",
-        sectionBlock("Why This Story Fits", book.connection),
-        sectionBlock("Before Reading", book.beforeReading),
-        sectionBlock("Questions to Ask", book.questions),
-        sectionBlock("After Reading", book.afterReading),
-        sectionBlock("Alternative Book", book.alternative),
+        book.author ? `<p class="bb-book-author">${esc(book.author)}</p>` : "",
         qrHtml,
+        talk ? `<p class="bb-talk-about"><strong>Talk about:</strong> ${esc(talk.split(/\n/)[0])}</p>` : "",
         `</section>`,
       ].join("");
     }).join("");
@@ -473,7 +478,7 @@
     return [
       `<article class="bb-page bb-page-books" data-bb-page="books">`,
       `<header class="bb-page-header bb-banner-header"><p class="bb-kicker">Literacy</p><h2>Story Time</h2></header>`,
-      entries || `<p class="bb-empty-note">No stories selected for this binder.</p>`,
+      `<div class="bb-resource-grid">${entries || `<p class="bb-empty-note">No stories selected for this binder.</p>`}</div>`,
       footerHtml(page.pageNumber),
       `</article>`,
     ].join("");
@@ -482,22 +487,19 @@
   function renderSongs(doc, page) {
     const entries = (doc.songs || []).map((song) => {
       const validated = song.resourceUrl ? validateBinderUrl(song.resourceUrl) : { ok: false };
-      const qrHtml = song.qrEnabled && validated.ok
+      const qrHtml = song.qrEnabled && validated.ok && song.qrSvg
         ? qrFigureHtml({
           url: validated.url,
           svg: song.qrSvg,
-          title: song.title,
-          label: "Scan for Song Resource",
+          label: "Scan to play",
         })
         : "";
       return [
-        `<section class="bb-song-card">`,
+        `<section class="bb-song-card" data-bb-song-card="${esc(song.id || song.title || "")}">`,
         `<h3>${esc(song.title)}</h3>`,
-        sectionBlock("When to Use", song.whenToUse),
-        sectionBlock("Movement Directions", song.movements),
-        sectionBlock("Teacher Directions", song.directions),
-        song.lyrics?.text ? sectionBlock("Lyrics", song.lyrics) : "",
         qrHtml,
+        sectionBlock("When to Use", song.whenToUse),
+        sectionBlock("Movement", song.movements),
         `</section>`,
       ].join("");
     }).join("");
@@ -505,7 +507,7 @@
     return [
       `<article class="bb-page bb-page-songs" data-bb-page="songs">`,
       `<header class="bb-page-header bb-banner-header"><p class="bb-kicker">Music</p><h2>Music &amp; Movement</h2></header>`,
-      entries || `<p class="bb-empty-note">No songs selected for this binder.</p>`,
+      `<div class="bb-resource-grid">${entries || `<p class="bb-empty-note">No songs selected for this binder.</p>`}</div>`,
       footerHtml(page.pageNumber),
       `</article>`,
     ].join("");
