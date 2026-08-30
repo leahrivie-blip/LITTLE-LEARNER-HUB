@@ -31,11 +31,17 @@
 ## Stage 1 architecture
 
 1. **Table** `llh_curriculum_operator_jobs` (id, status, timestamps, created_by, phase, data JSONB) + indexes.
-2. **Module** `server/curriculum-operator-job-store.js` — get/list/upsert, local-file fallback, hot-store cap helper.
-3. **Dual-read** — `mergeWithLegacyBag`: dedicated memory/table first, legacy llh_store ids as fallback.
-4. **Dual-write** — `writeJobs` upserts **full** jobs to dedicated store, then writes **capped** bag to llh_store.
-5. **Cap rules** — never drop active statuses; keep ≤10 newest terminal jobs as stubs (`lessonResults: []`, truncated log).
-6. **Migration script** — dry-run default; file apply for fixtures; **production Postgres apply refused** in Stage 1.
+2. **Module** `server/curriculum-operator-job-store.js` — get/list/upsert, local-file **only when not Postgres-intended**, hot-store cap helper.
+3. **Backend state** — `backendMode` (`postgres` | `local-file` | `memory`) is separate from readiness (`isReady` / `canSafelyCapHotStore`). Temporary `databaseReady=false` must **not** switch Postgres mode to local-file.
+4. **Dual-read** — `mergeWithLegacyBag`: dedicated memory/table first, legacy llh_store ids as fallback.
+5. **Dual-write** — `writeJobs` upserts **full** jobs to dedicated store, then writes **capped** bag to llh_store **only after verified success**.
+6. **Cap rules** — never drop active statuses; keep ≤10 newest terminal jobs as stubs (`lessonResults: []`, truncated log). Cap never runs while dedicated Postgres is unavailable.
+7. **Migration script** — dry-run default; file apply for fixtures; **production Postgres apply refused** in Stage 1.
+8. **Reconnect** — `ensureCurriculumOperatorJobStoreReady("reconnect")` re-inits the dedicated table after Postgres recovers; mode stays postgres.
+
+### Production safety invariant
+
+If Postgres is the intended store: **full operator job must persist to PostgreSQL before** `llh_store` may replace that job with a terminal stub. Local side-file must never act as a durability substitute.
 
 ## What Stage 1 does NOT do
 

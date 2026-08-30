@@ -24,8 +24,16 @@ const { createVisualProductionApi, mergeStorePreserveVisualProduction } = requir
 const { createBinderBuilderApi, mergeStorePreserveBinderBuilder } = require("./binder-builder.js");
 const { createCurriculumOperatorApi, mergeStorePreserveCurriculumOperatorJobs } = require("./curriculum-operator.js");
 const { createCurriculumOperatorJobStore } = require("./curriculum-operator-job-store.js");
+// Local side-file ONLY when not configured for Postgres. Production Postgres mode must
+// never attach a filesystem durability substitute (see curriculum-operator-job-store backendMode).
 const curriculumOperatorJobStore = createCurriculumOperatorJobStore({
-  localFilePath: path.join(__dirname, "data", "curriculum-operator-jobs.json"),
+  localFilePath: (() => {
+    const provider = String(process.env.DATABASE_PROVIDER || "local-json").toLowerCase();
+    const url = String(process.env.PRODUCTION_DATABASE_URL || "").trim();
+    const postgresIntended = (provider === "postgres" || provider === "postgresql") && Boolean(url);
+    if (postgresIntended) return null;
+    return path.join(__dirname, "data", "curriculum-operator-jobs.json");
+  })(),
 });
 const { createCurriculumOperatorOwnerPublishApi } = require("./curriculum-operator-owner-publish.js");
 const restoreIndependentLesson = require("./curriculum-restore-independent-lesson.js");
@@ -4916,10 +4924,50 @@ function startPostgresReconnectLoop() {
       } catch (error) {
         console.warn("[temp-password] reconnect apply skipped:", error.message);
       }
+      try {
+        // Re-init dedicated operator-job table after Postgres recovers. Mode stays postgres;
+        // this never switches to local-file durability.
+        await ensureCurriculumOperatorJobStoreReady("reconnect");
+      } catch (error) {
+        console.warn("[curriculum-operator-job-store] reconnect init skipped:", error.message);
+      }
     })().catch((error) => {
       console.warn("[store] Postgres reconnect failed:", error.message || error);
     });
   }, POSTGRES_RECONNECT_INTERVAL_MS);
+}
+
+/**
+ * Configure + (when ready) initialize dedicated curriculum operator job persistence.
+ * Intended backend follows usePostgresStore(); readiness follows databaseReady/pool.
+ * Never selects local-file as a substitute when Postgres is intended.
+ */
+async function ensureCurriculumOperatorJobStoreReady(reason = "boot") {
+  const postgresIntended = usePostgresStore();
+  curriculumOperatorJobStore.configure({
+    pool: postgresPool,
+    intendedPostgres: postgresIntended,
+  });
+  if (postgresIntended) {
+    if (!postgresPool || !databaseReady) {
+      console.warn(
+        `[curriculum-operator-job-store] Postgres intended but not ready (${reason}) — `
+        + "preserving full llh_store operator jobs until reconnect; local-file durability disabled",
+      );
+      return { ready: false, backend: "postgres" };
+    }
+    await curriculumOperatorJobStore.initTable();
+    const loaded = await curriculumOperatorJobStore.loadFromStorage();
+    console.log(
+      `[curriculum-operator-job-store] ready (${reason}) backend=postgres loaded=${loaded.loaded || 0}`,
+    );
+    return { ready: curriculumOperatorJobStore.isReady(), backend: "postgres" };
+  }
+  await curriculumOperatorJobStore.loadFromStorage();
+  return {
+    ready: curriculumOperatorJobStore.isReady(),
+    backend: curriculumOperatorJobStore.backendMode(),
+  };
 }
 
 async function initializeStorage() {
@@ -4958,16 +5006,17 @@ async function initializeStorage() {
     console.error("[admin-session-store] initialization failed — admin login will still work, but may fall back to slower legacy storage:", error.message);
   }
   try {
-    // Curriculum operator jobs: dedicated table/file (Stage 1 offload). Does not strip
-    // legacy llh_store.curriculumOperatorJobs until an explicit migration apply.
-    curriculumOperatorJobStore.configure({
-      pool: postgresPool,
-      usingPostgres: usePostgresStore() && databaseReady,
-    });
-    await curriculumOperatorJobStore.initTable();
-    await curriculumOperatorJobStore.loadFromStorage();
+    // Curriculum operator jobs: dedicated table (Postgres) or intentional local-file (dev).
+    // Does not strip legacy llh_store.curriculumOperatorJobs until an explicit migration apply.
+    // On init failure / Postgres not ready: reads fall back to full legacy bag; writes must NOT
+    // route to local-file or hot-stub terminal jobs.
+    await ensureCurriculumOperatorJobStoreReady("boot");
   } catch (error) {
-    console.error("[curriculum-operator-job-store] initialization failed — operator jobs will fall back to llh_store bag:", error.message);
+    console.error(
+      "[curriculum-operator-job-store] initialization failed — preserving full llh_store operator jobs "
+      + "(no local-file substitute; no hot-cap until dedicated backend is ready):",
+      error.message,
+    );
   }
   try {
     // Trim analyticsEvents only on the live store reference. Never rebuild users,

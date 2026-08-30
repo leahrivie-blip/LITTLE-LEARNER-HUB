@@ -8,9 +8,11 @@
  *
  * Safety:
  * - Dual-read: dedicated first, fall back to llh_store bag.
- * - Dual-write: full job → dedicated; capped bag → llh_store via caller writeStoreAsync.
+ * - Dual-write: full job → dedicated; capped bag → llh_store ONLY after verified success.
  * - Cap NEVER drops active/resumable jobs (planned|awaiting_confirm|running|paused).
- * - Fail-closed when dedicated persistence is required (Postgres mode) and writes fail.
+ * - backendMode (postgres|local-file|memory) is separate from readiness (isReady).
+ * - Postgres mode NEVER uses local side-file as a durability substitute.
+ * - Fail-closed when dedicated Postgres persistence is required and writes fail / not ready.
  * - Does not mutate curriculum, users, billing, programData, or enrichmentPublishHistory.
  */
 "use strict";
@@ -118,19 +120,90 @@ function buildHotStoreJobBag(jobsInput, options = {}) {
   };
 }
 
+/**
+ * Create dedicated operator-job persistence.
+ *
+ * backendMode (intended durable target) is separate from readiness:
+ * - "postgres": production / DATABASE_PROVIDER=postgres — NEVER uses localFilePath
+ * - "local-file": intentional local-json/dev/test only
+ * - "memory": in-process only (tests)
+ *
+ * Hot-store stubbing is allowed only when canSafelyCapHotStore() is true
+ * (intended backend ready AND table/file initialized). Postgres unavailability
+ * must preserve full llh_store jobs — never silently substitute the side file.
+ */
 function createCurriculumOperatorJobStore({ localFilePath = null } = {}) {
   let pool = null;
-  let usingPostgres = false;
+  /** @type {"postgres"|"local-file"|"memory"} */
+  let mode = localFilePath ? "local-file" : "memory";
+  let tableReady = false;
+  let initialized = false;
   /** @type {Map<string, object>} */
   const memory = new Map();
 
-  function configure({ pool: nextPool = null, usingPostgres: nextUsingPostgres = false } = {}) {
+  function resolveLocalFileAllowed() {
+    // Local side-file is ONLY valid when intentionally not in postgres mode.
+    return Boolean(localFilePath) && mode === "local-file";
+  }
+
+  /**
+   * @param {{ pool?: object|null, intendedPostgres?: boolean, usingPostgres?: boolean }} [opts]
+   * intendedPostgres / usingPostgres select MODE, not readiness.
+   * Passing intendedPostgres:true keeps postgres mode even when pool is null/down.
+   */
+  function configure({
+    pool: nextPool = null,
+    intendedPostgres,
+    usingPostgres,
+  } = {}) {
     pool = nextPool;
-    usingPostgres = Boolean(nextUsingPostgres);
+    const wantPostgres = intendedPostgres !== undefined
+      ? Boolean(intendedPostgres)
+      : usingPostgres !== undefined
+        ? Boolean(usingPostgres)
+        : mode === "postgres";
+
+    if (wantPostgres) {
+      mode = "postgres";
+      // Temporary unavailability must NOT flip to local-file.
+      if (!pool) {
+        tableReady = false;
+        initialized = false;
+      }
+      return;
+    }
+
+    mode = localFilePath ? "local-file" : "memory";
+    tableReady = false;
+    // local/memory readiness is established by loadFromStorage
+  }
+
+  function backendMode() {
+    return mode;
+  }
+
+  function isReady() {
+    if (mode === "postgres") return Boolean(pool && tableReady && initialized);
+    if (mode === "local-file") return Boolean(resolveLocalFileAllowed() && initialized);
+    return initialized === true;
+  }
+
+  /** True only when dedicated persistence can accept verified full-job writes. */
+  function canSafelyCapHotStore() {
+    return isReady();
+  }
+
+  /** @deprecated Prefer canSafelyCapHotStore — kept for callers; never true merely because a path string exists. */
+  function isConfigured() {
+    return canSafelyCapHotStore();
+  }
+
+  function requiresDurableBackend() {
+    return mode === "postgres";
   }
 
   function readLocalFile() {
-    if (!localFilePath) return {};
+    if (!resolveLocalFileAllowed()) return {};
     try {
       if (!fs.existsSync(localFilePath)) return {};
       const parsed = JSON.parse(fs.readFileSync(localFilePath, "utf8"));
@@ -141,7 +214,8 @@ function createCurriculumOperatorJobStore({ localFilePath = null } = {}) {
   }
 
   function writeLocalFile() {
-    if (!localFilePath) return;
+    // HARD GUARD: never write side-file while intended backend is postgres.
+    if (!resolveLocalFileAllowed()) return;
     try {
       fs.mkdirSync(path.dirname(localFilePath), { recursive: true });
       const out = {};
@@ -153,31 +227,51 @@ function createCurriculumOperatorJobStore({ localFilePath = null } = {}) {
   }
 
   async function initTable() {
-    if (!usingPostgres || !pool) return;
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS llh_curriculum_operator_jobs (
-        id TEXT PRIMARY KEY,
-        status TEXT NOT NULL,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        created_by TEXT NOT NULL DEFAULT '',
-        phase INTEGER NOT NULL DEFAULT 1,
-        data JSONB NOT NULL
-      )
-    `);
-    await pool.query(`
-      CREATE INDEX IF NOT EXISTS llh_curriculum_operator_jobs_status_updated_idx
-      ON llh_curriculum_operator_jobs (status, updated_at DESC)
-    `);
-    await pool.query(`
-      CREATE INDEX IF NOT EXISTS llh_curriculum_operator_jobs_updated_idx
-      ON llh_curriculum_operator_jobs (updated_at DESC)
-    `);
+    if (mode !== "postgres") {
+      tableReady = false;
+      return { ok: true, backend: mode };
+    }
+    if (!pool) {
+      tableReady = false;
+      initialized = false;
+      return { ok: false, backend: "postgres", reason: "pool_unavailable" };
+    }
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS llh_curriculum_operator_jobs (
+          id TEXT PRIMARY KEY,
+          status TEXT NOT NULL,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          created_by TEXT NOT NULL DEFAULT '',
+          phase INTEGER NOT NULL DEFAULT 1,
+          data JSONB NOT NULL
+        )
+      `);
+      await pool.query(`
+        CREATE INDEX IF NOT EXISTS llh_curriculum_operator_jobs_status_updated_idx
+        ON llh_curriculum_operator_jobs (status, updated_at DESC)
+      `);
+      await pool.query(`
+        CREATE INDEX IF NOT EXISTS llh_curriculum_operator_jobs_updated_idx
+        ON llh_curriculum_operator_jobs (updated_at DESC)
+      `);
+      tableReady = true;
+      return { ok: true, backend: "postgres" };
+    } catch (error) {
+      tableReady = false;
+      initialized = false;
+      throw error;
+    }
   }
 
   async function loadFromStorage() {
     memory.clear();
-    if (usingPostgres && pool) {
+    if (mode === "postgres") {
+      if (!pool || !tableReady) {
+        initialized = false;
+        return { loaded: 0, backend: "postgres", ready: false };
+      }
       const result = await pool.query(
         "SELECT id, data FROM llh_curriculum_operator_jobs ORDER BY updated_at DESC LIMIT 500",
       );
@@ -185,15 +279,24 @@ function createCurriculumOperatorJobStore({ localFilePath = null } = {}) {
         const job = jobApi.normalizeOperatorJob(row.data || { id: row.id });
         if (job.id) memory.set(job.id, job);
       }
-      return { loaded: memory.size, backend: "postgres" };
+      initialized = true;
+      return { loaded: memory.size, backend: "postgres", ready: true };
     }
-    const local = readLocalFile();
-    const jobsObj = local.jobs && typeof local.jobs === "object" ? local.jobs : {};
-    for (const value of Object.values(jobsObj)) {
-      const job = jobApi.normalizeOperatorJob(value);
-      if (job.id) memory.set(job.id, job);
+
+    // Intentional local/dev only — never reached when mode === "postgres".
+    if (mode === "local-file") {
+      const local = readLocalFile();
+      const jobsObj = local.jobs && typeof local.jobs === "object" ? local.jobs : {};
+      for (const value of Object.values(jobsObj)) {
+        const job = jobApi.normalizeOperatorJob(value);
+        if (job.id) memory.set(job.id, job);
+      }
+      initialized = true;
+      return { loaded: memory.size, backend: "local-file", ready: true };
     }
-    return { loaded: memory.size, backend: localFilePath ? "local-file" : "memory" };
+
+    initialized = true;
+    return { loaded: 0, backend: "memory", ready: true };
   }
 
   function getJobSync(id) {
@@ -206,7 +309,7 @@ function createCurriculumOperatorJobStore({ localFilePath = null } = {}) {
     const key = schema.text(id, 80);
     if (!key) return null;
     if (memory.has(key)) return memory.get(key);
-    if (usingPostgres && pool) {
+    if (mode === "postgres" && pool && tableReady) {
       const result = await pool.query(
         "SELECT data FROM llh_curriculum_operator_jobs WHERE id = $1",
         [key],
@@ -230,8 +333,23 @@ function createCurriculumOperatorJobStore({ localFilePath = null } = {}) {
     return jobs.slice(0, max);
   }
 
+  async function loadDestinationJob(id) {
+    if (mode === "postgres" && pool) {
+      const result = await pool.query(
+        "SELECT data FROM llh_curriculum_operator_jobs WHERE id = $1",
+        [id],
+      );
+      if (!result.rows.length) return null;
+      const job = jobApi.normalizeOperatorJob(result.rows[0].data);
+      memory.set(job.id, job);
+      return job;
+    }
+    return memory.get(id) || null;
+  }
+
   /**
    * Upsert one job. Never overwrites a newer dedicated row with older data.
+   * Never caches an older incoming job when Postgres rejected the update.
    */
   async function upsertJob(rawJob, { allowOlder = false } = {}) {
     const job = jobApi.normalizeOperatorJob(rawJob || {});
@@ -240,6 +358,13 @@ function createCurriculumOperatorJobStore({ localFilePath = null } = {}) {
       err.code = "operator_job_id_required";
       throw err;
     }
+
+    if (mode === "postgres" && (!pool || !tableReady)) {
+      const err = new Error("Dedicated operator-job Postgres backend is not ready.");
+      err.code = "operator_job_backend_not_ready";
+      throw err;
+    }
+
     const existing = memory.get(job.id) || null;
     if (existing && !allowOlder) {
       const existingMs = Date.parse(existing.updatedAt || "") || 0;
@@ -249,9 +374,9 @@ function createCurriculumOperatorJobStore({ localFilePath = null } = {}) {
       }
     }
 
-    if (usingPostgres && pool) {
+    if (mode === "postgres") {
       try {
-        await pool.query(
+        const result = await pool.query(
           `INSERT INTO llh_curriculum_operator_jobs
              (id, status, created_at, updated_at, created_by, phase, data)
            VALUES ($1, $2, $3::timestamptz, $4::timestamptz, $5, $6, $7::jsonb)
@@ -261,7 +386,8 @@ function createCurriculumOperatorJobStore({ localFilePath = null } = {}) {
              created_by = EXCLUDED.created_by,
              phase = EXCLUDED.phase,
              data = EXCLUDED.data
-           WHERE llh_curriculum_operator_jobs.updated_at <= EXCLUDED.updated_at`,
+           WHERE llh_curriculum_operator_jobs.updated_at <= EXCLUDED.updated_at
+           RETURNING data`,
           [
             job.id,
             job.status,
@@ -272,7 +398,23 @@ function createCurriculumOperatorJobStore({ localFilePath = null } = {}) {
             JSON.stringify(job),
           ],
         );
+        if (!result.rows.length) {
+          // Destination row is newer (WHERE failed) or unexpected no-op — do NOT cache older input.
+          const dest = await loadDestinationJob(job.id);
+          if (dest) {
+            return { job: dest, skipped: true, reason: "destination_newer" };
+          }
+          const err = new Error("Dedicated operator-job upsert returned no row.");
+          err.code = "operator_job_persist_failed";
+          throw err;
+        }
+        const persisted = jobApi.normalizeOperatorJob(result.rows[0].data || job);
+        memory.set(persisted.id, persisted);
+        return { job: persisted, skipped: false };
       } catch (error) {
+        if (error?.code === "operator_job_persist_failed" || error?.code === "operator_job_backend_not_ready") {
+          throw error;
+        }
         const err = new Error(`Dedicated operator-job persist failed: ${error.message || error}`);
         err.code = "operator_job_persist_failed";
         err.cause = error;
@@ -280,8 +422,9 @@ function createCurriculumOperatorJobStore({ localFilePath = null } = {}) {
       }
     }
 
+    // local-file / memory only
     memory.set(job.id, job);
-    if (!usingPostgres) writeLocalFile();
+    if (mode === "local-file") writeLocalFile();
     return { job, skipped: false };
   }
 
@@ -320,14 +463,6 @@ function createCurriculumOperatorJobStore({ localFilePath = null } = {}) {
     });
   }
 
-  function isConfigured() {
-    return Boolean((usingPostgres && pool) || localFilePath);
-  }
-
-  function requiresDurableBackend() {
-    return usingPostgres === true;
-  }
-
   return {
     configure,
     initTable,
@@ -338,11 +473,15 @@ function createCurriculumOperatorJobStore({ localFilePath = null } = {}) {
     upsertJob,
     upsertJobs,
     mergeWithLegacyBag,
+    backendMode,
+    isReady,
+    canSafelyCapHotStore,
     isConfigured,
     requiresDurableBackend,
     // test helpers
     _memorySize: () => memory.size,
     _clearMemory: () => memory.clear(),
+    _localFilePath: () => localFilePath,
   };
 }
 

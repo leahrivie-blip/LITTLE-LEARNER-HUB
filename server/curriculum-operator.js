@@ -138,35 +138,41 @@ function createCurriculumOperatorApi(deps) {
       updatedAt: stamp,
     });
 
-    const durableConfigured = Boolean(
+    const canCap = Boolean(
       operatorJobStore
-      && typeof operatorJobStore.upsertJobs === "function"
-      && typeof operatorJobStore.isConfigured === "function"
-      && operatorJobStore.isConfigured(),
+      && typeof operatorJobStore.canSafelyCapHotStore === "function"
+      && operatorJobStore.canSafelyCapHotStore(),
+    );
+    const requiresPostgres = Boolean(
+      operatorJobStore
+      && typeof operatorJobStore.requiresDurableBackend === "function"
+      && operatorJobStore.requiresDurableBackend(),
     );
 
-    if (durableConfigured) {
-      // Persist FULL jobs to dedicated storage first (fail-closed in Postgres mode).
+    if (canCap) {
+      // Persist FULL jobs to dedicated storage first. Cap ONLY after verified success.
+      // Do not mutate store.curriculumOperatorJobs to stubs before this completes.
       try {
         await operatorJobStore.upsertJobs(normalized.jobs);
       } catch (error) {
-        if (operatorJobStore.requiresDurableBackend && operatorJobStore.requiresDurableBackend()) {
-          const err = new Error(
-            error?.message || "Could not persist curriculum operator jobs to dedicated storage.",
-          );
-          err.code = error?.code || "operator_job_persist_failed";
-          throw err;
-        }
-        console.warn(
-          "[curriculum-operator] dedicated job persist skipped (non-durable backend):",
-          error.message || error,
+        // Fail closed: leave caller's store untouched (full legacy representation preserved).
+        const err = new Error(
+          error?.message || "Could not persist curriculum operator jobs to dedicated storage.",
         );
+        err.code = error?.code || "operator_job_persist_failed";
+        err.cause = error;
+        throw err;
       }
-      // Hot llh_store keeps active jobs full + bounded terminal stubs only.
       const jobStoreApi = require("./curriculum-operator-job-store.js");
       store.curriculumOperatorJobs = jobStoreApi.buildHotStoreJobBag(normalized).bag;
     } else {
-      // Legacy path (tests / unconfigured): keep full bag in llh_store.
+      // Dedicated backend not safely ready (e.g. Postgres intended but recovering):
+      // keep FULL jobs in llh_store. Never stub from local-file substitute.
+      if (requiresPostgres) {
+        console.warn(
+          "[curriculum-operator] dedicated Postgres job store not ready — preserving full llh_store jobs (no hot-cap)",
+        );
+      }
       store.curriculumOperatorJobs = normalized;
     }
 
@@ -2617,6 +2623,7 @@ function createCurriculumOperatorApi(deps) {
     handle,
     ACTIONS,
     readJobs,
+    writeJobs,
     runJob,
     buildPlanSummary,
     wantsUpgrade,
