@@ -60,6 +60,7 @@ function createCurriculumOperatorApi(deps) {
     unlinkOperatorPrintableResource,
     applyOperatorConnectedEnrichment,
     applyOperatorConnectedActivityImages,
+    operatorJobStore = null,
   } = deps;
 
   function printableCallAi() {
@@ -123,15 +124,52 @@ function createCurriculumOperatorApi(deps) {
   }
 
   function readJobs(store) {
-    return jobApi.normalizeOperatorJobStore(store?.curriculumOperatorJobs);
+    const legacy = jobApi.normalizeOperatorJobStore(store?.curriculumOperatorJobs);
+    if (operatorJobStore && typeof operatorJobStore.mergeWithLegacyBag === "function") {
+      return operatorJobStore.mergeWithLegacyBag(legacy);
+    }
+    return legacy;
   }
 
   async function writeJobs(store, nextJobs) {
     const stamp = jobApi.nowIso();
-    store.curriculumOperatorJobs = jobApi.normalizeOperatorJobStore({
+    const normalized = jobApi.normalizeOperatorJobStore({
       ...nextJobs,
       updatedAt: stamp,
     });
+
+    const durableConfigured = Boolean(
+      operatorJobStore
+      && typeof operatorJobStore.upsertJobs === "function"
+      && typeof operatorJobStore.isConfigured === "function"
+      && operatorJobStore.isConfigured(),
+    );
+
+    if (durableConfigured) {
+      // Persist FULL jobs to dedicated storage first (fail-closed in Postgres mode).
+      try {
+        await operatorJobStore.upsertJobs(normalized.jobs);
+      } catch (error) {
+        if (operatorJobStore.requiresDurableBackend && operatorJobStore.requiresDurableBackend()) {
+          const err = new Error(
+            error?.message || "Could not persist curriculum operator jobs to dedicated storage.",
+          );
+          err.code = error?.code || "operator_job_persist_failed";
+          throw err;
+        }
+        console.warn(
+          "[curriculum-operator] dedicated job persist skipped (non-durable backend):",
+          error.message || error,
+        );
+      }
+      // Hot llh_store keeps active jobs full + bounded terminal stubs only.
+      const jobStoreApi = require("./curriculum-operator-job-store.js");
+      store.curriculumOperatorJobs = jobStoreApi.buildHotStoreJobBag(normalized).bag;
+    } else {
+      // Legacy path (tests / unconfigured): keep full bag in llh_store.
+      store.curriculumOperatorJobs = normalized;
+    }
+
     await writeStoreAsync(store);
     return store.curriculumOperatorJobs;
   }

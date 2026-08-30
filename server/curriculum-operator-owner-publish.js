@@ -26,6 +26,7 @@ function createCurriculumOperatorOwnerPublishApi(deps) {
     teachingKit,
     normalizeEmail,
     runTrustedOwnerPublish,
+    operatorJobStore = null,
   } = deps;
 
   function requireOwner(request, body, response) {
@@ -60,7 +61,11 @@ function createCurriculumOperatorOwnerPublishApi(deps) {
     const lesson = (curriculum.lessonPlans || []).find((p) => p && p.id === id) || null;
     const activities = (curriculum.activities || []).filter((a) => a && a.lessonPlanId === id);
     const resources = Array.isArray(curriculum.resources) ? curriculum.resources : [];
-    const jobs = jobApi.normalizeOperatorJobStore(store?.curriculumOperatorJobs).jobs || [];
+    const legacy = jobApi.normalizeOperatorJobStore(store?.curriculumOperatorJobs);
+    const bag = operatorJobStore && typeof operatorJobStore.mergeWithLegacyBag === "function"
+      ? operatorJobStore.mergeWithLegacyBag(legacy)
+      : legacy;
+    const jobs = bag.jobs || [];
     return { curriculum, lesson, activities, resources, jobs, id };
   }
 

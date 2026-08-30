@@ -23,6 +23,10 @@ const { createDraftReviewApi } = require("./curriculum-draft-review.js");
 const { createVisualProductionApi, mergeStorePreserveVisualProduction } = require("./visual-production.js");
 const { createBinderBuilderApi, mergeStorePreserveBinderBuilder } = require("./binder-builder.js");
 const { createCurriculumOperatorApi, mergeStorePreserveCurriculumOperatorJobs } = require("./curriculum-operator.js");
+const { createCurriculumOperatorJobStore } = require("./curriculum-operator-job-store.js");
+const curriculumOperatorJobStore = createCurriculumOperatorJobStore({
+  localFilePath: path.join(__dirname, "data", "curriculum-operator-jobs.json"),
+});
 const { createCurriculumOperatorOwnerPublishApi } = require("./curriculum-operator-owner-publish.js");
 const restoreIndependentLesson = require("./curriculum-restore-independent-lesson.js");
 const visualProductionImage = require("./visual-production-image.js");
@@ -4950,6 +4954,15 @@ async function initializeStorage() {
       console.log(`[admin-session-store] boot migration moved ${migration.migratedCount} legacy session(s) out of the shared store`);
     }
     adminSessionStore.startPruneScheduler();
+
+    // Curriculum operator jobs: dedicated table/file (Stage 1 offload). Does not strip
+    // legacy llh_store.curriculumOperatorJobs until an explicit migration apply.
+    curriculumOperatorJobStore.configure({
+      pool: postgresPool,
+      usingPostgres: usePostgresStore() && databaseReady,
+    });
+    await curriculumOperatorJobStore.initTable();
+    await curriculumOperatorJobStore.loadFromStorage();
   } catch (error) {
     console.error("[admin-session-store] initialization failed — admin login will still work, but may fall back to slower legacy storage:", error.message);
   }
@@ -32632,6 +32645,7 @@ const server = http.createServer(async (request, response) => {
           saveOperatorEnrichmentDraft,
           createOperatorLessonPlan,
           openAiConfigured: Boolean(isConfiguredValue(OPENAI_API_KEY)),
+          operatorJobStore: curriculumOperatorJobStore,
           callOperatorAi: async (systemPrompt, userPrompt, aiOptions = {}) => {
             const forceFixture = process.env.NODE_ENV === "test"
               || ["1", "true", "yes"].includes(String(process.env.LLH_OPERATOR_AI_FIXTURE || "").trim().toLowerCase());
@@ -32718,6 +32732,7 @@ const server = http.createServer(async (request, response) => {
           teachingKit,
           normalizeEmail,
           runTrustedOwnerPublish,
+          operatorJobStore: curriculumOperatorJobStore,
         });
       }
       return await globalThis.__llhCurriculumOperatorOwnerPublishApi.handle(request, response);
