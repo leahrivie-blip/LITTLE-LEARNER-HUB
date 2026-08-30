@@ -710,7 +710,95 @@ async function main() {
   assert.ok(rolled44.curriculumOperatorJobs.jobs.some((j) => j.id === "opjob_brand_new"));
   console.log("PASS  44");
 
-  console.log("\nAll Stage 2 design/tooling tests passed (including hardening 31–44).");
+  console.log("45) Successful Postgres read-only preflight issues ROLLBACK before connection close");
+  const sql45 = [];
+  let ended45 = false;
+  const mockLifecycleOk = {
+    async query(sql) {
+      sql45.push(String(sql));
+      if (/SET default_transaction_read_only/i.test(sql)) return { rows: [] };
+      if (/SHOW default_transaction_read_only/i.test(sql)) {
+        return { rows: [{ default_transaction_read_only: "on" }] };
+      }
+      if (/BEGIN READ ONLY/i.test(sql)) return { rows: [] };
+      if (/SHOW transaction_read_only/i.test(sql)) {
+        return { rows: [{ transaction_read_only: "on" }] };
+      }
+      if (/^ROLLBACK$/i.test(String(sql).trim())) return { rows: [] };
+      if (/SELECT/i.test(sql)) return { rows: [{ data: { ok: true }, updated_at: "t", updated_at_exact: "t" }] };
+      throw new Error(`unexpected sql: ${sql}`);
+    },
+    async end() { ended45 = true; },
+  };
+  await stage2.enforcePostgresSessionReadOnly(mockLifecycleOk);
+  await mockLifecycleOk.query("SELECT data FROM llh_store WHERE id = $1");
+  await stage2.rollbackAndEndPostgresReadOnlyClient(mockLifecycleOk, { reason: "preflight_complete" });
+  const rollbackIdx = sql45.findIndex((s) => /^ROLLBACK$/i.test(String(s).trim()));
+  const selectIdx = sql45.findIndex((s) => /SELECT/i.test(s) && !/SHOW/i.test(s));
+  assert.ok(selectIdx >= 0, "SELECT inspection ran");
+  assert.ok(rollbackIdx > selectIdx, "ROLLBACK after SELECT");
+  assert.equal(ended45, true);
+  assert.equal(sql45.some((s) => /\bCOMMIT\b/i.test(s)), false);
+  assert.equal(sql45.some((s) => /\b(INSERT|UPDATE|DELETE)\b/i.test(s)), false);
+  console.log("PASS  45");
+
+  console.log("46) Failed preflight attempts ROLLBACK; ROLLBACK failure fails closed");
+  const sql46 = [];
+  let ended46 = false;
+  const mockFailSelect = {
+    async query(sql) {
+      sql46.push(String(sql));
+      if (/SET default_transaction_read_only/i.test(sql)) return { rows: [] };
+      if (/SHOW default_transaction_read_only/i.test(sql)) {
+        return { rows: [{ default_transaction_read_only: "on" }] };
+      }
+      if (/BEGIN READ ONLY/i.test(sql)) return { rows: [] };
+      if (/SHOW transaction_read_only/i.test(sql)) {
+        return { rows: [{ transaction_read_only: "on" }] };
+      }
+      if (/SELECT/i.test(sql) && !/SHOW/i.test(sql)) throw new Error("select boom");
+      if (/^ROLLBACK$/i.test(String(sql).trim())) return { rows: [] };
+      throw new Error(`unexpected sql: ${sql}`);
+    },
+    async end() { ended46 = true; },
+  };
+  await stage2.enforcePostgresSessionReadOnly(mockFailSelect);
+  let e46a = null;
+  try {
+    await mockFailSelect.query("SELECT data FROM llh_store");
+  } catch (error) { e46a = error; }
+  assert.match(e46a.message, /select boom/);
+  await stage2.endPostgresReadOnlyTransaction(mockFailSelect, { reason: "preflight_error" });
+  assert.ok(sql46.some((s) => /^ROLLBACK$/i.test(String(s).trim())));
+  assert.equal(sql46.some((s) => /\bCOMMIT\b/i.test(s)), false);
+
+  const mockRollbackFail = {
+    async query(sql) {
+      if (/^ROLLBACK$/i.test(String(sql).trim())) throw new Error("rollback denied");
+      return { rows: [] };
+    },
+    async end() { ended46 = true; },
+  };
+  let e46b = null;
+  try {
+    await stage2.rollbackAndEndPostgresReadOnlyClient(mockRollbackFail, { reason: "preflight_error" });
+  } catch (error) { e46b = error; }
+  assert.equal(e46b?.code, "stage2_postgres_readonly_rollback_failed");
+  assert.equal(ended46, true);
+  console.log("PASS  46");
+
+  console.log("47) Production --postgres --apply still locked; runtime cutover remains false");
+  let e47 = null;
+  try {
+    stage2.assertProductionApplyUnlocked({ apply: true, postgres: true, confirmMigrate: true, confirmCutover: true });
+  } catch (error) { e47 = error; }
+  assert.equal(e47?.code, "stage2_production_apply_locked");
+  const rt47 = createCurriculumOperatorJobStore({ localFilePath: null });
+  assert.equal(rt47.isHotStoreCutoverEnabled(), false);
+  assert.equal(rt47.canSafelyCapHotStore(), false);
+  console.log("PASS  47");
+
+  console.log("\nAll Stage 2 design/tooling tests passed (including hardening 31–44 + txn cleanup 45–47).");
 }
 
 main().catch((error) => {

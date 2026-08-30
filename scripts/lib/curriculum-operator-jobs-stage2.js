@@ -876,6 +876,46 @@ async function enforcePostgresSessionReadOnly(client) {
 }
 
 /**
+ * Explicitly end a Stage 2 read-only preflight transaction with ROLLBACK.
+ * Fail closed if ROLLBACK cannot be completed — never silently continue.
+ * Never issues COMMIT or write DML.
+ */
+async function endPostgresReadOnlyTransaction(client, { reason = "preflight_complete" } = {}) {
+  if (!client || typeof client.query !== "function") {
+    const err = new Error("Refusing Postgres preflight cleanup: client required for ROLLBACK.");
+    err.code = "stage2_postgres_readonly_rollback_failed";
+    throw err;
+  }
+  try {
+    await client.query("ROLLBACK");
+  } catch (error) {
+    const err = new Error(
+      `Refusing Postgres preflight cleanup: ROLLBACK failed (${error.message || error}).`,
+    );
+    err.code = "stage2_postgres_readonly_rollback_failed";
+    err.cause = error;
+    err.reason = reason;
+    throw err;
+  }
+  return { rolledBack: true, reason };
+}
+
+/**
+ * ROLLBACK (fail closed) then close the client. Used after read-only inspection.
+ */
+async function rollbackAndEndPostgresReadOnlyClient(client, options = {}) {
+  if (!client) return { rolledBack: false, ended: false };
+  try {
+    await endPostgresReadOnlyTransaction(client, options);
+  } catch (error) {
+    await client.end().catch(() => {});
+    throw error;
+  }
+  await client.end().catch(() => {});
+  return { rolledBack: true, ended: true };
+}
+
+/**
  * Simulate Stage 2 dedicated migrate + optional hot rewrite against a fixture store.
  * NEVER opens a production Postgres write connection.
  */
@@ -1113,6 +1153,8 @@ module.exports = {
   assertBackupMatchesSource,
   assertExpectedSourceGates,
   enforcePostgresSessionReadOnly,
+  endPostgresReadOnlyTransaction,
+  rollbackAndEndPostgresReadOnlyClient,
   simulateStage2OnFixtureStore,
   simulateRollbackFromBackup,
   assertProductionApplyUnlocked,

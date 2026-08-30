@@ -111,7 +111,15 @@ async function loadStoreFromPostgresReadOnly(recordId) {
       client,
     };
   } catch (error) {
-    await client.query("ROLLBACK").catch(() => {});
+    // Error path: attempt ROLLBACK, end client, then propagate.
+    // If ROLLBACK itself fails, fail closed with cleanup error (attach original).
+    try {
+      await stage2.endPostgresReadOnlyTransaction(client, { reason: "preflight_error" });
+    } catch (rollbackError) {
+      await client.end().catch(() => {});
+      rollbackError.originalError = error;
+      throw rollbackError;
+    }
     await client.end().catch(() => {});
     throw error;
   }
@@ -219,7 +227,10 @@ Production Postgres --apply is REFUSED in this PR.
   };
 
   if (!args.simulateFixture) {
-    if (pgClient) await pgClient.end().catch(() => {});
+    if (pgClient) {
+      await stage2.rollbackAndEndPostgresReadOnlyClient(pgClient, { reason: "preflight_complete" });
+      pgClient = null;
+    }
     const text = JSON.stringify(report, null, 2);
     if (args.out) fs.writeFileSync(path.resolve(args.out), text);
     console.log(text);
@@ -273,7 +284,10 @@ Production Postgres --apply is REFUSED in this PR.
     inventoryAfter: simulation.inventoryAfter,
   };
 
-  if (pgClient) await pgClient.end().catch(() => {});
+  if (pgClient) {
+    await stage2.rollbackAndEndPostgresReadOnlyClient(pgClient, { reason: "preflight_complete" });
+    pgClient = null;
+  }
   const text = JSON.stringify(report, null, 2);
   if (args.out) fs.writeFileSync(path.resolve(args.out), text);
   console.log(text);
