@@ -1,6 +1,6 @@
 # Curriculum Operator Jobs offload — Stage 1 (implementation)
 
-**Status:** Implementation PR — **DO NOT merge/deploy until review**  
+**Status:** Stage 1 implementation — infrastructure only; historical cutover deferred to Stage 2  
 **Branch:** `cursor/operator-jobs-offload-53a4`  
 **Does not modify:** audit PR #796, enrichmentPublishHistory, curriculum lesson bodies, users, billing, programData, scheduleByUser, PR #795 retry logic, writeStore debounce/race.
 
@@ -17,27 +17,27 @@
 
 ### Required vs historical (production measured 2026-08-30)
 
-| Class | Count | Bytes | Hot-store policy (Stage 1) |
+| Class | Count | Bytes | Stage 1 hot-store policy |
 |---|---:|---:|---|
-| running (active) | 1 | 9,661 | **KEEP FULL** |
-| planned / awaiting_confirm / paused | 0 | 0 | KEEP FULL |
-| completed | 15 | 2,934,920 | Dedicated full; hot stub |
-| failed | 34 | 1,620,094 | Dedicated full; hot stub |
-| cancelled | 3 | 232,763 | Dedicated full; hot stub |
-| **Total bag** | **53** | **4,797,540** | — |
+| running (active) | 1 | 9,661 | **KEEP FULL** in llh_store |
+| planned / awaiting_confirm / paused | 0 | 0 | **KEEP FULL** in llh_store |
+| completed | 15 | 2,934,920 | **KEEP FULL** in llh_store (Stage 1); dedicated dual-write only if later mutated |
+| failed | 34 | 1,620,094 | **KEEP FULL** in llh_store (Stage 1); dedicated dual-write only if later mutated |
+| cancelled | 3 | 232,763 | **KEEP FULL** in llh_store (Stage 1); dedicated dual-write only if later mutated |
+| **Total bag** | **53** | **4,797,540** | No automatic migrate/cap in Stage 1 |
 
 `lessonResults` alone ≈ **4.13 MB** of the bag.
 
 ## Stage 1 architecture
 
 1. **Table** `llh_curriculum_operator_jobs` (id, status, timestamps, created_by, phase, data JSONB) + indexes.
-2. **Module** `server/curriculum-operator-job-store.js` — get/list/upsert, local-file **only when not Postgres-intended**, hot-store cap helper.
-3. **Backend state** — `backendMode` (`postgres` | `local-file` | `memory`) is separate from readiness (`isReady` / `canSafelyCapHotStore`). Temporary `databaseReady=false` must **not** switch Postgres mode to local-file.
-4. **Dual-read** — `mergeWithLegacyBag`: dedicated memory/table first, legacy llh_store ids as fallback.
-5. **Dual-write** — `writeJobs` upserts **full** jobs to dedicated store, then writes **capped** bag to llh_store **only after verified success**.
-6. **Cap rules** — never drop active statuses; keep ≤10 newest terminal jobs as stubs (`lessonResults: []`, truncated log). Cap never runs while dedicated Postgres is unavailable.
+2. **Module** `server/curriculum-operator-job-store.js` — get/list/upsert, local-file **only when not Postgres-intended**, plus `buildHotStoreJobBag` for future Stage 2 / tests.
+3. **Backend state** — `backendMode` (`postgres` | `local-file` | `memory`) is separate from readiness (`isReady` / `canSafelyPersistDedicated`). Temporary `databaseReady=false` must **not** switch Postgres mode to local-file.
+4. **Dual-read** — `mergeWithLegacyBag`: dedicated memory/table first, legacy llh_store ids as fallback (Owner-publish uses this path).
+5. **Dual-write (Stage 1)** — `writeJobs` persists **only changed/new** jobs (`selectJobsChangedInWrite`) to dedicated storage when ready, and always writes the **full** normalized bag to `llh_store`. Historical jobs are **not** bulk-seeded.
+6. **Hot-cap / cutover** — `isHotStoreCutoverEnabled()` is hard-`false` in Stage 1, so `canSafelyCapHotStore()` stays false. `buildHotStoreJobBag` exists for Stage 2 tooling/tests but is **not** used for production cutover in Stage 1.
 7. **Migration script** — dry-run default; file apply for fixtures; **production Postgres apply refused** in Stage 1.
-8. **Reconnect** — `ensureCurriculumOperatorJobStoreReady("reconnect")` re-inits the dedicated table after Postgres recovers; mode stays postgres.
+8. **Reconnect** — `ensureCurriculumOperatorJobStoreReady("reconnect")` re-inits the dedicated table after Postgres recovers; mode stays postgres; cutover remains disabled.
 
 ### Production safety invariant
 
