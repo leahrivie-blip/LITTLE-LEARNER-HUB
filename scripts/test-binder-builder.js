@@ -492,12 +492,33 @@ function unitTests() {
   ok(/bb-activity-media/.test(withImgHtmlRepair), "image/no-image Phase 1 behavior: with-image keeps media");
   ok(!/bb-activity-media|bb-image-fallback/.test(withoutImgHtmlRepair), "image/no-image Phase 1 behavior: without-image stays collapsed");
 
-  // Print CSS keeps absolute footers (Chromium does not support CSS running())
+  // --- Physical print fit / weekly planner regressions ---
+  const printPageContainers = (stepPrint.html.match(/<article class="bb-page\b/g) || []).length;
+  ok(printPageContainers === stepPrint.pages.length, "one generated Binder page = one print-page container");
+  ok(printPageContainers === multiPages.length, "print-page containers match page plan for this binder");
+  ok((stepPrint.html.match(/data-bb-page="/g) || []).length === stepPrint.pages.length, "data-bb-page markers match page plan");
+
   const printCss = fs.readFileSync(path.join(ROOT, "styles/binder-builder.css"), "utf8");
   ok(!/position:\s*running\s*\(/.test(printCss), "print CSS does not use unsupported running() footers");
   ok(/printing-binder-builder[\s\S]*\.bb-page-footer\s*\{\s*position:\s*absolute/.test(printCss), "print footers stay absolutely positioned");
   ok(/is-image-free/.test(printCss), "CSS includes image-free divider polish");
   ok(/bb-activity-steps/.test(printCss), "CSS includes activity step list styles");
+  ok(/page-break-inside:\s*avoid/.test(printCss) && /break-inside:\s*avoid/.test(printCss), "activity pages cannot break internally in print CSS");
+  ok(/--bb-page-pad-bottom:\s*0\.82in/.test(printCss) || /--bb-page-pad-bottom:\s*\.?8/.test(printCss), "print-safe footer spacing exists");
+  ok(/--bb-activity-photo-h:\s*2\.2in/.test(printCss), "activity image layout has a bounded print height");
+  ok(/max-height:\s*var\(--bb-page-h\)|max-height:\s*11in/.test(printCss), "print pages have fixed US Letter max height");
+  ok(/@page\s*\{\s*size:\s*letter portrait;\s*margin:\s*0;/.test(printCss.replace(/\s+/g, " ")), "print @page uses Letter with zero browser margin (binder owns margins)");
+
+  const weekHtml = stepPrint.html.includes('data-bb-page="weekAtAGlance"')
+    ? stepPrint.html.split('data-bb-page="weekAtAGlance"')[1].split("</article>")[0]
+    : "";
+  ok(/data-bb-week-planner/.test(weekHtml), "Monday–Friday weekly planner is generated from existing day/activity data");
+  const plannerTitles = multiDoc.days.flatMap((d) => d.activities.map((a) => a.title));
+  ok(plannerTitles.length === 15, "fixture still has 15 activities for planner coverage");
+  ok(plannerTitles.every((title) => weekHtml.includes(title)), "all 15 activities appear exactly once in the weekly planner");
+  ok((weekHtml.match(/bb-week-planner-day/g) || []).length === 5, "weekly planner has five weekday columns");
+  ok(multiReady.canPrint === true && multiReady.status === "READY", "existing readiness remains READY / canPrint true after print-fit changes");
+  ok(JSON.stringify(multiMonLesson) === multiBefore, "source lesson remains unchanged after print-fit render");
 
   // Empty optional sections omitted
   draft.sections.books = true;

@@ -169,22 +169,38 @@
   }
 
   function renderWeekAtAGlance(doc) {
-    const dayRows = (doc.days || []).map((day) => [
-      `<tr>`,
-      `<th scope="row">${esc(day.label)}</th>`,
-      `<td><strong>${esc(day.title?.text || "—")}</strong>`,
-      day.description?.text ? `<span class="bb-muted"> — ${esc(day.description.text)}</span>` : "",
-      `</td>`,
-      `</tr>`,
-    ].join("")).join("");
+    const days = Array.isArray(doc.days) ? doc.days : [];
+    const plannerCols = days.map((day) => {
+      const activities = Array.isArray(day.activities) ? day.activities : [];
+      const items = activities.length
+        ? [
+          `<ul class="bb-week-planner-acts">`,
+          ...activities.map((act) => `<li>${esc(act.title || "Activity")}</li>`),
+          `</ul>`,
+        ].join("")
+        : `<p class="bb-week-planner-empty">No activities</p>`;
+      return [
+        `<section class="bb-week-planner-day" data-bb-week-day="${esc(day.dayKey || "")}">`,
+        `<h3>${esc(day.label || "")}</h3>`,
+        day.title?.text ? `<p class="bb-week-planner-focus">${esc(day.title.text)}</p>` : "",
+        items,
+        `</section>`,
+      ].join("");
+    }).join("");
 
     return [
       `<article class="bb-page bb-page-week" data-bb-page="weekAtAGlance">`,
       `<header class="bb-page-header"><p class="bb-kicker">Overview</p><h2>Week at a Glance</h2></header>`,
+      `<div class="bb-week-summary">`,
       `<p class="bb-week-theme"><strong>Theme:</strong> ${esc(doc.theme || doc.title)}</p>`,
-      doc.weekFocus?.text ? `<p><strong>Weekly focus:</strong> ${esc(doc.weekFocus.text)}</p>` : "",
-      doc.developmentalFocus?.text ? `<p><strong>Learning focus:</strong> ${esc(doc.developmentalFocus.text)}</p>` : "",
-      `<table class="bb-week-table"><tbody>${dayRows}</tbody></table>`,
+      doc.weekFocus?.text ? `<p class="bb-week-focus"><strong>Weekly focus:</strong> ${esc(doc.weekFocus.text)}</p>` : "",
+      doc.developmentalFocus?.text
+        ? `<p class="bb-week-learning"><strong>Learning focus:</strong> ${esc(doc.developmentalFocus.text)}</p>`
+        : "",
+      `</div>`,
+      `<div class="bb-week-planner" data-bb-week-planner aria-label="Monday through Friday weekly planner">`,
+      plannerCols,
+      `</div>`,
       footerHtml(doc, "Week at a Glance"),
       `</article>`,
     ].join("");
