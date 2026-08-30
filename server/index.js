@@ -439,6 +439,24 @@ const POSTGRES_STORE_WRITE_RETRY_COUNT = Math.max(
   Number(process.env.POSTGRES_STORE_WRITE_RETRY_COUNT || 4),
 );
 const POSTGRES_WRITE_RETRY_BACKOFF_MS = [75, 150, 300, 600, 1200];
+/**
+ * Postgres crash-recovery / cold-start windows (57P03 / "not yet accepting") often last
+ * a few seconds. Short write backoffs exhausted ~200ms before recovery finished in the
+ * 2026-08-30 production incident — use a longer bounded schedule for those errors only.
+ */
+const POSTGRES_STARTUP_RETRY_COUNT = Math.max(
+  0,
+  Number(process.env.POSTGRES_STARTUP_RETRY_COUNT || 8),
+);
+const POSTGRES_STARTUP_RETRY_BACKOFF_MS = String(
+  process.env.POSTGRES_STARTUP_RETRY_BACKOFF_MS || "",
+)
+  .split(",")
+  .map((part) => Number(String(part).trim()))
+  .filter((n) => Number.isFinite(n) && n >= 0);
+const RESOLVED_POSTGRES_STARTUP_RETRY_BACKOFF_MS = POSTGRES_STARTUP_RETRY_BACKOFF_MS.length
+  ? POSTGRES_STARTUP_RETRY_BACKOFF_MS
+  : [250, 500, 1000, 2000, 3000, 4000, 5000, 5000];
 const storeWriteMetrics = storeWriteMetricsLib.createStoreWriteMetrics();
 let debouncedStoreWriteTimer = null;
 let debouncedStoreWritePending = false;
@@ -4543,29 +4561,52 @@ function postgresSslConfig() {
   return undefined;
 }
 
+function isPostgresStartupUnavailableError(error) {
+  const msg = String(error?.message || error || "").toLowerCase();
+  const code = String(error?.code || "");
+  return (
+    msg.includes("not yet accepting connections")
+    || msg.includes("the database system is starting up")
+    || msg.includes("the database system is in recovery mode")
+    || msg.includes("consistent recovery state has not been yet reached")
+    || code === "57P03" // cannot_connect_now
+  );
+}
+
 function isTransientPostgresConnectionError(error) {
   const msg = String(error?.message || error || "").toLowerCase();
   const code = String(error?.code || "");
   return (
-    msg.includes("connection terminated")
+    isPostgresStartupUnavailableError(error)
+    || msg.includes("connection terminated")
     || msg.includes("server closed the connection")
     || msg.includes("connection ended unexpectedly")
     || msg.includes("client was closed")
     || msg.includes("cannot use a pool after calling end")
-    || msg.includes("not yet accepting connections")
-    || msg.includes("the database system is starting up")
-    || msg.includes("the database system is in recovery mode")
     || code === "ECONNRESET"
     || code === "ECONNREFUSED"
     || code === "ETIMEDOUT"
     || code === "EPIPE"
     || code === "57P01" // admin_shutdown
     || code === "57P02" // crash_shutdown
-    || code === "57P03" // cannot_connect_now
     || code === "08006" // connection_failure
     || code === "08003" // connection_does_not_exist
     || code === "08001" // sqlclient_unable_to_establish_sqlconnection
   );
+}
+
+function postgresTransientRetryBudget(error, baseRetries) {
+  if (isPostgresStartupUnavailableError(error)) {
+    return Math.max(baseRetries, POSTGRES_STARTUP_RETRY_COUNT);
+  }
+  return baseRetries;
+}
+
+function postgresTransientRetryDelayMs(error, attempt) {
+  const schedule = isPostgresStartupUnavailableError(error)
+    ? RESOLVED_POSTGRES_STARTUP_RETRY_BACKOFF_MS
+    : POSTGRES_WRITE_RETRY_BACKOFF_MS;
+  return schedule[Math.min(Math.max(0, attempt), schedule.length - 1)];
 }
 
 function createConfiguredPostgresPool() {
@@ -4665,18 +4706,22 @@ async function postgresQueryWithTransientRetry(
   if (!postgresPool) ensurePostgresPool();
   if (!postgresPool) throw new Error("Postgres pool is not available.");
   let lastError;
-  for (let attempt = 0; attempt <= retries; attempt += 1) {
+  let maxRetries = retries;
+  for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
     try {
       return await withTimeout(postgresPool.query(sql, params), timeoutMs, label);
     } catch (error) {
       lastError = error;
-      const canRetry = isTransientPostgresConnectionError(error) && attempt < retries;
-      if (!canRetry) throw error;
+      if (!isTransientPostgresConnectionError(error)) throw error;
+      maxRetries = postgresTransientRetryBudget(error, maxRetries);
+      if (attempt >= maxRetries) throw error;
+      const delayMs = postgresTransientRetryDelayMs(error, attempt);
       console.warn(
-        `[store] transient Postgres error on ${label} — retry ${attempt + 1}/${retries}:`,
+        `[store] transient Postgres error on ${label} — retry ${attempt + 1}/${maxRetries}`
+          + `${isPostgresStartupUnavailableError(error) ? " (startup/recovery)" : ""}:`,
         error.message || error,
       );
-      await new Promise((resolve) => setTimeout(resolve, 75 * (attempt + 1)));
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
     }
   }
   throw lastError;
@@ -5615,7 +5660,8 @@ async function flushDebouncedPostgresStoreWrite() {
 
 async function executePostgresStoreUpsert(payload, nextCounts) {
   let lastError;
-  for (let attempt = 0; attempt <= POSTGRES_STORE_WRITE_RETRY_COUNT; attempt += 1) {
+  let maxRetries = POSTGRES_STORE_WRITE_RETRY_COUNT;
+  for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
     const started = Date.now();
     try {
       let wroteUpdatedAt = null;
@@ -5662,14 +5708,17 @@ async function executePostgresStoreUpsert(payload, nextCounts) {
     } catch (error) {
       lastError = error;
       if (error?.code === "store_updated_at_conflict") throw error;
-      const canRetry = isTransientPostgresConnectionError(error) && attempt < POSTGRES_STORE_WRITE_RETRY_COUNT;
-      if (!canRetry) throw error;
+      if (!isTransientPostgresConnectionError(error)) throw error;
+      const startupRecovery = isPostgresStartupUnavailableError(error);
+      maxRetries = postgresTransientRetryBudget(error, maxRetries);
+      if (attempt >= maxRetries) throw error;
       storeWriteMetrics.retryAttempts += 1;
-      const delay = POSTGRES_WRITE_RETRY_BACKOFF_MS[Math.min(attempt, POSTGRES_WRITE_RETRY_BACKOFF_MS.length - 1)];
+      const delay = postgresTransientRetryDelayMs(error, attempt);
       logStorePersistence("write_retry", {
         attempt: attempt + 1,
-        maxAttempts: POSTGRES_STORE_WRITE_RETRY_COUNT,
+        maxAttempts: maxRetries,
         delayMs: delay,
+        startupRecovery,
         error: error.message || String(error),
       });
       await new Promise((resolve) => setTimeout(resolve, delay));

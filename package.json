@@ -419,6 +419,7 @@
     "test:store-safety": "NODE_ENV=test node scripts/test-store-safety-guards.js",
     "test:test-account-guard": "NODE_ENV=test node scripts/test-test-account-guard.js",
     "test:postgres-pool-hardening": "NODE_ENV=test node scripts/test-postgres-pool-hardening.js",
+    "test:postgres-startup-readiness": "NODE_ENV=test node scripts/test-postgres-startup-readiness.js",
     "test:postgres-reliability-repair": "NODE_ENV=test node scripts/test-postgres-reliability-repair.js",
     "test:postgres-final-safety-gate": "NODE_ENV=test node scripts/test-postgres-final-safety-gate.js",
     "test:store-write-race": "NODE_ENV=test node scripts/test-store-write-race.js",
