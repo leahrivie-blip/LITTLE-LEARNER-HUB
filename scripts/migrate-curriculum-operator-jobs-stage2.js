@@ -12,7 +12,10 @@
  *   ... --simulate-fixture --confirm-hot-store-cutover   # also rewrites fixture bag in memory/report
  *
  * PRODUCTION POSTGRES APPLY IS LOCKED in this PR:
- *   --postgres --apply  → always refused
+ *   --postgres --apply  → always refused (assertProductionApplyUnlocked)
+ *
+ * Execution engine (still locked for production):
+ *   scripts/lib/curriculum-operator-jobs-stage2-execute.js
  *
  * Never prints secrets or lesson content — ids/status/bytes/hashes only.
  */
@@ -20,8 +23,8 @@
 
 const fs = require("node:fs");
 const path = require("node:path");
-const jobApi = require("./curriculum-operator-job.js");
 const stage2 = require("./lib/curriculum-operator-jobs-stage2.js");
+const execute = require("./lib/curriculum-operator-jobs-stage2-execute.js");
 const {
   createCurriculumOperatorJobStore,
 } = require("../server/curriculum-operator-job-store.js");
@@ -40,6 +43,7 @@ function parseArgs(argv) {
     expectedSourceCount: null,
     expectedSourceHash: "",
     expectedStoreUpdatedAt: "",
+    expectedProductionBuildSha: "",
     help: false,
   };
   for (let i = 2; i < argv.length; i += 1) {
@@ -57,6 +61,7 @@ function parseArgs(argv) {
     else if (a === "--expected-source-count") args.expectedSourceCount = Number(argv[++i]);
     else if (a === "--expected-source-hash") args.expectedSourceHash = String(argv[++i] || "");
     else if (a === "--expected-store-updated-at") args.expectedStoreUpdatedAt = String(argv[++i] || "");
+    else if (a === "--expected-production-build-sha") args.expectedProductionBuildSha = String(argv[++i] || "");
     else throw new Error(`Unknown argument: ${a}`);
   }
   return args;
@@ -151,7 +156,21 @@ Production Postgres --apply is REFUSED in this PR.
   }
 
   if (args.apply && args.postgres) {
+    // Final hard lock BEFORE any production connection / client factory.
     stage2.assertProductionApplyUnlocked(args);
+    // Complete future wiring (unreachable until a separate unlock PR removes the lock above):
+    await execute.prepareAndRunPostgresStage2Execution({
+      apply: true,
+      confirmMigrate: args.confirmMigrate,
+      confirmCutover: args.confirmCutover,
+      storeRecordId: args.recordId,
+      expectedSourceCount: args.expectedSourceCount,
+      expectedSourceHash: args.expectedSourceHash,
+      expectedStoreUpdatedAt: args.expectedStoreUpdatedAt,
+      expectedProductionBuildSha: args.expectedProductionBuildSha || process.env.RENDER_GIT_COMMIT || "",
+      productionBuildSha: process.env.RENDER_GIT_COMMIT || args.expectedProductionBuildSha || "",
+      // createClient intentionally default — never reached while lock throws.
+    });
   }
 
   let store;

@@ -334,6 +334,21 @@ Normal app runtime never enters this sequence.
 | `scripts/migrate-curriculum-operator-jobs-stage2.js` | CLI (dry-run default; production apply refused) |
 | `scripts/test-curriculum-operator-jobs-stage2.js` | Regression suite (30 gates) |
 
+## Stage 2 execution implementation (LOCKED)
+
+Companion draft PR implements `scripts/lib/curriculum-operator-jobs-stage2-execute.js`:
+
+- durable `llh_store_backups` create/verify before dedicated writes
+- idempotent dedicated migration
+- destination verify + live reconcile
+- hot-bag CAS rewrite (advisory lock + FOR UPDATE + `updated_at::text`)
+- rollback CAS path
+- **production `--postgres --apply` remains hard-locked** via `assertProductionApplyUnlocked()`
+
+Unlock requires a separate tiny authorization PR after review.
+
+---
+
 ## Hardening (PR #800 review)
 
 ### Backup proof (GAP 1)
