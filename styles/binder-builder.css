@@ -727,7 +727,7 @@
   text-align: center;
   display: grid;
   justify-items: center;
-  gap: 0;
+  gap: 0.16in;
 }
 .bb-qr-code {
   /* ~1.35in printable QR; keep SVG fully inside this box (quiet zone unobstructed). */
@@ -753,7 +753,7 @@
 }
 .bb-qr-label {
   /* Clear gap below QR matrix — never overlay scan cue on the code. */
-  margin: 12px 0 0;
+  margin: 0;
   font-size: 0.85rem;
   font-weight: 700;
 }
@@ -1049,7 +1049,7 @@
   border: 1px solid rgba(61, 122, 90, 0.14);
   display: grid;
   justify-items: center;
-  gap: 0;
+  gap: 0.16in;
   width: fit-content;
   max-width: 100%;
   text-align: center;
@@ -1070,7 +1070,7 @@
   display: block;
 }
 .bb-qr-label {
-  margin: 12px 0 0;
+  margin: 0;
   font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.04em;
