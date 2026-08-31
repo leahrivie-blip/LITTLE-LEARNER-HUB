@@ -629,6 +629,9 @@ async function preparePostgresStage2ExecutionContext(options = {}) {
  * Defense in depth: this helper also locks before any connection factory call.
  */
 async function prepareAndRunPostgresStage2Execution(options = {}) {
+  // Validate required production expectation gates before any networking.
+  assertPostgresProductionExecutionGates(options);
+
   // FINAL HARD LOCK — before any connection / client factory (when apply requested).
   if (options.apply === true) {
     stage2.assertProductionApplyUnlocked({
@@ -638,8 +641,6 @@ async function prepareAndRunPostgresStage2Execution(options = {}) {
       confirmCutover: options.confirmCutover === true,
     });
   }
-
-  assertPostgresProductionExecutionGates(options);
 
   let client = null;
   try {
