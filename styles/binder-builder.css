@@ -434,6 +434,16 @@
   height: 100%;
   background: linear-gradient(145deg, #e8f0ea, #f3ebe1);
 }
+.bb-cover-media.is-broken,
+.bb-activity-media.is-broken,
+.bb-divider-media.is-broken {
+  display: none !important;
+  height: 0 !important;
+  max-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+}
 .bb-cover-copy {
   align-self: end;
 }

@@ -289,9 +289,20 @@ function createBinderBuilderApi(deps) {
           }
         }));
 
+        const assetOrigin = (() => {
+          try {
+            const host = String(request.headers?.host || "").trim();
+            if (!host) return "";
+            const proto = String(request.headers?.["x-forwarded-proto"] || "https").split(",")[0].trim() || "https";
+            return `${proto}://${host}`;
+          } catch {
+            return "";
+          }
+        })();
         const printed = print.buildBinderPrintHtml(draft, lesson, {
           qrSvgByUrl,
           mode: "preview",
+          assetOrigin,
         });
 
         // Snapshot lesson identity fields to prove non-mutation in tests/clients.
