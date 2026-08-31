@@ -546,8 +546,10 @@ function defaultCreatePostgresClient(connectionString) {
 }
 
 /**
- * Connect + load production llh_store + exact CAS + dedicated job store adapter.
- * Does NOT unlock apply. Injectable createClient for tests.
+ * READ-ONLY Postgres context prep for future Stage 2 apply.
+ * Connect + SELECT llh_store + exact CAS only.
+ * Does NOT unlock apply. Does NOT issue dedicated-table DDL/DML or initTable.
+ * Injectable createClient for tests.
  */
 async function preparePostgresStage2ExecutionContext(options = {}) {
   const {
@@ -599,22 +601,17 @@ async function preparePostgresStage2ExecutionContext(options = {}) {
       throw err;
     }
 
-    const operatorJobStore = createCurriculumOperatorJobStore({ localFilePath: null });
-    operatorJobStore.configure({
-      pool: { query: (...args) => client.query(...args) },
-      intendedPostgres: true,
-    });
-    await operatorJobStore.initTable();
-    await operatorJobStore.loadFromStorage();
-
+    // Read-only: no operatorJobStore.initTable / dedicated DDL/DML here.
+    // Dedicated table init happens in runStage2Execution AFTER verified backup.
     return {
       client,
       store,
       storeUpdatedAtExact,
       storeRecordId,
-      operatorJobStore,
+      operatorJobStore: null,
       productionBuildSha: wantBuild || liveBuild || null,
       connected: true,
+      readOnly: true,
     };
   } catch (error) {
     try { await client.query("ROLLBACK"); } catch { /* ignore */ }
@@ -663,7 +660,8 @@ async function prepareAndRunPostgresStage2Execution(options = {}) {
       storeUpdatedAtExact: context.storeUpdatedAtExact,
       productionBuildSha: context.productionBuildSha,
       storeRecordId: context.storeRecordId,
-      operatorJobStore: context.operatorJobStore,
+      // Dedicated store is initialized inside runStage2Execution AFTER verified backup.
+      operatorJobStore: null,
       expectedSourceCount: options.expectedSourceCount,
       expectedSourceHash: options.expectedSourceHash,
       expectedStoreUpdatedAt: options.expectedStoreUpdatedAt || context.storeUpdatedAtExact,
@@ -855,9 +853,11 @@ async function runStage2Execution(options = {}) {
     throw err;
   }
 
-  const jobStore = operatorJobStore || createCurriculumOperatorJobStore({ localFilePath: null });
-  if (!operatorJobStore) {
-    if (mode === "postgres" && client) {
+  // Dedicated-table init ONLY after durable backup create + verify + proof match.
+  let jobStore = operatorJobStore || null;
+  if (!jobStore) {
+    jobStore = createCurriculumOperatorJobStore({ localFilePath: null });
+    if (client) {
       jobStore.configure({
         pool: { query: (...args) => client.query(...args) },
         intendedPostgres: true,
@@ -865,8 +865,19 @@ async function runStage2Execution(options = {}) {
       if (typeof jobStore.initTable === "function") {
         await jobStore.initTable();
       }
+      await jobStore.loadFromStorage();
     } else {
       jobStore.configure({ intendedPostgres: false });
+      await jobStore.loadFromStorage();
+    }
+  } else if (mode === "postgres" && client) {
+    // Pre-wired postgres adapter: still init ONLY after verified backup.
+    jobStore.configure({
+      pool: { query: (...args) => client.query(...args) },
+      intendedPostgres: true,
+    });
+    if (typeof jobStore.initTable === "function") {
+      await jobStore.initTable();
     }
     await jobStore.loadFromStorage();
   }

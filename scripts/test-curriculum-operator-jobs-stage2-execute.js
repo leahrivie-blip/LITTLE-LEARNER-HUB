@@ -665,7 +665,11 @@ async function main() {
     assert.ok(ctx.store, "E29 store loaded");
     assert.equal(ctx.storeUpdatedAtExact, cas, "E29 exact updated_at token");
     assert.equal(ctx.productionBuildSha, build, "E30 production build SHA");
-    assert.ok(ctx.operatorJobStore, "E28 operator job store on same client");
+    assert.equal(ctx.operatorJobStore, null, "E28 no dedicated store until after backup");
+    assert.equal(ctx.readOnly, true);
+    const prepSql = mock.sqlLog.join("\n");
+    assert.match(prepSql, /FROM llh_store/i);
+    assert.doesNotMatch(prepSql, /CREATE TABLE|CREATE INDEX|INSERT INTO llh_curriculum_operator_jobs/i);
     // E30: gates required for production helper entry
     execute.assertPostgresProductionExecutionGates({
       confirmMigrate: true,
@@ -891,6 +895,127 @@ async function main() {
     assert.doesNotMatch(locked.stderr || "", /ENOTFOUND|ECONNREFUSED/i);
   }
   console.log("PASS  E40");
+
+  console.log("E41–E46) Backup-before-dedicated-DDL ordering");
+  {
+    // E41–E42: prepare context is SELECT/read only
+    const store = build53Store();
+    const mockPrep = createMockClient({ store });
+    const ctx = await execute.preparePostgresStage2ExecutionContext({
+      createClient: async () => mockPrep,
+      connectionString: "postgresql://mock/db",
+      productionBuildSha: build,
+      expectedProductionBuildSha: build,
+    });
+    const prepJoined = mockPrep.sqlLog.join(" | ");
+    assert.match(prepJoined, /FROM llh_store/i, "E41 SELECT llh_store");
+    assert.doesNotMatch(prepJoined, /CREATE TABLE/i, "E42 no CREATE TABLE");
+    assert.doesNotMatch(prepJoined, /CREATE INDEX/i, "E42 no CREATE INDEX");
+    assert.doesNotMatch(prepJoined, /INSERT INTO llh_curriculum_operator_jobs/i, "E42 no dedicated DML");
+    assert.equal(ctx.operatorJobStore, null);
+    await mockPrep.end();
+
+    // E43/E45: full pipeline SQL order without pre-supplied memory job store
+    // (forces client-backed initTable after backup)
+    const mock = createMockClient({ store });
+    const phases = [];
+    const orig = mock.query.bind(mock);
+    mock.query = async (sql, params) => {
+      const text = String(sql);
+      if (/FROM llh_store/i.test(text) && /updated_at_exact/i.test(text) && !/FOR UPDATE/i.test(text)
+        && !/INSERT INTO llh_store_backups/i.test(text)) {
+        if (!phases.includes("select_store")) phases.push("select_store");
+      }
+      if (/INSERT INTO llh_store_backups/i.test(text)) phases.push("backup_insert");
+      if (/FROM llh_store_backups/i.test(text) && /SELECT/i.test(text)) phases.push("backup_select");
+      if (/UPDATE llh_store_backups SET verified/i.test(text)) phases.push("backup_verified");
+      if (/CREATE TABLE/i.test(text)) phases.push("create_table");
+      if (/CREATE INDEX/i.test(text)) phases.push("create_index");
+      if (/INSERT INTO llh_curriculum_operator_jobs/i.test(text)) phases.push("dedicated_insert");
+      return orig(sql, params);
+    };
+    // Seed one SELECT via prepare-equivalent so order starts with store read
+    await mock.connect();
+    await mock.query(execute.POSTGRES_SELECT_STORE_ROW, ["launch-store"]);
+    const result = await execute.runStage2Execution({
+      mode: "fixture",
+      apply: true,
+      confirmMigrate: true,
+      confirmCutover: false,
+      client: mock,
+      store,
+      storeUpdatedAtExact: cas,
+      productionBuildSha: build,
+      expectedProductionBuildSha: build,
+      expectedSourceCount: 53,
+      // intentionally omit operatorJobStore → postgres-backed init after backup
+    });
+    assert.equal(result.wroteDedicated, true, "E45 migration after backup");
+    assert.ok(mock.getDedicatedCount() >= 53, "E45 dedicated rows written");
+
+    const idx = (name) => phases.indexOf(name);
+    assert.ok(idx("select_store") >= 0, "E41 select present");
+    assert.ok(idx("backup_insert") > idx("select_store"), "E43 backup after select");
+    assert.ok(idx("backup_select") > idx("backup_insert"), "E43 verify select after insert");
+    assert.ok(idx("backup_verified") > idx("backup_select"), "E43 verified mark after select");
+    assert.ok(idx("create_table") > idx("backup_verified"), "E43 CREATE TABLE after verified backup");
+    assert.ok(idx("create_index") > idx("backup_verified"), "E43 CREATE INDEX after verified backup");
+    assert.ok(idx("dedicated_insert") > idx("create_table"), "E45 migrate after init");
+    // Never reverse: no dedicated DDL/DML before backup_verified
+    for (const bad of ["create_table", "create_index", "dedicated_insert"]) {
+      assert.ok(idx(bad) > idx("backup_verified"), `${bad} must follow backup_verified`);
+    }
+
+    // E44: backup failure → zero dedicated DDL/DML
+    const mockFail = createMockClient({ store, failBackupInsert: true });
+    const failPhases = [];
+    const oFail = mockFail.query.bind(mockFail);
+    mockFail.query = async (sql, params) => {
+      const text = String(sql);
+      if (/CREATE TABLE|CREATE INDEX/i.test(text)) failPhases.push("ddl");
+      if (/INSERT INTO llh_curriculum_operator_jobs/i.test(text)) failPhases.push("dml");
+      return oFail(sql, params);
+    };
+    let e44 = null;
+    try {
+      await execute.runStage2Execution({
+        mode: "fixture",
+        apply: true,
+        confirmMigrate: true,
+        client: mockFail,
+        store,
+        storeUpdatedAtExact: cas,
+        productionBuildSha: build,
+        expectedSourceCount: 53,
+      });
+    } catch (e) { e44 = e; }
+    assert.ok(e44, "E44 backup failure throws");
+    assert.deepEqual(failPhases, [], "E44 zero dedicated DDL/DML");
+    assert.equal(mockFail.getDedicatedCount(), 0);
+    assert.equal(mockFail.writeCount(), 0);
+
+    // E46: production hard lock still before connection
+    let factoryCalls = 0;
+    let e46 = null;
+    try {
+      stage2.assertProductionApplyUnlocked({
+        apply: true, postgres: true, confirmMigrate: true, confirmCutover: true,
+      });
+      await execute.prepareAndRunPostgresStage2Execution({
+        apply: true,
+        confirmMigrate: true,
+        confirmCutover: true,
+        expectedSourceCount: 53,
+        expectedSourceHash: "x",
+        expectedStoreUpdatedAt: cas,
+        expectedProductionBuildSha: build,
+        createClient: async () => { factoryCalls += 1; throw new Error("no"); },
+      });
+    } catch (e) { e46 = e; }
+    assert.equal(e46?.code, "stage2_production_apply_locked");
+    assert.equal(factoryCalls, 0);
+  }
+  console.log("PASS  E41-E46");
 
   console.log("\nAll Stage 2 EXECUTION tests passed (production apply still locked).");
 }
