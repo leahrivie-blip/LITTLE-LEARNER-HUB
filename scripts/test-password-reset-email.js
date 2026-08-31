@@ -18,6 +18,7 @@
  * 13. Email-provider failure does not leak account existence
  * 14. No raw reset token is written to logs
  * + Client prefers server Resend path over Firebase when ready
+ * + Forgot-password success does not auto-open Reset Password (tokenless handoff)
  *
  * Run: NODE_ENV=test node scripts/test-password-reset-email.js
  */
@@ -182,6 +183,30 @@ async function main() {
   assert.match(serverJs, /eventType:\s*"password_reset_email"/);
   assert.match(serverJs, /classifyPasswordResetEmailError/);
   assert.match(emailAuthJs, /PASSWORD_RESET_TTL_MS/);
+
+  // Forgot-password success must not open the Reset Password page without a token.
+  const forgotSubmitMarker = "const message = await sendPasswordReset(email);";
+  const forgotStart = appJs.indexOf(forgotSubmitMarker);
+  const signupStart = appJs.indexOf('if (currentAuthMode === "signup")', forgotStart);
+  assert.ok(forgotStart > 0, "forgot-password submit branch must call sendPasswordReset");
+  assert.ok(signupStart > forgotStart, "signup branch must follow the forgot-password branch");
+  const forgotSuccessHandler = appJs.slice(forgotStart, signupStart);
+  assert.match(forgotSuccessHandler, /sendPasswordReset\(/);
+  assert.match(forgotSuccessHandler, /setFormMessage\("#authMessage", message, true\)/);
+  assert.match(forgotSuccessHandler, /trackEvent\("password_reset_requested"\)/);
+  assert.doesNotMatch(
+    forgotSuccessHandler,
+    /setView\(\s*["']reset-password["']\s*\)/,
+    "successful reset-email request must not auto-open the Reset Password page",
+  );
+  // Email-link routing and completion stay on the existing token-bearing paths.
+  assert.match(appJs, /params\.get\("resetToken"\)/);
+  assert.match(appJs, /fetch\("\/api\/auth\/password-reset\/complete"/);
+  assert.match(appJs, /resetPasswordLinkRequestedFromLocation/);
+  assert.match(appJs, /params\.get\("oobCode"\)/);
+  assert.match(appJs, /confirmPasswordReset\(client\.auth, oobCode/);
+  assert.match(appJs, /currentAuthMode === "signup"/);
+  assert.match(appJs, /signInWithProvider|logInWithProvider|signInWithEmailAndPassword/);
 
   writeSeedStore();
   const captured = [];
