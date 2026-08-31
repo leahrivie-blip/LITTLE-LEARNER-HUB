@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Stage 2 curriculumOperatorJobs offload CLI — DESIGN/TOOLING ONLY.
+ * Stage 2 curriculumOperatorJobs offload CLI.
  *
  * DEFAULT: dry-run / preflight / preview (ZERO production writes).
  *
@@ -9,13 +9,17 @@
  *
  * Fixture simulation (local only):
  *   ... --file store.json --simulate-fixture --confirm-migrate-operator-jobs
- *   ... --simulate-fixture --confirm-hot-store-cutover   # also rewrites fixture bag in memory/report
+ *   ... --simulate-fixture --confirm-hot-store-cutover
  *
- * PRODUCTION POSTGRES APPLY IS LOCKED in this PR:
- *   --postgres --apply  → always refused (assertProductionApplyUnlocked)
+ * PRODUCTION POSTGRES APPLY requires explicit CLI authorization token PLUS all gates:
+ *   --authorize-stage2-production-execution STAGE2-PRODUCTION-EXECUTION-AUTHORIZED-v1
+ *   --postgres --apply
+ *   --confirm-migrate-operator-jobs
+ *   --confirm-hot-store-cutover
+ *   --expected-source-count|--expected-source-hash|--expected-store-updated-at|--expected-production-build-sha
  *
- * Execution engine (still locked for production):
- *   scripts/lib/curriculum-operator-jobs-stage2-execute.js
+ * Authorization is CLI-process-only (not env, not runtime, not HTTP, not boot).
+ * Runtime isHotStoreCutoverEnabled() remains false.
  *
  * Never prints secrets or lesson content — ids/status/bytes/hashes only.
  */
@@ -44,6 +48,7 @@ function parseArgs(argv) {
     expectedSourceHash: "",
     expectedStoreUpdatedAt: "",
     expectedProductionBuildSha: "",
+    authorizeStage2ProductionExecution: "",
     help: false,
   };
   for (let i = 2; i < argv.length; i += 1) {
@@ -62,6 +67,9 @@ function parseArgs(argv) {
     else if (a === "--expected-source-hash") args.expectedSourceHash = String(argv[++i] || "");
     else if (a === "--expected-store-updated-at") args.expectedStoreUpdatedAt = String(argv[++i] || "");
     else if (a === "--expected-production-build-sha") args.expectedProductionBuildSha = String(argv[++i] || "");
+    else if (a === "--authorize-stage2-production-execution") {
+      args.authorizeStage2ProductionExecution = String(argv[++i] || "");
+    }
     else throw new Error(`Unknown argument: ${a}`);
   }
   return args;
@@ -133,7 +141,7 @@ async function loadStoreFromPostgresReadOnly(recordId) {
 async function main() {
   const args = parseArgs(process.argv);
   if (args.help || (!args.file && !args.postgres)) {
-    console.log(`Stage 2 curriculumOperatorJobs tooling (DESIGN ONLY — production apply locked).
+    console.log(`Stage 2 curriculumOperatorJobs tooling.
 
 Usage (read-only / dry-run):
   node scripts/migrate-curriculum-operator-jobs-stage2.js --file store.json
@@ -143,7 +151,12 @@ Fixture simulation only:
   ... --file store.json --simulate-fixture --confirm-migrate-operator-jobs
   ... --simulate-fixture --confirm-hot-store-cutover
 
-Production Postgres --apply is REFUSED in this PR.
+Production Postgres --apply requires explicit CLI authorization token PLUS all gates:
+  --authorize-stage2-production-execution STAGE2-PRODUCTION-EXECUTION-AUTHORIZED-v1
+  --postgres --apply --confirm-migrate-operator-jobs --confirm-hot-store-cutover
+  --expected-source-count|--expected-source-hash|--expected-store-updated-at|--expected-production-build-sha
+
+Authorization is CLI-process-only. Runtime cutover remains false.
 `);
     process.exit(args.help ? 0 : 1);
   }
@@ -156,9 +169,8 @@ Production Postgres --apply is REFUSED in this PR.
   }
 
   if (args.apply && args.postgres) {
-    // Final hard lock BEFORE any production connection / client factory.
+    // Authorization + lock check BEFORE any production connection / client factory.
     stage2.assertProductionApplyUnlocked(args);
-    // Complete future wiring (unreachable until a separate unlock PR removes the lock above):
     await execute.prepareAndRunPostgresStage2Execution({
       apply: true,
       confirmMigrate: args.confirmMigrate,
@@ -167,9 +179,11 @@ Production Postgres --apply is REFUSED in this PR.
       expectedSourceCount: args.expectedSourceCount,
       expectedSourceHash: args.expectedSourceHash,
       expectedStoreUpdatedAt: args.expectedStoreUpdatedAt,
-      expectedProductionBuildSha: args.expectedProductionBuildSha || process.env.RENDER_GIT_COMMIT || "",
-      productionBuildSha: process.env.RENDER_GIT_COMMIT || args.expectedProductionBuildSha || "",
-      // createClient intentionally default — never reached while lock throws.
+      expectedProductionBuildSha: args.expectedProductionBuildSha,
+      // ACTUAL/live only — never substitute expected into live or vice versa.
+      productionBuildSha: process.env.RENDER_GIT_COMMIT || "",
+      authorizeStage2ProductionExecution: args.authorizeStage2ProductionExecution,
+      // createClient default — only reached after valid authorization + gates.
     });
   }
 
