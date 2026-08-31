@@ -510,6 +510,180 @@ async function applyStage2RollbackCas({
 }
 
 /**
+ * Required gates for future production Postgres apply (validated before connect).
+ */
+function assertPostgresProductionExecutionGates(options = {}) {
+  const missing = [];
+  if (options.confirmMigrate !== true) missing.push("--confirm-migrate-operator-jobs");
+  if (options.confirmCutover === true && options.confirmMigrate !== true) {
+    missing.push("--confirm-migrate-operator-jobs (required with cutover)");
+  }
+  if (options.expectedSourceCount == null || !Number.isFinite(Number(options.expectedSourceCount))) {
+    missing.push("--expected-source-count");
+  }
+  if (!options.expectedSourceHash) missing.push("--expected-source-hash");
+  if (!options.expectedStoreUpdatedAt) missing.push("--expected-store-updated-at");
+  if (!options.expectedProductionBuildSha && !options.productionBuildSha) {
+    missing.push("--expected-production-build-sha");
+  }
+  if (missing.length) {
+    const err = new Error(
+      `Refusing production Stage 2 execution: missing required gates: ${missing.join(", ")}.`,
+    );
+    err.code = "stage2_production_gates_incomplete";
+    err.missing = missing;
+    throw err;
+  }
+  return true;
+}
+
+function defaultCreatePostgresClient(connectionString) {
+  const { Client } = require("pg");
+  return new Client({
+    connectionString,
+    ssl: process.env.DATABASE_SSL === "false" ? false : { rejectUnauthorized: false },
+  });
+}
+
+/**
+ * Connect + load production llh_store + exact CAS + dedicated job store adapter.
+ * Does NOT unlock apply. Injectable createClient for tests.
+ */
+async function preparePostgresStage2ExecutionContext(options = {}) {
+  const {
+    createClient = defaultCreatePostgresClient,
+    connectionString = process.env.PRODUCTION_DATABASE_URL || process.env.DATABASE_URL || "",
+    storeRecordId = resolveStoreRecordId(),
+    productionBuildSha = null,
+    expectedProductionBuildSha = null,
+  } = options;
+
+  if (!connectionString) {
+    const err = new Error("PRODUCTION_DATABASE_URL or DATABASE_URL required for Postgres Stage 2 execution.");
+    err.code = "stage2_postgres_url_missing";
+    throw err;
+  }
+
+  const wantBuild = String(expectedProductionBuildSha || productionBuildSha || "").trim();
+  const liveBuild = String(productionBuildSha || process.env.RENDER_GIT_COMMIT || "").trim();
+  if (wantBuild && liveBuild && wantBuild !== liveBuild) {
+    const err = new Error(
+      `Production build SHA mismatch: expected ${wantBuild}, live ${liveBuild}.`,
+    );
+    err.code = "stage2_production_build_mismatch";
+    throw err;
+  }
+
+  const client = typeof createClient === "function"
+    ? await createClient(connectionString)
+    : createClient;
+  if (!client || typeof client.connect !== "function" || typeof client.query !== "function") {
+    const err = new Error("Postgres Stage 2 execution requires a connected client factory.");
+    err.code = "stage2_postgres_client_invalid";
+    throw err;
+  }
+
+  await client.connect();
+  try {
+    const row = await client.query(POSTGRES_SELECT_STORE_ROW, [storeRecordId]);
+    if (!row.rows[0]?.data) {
+      const err = new Error(`No llh_store row for id=${storeRecordId}`);
+      err.code = "stage2_store_missing";
+      throw err;
+    }
+    const store = row.rows[0].data;
+    const storeUpdatedAtExact = normalizeUpdatedAtExact(row.rows[0].updated_at_exact);
+    if (!storeUpdatedAtExact) {
+      const err = new Error("llh_store updated_at::text CAS token missing.");
+      err.code = "stage2_cas_token_missing";
+      throw err;
+    }
+
+    const operatorJobStore = createCurriculumOperatorJobStore({ localFilePath: null });
+    operatorJobStore.configure({
+      pool: { query: (...args) => client.query(...args) },
+      intendedPostgres: true,
+    });
+    await operatorJobStore.initTable();
+    await operatorJobStore.loadFromStorage();
+
+    return {
+      client,
+      store,
+      storeUpdatedAtExact,
+      storeRecordId,
+      operatorJobStore,
+      productionBuildSha: wantBuild || liveBuild || null,
+      connected: true,
+    };
+  } catch (error) {
+    try { await client.query("ROLLBACK"); } catch { /* ignore */ }
+    try { await client.end(); } catch { /* ignore */ }
+    throw error;
+  }
+}
+
+/**
+ * Complete future production wiring helper.
+ * CLI must still call assertProductionApplyUnlocked BEFORE this in the current PR.
+ * Defense in depth: this helper also locks before any connection factory call.
+ */
+async function prepareAndRunPostgresStage2Execution(options = {}) {
+  // FINAL HARD LOCK — before any connection / client factory (when apply requested).
+  if (options.apply === true) {
+    stage2.assertProductionApplyUnlocked({
+      apply: true,
+      postgres: true,
+      confirmMigrate: options.confirmMigrate === true,
+      confirmCutover: options.confirmCutover === true,
+    });
+  }
+
+  assertPostgresProductionExecutionGates(options);
+
+  let client = null;
+  try {
+    const context = await preparePostgresStage2ExecutionContext({
+      createClient: options.createClient,
+      connectionString: options.connectionString,
+      storeRecordId: options.storeRecordId || resolveStoreRecordId(),
+      productionBuildSha: options.productionBuildSha,
+      expectedProductionBuildSha: options.expectedProductionBuildSha,
+    });
+    client = context.client;
+
+    const result = await runStage2Execution({
+      mode: "postgres",
+      apply: options.apply === true,
+      confirmMigrate: options.confirmMigrate === true,
+      confirmCutover: options.confirmCutover === true,
+      client: context.client,
+      store: context.store,
+      storeUpdatedAtExact: context.storeUpdatedAtExact,
+      productionBuildSha: context.productionBuildSha,
+      storeRecordId: context.storeRecordId,
+      operatorJobStore: context.operatorJobStore,
+      expectedSourceCount: options.expectedSourceCount,
+      expectedSourceHash: options.expectedSourceHash,
+      expectedStoreUpdatedAt: options.expectedStoreUpdatedAt || context.storeUpdatedAtExact,
+      expectedProductionBuildSha: options.expectedProductionBuildSha || context.productionBuildSha,
+      runId: options.runId || null,
+    });
+    try { await client.query("ROLLBACK"); } catch { /* ignore */ }
+    try { await client.end(); } catch { /* ignore */ }
+    client = null;
+    return result;
+  } catch (error) {
+    if (client) {
+      try { await client.query("ROLLBACK"); } catch { /* ignore */ }
+      try { await client.end(); } catch { /* ignore */ }
+      client = null;
+    }
+    throw error;
+  }
+}
+
+/**
  * Full Stage 2 execution pipeline.
  *
  * mode:
@@ -531,9 +705,12 @@ async function runStage2Execution(options = {}) {
     expectedSourceCount = null,
     expectedSourceHash = null,
     expectedStoreUpdatedAt = null,
+    expectedProductionBuildSha = null,
     skipBackupCreate = false,
     preexistingBackupProof = null,
     runId: providedRunId = null,
+    // Explicit fixture-only escape hatch — NEVER set for production path.
+    allowPostBackupDriftContinue = false,
   } = options;
 
   // FINAL HARD LOCK — production Postgres apply remains impossible in this PR.
@@ -543,6 +720,18 @@ async function runStage2Execution(options = {}) {
       postgres: true,
       confirmMigrate,
       confirmCutover,
+    });
+  }
+
+  if (mode === "postgres" && apply) {
+    assertPostgresProductionExecutionGates({
+      confirmMigrate,
+      confirmCutover,
+      expectedSourceCount,
+      expectedSourceHash,
+      expectedStoreUpdatedAt,
+      expectedProductionBuildSha: expectedProductionBuildSha || productionBuildSha,
+      productionBuildSha,
     });
   }
 
@@ -560,6 +749,7 @@ async function runStage2Execution(options = {}) {
   const runId = providedRunId || stage2.newRunId();
   let store = inputStore;
   let casExact = storeUpdatedAtExact;
+  const effectiveBuildSha = expectedProductionBuildSha || productionBuildSha || null;
 
   if (mode === "postgres" && client && !store) {
     const row = await client.query(POSTGRES_SELECT_STORE_ROW, [storeRecordId]);
@@ -576,10 +766,9 @@ async function runStage2Execution(options = {}) {
   }
   if (!casExact) casExact = "fixture-cas";
 
-  // 1–2 Preflight + source manifest
   const sourceManifest = stage2.buildSourceManifest(store, {
     runId,
-    productionBuildSha,
+    productionBuildSha: effectiveBuildSha,
     storeUpdatedAtExact: casExact,
   });
   stage2.assertExpectedSourceGates(sourceManifest, {
@@ -587,10 +776,19 @@ async function runStage2Execution(options = {}) {
     expectedSourceHash: expectedSourceHash || undefined,
     expectedStoreUpdatedAt: expectedStoreUpdatedAt || undefined,
   });
+  if (expectedProductionBuildSha || (mode === "postgres" && apply)) {
+    const want = String(expectedProductionBuildSha || effectiveBuildSha || "");
+    const got = String(sourceManifest.productionBuildSha || "");
+    if (!want || want !== got) {
+      const err = new Error("Production build SHA expectation mismatch.");
+      err.code = "stage2_production_build_mismatch";
+      throw err;
+    }
+  }
 
   const auditBase = {
     runId,
-    productionCommit: productionBuildSha,
+    productionCommit: effectiveBuildSha,
     preflightTimestamp: sourceManifest.capturedAt,
     sourceCount: sourceManifest.jobCount,
     sourceAggregateHash: sourceManifest.aggregateHash,
@@ -618,13 +816,12 @@ async function runStage2Execution(options = {}) {
     };
   }
 
-  // 3–4 Durable backup BEFORE any dedicated migration write
   let backupResult = null;
   if (preexistingBackupProof) {
     stage2.assertBackupMatchesSource(preexistingBackupProof, sourceManifest, {
       requireProductionGrade: preexistingBackupProof.kind !== stage2.BACKUP_KIND_FIXTURE,
       allowFixture: preexistingBackupProof.kind === stage2.BACKUP_KIND_FIXTURE,
-      requireBuildBinding: Boolean(productionBuildSha),
+      requireBuildBinding: Boolean(effectiveBuildSha),
     });
     backupResult = {
       backupId: preexistingBackupProof.id,
@@ -634,8 +831,6 @@ async function runStage2Execution(options = {}) {
     };
   } else if (!skipBackupCreate) {
     if (!client) {
-      // Fixture path without client: synthesize durable-shaped proof bound to source,
-      // but still require an explicit create hook when client is present.
       const err = new Error(
         "Backup creation requires Postgres client (or preexistingBackupProof for fixture).",
       );
@@ -645,7 +840,7 @@ async function runStage2Execution(options = {}) {
     try {
       backupResult = await createDurableStage2Backup(client, store, {
         runId,
-        productionBuildSha,
+        productionBuildSha: effectiveBuildSha,
         storeUpdatedAtExact: casExact,
         sourceManifest,
       });
@@ -659,7 +854,6 @@ async function runStage2Execution(options = {}) {
     throw err;
   }
 
-  // 5 Migrate dedicated (no hot-cap)
   const jobStore = operatorJobStore || createCurriculumOperatorJobStore({ localFilePath: null });
   if (!operatorJobStore) {
     if (mode === "postgres" && client) {
@@ -682,11 +876,14 @@ async function runStage2Execution(options = {}) {
     operatorJobStore: jobStore,
   });
 
-  // 6–8 Destination verify + reconcile
   let liveForReconcile = store;
-  if (mode === "postgres" && client) {
+  let liveCasExact = casExact;
+  if (client) {
     const fresh = await client.query(POSTGRES_SELECT_STORE_ROW, [storeRecordId]);
-    if (fresh.rows[0]?.data) liveForReconcile = fresh.rows[0].data;
+    if (fresh.rows[0]?.data) {
+      liveForReconcile = fresh.rows[0].data;
+      liveCasExact = normalizeUpdatedAtExact(fresh.rows[0].updated_at_exact) || casExact;
+    }
   }
   let verification = verifyAndReconcileDestination({
     sourceManifest,
@@ -694,26 +891,56 @@ async function runStage2Execution(options = {}) {
     liveStore: liveForReconcile,
   });
 
-  // 9–10 Drift detection; remigrate/reverify if needed
   const drift = stage2.detectSourceDrift(sourceManifest, liveForReconcile);
-  if (drift.changed) {
-    const refreshedManifest = drift.liveManifest;
-    const remigrate = await migrateHistoricalJobsToDedicated({
-      sourceJobs: jobApi.normalizeOperatorJobStore(liveForReconcile.curriculumOperatorJobs).jobs,
-      operatorJobStore: jobStore,
-    });
-    verification = verifyAndReconcileDestination({
-      sourceManifest: refreshedManifest,
-      destinationJobs: remigrate.destinationJobs,
-      liveStore: liveForReconcile,
-    });
-    store = liveForReconcile;
-    Object.assign(sourceManifest, refreshedManifest);
+  const casDrift = liveCasExact && casExact && String(liveCasExact) !== String(casExact);
+  if (drift.changed || casDrift) {
+    // Production-grade path: NEVER authorize hot cutover under a backup bound to
+    // an earlier source snapshot. Operator must rerun preflight + fresh backup.
+    // Fixture-only escape hatch may remigrate/rebind for simulation tests.
+    if (allowPostBackupDriftContinue === true && mode === "fixture") {
+      await migrateHistoricalJobsToDedicated({
+        sourceJobs: jobApi.normalizeOperatorJobStore(liveForReconcile.curriculumOperatorJobs).jobs,
+        operatorJobStore: jobStore,
+      });
+      const refreshedManifest = drift.liveManifest || stage2.buildSourceManifest(liveForReconcile, {
+        runId,
+        productionBuildSha: effectiveBuildSha,
+        storeUpdatedAtExact: liveCasExact,
+      });
+      verification = verifyAndReconcileDestination({
+        sourceManifest: refreshedManifest,
+        destinationJobs: jobStore.listJobsSync({ limit: 500 }),
+        liveStore: liveForReconcile,
+      });
+      store = liveForReconcile;
+      casExact = liveCasExact;
+      Object.assign(sourceManifest, refreshedManifest);
+    } else {
+      const err = new Error(
+        "Source drifted after verified backup; fresh preflight + fresh durable backup required before cutover.",
+      );
+      err.code = "stage2_source_drift_requires_fresh_backup";
+      err.details = {
+        backupId: backupResult.backupId,
+        previousAggregateHash: sourceManifest.aggregateHash,
+        liveAggregateHash: drift.liveAggregateHash || null,
+        previousCas: casExact,
+        liveCas: liveCasExact,
+        wroteHotStore: false,
+      };
+      throw err;
+    }
   }
 
-  // 11 Hot-bag preview (no write yet)
   const preview = stage2.buildHotBagPreview(store);
   stage2.assertActiveJobsRemainFull(preview.bag);
+
+  stage2.assertBackupMatchesSource(backupResult.proof, sourceManifest, {
+    requireProductionGrade: backupResult.proof.kind !== stage2.BACKUP_KIND_FIXTURE,
+    allowFixture: backupResult.proof.kind === stage2.BACKUP_KIND_FIXTURE
+      || backupResult.proof.fixture === true,
+    requireBuildBinding: Boolean(effectiveBuildSha),
+  });
 
   if (!confirmCutover) {
     return {
@@ -738,9 +965,7 @@ async function runStage2Execution(options = {}) {
     };
   }
 
-  // 12–16 CAS hot rewrite (requires confirmCutover). For postgres still locked above.
   if (!client) {
-    // Fixture in-memory cutover without SQL client
     const afterStore = {
       ...store,
       curriculumOperatorJobs: preview.bag,
@@ -784,7 +1009,6 @@ async function runStage2Execution(options = {}) {
     backupId: backupResult.backupId,
   });
 
-  // 17–18 Post-write audit
   const hotJobs = jobApi.normalizeOperatorJobStore(casWrite.afterStore.curriculumOperatorJobs).jobs;
   const stubs = hotJobs.filter((j) => j.hotStoreStub === true);
   const activeFull = hotJobs.filter((j) => isActiveStatus(j.status));
@@ -834,6 +1058,10 @@ module.exports = {
   normalizeUpdatedAtExact,
   inventorySnapshot,
   assertOperatorJobsOnlyTransform,
+  assertPostgresProductionExecutionGates,
+  defaultCreatePostgresClient,
+  preparePostgresStage2ExecutionContext,
+  prepareAndRunPostgresStage2Execution,
   createDurableStage2Backup,
   migrateHistoricalJobsToDedicated,
   verifyAndReconcileDestination,

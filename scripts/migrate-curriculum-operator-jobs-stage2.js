@@ -43,6 +43,7 @@ function parseArgs(argv) {
     expectedSourceCount: null,
     expectedSourceHash: "",
     expectedStoreUpdatedAt: "",
+    expectedProductionBuildSha: "",
     help: false,
   };
   for (let i = 2; i < argv.length; i += 1) {
@@ -60,6 +61,7 @@ function parseArgs(argv) {
     else if (a === "--expected-source-count") args.expectedSourceCount = Number(argv[++i]);
     else if (a === "--expected-source-hash") args.expectedSourceHash = String(argv[++i] || "");
     else if (a === "--expected-store-updated-at") args.expectedStoreUpdatedAt = String(argv[++i] || "");
+    else if (a === "--expected-production-build-sha") args.expectedProductionBuildSha = String(argv[++i] || "");
     else throw new Error(`Unknown argument: ${a}`);
   }
   return args;
@@ -154,14 +156,20 @@ Production Postgres --apply is REFUSED in this PR.
   }
 
   if (args.apply && args.postgres) {
-    // Final hard lock — execution engine also refuses; keep CLI fail-closed before connect.
+    // Final hard lock BEFORE any production connection / client factory.
     stage2.assertProductionApplyUnlocked(args);
-    // Unreachable until a future unlock PR: execute.runStage2Execution({ mode:"postgres", apply:true, ... })
-    await execute.runStage2Execution({
-      mode: "postgres",
+    // Complete future wiring (unreachable until a separate unlock PR removes the lock above):
+    await execute.prepareAndRunPostgresStage2Execution({
       apply: true,
       confirmMigrate: args.confirmMigrate,
       confirmCutover: args.confirmCutover,
+      storeRecordId: args.recordId,
+      expectedSourceCount: args.expectedSourceCount,
+      expectedSourceHash: args.expectedSourceHash,
+      expectedStoreUpdatedAt: args.expectedStoreUpdatedAt,
+      expectedProductionBuildSha: args.expectedProductionBuildSha || process.env.RENDER_GIT_COMMIT || "",
+      productionBuildSha: process.env.RENDER_GIT_COMMIT || args.expectedProductionBuildSha || "",
+      // createClient intentionally default — never reached while lock throws.
     });
   }
 

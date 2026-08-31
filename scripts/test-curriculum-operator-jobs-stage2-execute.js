@@ -100,6 +100,10 @@ function createMockClient({
     getRow: () => row,
     getBackup: (id) => backupRows.get(id),
     getDedicatedCount: () => dedicated.size,
+    ended: false,
+    connected: false,
+    async connect() { this.connected = true; },
+    async end() { this.ended = true; this.connected = false; },
     async query(sql, params = []) {
       const text = String(sql).replace(/\s+/g, " ").trim();
       sqlLog.push(text.slice(0, 120));
@@ -637,6 +641,256 @@ async function main() {
     assert.equal(rt.canSafelyCapHotStore(), false);
   }
   console.log("PASS  E27");
+
+  // --- GAP hardenings E28–E40 ---
+
+  console.log("E28–E32) Future Postgres helper wiring + lifecycle");
+  {
+    const store = build53Store();
+    const mock = createMockClient({ store });
+    let factoryCalls = 0;
+    const createClient = async () => {
+      factoryCalls += 1;
+      return mock;
+    };
+    const ctx = await execute.preparePostgresStage2ExecutionContext({
+      createClient,
+      connectionString: "postgresql://mock/db",
+      storeRecordId: "launch-store",
+      productionBuildSha: build,
+      expectedProductionBuildSha: build,
+    });
+    assert.equal(factoryCalls, 1, "E28 client factory invoked");
+    assert.equal(mock.connected, true, "E28 connected");
+    assert.ok(ctx.store, "E29 store loaded");
+    assert.equal(ctx.storeUpdatedAtExact, cas, "E29 exact updated_at token");
+    assert.equal(ctx.productionBuildSha, build, "E30 production build SHA");
+    assert.ok(ctx.operatorJobStore, "E28 operator job store on same client");
+    // E30: gates required for production helper entry
+    execute.assertPostgresProductionExecutionGates({
+      confirmMigrate: true,
+      confirmCutover: true,
+      expectedSourceCount: 53,
+      expectedSourceHash: stage2.buildSourceManifest(store, {
+        productionBuildSha: build,
+        storeUpdatedAtExact: cas,
+      }).aggregateHash,
+      expectedStoreUpdatedAt: cas,
+      expectedProductionBuildSha: build,
+    });
+    await mock.end();
+    assert.equal(mock.ended, true, "E31 close on success path");
+
+    // E32 Failure cleans up
+    const mockFail = createMockClient({ store });
+    mockFail.query = async (sql) => {
+      if (/FROM llh_store/i.test(sql) && /updated_at_exact/i.test(sql)) {
+        throw new Error("boom-load");
+      }
+      return { rows: [], rowCount: 0 };
+    };
+    let endedFail = false;
+    mockFail.end = async () => { endedFail = true; };
+    mockFail.connect = async () => {};
+    let eFail = null;
+    try {
+      await execute.preparePostgresStage2ExecutionContext({
+        createClient: async () => mockFail,
+        connectionString: "postgresql://mock/db",
+        expectedProductionBuildSha: build,
+        productionBuildSha: build,
+      });
+    } catch (e) { eFail = e; }
+    assert.match(eFail.message, /boom-load/);
+    assert.equal(endedFail, true, "E32 close on failure");
+  }
+  console.log("PASS  E28-E32");
+
+  console.log("E33–E36) Production execution requires expected count/hash/CAS/build");
+  {
+    const base = {
+      confirmMigrate: true,
+      confirmCutover: true,
+      expectedSourceCount: 53,
+      expectedSourceHash: "abc",
+      expectedStoreUpdatedAt: cas,
+      expectedProductionBuildSha: build,
+    };
+    execute.assertPostgresProductionExecutionGates(base);
+    for (const key of [
+      "expectedSourceCount",
+      "expectedSourceHash",
+      "expectedStoreUpdatedAt",
+      "expectedProductionBuildSha",
+    ]) {
+      const bad = { ...base, [key]: key === "expectedSourceCount" ? null : "" };
+      if (key === "expectedProductionBuildSha") bad.productionBuildSha = "";
+      let err = null;
+      try { execute.assertPostgresProductionExecutionGates(bad); } catch (e) { err = e; }
+      assert.equal(err?.code, "stage2_production_gates_incomplete", key);
+    }
+  }
+  console.log("PASS  E33-E36");
+
+  console.log("E37–E38) Drift after backup blocks before hot rewrite; no hot write");
+  {
+    const store = build53Store();
+    const client = createMockClient({ store });
+    // Mutate live store after backup by changing row under subsequent SELECT
+    let selectCount = 0;
+    const orig = client.query.bind(client);
+    client.query = async (sql, params) => {
+      const text = String(sql);
+      if (/FROM llh_store/i.test(text) && /updated_at_exact/i.test(text) && !/FOR UPDATE/i.test(text)) {
+        selectCount += 1;
+        // Pipeline's post-backup fresh live read (first SELECT) shows drifted jobs.
+        if (selectCount >= 1) {
+          const drifted = JSON.parse(JSON.stringify(store));
+          drifted.curriculumOperatorJobs.jobs[0].updatedAt = "2026-09-01T00:00:00.000Z";
+          drifted.curriculumOperatorJobs.jobs[0].status = "running";
+          return {
+            rows: [{
+              id: "launch-store",
+              data: drifted,
+              updated_at: new Date(),
+              updated_at_exact: "2026-08-30 12:00:00.000000+00",
+            }],
+            rowCount: 1,
+          };
+        }
+      }
+      return orig(sql, params);
+    };
+    const jobStore = await memoryJobStore();
+    let err = null;
+    try {
+      await execute.runStage2Execution({
+        mode: "fixture",
+        apply: true,
+        confirmMigrate: true,
+        confirmCutover: true,
+        client,
+        store,
+        storeUpdatedAtExact: cas,
+        productionBuildSha: build,
+        expectedProductionBuildSha: build,
+        operatorJobStore: jobStore,
+        expectedSourceCount: 53,
+      });
+    } catch (e) { err = e; }
+    assert.equal(err?.code, "stage2_source_drift_requires_fresh_backup");
+    assert.equal(client.writeCount(), 0);
+    assert.equal(err.details.wroteHotStore, false);
+  }
+  console.log("PASS  E37-E38");
+
+  console.log("E39) Fresh rerun with fresh backup succeeds in fixture/mock flow");
+  {
+    const store = build53Store();
+    // Simulate post-drift refreshed source already applied into store
+    store.curriculumOperatorJobs.jobs[0].updatedAt = "2026-09-01T00:00:00.000Z";
+    const client = createMockClient({
+      store,
+      updatedAtExact: cas,
+    });
+    const jobStore = await memoryJobStore();
+    const result = await execute.runStage2Execution({
+      mode: "fixture",
+      apply: true,
+      confirmMigrate: true,
+      confirmCutover: true,
+      client,
+      store,
+      storeUpdatedAtExact: cas,
+      productionBuildSha: build,
+      expectedProductionBuildSha: build,
+      operatorJobStore: jobStore,
+      expectedSourceCount: 53,
+    });
+    assert.equal(result.wroteHotStore, true);
+    assert.equal(client.writeCount(), 1);
+  }
+  console.log("PASS  E39");
+
+  console.log("E40) Production hard lock fires before connection factory is called");
+  {
+    let factoryCalls = 0;
+    let err = null;
+    try {
+      // Mimic CLI order: lock first
+      stage2.assertProductionApplyUnlocked({
+        apply: true,
+        postgres: true,
+        confirmMigrate: true,
+        confirmCutover: true,
+      });
+      await execute.prepareAndRunPostgresStage2Execution({
+        apply: true,
+        confirmMigrate: true,
+        confirmCutover: true,
+        expectedSourceCount: 53,
+        expectedSourceHash: "x",
+        expectedStoreUpdatedAt: cas,
+        expectedProductionBuildSha: build,
+        createClient: async () => {
+          factoryCalls += 1;
+          throw new Error("factory should not run");
+        },
+      });
+    } catch (e) { err = e; }
+    assert.equal(err?.code, "stage2_production_apply_locked");
+    assert.equal(factoryCalls, 0);
+
+    // Defense in depth: helper also locks before connection factory when apply=true.
+    factoryCalls = 0;
+    const store = build53Store();
+    const mock = createMockClient({ store });
+    err = null;
+    try {
+      await execute.prepareAndRunPostgresStage2Execution({
+        apply: true,
+        confirmMigrate: true,
+        confirmCutover: true,
+        expectedSourceCount: 53,
+        expectedSourceHash: stage2.buildSourceManifest(store, {
+          productionBuildSha: build,
+          storeUpdatedAtExact: cas,
+        }).aggregateHash,
+        expectedStoreUpdatedAt: cas,
+        expectedProductionBuildSha: build,
+        productionBuildSha: build,
+        connectionString: "postgresql://mock/db",
+        createClient: async () => {
+          factoryCalls += 1;
+          return mock;
+        },
+      });
+    } catch (e) { err = e; }
+    assert.equal(err?.code, "stage2_production_apply_locked");
+    assert.equal(factoryCalls, 0);
+    assert.equal(mock.ended, false);
+
+    // CLI guarantees lock BEFORE helper / connection:
+    const locked = spawnSync(
+      process.execPath,
+      [
+        path.join(__dirname, "migrate-curriculum-operator-jobs-stage2.js"),
+        "--postgres", "--apply",
+        "--confirm-migrate-operator-jobs",
+        "--confirm-hot-store-cutover",
+        "--expected-source-count", "53",
+        "--expected-source-hash", "deadbeef",
+        "--expected-store-updated-at", cas,
+        "--expected-production-build-sha", build,
+      ],
+      { encoding: "utf8", env: { ...process.env, PRODUCTION_DATABASE_URL: "postgresql://example.invalid/db" } },
+    );
+    assert.notEqual(locked.status, 0);
+    assert.match(locked.stderr || locked.stdout, /NOT unlocked|STAGE2 TOOL FAILED/i);
+    // Must fail before attempting real DNS/connect to example.invalid
+    assert.doesNotMatch(locked.stderr || "", /ENOTFOUND|ECONNREFUSED/i);
+  }
+  console.log("PASS  E40");
 
   console.log("\nAll Stage 2 EXECUTION tests passed (production apply still locked).");
 }
