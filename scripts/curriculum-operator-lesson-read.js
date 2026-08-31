@@ -99,18 +99,26 @@ function flattenObjectPaths(value, prefix = "", out = []) {
   return out;
 }
 
+function shouldIgnorePersistedDiffPath(pathKey = "") {
+  const path = text(pathKey, 400);
+  if (!path) return true;
+  // Exact top-level ignores (legacy) plus nested bookkeeping prefixes.
+  if (path === "updatedAt" || path === "__llhSurgicalDailyPlans" || path === "__llhAccessPlanPatch") {
+    return true;
+  }
+  if (/^enrichmentDraft(\.|$)/.test(path) || /^enrichmentDraftUndo(\.|$)/.test(path)) return true;
+  if (/^enrichmentPublishHistory(\.|$|\[)/.test(path)) return true;
+  return false;
+}
+
 function computePersistedPlanDiff(beforePlan = {}, afterPlan = {}) {
-  const ignore = new Set([
-    "updatedAt", "enrichmentDraft", "enrichmentDraftUndo", "enrichmentPublishHistory",
-    "__llhSurgicalDailyPlans", "__llhAccessPlanPatch",
-  ]);
   const paths = new Set([
     ...flattenObjectPaths(beforePlan),
     ...flattenObjectPaths(afterPlan),
   ]);
   const changed = [];
   paths.forEach((pathKey) => {
-    if (!pathKey || ignore.has(pathKey)) return;
+    if (shouldIgnorePersistedDiffPath(pathKey)) return;
     const beforeVal = pathKey.split(".").reduce((cur, part) => {
       if (cur == null) return undefined;
       const match = part.match(/^(.+)\[(\d+)\]$/);
@@ -153,7 +161,11 @@ function verifyConnectedAutoApplyPersistence({
       return;
     }
     if (key === "vocabularyWords" || key === "vocabCards") {
-      const quality = classifyVocabularyQuality(afterPlan, draftWeek);
+      // Authoritative teachingKit.vocabCards wins over stale enrichmentDraft week cards.
+      const authoritativeWeek = asArray(afterPlan?.teachingKit?.vocabCards).length
+        ? { vocabCards: afterPlan.teachingKit.vocabCards }
+        : draftWeek;
+      const quality = classifyVocabularyQuality(afterPlan, authoritativeWeek);
       const synced = Boolean(text(afterPlan?.vocabularyWords, 2000));
       if (!quality.validCardCount || quality.state === "MALFORMED" || !synced) {
         mismatches.push({
@@ -375,7 +387,10 @@ function evaluateRequestedOutcome(outcomeKey, plan = {}, draftWeek = {}) {
     return asArray(plan?.learningDomains).length > 0;
   }
   if (outcomeKey === "vocabulary") {
-    const quality = classifyVocabularyQuality(plan, draftWeek);
+    const authoritativeWeek = asArray(plan?.teachingKit?.vocabCards).length
+      ? { vocabCards: plan.teachingKit.vocabCards }
+      : draftWeek;
+    const quality = classifyVocabularyQuality(plan, authoritativeWeek);
     const synced = Boolean(text(plan?.vocabularyWords, 2000));
     return quality.validCardCount > 0 && quality.state !== "MALFORMED" && synced;
   }
@@ -549,6 +564,7 @@ module.exports = {
   vocabularyTextFromSources,
   vocabCardTerm,
   vocabCardLabel,
+  normalizeVocabTermKey,
   isCombinedVocabularyList,
   isValidVocabularyCard,
   dedupeValidVocabularyCards,

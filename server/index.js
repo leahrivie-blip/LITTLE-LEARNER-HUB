@@ -7227,7 +7227,20 @@ async function applyOperatorConnectedEnrichment({
   lessonPlanId,
   adminEmail = "",
   operatorJobId = "",
+  mutationAllowlist = null,
+  lessonResult = null,
 } = {}) {
+  const vocabSurgical = require("../scripts/curriculum-operator-vocab-surgical-apply.js");
+  if (vocabSurgical.isVocabOnlyAllowlist(mutationAllowlist)) {
+    return applyOperatorSurgicalVocab({
+      store,
+      lessonPlanId,
+      adminEmail,
+      operatorJobId,
+      mutationAllowlist,
+      lessonResult,
+    });
+  }
   const id = normalizedShortText(lessonPlanId, 160);
   if (!id) return { ok: false, code: "LESSON_NOT_FOUND", error: "lessonPlanId required" };
   const siteContent = store.siteContent && typeof store.siteContent === "object"
@@ -7287,6 +7300,104 @@ async function applyOperatorConnectedEnrichment({
     published: false,
     autoPublish: false,
     customerVisibleUnchanged: true,
+  };
+}
+
+/**
+ * Vocabulary-only connected auto-apply: surgically persist teachingKit.vocabCards +
+ * vocabularyWords only. Does NOT call mergeDraftIntoPlan / full enrichment publish,
+ * so historical enrichmentDraft songs/books/printables are never promoted.
+ */
+async function applyOperatorSurgicalVocab({
+  store,
+  lessonPlanId,
+  adminEmail = "",
+  operatorJobId = "",
+  mutationAllowlist = null,
+  lessonResult = null,
+} = {}) {
+  const vocabSurgical = require("../scripts/curriculum-operator-vocab-surgical-apply.js");
+  const id = normalizedShortText(lessonPlanId, 160);
+  if (!id) return { ok: false, code: "LESSON_NOT_FOUND", error: "lessonPlanId required" };
+
+  const siteContent = store.siteContent && typeof store.siteContent === "object"
+    ? store.siteContent
+    : defaultSiteContentStore();
+  const curriculum = siteContent.curriculum || defaultCurriculumStore();
+  const existingPlan = (curriculum.lessonPlans || []).find((item) => item.id === id);
+  if (!existingPlan) return { ok: false, code: "LESSON_NOT_FOUND", error: "Lesson plan not found." };
+
+  const rawCards = vocabSurgical.extractVocabCardsForSurgicalApply(existingPlan, lessonResult || {});
+  const applied = vocabSurgical.applySurgicalVocabToPlan(existingPlan, rawCards);
+  if (!applied.ok) {
+    return {
+      ok: false,
+      code: applied.code || "vocab_surgical_apply_failed",
+      error: applied.error || "Surgical vocabulary apply failed.",
+    };
+  }
+
+  const now = new Date().toISOString();
+  const beforeStatus = existingPlan.status;
+  const beforeAccess = existingPlan.plan === "Pro" ? "Pro" : "Free";
+  const beforePublishedAt = existingPlan.publishedAt || null;
+
+  // Keep enrichmentDraft as-is (historical songs/books stay draft-only; not promoted).
+  // Only refresh week.vocabCards so the draft mirrors the authoritative repair.
+  let nextDraft = existingPlan.enrichmentDraft && typeof existingPlan.enrichmentDraft === "object"
+    ? JSON.parse(JSON.stringify(existingPlan.enrichmentDraft))
+    : { week: {}, activities: {} };
+  if (!nextDraft.week || typeof nextDraft.week !== "object") nextDraft.week = {};
+  nextDraft.week.vocabCards = applied.cards;
+  nextDraft.updatedAt = now;
+  nextDraft.lastEditedBy = normalizedShortText(adminEmail, 180) || "curriculum-operator-vocab-surgical";
+
+  const nextPlan = {
+    ...existingPlan,
+    // Clone dailyPlans so writeSiteCurriculumTouched takes the surgical branch that
+    // copies vocabularyWords + teachingKit (same-reference path skips those fields).
+    dailyPlans: existingPlan.dailyPlans && typeof existingPlan.dailyPlans === "object"
+      ? { ...existingPlan.dailyPlans }
+      : existingPlan.dailyPlans,
+    vocabularyWords: applied.vocabularyWords,
+    teachingKit: {
+      ...applied.plan.teachingKit,
+      updatedAt: now,
+      lastEditedBy: normalizedShortText(adminEmail, 180) || existingPlan.teachingKit?.lastEditedBy || "",
+    },
+    enrichmentDraft: nextDraft,
+    status: beforeStatus,
+    plan: beforeAccess,
+    publishedAt: beforePublishedAt,
+    updatedAt: now,
+    lastEditedBy: normalizedShortText(adminEmail, 180) || "curriculum-operator-vocab-surgical",
+    __llhSurgicalDailyPlans: true,
+  };
+
+  const nextCurriculum = {
+    ...curriculum,
+    lessonPlans: (curriculum.lessonPlans || []).map((item) => (item.id === id ? nextPlan : item)),
+    updatedAt: now,
+  };
+
+  writeSiteCurriculumTouched(store, nextCurriculum, {
+    touchedLessonPlanIds: [id],
+    updatedAt: now,
+  });
+  await writeStoreAsync(store);
+
+  return {
+    ok: true,
+    code: "apply_vocab_surgical_ok",
+    versionId: `vocab-${Date.now().toString(16)}`,
+    duplicate: false,
+    published: false,
+    autoPublish: false,
+    customerVisibleUnchanged: true,
+    surgical: true,
+    vocabularyWords: applied.vocabularyWords,
+    vocabCardCount: applied.cards.length,
+    mutationAllowlistWeeklyScope: mutationAllowlist?.weeklyFieldScope || ["vocabCards"],
   };
 }
 

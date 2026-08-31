@@ -2076,6 +2076,8 @@ function createCurriculumOperatorApi(deps) {
         lessonPlanId: lr.lessonId,
         adminEmail: sessionEmail,
         operatorJobId: job.id,
+        mutationAllowlist,
+        lessonResult: lr,
       });
       if (result?.ok) {
         applied.push({ lessonId: lr.lessonId, ...result });

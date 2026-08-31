@@ -632,6 +632,8 @@ function refreshLessonResultPostApply(lessonResult, plan, curriculum, options = 
     requestedOutcomes: persistenceCheck.requestedOutcomes || {},
     persistedDiff: persistenceCheck.persistedDiff,
     unexpectedPersistedMutations: persistScope.unexpected || [],
+    intermediateDraftDiff: persistScope.intermediateDraftDiff || [],
+    intermediateDraftReport: persistScope.intermediateDraftReport || null,
     contentPersistenceIncomplete: persistenceCheck.ok === false || !persistScope.ok,
     readinessDelta: {
       before: beforeScores.premiumReadinessPercent,

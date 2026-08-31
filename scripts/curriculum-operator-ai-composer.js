@@ -1093,8 +1093,32 @@ function normalizeChangeEntry(field, raw) {
       };
     }
     value = domainNorm.value;
+  } else if (field === "vocabCards") {
+    if (typeof value === "string") {
+      value = value.split(/\n|·|;/).map((s) => s.trim()).filter(Boolean);
+    }
+    if (!Array.isArray(value)) return { ok: false, error: `${field} must be an array` };
+    // Preserve structured { word, definition } cards — do not String(object) → "[object Object]".
+    value = value.map((v) => {
+      if (v == null) return null;
+      if (typeof v === "string" || typeof v === "number") {
+        const word = text(v, 120);
+        return word || null;
+      }
+      if (typeof v === "object" && !Array.isArray(v)) {
+        const word = text(v.word || v.title || v.term || v.label, 120);
+        if (!word) return null;
+        const out = { word };
+        const definition = text(v.definition || v.description || v.meaning, 400);
+        const example = text(v.example || v.sentence, 400);
+        if (definition) out.definition = definition;
+        if (example) out.example = example;
+        return out;
+      }
+      return null;
+    }).filter(Boolean).slice(0, 40);
   } else if (field === "prepChecklist" || field === "observationFocus" || field === "milestones"
-    || field === "vocabCards" || field === "teacherTips" || field === "vocabulary"
+    || field === "teacherTips" || field === "vocabulary"
     || field === "observationPrompts") {
     if (typeof value === "string") {
       value = value.split(/\n|·|;/).map((s) => s.trim()).filter(Boolean);

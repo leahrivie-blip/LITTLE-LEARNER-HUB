@@ -479,11 +479,36 @@ function validateEnrichmentDraftSave({
 }
 
 function verifyPersistedMutationDiff(beforePlan = {}, afterPlan = {}, allowlist = {}) {
+  const vocabSurgical = require("./curriculum-operator-vocab-surgical-apply.js");
+  if (vocabSurgical.isVocabOnlyAllowlist(allowlist)) {
+    const scoped = vocabSurgical.verifyVocabOnlyAuthoritativeDiff(beforePlan, afterPlan, allowlist);
+    return {
+      ok: scoped.ok,
+      unexpected: scoped.unexpected,
+      violations: scoped.violations,
+      diff: scoped.authoritativeDiff,
+      intermediateDraftDiff: scoped.intermediateDraftDiff,
+      intermediateDraftReport: scoped.intermediateDraftReport,
+      pathCategory: "AUTHORITATIVE_CURRICULUM_MUTATION",
+    };
+  }
+
   const diff = lessonRead.computePersistedPlanDiff(beforePlan, afterPlan);
   const unexpected = [];
   const violations = [];
+  const intermediateDraftDiff = [];
 
   diff.forEach((pathKey) => {
+    const category = vocabSurgical.classifyPersistedPath(pathKey);
+    if (category === vocabSurgical.MUTATION_CATEGORY.INTERMEDIATE_ENRICHMENT_BOOKKEEPING
+      || category === vocabSurgical.MUTATION_CATEGORY.JOB_METADATA
+      || category === vocabSurgical.MUTATION_CATEGORY.SYSTEM_METADATA
+      || category === vocabSurgical.MUTATION_CATEGORY.REPORT_METADATA) {
+      if (category === vocabSurgical.MUTATION_CATEGORY.INTERMEDIATE_ENRICHMENT_BOOKKEEPING) {
+        intermediateDraftDiff.push(pathKey);
+      }
+      return;
+    }
     const beforeVal = pathKey.split(".").reduce((cur, part) => (cur == null ? undefined : cur[part]), beforePlan);
     const afterVal = pathKey.split(".").reduce((cur, part) => (cur == null ? undefined : cur[part]), afterPlan);
     const allowed = isPathAllowed(pathKey, allowlist, { beforeValue: beforeVal, proposedValue: afterVal });
@@ -523,7 +548,16 @@ function verifyPersistedMutationDiff(beforePlan = {}, afterPlan = {}, allowlist 
     }
   }
 
-  return { ok: unexpected.length === 0 && violations.length === 0, unexpected, violations, diff };
+  return {
+    ok: unexpected.length === 0 && violations.length === 0,
+    unexpected,
+    violations,
+    diff,
+    intermediateDraftDiff,
+    intermediateDraftReport: intermediateDraftDiff.length
+      ? { code: "INTERMEDIATE_DRAFT_DIFF", paths: intermediateDraftDiff, blocksAuthoritativeApply: false }
+      : null,
+  };
 }
 
 function evaluateZeroPersistRequestedWork(lessonResult = {}, command = {}, allowlist = {}) {
