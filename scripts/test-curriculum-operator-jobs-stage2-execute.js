@@ -728,7 +728,6 @@ async function main() {
       "expectedProductionBuildSha",
     ]) {
       const bad = { ...base, [key]: key === "expectedSourceCount" ? null : "" };
-      if (key === "expectedProductionBuildSha") bad.productionBuildSha = "";
       let err = null;
       try { execute.assertPostgresProductionExecutionGates(bad); } catch (e) { err = e; }
       assert.equal(err?.code, "stage2_production_gates_incomplete", key);

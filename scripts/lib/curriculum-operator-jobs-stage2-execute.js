@@ -512,6 +512,8 @@ async function applyStage2RollbackCas({
 
 /**
  * Required gates for future production Postgres apply (validated before connect).
+ * expectedProductionBuildSha must be an EXPLICIT CLI value — never derived from
+ * RENDER_GIT_COMMIT / live productionBuildSha.
  */
 function assertPostgresProductionExecutionGates(options = {}) {
   const missing = [];
@@ -524,7 +526,7 @@ function assertPostgresProductionExecutionGates(options = {}) {
   }
   if (!options.expectedSourceHash) missing.push("--expected-source-hash");
   if (!options.expectedStoreUpdatedAt) missing.push("--expected-store-updated-at");
-  if (!options.expectedProductionBuildSha && !options.productionBuildSha) {
+  if (!String(options.expectedProductionBuildSha || "").trim()) {
     missing.push("--expected-production-build-sha");
   }
   if (missing.length) {
@@ -536,6 +538,56 @@ function assertPostgresProductionExecutionGates(options = {}) {
     throw err;
   }
   return true;
+}
+
+/**
+ * Resolve ACTUAL/live production build identity.
+ * Never uses --expected-production-build-sha as a substitute.
+ */
+function resolveLiveProductionBuildSha(options = {}, env = process.env) {
+  if (options.productionBuildSha != null && String(options.productionBuildSha).trim()) {
+    return String(options.productionBuildSha).trim();
+  }
+  if (env.RENDER_GIT_COMMIT != null && String(env.RENDER_GIT_COMMIT).trim()) {
+    return String(env.RENDER_GIT_COMMIT).trim();
+  }
+  return "";
+}
+
+/**
+ * Compare explicit expected build SHA vs actual/live build SHA.
+ * Expected must never be filled from live; live must never be filled from expected.
+ */
+function assertProductionBuildExpectation(options = {}) {
+  const expected = String(options.expectedProductionBuildSha || "").trim();
+  const live = String(options.liveProductionBuildSha || "").trim();
+
+  if (!expected) {
+    const err = new Error(
+      "Refusing production Stage 2 execution: missing required gates: --expected-production-build-sha.",
+    );
+    err.code = "stage2_production_gates_incomplete";
+    err.missing = ["--expected-production-build-sha"];
+    throw err;
+  }
+  if (!live) {
+    const err = new Error(
+      "Refusing production Stage 2 execution: actual/live production build SHA is unknown "
+      + "(RENDER_GIT_COMMIT unset). Cannot verify --expected-production-build-sha.",
+    );
+    err.code = "stage2_production_build_unknown";
+    throw err;
+  }
+  if (expected !== live) {
+    const err = new Error(
+      `Production build SHA mismatch: expected ${expected}, live ${live}.`,
+    );
+    err.code = "stage2_production_build_mismatch";
+    err.expectedProductionBuildSha = expected;
+    err.liveProductionBuildSha = live;
+    throw err;
+  }
+  return { expectedProductionBuildSha: expected, liveProductionBuildSha: live };
 }
 
 function defaultCreatePostgresClient(connectionString) {
@@ -559,6 +611,7 @@ async function preparePostgresStage2ExecutionContext(options = {}) {
     storeRecordId = resolveStoreRecordId(),
     productionBuildSha = null,
     expectedProductionBuildSha = null,
+    requireBuildExpectation = false,
   } = options;
 
   if (!connectionString) {
@@ -567,14 +620,13 @@ async function preparePostgresStage2ExecutionContext(options = {}) {
     throw err;
   }
 
-  const wantBuild = String(expectedProductionBuildSha || productionBuildSha || "").trim();
-  const liveBuild = String(productionBuildSha || process.env.RENDER_GIT_COMMIT || "").trim();
-  if (wantBuild && liveBuild && wantBuild !== liveBuild) {
-    const err = new Error(
-      `Production build SHA mismatch: expected ${wantBuild}, live ${liveBuild}.`,
-    );
-    err.code = "stage2_production_build_mismatch";
-    throw err;
+  const liveBuild = resolveLiveProductionBuildSha({ productionBuildSha });
+  const expectedBuild = String(expectedProductionBuildSha || "").trim();
+  if (requireBuildExpectation || expectedBuild) {
+    assertProductionBuildExpectation({
+      expectedProductionBuildSha: expectedBuild,
+      liveProductionBuildSha: liveBuild,
+    });
   }
 
   const client = typeof createClient === "function"
@@ -610,7 +662,9 @@ async function preparePostgresStage2ExecutionContext(options = {}) {
       storeUpdatedAtExact,
       storeRecordId,
       operatorJobStore: null,
-      productionBuildSha: wantBuild || liveBuild || null,
+      // Bind manifests to the verified LIVE build identity (never expected-as-live).
+      productionBuildSha: liveBuild || null,
+      expectedProductionBuildSha: expectedBuild || null,
       connected: true,
       readOnly: true,
     };
@@ -641,14 +695,24 @@ async function prepareAndRunPostgresStage2Execution(options = {}) {
     });
   }
 
+  // Explicit expected vs actual/live build identity — no silent substitution either way.
+  const liveProductionBuildSha = resolveLiveProductionBuildSha({
+    productionBuildSha: options.productionBuildSha,
+  });
+  assertProductionBuildExpectation({
+    expectedProductionBuildSha: options.expectedProductionBuildSha,
+    liveProductionBuildSha,
+  });
+
   let client = null;
   try {
     const context = await preparePostgresStage2ExecutionContext({
       createClient: options.createClient,
       connectionString: options.connectionString,
       storeRecordId: options.storeRecordId || resolveStoreRecordId(),
-      productionBuildSha: options.productionBuildSha,
+      productionBuildSha: liveProductionBuildSha,
       expectedProductionBuildSha: options.expectedProductionBuildSha,
+      requireBuildExpectation: true,
     });
     client = context.client;
 
@@ -660,14 +724,14 @@ async function prepareAndRunPostgresStage2Execution(options = {}) {
       client: context.client,
       store: context.store,
       storeUpdatedAtExact: context.storeUpdatedAtExact,
-      productionBuildSha: context.productionBuildSha,
+      productionBuildSha: liveProductionBuildSha,
       storeRecordId: context.storeRecordId,
       // Dedicated store is initialized inside runStage2Execution AFTER verified backup.
       operatorJobStore: null,
       expectedSourceCount: options.expectedSourceCount,
       expectedSourceHash: options.expectedSourceHash,
       expectedStoreUpdatedAt: options.expectedStoreUpdatedAt || context.storeUpdatedAtExact,
-      expectedProductionBuildSha: options.expectedProductionBuildSha || context.productionBuildSha,
+      expectedProductionBuildSha: options.expectedProductionBuildSha,
       authorizeStage2ProductionExecution: options.authorizeStage2ProductionExecution,
       runId: options.runId || null,
     });
@@ -734,8 +798,12 @@ async function runStage2Execution(options = {}) {
       expectedSourceCount,
       expectedSourceHash,
       expectedStoreUpdatedAt,
-      expectedProductionBuildSha: expectedProductionBuildSha || productionBuildSha,
-      productionBuildSha,
+      expectedProductionBuildSha,
+    });
+    const liveBuild = resolveLiveProductionBuildSha({ productionBuildSha });
+    assertProductionBuildExpectation({
+      expectedProductionBuildSha,
+      liveProductionBuildSha: liveBuild,
     });
   }
 
@@ -753,7 +821,11 @@ async function runStage2Execution(options = {}) {
   const runId = providedRunId || stage2.newRunId();
   let store = inputStore;
   let casExact = storeUpdatedAtExact;
-  const effectiveBuildSha = expectedProductionBuildSha || productionBuildSha || null;
+  // For production apply, expected === live after assertProductionBuildExpectation.
+  // Fixture paths may bind with productionBuildSha alone.
+  const effectiveBuildSha = (mode === "postgres" && apply)
+    ? String(expectedProductionBuildSha || "").trim()
+    : (expectedProductionBuildSha || productionBuildSha || null);
 
   if (mode === "postgres" && client && !store) {
     const row = await client.query(POSTGRES_SELECT_STORE_ROW, [storeRecordId]);
@@ -1076,6 +1148,8 @@ module.exports = {
   inventorySnapshot,
   assertOperatorJobsOnlyTransform,
   assertPostgresProductionExecutionGates,
+  resolveLiveProductionBuildSha,
+  assertProductionBuildExpectation,
   defaultCreatePostgresClient,
   preparePostgresStage2ExecutionContext,
   prepareAndRunPostgresStage2Execution,

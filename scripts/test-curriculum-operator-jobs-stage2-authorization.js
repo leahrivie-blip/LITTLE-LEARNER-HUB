@@ -246,7 +246,6 @@ async function main() {
       "expectedProductionBuildSha",
     ]) {
       const bad = { ...base, [key]: key === "expectedSourceCount" ? null : "" };
-      if (key === "expectedProductionBuildSha") bad.productionBuildSha = "";
       let err = null;
       try {
         await execute.prepareAndRunPostgresStage2Execution({
@@ -319,6 +318,220 @@ async function main() {
     assert.doesNotMatch(locked.stderr || "", /ENOTFOUND|ECONNREFUSED/i);
   }
   console.log("PASS  A12");
+
+  console.log("A13) Missing --expected-production-build-sha blocks even when RENDER_GIT_COMMIT exists");
+  {
+    const prev = process.env.RENDER_GIT_COMMIT;
+    process.env.RENDER_GIT_COMMIT = "live-sha-from-env";
+    let err = null;
+    let factoryCalls = 0;
+    try {
+      await execute.prepareAndRunPostgresStage2Execution({
+        apply: true,
+        confirmMigrate: true,
+        confirmCutover: true,
+        expectedSourceCount: 2,
+        expectedSourceHash: "abc",
+        expectedStoreUpdatedAt: CAS,
+        expectedProductionBuildSha: "",
+        authorizeStage2ProductionExecution: TOKEN,
+        createClient: async () => { factoryCalls += 1; throw new Error("must not connect"); },
+      });
+    } catch (e) { err = e; }
+    if (prev === undefined) delete process.env.RENDER_GIT_COMMIT;
+    else process.env.RENDER_GIT_COMMIT = prev;
+    assert.equal(err?.code, "stage2_production_gates_incomplete");
+    assert.ok(err.missing.includes("--expected-production-build-sha"));
+    assert.equal(factoryCalls, 0);
+  }
+  console.log("PASS  A13");
+
+  console.log("A14) Explicit expected build SHA matching live RENDER_GIT_COMMIT passes build gate");
+  {
+    const prev = process.env.RENDER_GIT_COMMIT;
+    process.env.RENDER_GIT_COMMIT = BUILD;
+    const matched = execute.assertProductionBuildExpectation({
+      expectedProductionBuildSha: BUILD,
+      liveProductionBuildSha: execute.resolveLiveProductionBuildSha({}),
+    });
+    assert.equal(matched.expectedProductionBuildSha, BUILD);
+    assert.equal(matched.liveProductionBuildSha, BUILD);
+
+    const store = tinyStore();
+    const mock = createMockClient({ store });
+    const result = await execute.prepareAndRunPostgresStage2Execution({
+      apply: true,
+      confirmMigrate: true,
+      confirmCutover: false,
+      expectedSourceCount: 2,
+      expectedSourceHash: stage2.buildSourceManifest(store, {
+        productionBuildSha: BUILD,
+        storeUpdatedAtExact: CAS,
+      }).aggregateHash,
+      expectedStoreUpdatedAt: CAS,
+      expectedProductionBuildSha: BUILD,
+      // live comes from RENDER_GIT_COMMIT only
+      authorizeStage2ProductionExecution: TOKEN,
+      connectionString: "postgresql://mock/db",
+      createClient: async () => mock,
+    });
+    assert.equal(result.wroteDedicated, true);
+    assert.equal(result.wroteHotStore, false);
+    if (prev === undefined) delete process.env.RENDER_GIT_COMMIT;
+    else process.env.RENDER_GIT_COMMIT = prev;
+  }
+  console.log("PASS  A14");
+
+  console.log("A15) Explicit expected ≠ live RENDER_GIT_COMMIT → stage2_production_build_mismatch");
+  {
+    const prev = process.env.RENDER_GIT_COMMIT;
+    process.env.RENDER_GIT_COMMIT = "live-other-sha";
+    let err = null;
+    let factoryCalls = 0;
+    try {
+      await execute.prepareAndRunPostgresStage2Execution({
+        apply: true,
+        confirmMigrate: true,
+        confirmCutover: true,
+        expectedSourceCount: 2,
+        expectedSourceHash: "abc",
+        expectedStoreUpdatedAt: CAS,
+        expectedProductionBuildSha: BUILD,
+        authorizeStage2ProductionExecution: TOKEN,
+        createClient: async () => { factoryCalls += 1; throw new Error("must not connect"); },
+      });
+    } catch (e) { err = e; }
+    if (prev === undefined) delete process.env.RENDER_GIT_COMMIT;
+    else process.env.RENDER_GIT_COMMIT = prev;
+    assert.equal(err?.code, "stage2_production_build_mismatch");
+    assert.equal(factoryCalls, 0);
+  }
+  console.log("PASS  A15");
+
+  console.log("A16) Missing actual/live build identity → stage2_production_build_unknown");
+  {
+    const prev = process.env.RENDER_GIT_COMMIT;
+    delete process.env.RENDER_GIT_COMMIT;
+    let err = null;
+    let factoryCalls = 0;
+    try {
+      await execute.prepareAndRunPostgresStage2Execution({
+        apply: true,
+        confirmMigrate: true,
+        confirmCutover: true,
+        expectedSourceCount: 2,
+        expectedSourceHash: "abc",
+        expectedStoreUpdatedAt: CAS,
+        expectedProductionBuildSha: BUILD,
+        productionBuildSha: "",
+        authorizeStage2ProductionExecution: TOKEN,
+        createClient: async () => { factoryCalls += 1; throw new Error("must not connect"); },
+      });
+    } catch (e) { err = e; }
+    if (prev === undefined) delete process.env.RENDER_GIT_COMMIT;
+    else process.env.RENDER_GIT_COMMIT = prev;
+    assert.equal(err?.code, "stage2_production_build_unknown");
+    assert.equal(factoryCalls, 0);
+  }
+  console.log("PASS  A16");
+
+  console.log("A17) Environment cannot supply the EXPECTED build SHA");
+  {
+    const prev = process.env.RENDER_GIT_COMMIT;
+    process.env.RENDER_GIT_COMMIT = BUILD;
+    // Gates reject empty expected even though env has a commit
+    let err = null;
+    try {
+      execute.assertPostgresProductionExecutionGates({
+        confirmMigrate: true,
+        confirmCutover: true,
+        expectedSourceCount: 2,
+        expectedSourceHash: "abc",
+        expectedStoreUpdatedAt: CAS,
+        expectedProductionBuildSha: "",
+        productionBuildSha: process.env.RENDER_GIT_COMMIT,
+      });
+    } catch (e) { err = e; }
+    assert.equal(err?.code, "stage2_production_gates_incomplete");
+    assert.ok(err.missing.includes("--expected-production-build-sha"));
+
+    // CLI must not fill expected from RENDER_GIT_COMMIT
+    const locked = spawnSync(
+      process.execPath,
+      [
+        path.join(__dirname, "migrate-curriculum-operator-jobs-stage2.js"),
+        "--postgres", "--apply",
+        "--authorize-stage2-production-execution", TOKEN,
+        "--confirm-migrate-operator-jobs",
+        "--confirm-hot-store-cutover",
+        "--expected-source-count", "2",
+        "--expected-source-hash", "deadbeef",
+        "--expected-store-updated-at", CAS,
+        // intentionally omit --expected-production-build-sha
+      ],
+      {
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          PRODUCTION_DATABASE_URL: "postgresql://example.invalid/db",
+          RENDER_GIT_COMMIT: BUILD,
+        },
+      },
+    );
+    if (prev === undefined) delete process.env.RENDER_GIT_COMMIT;
+    else process.env.RENDER_GIT_COMMIT = prev;
+    assert.notEqual(locked.status, 0);
+    assert.match(locked.stderr || locked.stdout, /expected-production-build-sha|gates_incomplete|STAGE2 TOOL FAILED/i);
+    assert.doesNotMatch(locked.stderr || "", /ENOTFOUND|ECONNREFUSED/i);
+  }
+  console.log("PASS  A17");
+
+  console.log("A18) Authorization phrase alone cannot bypass source/count/hash/CAS/build gates");
+  {
+    stage2.assertProductionApplyUnlocked({ authorizeStage2ProductionExecution: TOKEN });
+    let err = null;
+    try {
+      await execute.prepareAndRunPostgresStage2Execution({
+        apply: true,
+        confirmMigrate: true,
+        confirmCutover: true,
+        authorizeStage2ProductionExecution: TOKEN,
+        // all expected gates missing
+        createClient: async () => { throw new Error("must not connect"); },
+      });
+    } catch (e) { err = e; }
+    assert.equal(err?.code, "stage2_production_gates_incomplete");
+  }
+  console.log("PASS  A18");
+
+  console.log("A19) CLI authorization + all explicit gates does not affect runtime cutover");
+  {
+    const prev = process.env.RENDER_GIT_COMMIT;
+    process.env.RENDER_GIT_COMMIT = BUILD;
+    const store = tinyStore();
+    const mock = createMockClient({ store });
+    await execute.prepareAndRunPostgresStage2Execution({
+      apply: true,
+      confirmMigrate: true,
+      confirmCutover: true,
+      expectedSourceCount: 2,
+      expectedSourceHash: stage2.buildSourceManifest(store, {
+        productionBuildSha: BUILD,
+        storeUpdatedAtExact: CAS,
+      }).aggregateHash,
+      expectedStoreUpdatedAt: CAS,
+      expectedProductionBuildSha: BUILD,
+      authorizeStage2ProductionExecution: TOKEN,
+      connectionString: "postgresql://mock/db",
+      createClient: async () => mock,
+    });
+    const rt = createCurriculumOperatorJobStore({ localFilePath: null });
+    assert.equal(rt.isHotStoreCutoverEnabled(), false);
+    assert.equal(rt.canSafelyCapHotStore(), false);
+    if (prev === undefined) delete process.env.RENDER_GIT_COMMIT;
+    else process.env.RENDER_GIT_COMMIT = prev;
+  }
+  console.log("PASS  A19");
 
   console.log("\nAll Stage 2 AUTHORIZATION tests passed (no production execution).");
 }

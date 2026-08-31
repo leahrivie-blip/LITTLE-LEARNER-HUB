@@ -179,8 +179,9 @@ Authorization is CLI-process-only. Runtime cutover remains false.
       expectedSourceCount: args.expectedSourceCount,
       expectedSourceHash: args.expectedSourceHash,
       expectedStoreUpdatedAt: args.expectedStoreUpdatedAt,
-      expectedProductionBuildSha: args.expectedProductionBuildSha || process.env.RENDER_GIT_COMMIT || "",
-      productionBuildSha: process.env.RENDER_GIT_COMMIT || args.expectedProductionBuildSha || "",
+      expectedProductionBuildSha: args.expectedProductionBuildSha,
+      // ACTUAL/live only — never substitute expected into live or vice versa.
+      productionBuildSha: process.env.RENDER_GIT_COMMIT || "",
       authorizeStage2ProductionExecution: args.authorizeStage2ProductionExecution,
       // createClient default — only reached after valid authorization + gates.
     });
