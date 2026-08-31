@@ -173,12 +173,12 @@
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;");
+    // Customer print: QR + short scan cue only — never print the raw URL string.
     return [
       `<figure class="bb-qr-figure">`,
       title ? `<figcaption class="bb-qr-title">${esc(title)}</figcaption>` : "",
       `<div class="bb-qr-code" aria-hidden="true">${svg}</div>`,
       `<p class="bb-qr-label">${esc(label)}</p>`,
-      `<p class="bb-qr-host">${esc(validated.hostname)}</p>`,
       `</figure>`,
     ].filter(Boolean).join("");
   }

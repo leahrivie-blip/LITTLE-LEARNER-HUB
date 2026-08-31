@@ -393,9 +393,9 @@ function unitTests() {
   ok(!/bb-image-fallback/.test(noImgHtml), "activity without image has no placeholder/fallback box");
   ok(!/bb-image-fallback/.test(phase1Print.html.match(/data-bb-page="dayDivider"[\s\S]*?<\/article>/)?.[0] || ""), "day divider has no image fallback box");
   ok(/is-image-free/.test(phase1Print.html), "image-free day divider marked intentionally");
-  ok(/What We're Doing/.test(phase1Print.html), "What We're Doing present on activity pages");
+  ok(/What We Are Doing|What We're Doing/.test(phase1Print.html), "What We Are Doing present on activity pages");
   ok(/How To Do It/.test(phase1Print.html), "How To Do It present on activity pages");
-  ok(/What They're Learning/.test(phase1Print.html), "What They're Learning present on activity pages");
+  ok(/What Children Are Learning|What They're Learning/.test(phase1Print.html), "What Children Are Learning present on activity pages");
   ok(/bb-activity-steps/.test(phase1Print.html), "How To Do It renders as numbered steps when multi-line");
   ok(!/Teacher Questions|Support &amp; Adaptation|Challenge \/ Extension|Safety Note|Cleanup|Introduction/.test(phase1Print.html), "Teaching Kit detail fields omitted from customer print");
   ok(!/GIANT MATERIALS LIST|weeklyMaterials|Preparation checklist|packing list|assembly|shopping list|laminat/i.test(phase1Print.html), "materials/prep/shopping/assembly never leak into customer print");
@@ -492,12 +492,173 @@ function unitTests() {
   ok(/bb-activity-media/.test(withImgHtmlRepair), "image/no-image Phase 1 behavior: with-image keeps media");
   ok(!/bb-activity-media|bb-image-fallback/.test(withoutImgHtmlRepair), "image/no-image Phase 1 behavior: without-image stays collapsed");
 
-  // Print CSS keeps absolute footers (Chromium does not support CSS running())
+  // --- Physical print fit / weekly planner regressions ---
+  const printPageContainers = (stepPrint.html.match(/<article class="bb-page\b/g) || []).length;
+  ok(printPageContainers === stepPrint.pages.length, "one generated Binder page = one print-page container");
+  ok(stepPrint.pages[0]?.type === "cover", "print plan starts with cover");
+  ok(stepPrint.pages.some((p) => p.type === "tableOfContents"), "print plan includes Table of Contents");
+  ok(stepPrint.pages.some((p) => p.type === "weeklyGridCalendar"), "print plan includes Weekly Grid Calendar");
+  ok((stepPrint.html.match(/data-bb-page="/g) || []).length === stepPrint.pages.length, "data-bb-page markers match page plan");
+
   const printCss = fs.readFileSync(path.join(ROOT, "styles/binder-builder.css"), "utf8");
   ok(!/position:\s*running\s*\(/.test(printCss), "print CSS does not use unsupported running() footers");
   ok(/printing-binder-builder[\s\S]*\.bb-page-footer\s*\{\s*position:\s*absolute/.test(printCss), "print footers stay absolutely positioned");
   ok(/is-image-free/.test(printCss), "CSS includes image-free divider polish");
   ok(/bb-activity-steps/.test(printCss), "CSS includes activity step list styles");
+  ok(/page-break-inside:\s*avoid/.test(printCss) && /break-inside:\s*avoid/.test(printCss), "activity pages cannot break internally in print CSS");
+  ok(/--bb-page-pad-bottom:\s*0\.82in/.test(printCss) || /--bb-page-pad-bottom:\s*\.?8/.test(printCss), "print-safe footer spacing exists");
+  ok(/--bb-activity-photo-h:\s*2\.2in/.test(printCss), "activity image layout has a bounded print height");
+  ok(/max-height:\s*var\(--bb-page-h\)|max-height:\s*11in/.test(printCss), "print pages have fixed US Letter max height");
+  ok(/@page\s*\{\s*size:\s*letter portrait;\s*margin:\s*0;/.test(printCss.replace(/\s+/g, " ")), "print @page uses Letter with zero browser margin (binder owns margins)");
+
+  const weekHtml = stepPrint.html.includes('data-bb-page="weekAtAGlance"')
+    ? stepPrint.html.split('data-bb-page="weekAtAGlance"')[1].split("</article>")[0]
+    : "";
+  ok(/data-bb-week-planner/.test(weekHtml), "Monday–Friday weekly planner is generated from existing day/activity data");
+  const plannerTitles = multiDoc.days.flatMap((d) => d.activities.map((a) => a.title));
+  ok(plannerTitles.length === 15, "fixture still has 15 activities for planner coverage");
+  ok(plannerTitles.every((title) => weekHtml.includes(title)), "all 15 activities appear exactly once in the weekly planner");
+  ok((weekHtml.match(/bb-week-planner-day/g) || []).length === 5, "weekly planner has five weekday columns");
+  ok(multiReady.canPrint === true && multiReady.status === "READY", "existing readiness remains READY / canPrint true after print-fit changes");
+  ok(JSON.stringify(multiMonLesson) === multiBefore, "source lesson remains unchanged after print-fit render");
+
+  // --- Print redesign: TOC, footer brand/page numbers, grid calendar ---
+  ok(/data-bb-page="tableOfContents"/.test(stepPrint.html), "Table of Contents exists in print HTML");
+  ok(/bb-footer-brand/.test(stepPrint.html) && /Little Learner Hub/.test(stepPrint.html), "Little Learner Hub brand footer is present");
+  ok(/bb-footer-page">Page \d+/.test(stepPrint.html), "sequential Page N markers are present");
+  ok(!/bb-page-cover[\s\S]{0,200}bb-footer-brand/.test(stepPrint.html), "cover does not use content footer branding");
+  const tocSlice = stepPrint.html.includes('data-bb-page="tableOfContents"')
+    ? stepPrint.html.split('data-bb-page="tableOfContents"')[1].split("</article>")[0]
+    : "";
+  ok(/Weekly Grid Calendar/.test(tocSlice), "TOC lists Weekly Grid Calendar");
+  ok(/How to Use This Binder/.test(tocSlice), "TOC lists How to Use This Binder");
+  const gridPage = stepPrint.pages.find((p) => p.type === "weeklyGridCalendar");
+  ok(gridPage && Number.isFinite(gridPage.pageNumber), "grid calendar has a final page number");
+  ok(new RegExp(`Weekly Grid Calendar[\\s\\S]{0,120}${gridPage.pageNumber}`).test(tocSlice), "TOC page number matches final grid calendar page");
+  ok(/data-bb-page="weeklyGridCalendar"/.test(stepPrint.html), "Weekly Grid Calendar appears in the PDF HTML");
+  ok(/data-bb-week-grid/.test(stepPrint.html), "grid calendar markup is present");
+  ok(["monday", "tuesday", "wednesday", "thursday", "friday"].every((d) => stepPrint.html.includes(`data-bb-grid-day="${d}"`)), "Monday-Friday grid columns are present");
+  ok(["focus", "main", "second", "additional", "story", "song", "notes"].every((r) => stepPrint.html.includes(`data-bb-grid-row="${r}"`)), "required planning rows are present");
+  ok(plannerTitles.every((title) => {
+    const gridHtml = stepPrint.html.split('data-bb-page="weeklyGridCalendar"')[1]?.split("</article>")[0] || "";
+    return gridHtml.includes(title);
+  }), "included activities appear under the grid for their week");
+  ok(!/GIANT MATERIALS LIST|Preparation checklist|shopping list/i.test(stepPrint.html), "grid/print redesign does not invent materials content");
+  ok(stepPrint.validation?.ok === true, "print validation gate passes for multi-activity binder");
+  ok(!/bb-browser-chrome/.test(stepPrint.html), "date/time/browser chrome markers are absent from authored HTML");
+  ok(!/https?:\/\/localhost|about:blank/.test(stepPrint.html.split("bb-print-root")[1] || ""), "browser title/URL chrome is absent from binder content");
+  // Excluded activity does not appear in grid
+  const omitDraft = model.normalizeBinderDraft(JSON.parse(JSON.stringify(multiDraft)));
+  omitDraft.days.monday.activities[2].omit = true;
+  const omitBefore = JSON.stringify(multiMonLesson);
+  const omitPrint = print.buildBinderPrintHtml(omitDraft, multiMonLesson, { qrSvgByUrl: {} });
+  const omitGrid = omitPrint.html.split('data-bb-page="weeklyGridCalendar"')[1]?.split("</article>")[0] || "";
+  ok(!omitGrid.includes("Family Photo Sharing"), "excluded activities do not appear in the grid");
+  ok(JSON.stringify(multiMonLesson) === omitBefore, "source lesson remains byte-identical after omit/grid regenerate");
+  // Reorder updates grid
+  const reorderDraft = model.normalizeBinderDraft(JSON.parse(JSON.stringify(multiDraft)));
+  const reorderMonActs = reorderDraft.days.monday.activities;
+  reorderDraft.days.monday.activities = [reorderMonActs[1], reorderMonActs[0], reorderMonActs[2]];
+  const reorderPrint = print.buildBinderPrintHtml(reorderDraft, multiMonLesson, { qrSvgByUrl: {} });
+  const reorderGrid = reorderPrint.html.split('data-bb-page="weeklyGridCalendar"')[1]?.split("</article>")[0] || "";
+  const mainMondayHtml = (reorderGrid.match(/data-bb-grid-row="main" data-bb-grid-day="monday"[^>]*>([\s\S]*?)<\/div>/) || [])[1] || "";
+  ok(/My Name Discovery/.test(mainMondayHtml), "activity reordering updates the grid main activity cell");
+  ok(JSON.stringify(multiMonLesson) === multiBefore, "source lesson remains unchanged after redesign render paths");
+
+  // --- Story/Music QR polish + day divider polish ---
+  const qrLesson = sampleLesson("Toddler", { id: "cur-lp-bb-qr-polish", title: "QR Polish Sample" });
+  qrLesson.books = [
+    {
+      title: "I Like Myself!",
+      author: "Karen Beaumont",
+      whyThisBook: "Celebrates uniqueness.",
+      beforeReadingQuestions: ["What do you like about you?"],
+      resourceUrl: "",
+    },
+    {
+      title: "No Link Book",
+      author: "A. Author",
+      resourceUrl: "",
+    },
+  ];
+  qrLesson.songs = [
+    {
+      title: "Hello Friends",
+      whenToUse: "Morning Meeting",
+      motions: "Wave hello",
+      teacherDirections: "Sing slowly",
+      resourceUrl: "",
+    },
+    {
+      title: "Quiet Transition",
+      whenToUse: "Cleanup",
+      motions: "Tip-toe",
+      resourceUrl: "",
+    },
+  ];
+  const qrBefore = JSON.stringify(qrLesson);
+  const qrDraft = model.createDraftFromLesson(qrLesson);
+  qrDraft.books[0].resourceUrl = "https://www.youtube.com/watch?v=approvedStory1";
+  qrDraft.books[0].qrEnabled = true;
+  qrDraft.books[1].resourceUrl = "";
+  qrDraft.songs[0].resourceUrl = "https://www.youtube.com/watch?v=approvedSong1";
+  qrDraft.songs[0].qrEnabled = true;
+  qrDraft.songs[1].resourceUrl = "";
+  // Keep sample valid for canPrint READY (tuesday fixture starts empty).
+  if (qrDraft.days?.tuesday?.activities?.[0]) qrDraft.days.tuesday.activities[0].howToDoItOverride = "Stamp leaves gently.";
+  const storySvg = "<svg xmlns='http://www.w3.org/2000/svg'><rect width='1' height='1'/></svg>";
+  const songSvg = "<svg xmlns='http://www.w3.org/2000/svg'><circle r='1'/></svg>";
+  const qrPrint = print.buildBinderPrintHtml(qrDraft, qrLesson, {
+    qrSvgByUrl: {
+      "https://www.youtube.com/watch?v=approvedStory1": storySvg,
+      "https://www.youtube.com/watch?v=approvedSong1": songSvg,
+    },
+  });
+  const storyHtml = qrPrint.html.split('data-bb-page="books"')[1]?.split("</article>")[0] || "";
+  const musicHtml = qrPrint.html.split('data-bb-page="songs"')[1]?.split("</article>")[0] || "";
+  ok(/bb-qr-figure/.test(storyHtml) && /Scan to watch\/listen/.test(storyHtml), "approved Story Time URL renders a QR");
+  ok(/No Link Book/.test(storyHtml), "story without URL still prints title");
+  const noLinkBookCard = storyHtml.split("No Link Book")[1]?.split("</section>")[0] || "";
+  ok(!/bb-qr-figure|bb-qr-code|bb-image-fallback/.test(noLinkBookCard), "story with no URL renders no QR and no empty placeholder");
+  ok(/bb-qr-figure/.test(musicHtml) && /Scan to play/.test(musicHtml), "approved song URL renders a QR");
+  const quietCard = musicHtml.split("Quiet Transition")[1]?.split("</section>")[0] || "";
+  ok(!/bb-qr-figure|bb-qr-code/.test(quietCard), "song with no URL renders no QR and no empty placeholder");
+  ok(!/youtube\.com\/watch\?v=approved/.test(storyHtml + musicHtml), "customer print does not show raw YouTube URLs");
+  ok(/When to Use/.test(musicHtml) && /Movement/.test(musicHtml), "song cards keep when-to-use and movement cues");
+
+  qrDraft.books[0].resourceUrl = "bad://not-a-valid-url";
+  const badQrPrint = print.buildBinderPrintHtml(qrDraft, qrLesson, {
+    qrSvgByUrl: { "bad://not-a-valid-url": storySvg },
+  });
+  const badStory = badQrPrint.html.split('data-bb-page="books"')[1]?.split("</article>")[0] || "";
+  ok(!/bb-qr-figure/.test(badStory), "invalid URL does not render a QR");
+  const badReady = readiness.evaluateBinderReadiness(qrDraft, qrLesson);
+  ok(badReady.issues.some((i) => i.code === "invalid_story_qr"), "invalid URL surfaces owner-side validation via readiness");
+
+  // Restore valid override and prove persistence through normalize (binder-only)
+  qrDraft.books[0].resourceUrl = "https://www.youtube.com/watch?v=approvedStory1";
+  const persisted = model.normalizeBinderDraft(JSON.parse(JSON.stringify(qrDraft)));
+  ok(persisted.books[0].resourceUrl === "https://www.youtube.com/watch?v=approvedStory1", "binder-only story/song URL override persists");
+  ok(JSON.stringify(qrLesson) === qrBefore, "binder-only URL override does not mutate source lesson");
+  ok(typeof qr.qrFigureHtml === "function" && typeof qr.validateBinderUrl === "function", "existing QR validation/generation is reused");
+
+  const mondayDivider = qrPrint.html.split('data-bb-day="monday"')[0].includes('data-bb-page="dayDivider"')
+    ? qrPrint.html.split('data-bb-page="dayDivider"')[1]?.split("</article>")[0]
+    : (qrPrint.html.match(/data-bb-page="dayDivider"[^>]*data-bb-day="monday"[\s\S]*?<\/article>/) || [])[0] || "";
+  const monDiv = (qrPrint.html.match(/<article class="bb-page bb-page-divider[^"]*" data-bb-page="dayDivider" data-bb-day="monday"[\s\S]*?<\/article>/) || [])[0] || "";
+  ok(/Today We’re Exploring|Today We're Exploring/.test(monDiv), "day divider uses exploring focus label");
+  ok(/Today’s Activities|Today's Activities/.test(monDiv), "day divider lists today’s activities heading");
+  const monTitles = (qrPrint.document.days.find((d) => d.dayKey === "monday")?.activities || []).map((a) => a.title);
+  ok(monTitles.length >= 1 && monTitles.every((t) => monDiv.includes(t)), "day divider lists the correct real activity titles for that day");
+  ok(!/bb-activity-media/.test(monDiv) && !/bb-image-fallback/.test(monDiv), "divider does not inherit first activity image");
+  ok(/data-bb-week-planner/.test(qrPrint.html) && /data-bb-week-grid/.test(qrPrint.html), "weekly planner/calendar remains unchanged");
+  ok(/What We Are Doing|What We're Doing/.test(qrPrint.html) && /How To Do It/.test(qrPrint.html), "activity pages remain unchanged");
+  ok((qrPrint.html.match(/<article class="bb-page\b/g) || []).length === qrPrint.pages.length, "one logical page = one print page");
+  qrDraft.books[0].resourceUrl = "https://www.youtube.com/watch?v=approvedStory1";
+  const readyQr = readiness.evaluateBinderReadiness(qrDraft, qrLesson);
+  ok(readyQr.canPrint === true && readyQr.status === "READY", "readiness remains READY / canPrint true for valid sample");
+  ok(!/printablePlacement|shopping list|materials assembly|Phase 2/i.test(qrPrint.html), "no Phase 2 markers or functionality introduced");
+  ok(JSON.stringify(qrLesson) === qrBefore, "source lesson remains byte-identical after QR/divider polish path");
 
   // Empty optional sections omitted
   draft.sections.books = true;
