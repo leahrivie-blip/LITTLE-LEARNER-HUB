@@ -660,6 +660,23 @@ function unitTests() {
   ok(!/printablePlacement|shopping list|materials assembly|Phase 2/i.test(qrPrint.html), "no Phase 2 markers or functionality introduced");
   ok(JSON.stringify(qrLesson) === qrBefore, "source lesson remains byte-identical after QR/divider polish path");
 
+  // --- Scrapbook print theme (pink/lavender palette, black text, white paper) ---
+  ok(/bb-scrapbook/.test(stepPrint.html) && /scrapbook-pink-lavender/.test(stepPrint.html), "print root marks scrapbook pink/lavender theme");
+  ok(/--bb-print-ink:\s*#1a1a1a/.test(printCss), "print ink is readable black");
+  ok(/--bb-print-accent:\s*#c48a9f/.test(printCss), "print accent is light pink (not red)");
+  ok(/--bb-print-lavender:\s*#b7a4d4/.test(printCss), "print palette includes soft lavender");
+  ok(/--bb-day-monday:\s*#f8e4ec/.test(printCss) && /--bb-day-tuesday:\s*#ebe3f5/.test(printCss), "day tints are pink/lavender (not blue/yellow corporate)");
+  ok(/Caveat/.test(printCss) && /--bb-print-hand/.test(printCss), "playful hand lettering font is available for short titles");
+  ok(/bb-footer-brand[\s\S]{0,220}color:\s*#000000/.test(printCss.replace(/\s+/g, " ")), "footer brand prints in black");
+  ok(/object-fit:\s*contain/.test(printCss), "photos preserve aspect ratio without stretch-crop cover");
+  ok(/bb-activity-media:not\(\.is-broken\)::before/.test(printCss) && /washi|repeating-linear-gradient/.test(printCss), "photo frames include sparse washi-tape accents");
+  ok(/border-radius:\s*42%\s*58%/.test(printCss) || /\.bb-page::after/.test(printCss), "pages use a thin wavy scrapbook frame");
+  ok(/--bb-gingham-a/.test(printCss) && /--bb-gingham-b/.test(printCss), "subtle pink/lavender gingham tokens exist");
+  ok(!/bb-divider-ornament[\s\S]{0,180}border-radius:\s*50%/.test(printCss), "divider ornament is not a glossy sphere");
+  ok(/font-size:\s*11pt/.test(printCss), "body copy targets printer-friendly 11pt");
+  ok(/loading="eager"/.test(stepPrint.html), "scrapbook redesign preserves eager print image loading");
+  ok(!/printablePlacement|Phase 2|shopping list/i.test(stepPrint.html), "scrapbook redesign does not add printable embedding or Phase 2");
+
   // --- Prototype resource integrity (images / non-fabricated day story-song / source flags) ---
   ok(/loading="eager"/.test(qrPrint.html) && /data-bb-print-image/.test(qrPrint.html), "print images use eager loading for PDF reliability");
   ok(!/loading="lazy"/.test(qrPrint.html.split("bb-print-root")[1] || ""), "print root does not use lazy image loading");

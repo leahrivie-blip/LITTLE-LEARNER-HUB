@@ -657,7 +657,7 @@
 
       const pageHtml = pages.map((page) => renderPage(document, page)).filter(Boolean).join("\n");
       const html = [
-        `<div class="bb-print-root" data-bb-mode="${mode}">`,
+        `<div class="bb-print-root bb-scrapbook" data-bb-mode="${mode}" data-bb-theme="scrapbook-pink-lavender">`,
         pageHtml,
         `</div>`,
       ].join("\n");
