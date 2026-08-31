@@ -170,12 +170,18 @@
     const alt = esc(image?.alt || "Lesson image");
     // Eager + sync decode: lazy images frequently fail to paint in window.print()/PDF.
     // onerror collapses the frame and marks broken for readiness/owner review.
+    // Washi accents live on .bb-media-stack so the photo frame can keep overflow:hidden
+    // (prevents object-fit images from painting over instructions below).
     return [
+      `<div class="bb-media-stack">`,
+      `<span class="bb-washi bb-washi-a" aria-hidden="true"></span>`,
+      `<span class="bb-washi bb-washi-b" aria-hidden="true"></span>`,
       `<div class="${esc(className)}" data-bb-image-frame="1" data-bb-image-url="${esc(url)}">`,
       `<img src="${esc(url)}" alt="${alt}" loading="eager" decoding="sync" data-bb-print-image="1" `,
       `onload="this.setAttribute('data-bb-image-state','loaded');" `,
-      `onerror="this.setAttribute('data-bb-image-state','failed');var f=this.parentElement;if(f){f.classList.add('is-broken');f.setAttribute('data-bb-image-state','failed');this.remove();}"`,
+      `onerror="this.setAttribute('data-bb-image-state','failed');var f=this.parentElement;if(f){f.classList.add('is-broken');f.setAttribute('data-bb-image-state','failed');var s=f.parentElement;if(s&&s.classList.contains('bb-media-stack')){s.classList.add('is-broken');}this.remove();}"`,
       `>`,
+      `</div>`,
       `</div>`,
     ].join("");
   }

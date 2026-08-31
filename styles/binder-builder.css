@@ -387,7 +387,7 @@
   border-radius: 42% 58% 47% 53% / 48% 44% 56% 52%;
   opacity: 0.7;
 }
-.bb-page > * {
+.bb-page > *:not(.bb-page-footer):not(.bb-divider-accent) {
   position: relative;
   z-index: 1;
 }
@@ -488,7 +488,7 @@
 .bb-cover-media {
   margin: 0;
   border-radius: 2px;
-  overflow: visible;
+  overflow: hidden;
   min-height: 0;
   max-height: 4.6in;
   height: 100%;
@@ -498,6 +498,21 @@
   display: grid;
   place-items: center;
 }
+.bb-media-stack {
+  position: relative;
+  margin: 0.12in 0 0.2in;
+  max-width: 100%;
+}
+.bb-page-cover .bb-media-stack {
+  margin: 0;
+  min-height: 0;
+  height: 100%;
+  max-height: 4.6in;
+}
+.bb-page-cover .bb-media-stack .bb-cover-media {
+  height: 100%;
+}
+.bb-media-stack.is-broken,
 .bb-cover-media.is-broken,
 .bb-activity-media.is-broken,
 .bb-divider-media.is-broken {
@@ -507,6 +522,37 @@
   margin: 0 !important;
   padding: 0 !important;
   border: 0 !important;
+}
+.bb-washi {
+  position: absolute;
+  z-index: 3;
+  height: 0.2in;
+  border: 1px solid rgba(26, 26, 26, 0.08);
+  pointer-events: none;
+}
+.bb-washi-a {
+  top: -0.1in;
+  left: 0.35in;
+  width: 0.95in;
+  background:
+    repeating-linear-gradient(
+      -12deg,
+      rgba(240, 196, 212, 0.92) 0 6px,
+      rgba(255, 255, 255, 0.55) 6px 10px
+    );
+  transform: rotate(-7deg);
+}
+.bb-washi-b {
+  top: -0.08in;
+  right: 0.4in;
+  width: 0.8in;
+  background:
+    repeating-linear-gradient(
+      14deg,
+      rgba(183, 164, 212, 0.9) 0 5px,
+      rgba(255, 255, 255, 0.5) 5px 9px
+    );
+  transform: rotate(6deg);
 }
 .bb-cover-copy {
   align-self: end;
@@ -666,8 +712,8 @@
   max-height: 3.2in;
   aspect-ratio: 16 / 10;
   border-radius: 2px;
-  overflow: visible;
-  margin-top: 0.15in;
+  overflow: hidden;
+  margin-top: 0;
   border: 1px solid rgba(26, 26, 26, 0.14);
   background: var(--bb-print-pink-soft);
   position: relative;
@@ -709,8 +755,8 @@
   height: var(--bb-activity-photo-h);
   max-height: var(--bb-activity-photo-h);
   border-radius: 2px;
-  overflow: visible;
-  margin: 0.12in 0 0.2in;
+  overflow: hidden;
+  margin: 0;
   background: var(--bb-print-lavender-soft);
   flex: 0 0 auto;
   border: 1px solid rgba(26, 26, 26, 0.14);
@@ -719,47 +765,7 @@
   display: grid;
   place-items: center;
 }
-/* Small washi-tape accents on photo frames (print-safe, sparse) */
-.bb-activity-media:not(.is-broken)::before,
-.bb-cover-media:not(.is-broken):not(.bb-image-fallback)::before,
-.bb-divider-media:not(.is-broken)::before {
-  content: "";
-  position: absolute;
-  top: -0.1in;
-  left: 0.35in;
-  width: 0.95in;
-  height: 0.2in;
-  z-index: 3;
-  background:
-    repeating-linear-gradient(
-      -12deg,
-      rgba(240, 196, 212, 0.92) 0 6px,
-      rgba(255, 255, 255, 0.55) 6px 10px
-    );
-  border: 1px solid rgba(26, 26, 26, 0.08);
-  transform: rotate(-7deg);
-  pointer-events: none;
-}
-.bb-activity-media:not(.is-broken)::after,
-.bb-cover-media:not(.is-broken):not(.bb-image-fallback)::after,
-.bb-divider-media:not(.is-broken)::after {
-  content: "";
-  position: absolute;
-  top: -0.08in;
-  right: 0.4in;
-  width: 0.8in;
-  height: 0.18in;
-  z-index: 3;
-  background:
-    repeating-linear-gradient(
-      14deg,
-      rgba(183, 164, 212, 0.9) 0 5px,
-      rgba(255, 255, 255, 0.5) 5px 9px
-    );
-  border: 1px solid rgba(26, 26, 26, 0.08);
-  transform: rotate(6deg);
-  pointer-events: none;
-}
+/* Washi accents are rendered via .bb-media-stack > .bb-washi (see print.js) */
 .bb-activity-section {
   margin-top: 0;
   padding: 9px 10px;
@@ -1166,8 +1172,8 @@
   max-height: 3.2in;
   aspect-ratio: 16 / 10;
   border-radius: 2px;
-  overflow: visible;
-  margin-top: 0.15in;
+  overflow: hidden;
+  margin-top: 0;
   border: 1px solid rgba(26, 26, 26, 0.14);
   background: var(--bb-print-pink-soft);
   position: relative;
@@ -1483,12 +1489,7 @@
   .bb-day-friday,
   .bb-page::before,
   .bb-page::after,
-  .bb-activity-media::before,
-  .bb-activity-media::after,
-  .bb-cover-media::before,
-  .bb-cover-media::after,
-  .bb-divider-media::before,
-  .bb-divider-media::after,
+  .bb-washi,
   .bb-divider-ornament,
   .bb-divider-accent {
     -webkit-print-color-adjust: exact;

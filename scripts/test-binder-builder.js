@@ -669,7 +669,7 @@ function unitTests() {
   ok(/Caveat/.test(printCss) && /--bb-print-hand/.test(printCss), "playful hand lettering font is available for short titles");
   ok(/bb-footer-brand[\s\S]{0,220}color:\s*#000000/.test(printCss.replace(/\s+/g, " ")), "footer brand prints in black");
   ok(/object-fit:\s*contain/.test(printCss), "photos preserve aspect ratio without stretch-crop cover");
-  ok(/bb-activity-media:not\(\.is-broken\)::before/.test(printCss) && /washi|repeating-linear-gradient/.test(printCss), "photo frames include sparse washi-tape accents");
+  ok(/bb-media-stack/.test(printCss) && /\.bb-washi/.test(printCss), "photo frames include sparse washi-tape accents");
   ok(/border-radius:\s*42%\s*58%/.test(printCss) || /\.bb-page::after/.test(printCss), "pages use a thin wavy scrapbook frame");
   ok(/--bb-gingham-a/.test(printCss) && /--bb-gingham-b/.test(printCss), "subtle pink/lavender gingham tokens exist");
   ok(!/bb-divider-ornament[\s\S]{0,180}border-radius:\s*50%/.test(printCss), "divider ornament is not a glossy sphere");
@@ -679,6 +679,7 @@ function unitTests() {
 
   // --- Prototype resource integrity (images / non-fabricated day story-song / source flags) ---
   ok(/loading="eager"/.test(qrPrint.html) && /data-bb-print-image/.test(qrPrint.html), "print images use eager loading for PDF reliability");
+  ok(/bb-media-stack/.test(qrPrint.html) && /bb-washi/.test(qrPrint.html), "print images wrap washi accents outside clipped photo frames");
   ok(!/loading="lazy"/.test(qrPrint.html.split("bb-print-root")[1] || ""), "print root does not use lazy image loading");
   const absPrint = print.buildBinderPrintHtml(qrDraft, qrLesson, {
     qrSvgByUrl: {
