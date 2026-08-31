@@ -192,6 +192,19 @@
           }
         }
       });
+      // Draft intent: QR toggled on but URL still empty (transform suppresses print QR).
+      (draft.books || []).forEach((book) => {
+        if (book?.omit === true) return;
+        if (book?.qrEnabled === false) return;
+        if (asText(book?.resourceUrl)) return;
+        const title = asText(book?.title) || "Untitled story";
+        add(
+          "warn",
+          "missing_story_qr",
+          `Story Time — “${title}”`,
+          "QR is enabled on this binder story but no approved URL is set — no QR will print.",
+        );
+      });
     }
 
     if (document.sections.songs !== false) {
@@ -219,6 +232,18 @@
             }
           }
         }
+      });
+      (draft.songs || []).forEach((song) => {
+        if (song?.omit === true) return;
+        if (song?.qrEnabled === false) return;
+        if (asText(song?.resourceUrl)) return;
+        const title = asText(song?.title) || "Untitled song";
+        add(
+          "warn",
+          "missing_song_qr",
+          `Music & Movement — “${title}”`,
+          "QR is enabled on this binder song but no approved URL is set — no QR will print.",
+        );
       });
     }
 
