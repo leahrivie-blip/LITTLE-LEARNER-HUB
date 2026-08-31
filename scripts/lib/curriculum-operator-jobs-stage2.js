@@ -1084,20 +1084,66 @@ function simulateRollbackFromBackup({
   };
 }
 
+/**
+ * One-time maintenance CLI authorization for Stage 2 production apply.
+ * Must be passed explicitly as a CLI flag value — NEVER read from env,
+ * NEVER persisted, NEVER enables runtime/boot/HTTP cutover.
+ */
+const STAGE2_PRODUCTION_EXECUTION_AUTHORIZATION =
+  "STAGE2-PRODUCTION-EXECUTION-AUTHORIZED-v1";
+
+/**
+ * Gate for --postgres --apply.
+ * Missing token → stage2_production_apply_locked
+ * Wrong token → stage2_production_authorization_invalid
+ * Correct token → allow THIS process invocation only (caller still needs all other gates).
+ */
 function assertProductionApplyUnlocked(args = {}) {
-  const err = new Error(
-    "Stage 2 production Postgres apply is NOT unlocked. "
-    + "This design/tooling PR refuses --postgres --apply. "
-    + "A future authorized maintenance PR must explicitly unlock cutover after review.",
-  );
-  err.code = "stage2_production_apply_locked";
-  err.args = {
-    apply: Boolean(args.apply),
-    postgres: Boolean(args.postgres),
-    confirmMigrate: Boolean(args.confirmMigrate),
-    confirmCutover: Boolean(args.confirmCutover),
+  const provided = String(
+    args.authorizeStage2ProductionExecution
+    ?? args.authorizationToken
+    ?? "",
+  ).trim();
+
+  if (!provided) {
+    const err = new Error(
+      "Stage 2 production Postgres apply is NOT unlocked. "
+      + "Pass --authorize-stage2-production-execution <token> on the maintenance CLI "
+      + "after explicit review. Authorization alone does nothing without --apply and all gates.",
+    );
+    err.code = "stage2_production_apply_locked";
+    err.args = {
+      apply: Boolean(args.apply),
+      postgres: Boolean(args.postgres),
+      confirmMigrate: Boolean(args.confirmMigrate),
+      confirmCutover: Boolean(args.confirmCutover),
+      authorizationProvided: false,
+    };
+    throw err;
+  }
+
+  if (provided !== STAGE2_PRODUCTION_EXECUTION_AUTHORIZATION) {
+    const err = new Error(
+      "Stage 2 production authorization token is invalid. "
+      + "Refusing --postgres --apply.",
+    );
+    err.code = "stage2_production_authorization_invalid";
+    err.args = {
+      apply: Boolean(args.apply),
+      postgres: Boolean(args.postgres),
+      confirmMigrate: Boolean(args.confirmMigrate),
+      confirmCutover: Boolean(args.confirmCutover),
+      authorizationProvided: true,
+    };
+    throw err;
+  }
+
+  return {
+    authorized: true,
+    scope: "cli-process-only",
+    persistent: false,
+    runtimeCutoverEnabled: false,
   };
-  throw err;
 }
 
 function buildAuditReport(parts = {}) {
@@ -1158,6 +1204,7 @@ module.exports = {
   simulateStage2OnFixtureStore,
   simulateRollbackFromBackup,
   assertProductionApplyUnlocked,
+  STAGE2_PRODUCTION_EXECUTION_AUTHORIZATION,
   buildAuditReport,
   byteLen,
 };

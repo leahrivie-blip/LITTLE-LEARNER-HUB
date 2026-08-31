@@ -1,11 +1,12 @@
 /**
  * Stage 2 curriculumOperatorJobs OFFLOAD — EXECUTION ENGINE.
  *
- * Implements the reviewed production-capable maintenance sequence from PR #800.
+ * Implements the reviewed production-capable maintenance sequence from PR #800/#803.
  *
- * HARD LOCK (this PR):
- *   assertProductionApplyUnlocked() ALWAYS throws for --postgres --apply.
- *   A separate tiny authorization PR is required to unlock production execution.
+ * Production --postgres --apply requires explicit CLI authorization token:
+ *   --authorize-stage2-production-execution STAGE2-PRODUCTION-EXECUTION-AUTHORIZED-v1
+ * plus all existing confirm/expected-source gates. Authorization is process-scoped
+ * only (not env / HTTP / boot / runtime cutover).
  *
  * Normal app runtime is unchanged: isHotStoreCutoverEnabled() stays false.
  * No HTTP route / boot migration / env unlock switch.
@@ -629,13 +630,14 @@ async function prepareAndRunPostgresStage2Execution(options = {}) {
   // Validate required production expectation gates before any networking.
   assertPostgresProductionExecutionGates(options);
 
-  // FINAL HARD LOCK — before any connection / client factory (when apply requested).
+  // Authorization gate — before any connection / client factory (when apply requested).
   if (options.apply === true) {
     stage2.assertProductionApplyUnlocked({
       apply: true,
       postgres: true,
       confirmMigrate: options.confirmMigrate === true,
       confirmCutover: options.confirmCutover === true,
+      authorizeStage2ProductionExecution: options.authorizeStage2ProductionExecution,
     });
   }
 
@@ -666,6 +668,7 @@ async function prepareAndRunPostgresStage2Execution(options = {}) {
       expectedSourceHash: options.expectedSourceHash,
       expectedStoreUpdatedAt: options.expectedStoreUpdatedAt || context.storeUpdatedAtExact,
       expectedProductionBuildSha: options.expectedProductionBuildSha || context.productionBuildSha,
+      authorizeStage2ProductionExecution: options.authorizeStage2ProductionExecution,
       runId: options.runId || null,
     });
     try { await client.query("ROLLBACK"); } catch { /* ignore */ }
@@ -710,15 +713,17 @@ async function runStage2Execution(options = {}) {
     runId: providedRunId = null,
     // Explicit fixture-only escape hatch — NEVER set for production path.
     allowPostBackupDriftContinue = false,
+    authorizeStage2ProductionExecution = null,
   } = options;
 
-  // FINAL HARD LOCK — production Postgres apply remains impossible in this PR.
+  // Production Postgres apply requires explicit CLI authorization token.
   if (mode === "postgres" && apply) {
     stage2.assertProductionApplyUnlocked({
       apply: true,
       postgres: true,
       confirmMigrate,
       confirmCutover,
+      authorizeStage2ProductionExecution,
     });
   }
 
