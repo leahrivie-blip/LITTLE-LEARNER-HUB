@@ -17121,10 +17121,18 @@ async function syncAccountProfileToBackend(email, profile = {}, options = {}) {
   const cleanEmail = String(email || "").trim().toLowerCase();
   if (!cleanEmail || !canUseLaunchBackend()) return null;
   try {
+    // Profile sync first — send the existing member/Firebase identity with the write.
     const metaIds = metaBrowserIds();
+    const headers = { "Content-Type": "application/json" };
+    try {
+      const authHeaders = typeof firebaseAuthHeaders === "function"
+        ? await firebaseAuthHeaders()
+        : null;
+      if (authHeaders && typeof authHeaders === "object") Object.assign(headers, authHeaders);
+    } catch (_error) { /* server rejects unauthenticated profile writes */ }
     const response = await fetch("/api/account/profile", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({
         email: cleanEmail,
         firstName: profile.firstName || "",
@@ -17624,12 +17632,15 @@ async function sendPasswordReset(email) {
       body: JSON.stringify({ email: cleanEmail }),
     });
     const data = await response.json().catch(() => ({}));
+    if (response.status === 429) {
+      return data.message || data.error || neutralMessage;
+    }
     if (response.ok && data.delivery && data.delivery !== "not_ready") {
-      // sent | skipped | failed — identical public response (no account enumeration).
+      // accepted (or legacy sent/skipped/failed) — public body does not enumerate accounts.
       console.info("[auth] password_reset_email_sent", {
         email: cleanEmail,
         via: "server",
-        delivery: data.delivery === "sent" ? "sent" : "accepted",
+        delivery: "accepted",
       });
       return data.message || neutralMessage;
     }

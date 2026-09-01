@@ -40,11 +40,19 @@ function fail(name, error) {
   console.error(error);
 }
 
-function request(method, urlPath, { body = null } = {}) {
+function request(method, urlPath, { body = null, headers: extraHeaders = {} } = {}) {
   const payload = body ? JSON.stringify(body) : null;
+  const profileEmail = urlPath === "/api/account/profile" && body?.email
+    ? String(body.email).trim().toLowerCase()
+    : "";
   const headers = payload
     ? { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(payload) }
     : {};
+  if (profileEmail) {
+    headers.Authorization = `Bearer test:${profileEmail}`;
+    headers["X-LLH-User-Email"] = profileEmail;
+  }
+  Object.assign(headers, extraHeaders);
   return new Promise((resolve, reject) => {
     const req = http.request(`${BASE}${urlPath}`, { method, headers }, (res) => {
       let raw = "";

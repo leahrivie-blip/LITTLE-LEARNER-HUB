@@ -225,7 +225,7 @@ async function main() {
       });
       assert.equal(unknown.status, 200);
       assert.equal(unknown.json.ok, true);
-      assert.equal(unknown.json.delivery, "skipped");
+      assert.equal(unknown.json.delivery, "accepted");
       assert.equal(unknown.json.message, NEUTRAL_MESSAGE);
       assert.equal(captured.length, 0, "unknown accounts must not trigger provider send");
 
@@ -236,9 +236,9 @@ async function main() {
       });
       assert.equal(known.status, 200, JSON.stringify(known.json));
       assert.equal(known.json.ok, true);
-      assert.equal(known.json.delivery, "sent");
+      assert.equal(known.json.delivery, "accepted");
       assert.equal(known.json.message, NEUTRAL_MESSAGE);
-      assert.equal(known.json.message, unknown.json.message, "public response must match for known/unknown");
+      assert.deepEqual(known.json, unknown.json, "public reset body must be identical for known/unknown");
       assert.equal(captured.length, before + 1, "exactly one reset-email send attempt");
 
       const mail = captured[captured.length - 1];
@@ -279,7 +279,7 @@ async function main() {
         body: { email: NORMALIZED },
       });
       assert.equal(fresh.status, 200);
-      assert.equal(fresh.json.delivery, "sent");
+      assert.equal(fresh.json.delivery, "accepted");
       const freshMail = captured[captured.length - 1];
       const freshToken = extractResetToken(freshMail.body.html, freshMail.body.text);
       assert.ok(freshToken);
@@ -341,14 +341,9 @@ async function main() {
       assert.equal(failedUnknown.json.ok, true);
       assert.equal(failedKnown.json.message, NEUTRAL_MESSAGE);
       assert.equal(failedUnknown.json.message, NEUTRAL_MESSAGE);
-      assert.equal(failedKnown.json.delivery, "failed");
-      assert.equal(failedUnknown.json.delivery, "skipped");
-      // Public fields that matter to a caller must not reveal existence beyond delivery enum,
-      // and the human message must stay identical.
-      assert.deepEqual(
-        { ok: failedKnown.json.ok, message: failedKnown.json.message },
-        { ok: failedUnknown.json.ok, message: failedUnknown.json.message },
-      );
+      assert.equal(failedKnown.json.delivery, "accepted");
+      assert.equal(failedUnknown.json.delivery, "accepted");
+      assert.deepEqual(failedKnown.json, failedUnknown.json, "failed send must not enumerate accounts");
       assert.match(bootLog(), /"eventType":"password_reset_email"/);
       assert.match(bootLog(), /"error":"provider_(unavailable|send_failed)"/);
       assert.doesNotMatch(bootLog(), /BrandNewPassword|OldPassword|re_test_key/);
