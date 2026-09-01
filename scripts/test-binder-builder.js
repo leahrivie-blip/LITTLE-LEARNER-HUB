@@ -660,6 +660,75 @@ function unitTests() {
   ok(!/printablePlacement|shopping list|materials assembly|Phase 2/i.test(qrPrint.html), "no Phase 2 markers or functionality introduced");
   ok(JSON.stringify(qrLesson) === qrBefore, "source lesson remains byte-identical after QR/divider polish path");
 
+  // --- Prototype resource integrity (images / non-fabricated day story-song / source flags) ---
+  ok(/loading="eager"/.test(qrPrint.html) && /data-bb-print-image/.test(qrPrint.html), "print images use eager loading for PDF reliability");
+  ok(!/loading="lazy"/.test(qrPrint.html.split("bb-print-root")[1] || ""), "print root does not use lazy image loading");
+  const absPrint = print.buildBinderPrintHtml(qrDraft, qrLesson, {
+    qrSvgByUrl: {
+      "https://www.youtube.com/watch?v=approvedStory1": storySvg,
+      "https://www.youtube.com/watch?v=approvedSong1": songSvg,
+    },
+    assetOrigin: "https://example.test",
+  });
+  ok(/https:\/\/example\.test\/api\/media\//.test(absPrint.html) || !/src="\/api\/media\//.test(absPrint.html),
+    "relative media URLs are absolutized when assetOrigin is provided (or no relative media present)");
+
+  const gridStoryCells = [...qrPrint.html.matchAll(/data-bb-grid-row="story" data-bb-grid-day="[^"]+"[^>]*>([\s\S]*?)<\/div>/g)]
+    .map((m) => m[1].replace(/<[^>]+>/g, "").trim());
+  ok(gridStoryCells.length === 5, "grid has five story cells");
+  ok(gridStoryCells.every((t) => t === "—" || t === ""), "without explicit weekday associations, story cells are not fabricated from books[0]");
+  const gridSongCells = [...qrPrint.html.matchAll(/data-bb-grid-row="song" data-bb-grid-day="[^"]+"[^>]*>([\s\S]*?)<\/div>/g)]
+    .map((m) => m[1].replace(/<[^>]+>/g, "").trim());
+  ok(gridSongCells.every((t) => t === "—" || t === ""), "without explicit weekday associations, song cells are not fabricated from songs[0]");
+  ok(/data-bb-week-stories/.test(qrPrint.html) && /I Like Myself!/.test(qrPrint.html), "week-level story catalog lists included books without assigning them to every day");
+
+  const weekdayLesson = sampleLesson("Toddler", { id: "cur-lp-bb-weekday-assign", title: "Weekday Assign" });
+  weekdayLesson.books = [
+    { title: "Monday Book", author: "A", suggestedWeekday: "monday", resourceUrl: "" },
+    { title: "Friday Book", author: "B", suggestedWeekday: "friday", resourceUrl: "" },
+  ];
+  weekdayLesson.songs = [
+    { title: "Tuesday Song", linkedWeekday: "tuesday", resourceUrl: "" },
+  ];
+  const weekdayDraft = model.createDraftFromLesson(weekdayLesson);
+  const weekdayBefore = JSON.stringify(weekdayLesson);
+  const weekdayPrint = print.buildBinderPrintHtml(weekdayDraft, weekdayLesson, { qrSvgByUrl: {} });
+  const monStory = (weekdayPrint.html.match(/data-bb-grid-row="story" data-bb-grid-day="monday"[^>]*>([\s\S]*?)<\/div>/) || [])[1] || "";
+  const friStory = (weekdayPrint.html.match(/data-bb-grid-row="story" data-bb-grid-day="friday"[^>]*>([\s\S]*?)<\/div>/) || [])[1] || "";
+  const tueSong = (weekdayPrint.html.match(/data-bb-grid-row="song" data-bb-grid-day="tuesday"[^>]*>([\s\S]*?)<\/div>/) || [])[1] || "";
+  const wedStory = (weekdayPrint.html.match(/data-bb-grid-row="story" data-bb-grid-day="wednesday"[^>]*>([\s\S]*?)<\/div>/) || [])[1] || "";
+  ok(/Monday Book/.test(monStory), "explicit monday book association appears only via weekday field");
+  ok(/Friday Book/.test(friStory), "explicit friday book association appears on friday");
+  ok(/Tuesday Song/.test(tueSong), "explicit tuesday song association appears on tuesday");
+  ok(/—/.test(wedStory) || wedStory.trim() === "—", "days without explicit book association stay blank (not books[0])");
+  ok(JSON.stringify(weekdayLesson) === weekdayBefore, "weekday association path does not mutate source lesson");
+
+  const dirtyLesson = sampleLesson("Toddler", { id: "cur-lp-bb-dirty-books", title: "Dirty Books" });
+  dirtyLesson.books = [
+    { title: "All", author: "Myself by Mercer Mayer", resourceUrl: "" },
+    { title: "All by Myself", author: "Mercer Mayer", resourceUrl: "" },
+  ];
+  dirtyLesson.songs = [
+    { title: "If You're Happy and You Know It", resourceUrl: "" },
+    { title: "If You’re Happy and You Know It", resourceUrl: "" },
+  ];
+  const dirtyDraft = model.createDraftFromLesson(dirtyLesson);
+  const dirtyBefore = JSON.stringify(dirtyLesson);
+  const dirtyReady = readiness.evaluateBinderReadiness(dirtyDraft, dirtyLesson);
+  ok(dirtyReady.issues.some((i) => i.code === "malformed_book_entry"), "malformed book title/author is flagged for owner review");
+  ok(dirtyReady.issues.some((i) => i.code === "duplicate_song_entry"), "duplicate song entries are flagged for owner review");
+  ok(dirtyReady.issues.some((i) => i.code === "printables_not_embedded"), "readiness states printable sheets are not embedded");
+  ok(JSON.stringify(dirtyLesson) === dirtyBefore, "flagging source-content problems does not mutate the source lesson");
+
+  const imgReady = readiness.applyImageLoadResults(readyQr, {
+    loaded: ["https://example.test/ok.jpg"],
+    failed: ["https://example.test/missing.jpg"],
+    timedOut: [],
+  });
+  ok(imgReady.issues.some((i) => i.code === "image_load_failed"), "failed assigned images surface in readiness");
+  ok(imgReady.status === "NEEDS REVIEW", "image load failures keep owner-facing NEEDS REVIEW");
+  ok(typeof print.waitForPrintImages === "function", "print module exposes waitForPrintImages");
+
   // Empty optional sections omitted
   draft.sections.books = true;
   draft.books = [];
