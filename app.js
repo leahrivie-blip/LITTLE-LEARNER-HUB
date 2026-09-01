@@ -75659,7 +75659,6 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
       setFormMessage("#authMessage", message, true);
       trackEvent("password_reset_requested");
       closeAuthModal();
-      setView("reset-password");
       return;
     }
     if (currentAuthMode === "signup") {
