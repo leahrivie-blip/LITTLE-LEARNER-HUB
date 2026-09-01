@@ -21,7 +21,11 @@ const { installBootNetworkGuards, gotoApp } = require("./test-helpers/llh-browse
 const ROOT = path.join(__dirname, "..");
 const PORT = 19750 + Math.floor(Math.random() * 80);
 const STORE_PATH = path.join(os.tmpdir(), `llh-full-audit-${crypto.randomBytes(4).toString("hex")}.json`);
-const OUT_DIR = process.env.AUDIT_OUT_DIR || path.join("/opt/cursor/artifacts", "full-site-release-audit");
+const LOCAL_OUT_DIR = path.join(os.tmpdir(), "llh-full-site-release-audit");
+const ARTIFACTS_OUT_DIR = path.join("/opt/cursor/artifacts", "full-site-release-audit");
+// Default to local tmp. The cloud artifacts FUSE mount can raise EIO on
+// Playwright path-writes (temp file + close/rename) even after product asserts pass.
+const OUT_DIR = process.env.AUDIT_OUT_DIR || LOCAL_OUT_DIR;
 const SCREEN_DIR = path.join(OUT_DIR, "screenshots");
 
 const VIEWPORTS = [
@@ -104,11 +108,25 @@ function fail(label, error) {
 }
 
 async function shot(page, name) {
-  fs.mkdirSync(SCREEN_DIR, { recursive: true });
-  const file = path.join(SCREEN_DIR, `${name}.png`);
-  await page.screenshot({ path: file, fullPage: false });
-  report.screenshots.push(file);
-  return file;
+  const dest = path.join(SCREEN_DIR, `${name}.png`);
+  fs.mkdirSync(path.dirname(dest), { recursive: true });
+  // Buffer first: Playwright's path-write can EIO on virtual artifact mounts.
+  const buffer = await page.screenshot({ fullPage: false, type: "png" });
+  if (!buffer || !buffer.length) {
+    throw new Error(`screenshot produced empty buffer: ${name}`);
+  }
+  try {
+    fs.writeFileSync(dest, buffer);
+    report.screenshots.push(dest);
+    return dest;
+  } catch (err) {
+    const safeName = String(name).replace(/[^\w.-]+/g, "-");
+    const fallback = path.join(LOCAL_OUT_DIR, "screenshots", `${safeName}-${process.pid}.png`);
+    fs.mkdirSync(path.dirname(fallback), { recursive: true });
+    fs.writeFileSync(fallback, buffer);
+    report.screenshots.push(fallback);
+    return fallback;
+  }
 }
 
 function requestJson(method, urlPath, body, headers = {}) {
@@ -833,8 +851,7 @@ async function main() {
       screenshots: report.screenshots.length,
     },
   };
-  const outFile = path.join(OUT_DIR, "full-site-release-audit.json");
-  fs.writeFileSync(outFile, JSON.stringify(summary, null, 2));
+  const jsonBody = JSON.stringify(summary, null, 2);
   const md = [
     `# ${report.title}`,
     "",
@@ -853,7 +870,28 @@ async function main() {
     "## Screenshots",
     ...report.screenshots.map((s) => `- ${s}`),
   ].join("\n");
-  fs.writeFileSync(path.join(OUT_DIR, "full-site-release-audit.md"), md);
+
+  function writeAuditReports(dir) {
+    fs.mkdirSync(dir, { recursive: true });
+    const outFile = path.join(dir, "full-site-release-audit.json");
+    fs.writeFileSync(outFile, jsonBody);
+    fs.writeFileSync(path.join(dir, "full-site-release-audit.md"), md);
+    return outFile;
+  }
+
+  let outFile;
+  try {
+    outFile = writeAuditReports(OUT_DIR);
+  } catch (err) {
+    outFile = writeAuditReports(LOCAL_OUT_DIR);
+  }
+  if (OUT_DIR !== ARTIFACTS_OUT_DIR) {
+    try {
+      writeAuditReports(ARTIFACTS_OUT_DIR);
+    } catch {
+      // Artifacts mount is optional; local reports are the source of truth.
+    }
+  }
 
   console.log(`\nAudit complete: ${report.passed.length} passed, ${report.failed.length} failed, ${report.warnings.length} warnings`);
   console.log(`Report: ${outFile}`);
