@@ -41,9 +41,21 @@ function text(value, max = 4000) {
   return schema.text(value, max);
 }
 
+const VOCAB_ONLY_WEEKLY_FIELDS = Object.freeze(new Set(["vocabCards", "vocabularyWords"]));
+
+/**
+ * True when weeklyFieldScope is non-empty and exclusively vocabulary fields.
+ * buildMutationAllowlist expands vocabCards → [vocabCards, vocabularyWords]; both
+ * still mean vocabulary-only intent and must NOT open the broad enrichment path.
+ */
+function isVocabOnlyWeeklyScope(scope = []) {
+  const fields = schema.asArray(scope).map((f) => text(f, 80)).filter(Boolean);
+  if (!fields.length) return false;
+  return fields.every((field) => VOCAB_ONLY_WEEKLY_FIELDS.has(field));
+}
+
 function isVocabOnlyAllowlist(allowlist = {}) {
-  const scope = schema.asArray(allowlist.weeklyFieldScope).map((f) => text(f, 80)).filter(Boolean);
-  if (scope.length !== 1 || scope[0] !== "vocabCards") return false;
+  if (!isVocabOnlyWeeklyScope(allowlist.weeklyFieldScope)) return false;
   if (allowlist.assets?.images || allowlist.assets?.printables || allowlist.assets?.cover
     || allowlist.assets?.songs || allowlist.assets?.books) {
     return false;
@@ -53,8 +65,27 @@ function isVocabOnlyAllowlist(allowlist = {}) {
 }
 
 function isVocabOnlyCommand(command = {}) {
-  const scope = schema.asArray(command?.actions?.weeklyFieldScope).map((f) => text(f, 80)).filter(Boolean);
-  return scope.length === 1 && scope[0] === "vocabCards";
+  return isVocabOnlyWeeklyScope(command?.actions?.weeklyFieldScope);
+}
+
+/**
+ * Route connected auto-apply for a job/allowlist.
+ * Vocab-only requests MUST use surgical apply (or fail closed) — never broad enrichment.
+ */
+function resolveConnectedApplyMode(allowlist = {}, command = null) {
+  if (isVocabOnlyAllowlist(allowlist) || isVocabOnlyCommand(command)) {
+    return { mode: "surgical_vocab" };
+  }
+  // Expanded/partial vocab weekly scope that failed asset/activity checks still must
+  // not fall through to broad enrichment promotion of historical draft songs/printables.
+  if (isVocabOnlyWeeklyScope(allowlist?.weeklyFieldScope)) {
+    return {
+      mode: "fail_closed",
+      code: "vocab_only_surgical_required",
+      error: "Vocabulary-only connected auto-apply cannot use broad enrichment persistence.",
+    };
+  }
+  return { mode: "broad_enrichment" };
 }
 
 /**
@@ -299,8 +330,11 @@ function shouldDeferVocabDraftPersist(command = {}, allowlist = null) {
 module.exports = {
   MUTATION_CATEGORY,
   SYSTEM_METADATA_PATHS,
+  VOCAB_ONLY_WEEKLY_FIELDS,
+  isVocabOnlyWeeklyScope,
   isVocabOnlyAllowlist,
   isVocabOnlyCommand,
+  resolveConnectedApplyMode,
   normalizeStructuredVocabCards,
   vocabularyWordsFromCards,
   validateVocabApplyCards,

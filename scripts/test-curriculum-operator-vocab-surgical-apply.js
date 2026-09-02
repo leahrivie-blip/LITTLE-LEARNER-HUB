@@ -356,7 +356,8 @@ console.log("\n26-27) zero asset / activity mutation in surgical path");
   ok(!/require\(["']\.\/teaching-kit-enrichment/.test(src), "surgical module does not load enrichment merge helper");
   const serverSrc = fs.readFileSync(path.join(__dirname, "../server/index.js"), "utf8");
   ok(/applyOperatorSurgicalVocab/.test(serverSrc), "server wires surgical vocab apply");
-  ok(/isVocabOnlyAllowlist/.test(serverSrc), "server routes vocab-only away from full enrichment publish");
+  ok(/resolveConnectedApplyMode/.test(serverSrc),
+    "server routes vocab-only via resolveConnectedApplyMode away from full enrichment publish");
 }
 
 console.log("\n28) filtered composer plan keeps only vocabCards");
@@ -523,6 +524,168 @@ console.log("\nT6) extract prefers intended staged cards over historical malform
   const applied = vocabSurgical.applySurgicalVocabToPlan(before, extracted);
   ok(applied.ok, "staged intended cards surgically apply");
   ok(applied.plan.vocabularyWords.split(",").length >= 4, "authoritative string synced from intended");
+}
+
+console.log("\nT7) expanded allowlist still routes surgical (production gate regression)");
+{
+  // buildMutationAllowlist expands vocabCards → [vocabCards, vocabularyWords].
+  // That alias expansion previously made isVocabOnlyAllowlist return false and
+  // resume fell through to broad apply_enrichment_ok (opjob_24c407e811d57ac0).
+  const cmd = vocabOnlyCommand();
+  const allowlist = allowlistApi.buildMutationAllowlist(cmd);
+  ok(Array.isArray(allowlist.weeklyFieldScope)
+    && allowlist.weeklyFieldScope.includes("vocabCards")
+    && allowlist.weeklyFieldScope.includes("vocabularyWords"),
+  "allowlist expands vocabCards alias pair");
+  ok(vocabSurgical.isVocabOnlyAllowlist(allowlist) === true,
+    "expanded vocab alias pair is still vocab-only allowlist");
+  const mode = vocabSurgical.resolveConnectedApplyMode(allowlist, cmd);
+  ok(mode.mode === "surgical_vocab", "resolveConnectedApplyMode routes surgical_vocab");
+  const modeAllowlistOnly = vocabSurgical.resolveConnectedApplyMode(allowlist, null);
+  ok(modeAllowlistOnly.mode === "surgical_vocab",
+    "allowlist alone (no command) still routes surgical_vocab");
+}
+
+console.log("\nT8) fail-closed: vocab weekly scope never falls through to broad enrichment");
+{
+  const badAllowlist = {
+    weeklyFieldScope: ["vocabCards", "vocabularyWords"],
+    assets: { images: false, printables: false, cover: false, songs: true, books: false },
+    allowedActivityFields: new Set(),
+  };
+  ok(vocabSurgical.isVocabOnlyAllowlist(badAllowlist) === false,
+    "songs asset blocks vocab-only allowlist");
+  const mode = vocabSurgical.resolveConnectedApplyMode(badAllowlist, null);
+  ok(mode.mode === "fail_closed", "contradictory vocab scope fails closed");
+  ok(mode.code === "vocab_only_surgical_required", "fail-closed code set");
+  ok(mode.mode !== "broad_enrichment", "broad enrichment is not a vocab-only fallback");
+}
+
+console.log("\nT9) non-vocab connected requests still choose broad enrichment");
+{
+  const broadCmd = {
+    actions: {
+      weeklyFieldScope: [],
+      connectedAutoApply: true,
+      connectedUpgrade: true,
+      textOnly: false,
+      publish: false,
+    },
+    rawCommand: "connected upgrade songs books and printables",
+    scope: { lessonIds: [LMW_ID] },
+  };
+  const allowlist = allowlistApi.buildMutationAllowlist(broadCmd);
+  const mode = vocabSurgical.resolveConnectedApplyMode(allowlist, broadCmd);
+  ok(mode.mode === "broad_enrichment", "non-vocab connected request keeps broad enrichment mode");
+}
+
+console.log("\nT10) production LMW fixture — surgical apply isolates draft and splits cards");
+{
+  // Modeled on cur-lp-549b80f61dfa8d79 / opjob_24c407e811d57ac0 failure shape.
+  const PROD_LMW = "cur-lp-549b80f61dfa8d79";
+  const beforeSongs = [
+    { title: "Song 1" }, { title: "Song 2" }, { title: "Song 3" }, { title: "Song 4" },
+    { title: "Song 5" }, { title: "Song 6" }, { title: "Song 7" }, { title: "Song 8" },
+    { title: "Song 9" }, { title: "Song 10" }, { title: "Song 11" }, { title: "Song 12" },
+    { title: "Song 13" }, { title: "Song 14" }, { title: "Song 15" }, { title: "Song 16" },
+    { title: "Song 17" }, { title: "Song 18" },
+  ];
+  const beforePrintables = [
+    "cur-res-e848c40de2a75807",
+    "cur-res-f0751227c6350d48",
+    "cur-res-32c4dc661b4f656d",
+  ];
+  const before = {
+    id: PROD_LMW,
+    title: "Little Makers Workshop",
+    status: "draft",
+    publishedAt: null,
+    vocabularyWords: "",
+    songs: JSON.parse(JSON.stringify(beforeSongs)),
+    books: [{ title: "Existing Book" }],
+    teachingKit: {
+      vocabCards: [{ word: "art, create, explore, build, sticky, paper, press, paint" }],
+      printableIds: beforePrintables.slice(),
+      milestones: ["Uses two hands."],
+    },
+    enrichmentDraft: {
+      week: {
+        songs: [
+          { title: "Colorful Hands", motions: "Wiggle fingers" },
+          { title: "Wiggly Paintbrush", motions: "Wiggle arms" },
+        ],
+        books: [{ title: "Draft Book" }],
+        printableIds: ["cur-res-3424ffc0ed710893"],
+        vocabCards: [{ word: "art, create, explore, build, sticky, paper, press, paint" }],
+      },
+      updatedAt: "2026-08-01T00:00:00.000Z",
+      lastEditedBy: "history",
+    },
+  };
+  const intended = [
+    { word: "art" }, { word: "create" }, { word: "explore" }, { word: "build" },
+  ];
+  const cmd = {
+    actions: {
+      weeklyFieldScope: ["vocabCards"],
+      connectedAutoApply: true,
+      connectedUpgrade: true,
+      publish: false,
+      upgradeActivities: false,
+      textOnly: true,
+    },
+    rawCommand: "vocabulary only art, create, explore, build",
+    scope: { lessonIds: [PROD_LMW] },
+  };
+  const allowlist = allowlistApi.buildMutationAllowlist(cmd);
+  const mode = vocabSurgical.resolveConnectedApplyMode(allowlist, cmd);
+  ok(mode.mode === "surgical_vocab", "production fixture routes surgical_vocab (not broad)");
+
+  const extracted = vocabSurgical.extractVocabCardsForSurgicalApply(before, {
+    intended: { week: { vocabCards: intended } },
+  });
+  const applied = vocabSurgical.applySurgicalVocabToPlan(before, extracted);
+  ok(applied.ok, "production fixture surgical apply succeeds");
+  const after = applied.plan;
+  ok(after.teachingKit.vocabCards.length === 4, "four separate authoritative vocab cards");
+  ok(after.teachingKit.vocabCards.every((c) => !/,/.test(c.word)),
+    "no combined comma-list card word remains");
+  ok(["art", "create", "explore", "build"].every((w) => after.teachingKit.vocabCards.some((c) => c.word === w)),
+    "requested words present as separate cards");
+  ok(JSON.stringify(after.songs) === JSON.stringify(beforeSongs), "authoritative songs unchanged");
+  ok(JSON.stringify(after.teachingKit.printableIds) === JSON.stringify(beforePrintables),
+    "authoritative printableIds unchanged");
+  ok(after.status === "draft" && after.publishedAt == null, "publish state unchanged");
+  ok(JSON.stringify(after.enrichmentDraft.week.songs) === JSON.stringify(before.enrichmentDraft.week.songs),
+    "historical draft songs remain in draft (not cleared/promoted)");
+  ok(JSON.stringify(after.enrichmentDraft.week.books) === JSON.stringify(before.enrichmentDraft.week.books),
+    "historical draft books remain in draft");
+  ok(JSON.stringify(after.enrichmentDraft.week.printableIds)
+    === JSON.stringify(before.enrichmentDraft.week.printableIds),
+    "historical draft printableIds remain in draft");
+  const authDiff = vocabSurgical.computeAuthoritativeCurriculumDiff(before, after);
+  ok(authDiff.every((p) => /^(vocabularyWords|teachingKit\.vocabCards)/.test(p)),
+    "authoritative diff limited to vocabulary fields");
+  const verify = vocabSurgical.verifyVocabOnlyAuthoritativeDiff(before, after, allowlist);
+  ok(verify.ok, "vocab-only verifier accepts surgical result");
+  ok(!(verify.unexpected || []).length, "no UNEXPECTED_PERSISTED_MUTATION paths");
+}
+
+console.log("\nT11) resume wiring uses resolveConnectedApplyMode before broad enrichment");
+{
+  const indexSrc = fs.readFileSync(path.join(__dirname, "../server/index.js"), "utf8");
+  const start = indexSrc.indexOf("async function applyOperatorConnectedEnrichment");
+  ok(start > 0, "applyOperatorConnectedEnrichment located");
+  const slice = indexSrc.slice(start, start + 2500);
+  ok(/resolveConnectedApplyMode\s*\(/.test(slice), "connected apply resolves mode first");
+  const surgicalIdx = slice.indexOf('mode === "surgical_vocab"');
+  const failIdx = slice.indexOf('mode === "fail_closed"');
+  // Match the live call site, not the explanatory comment that also names handlePublishEnrichment.
+  const broadCallIdx = slice.search(/\bawait\s+handlePublishEnrichment\s*\(/);
+  ok(surgicalIdx > 0 && failIdx > surgicalIdx, "surgical and fail-closed gates present");
+  ok(broadCallIdx > failIdx, "surgical/fail-closed gates precede broad enrichment publish call");
+  const opSrc = fs.readFileSync(path.join(__dirname, "../server/curriculum-operator.js"), "utf8");
+  ok(/command:\s*job\.command/.test(opSrc), "tryConnectedAutoApply passes job.command into apply gate");
 }
 
 console.log(`\n${passed} assertions passed.`);

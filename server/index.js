@@ -7233,9 +7233,16 @@ async function applyOperatorConnectedEnrichment({
   operatorJobId = "",
   mutationAllowlist = null,
   lessonResult = null,
+  command = null,
 } = {}) {
   const vocabSurgical = require("../scripts/curriculum-operator-vocab-surgical-apply.js");
-  if (vocabSurgical.isVocabOnlyAllowlist(mutationAllowlist)) {
+  // Vocab-only connected auto-apply must never fall through to broad enrichment
+  // (handlePublishEnrichment / mergeDraftIntoPlan), which promotes historical
+  // enrichmentDraft songs/books/printables. buildMutationAllowlist expands
+  // vocabCards → [vocabCards, vocabularyWords]; resolveConnectedApplyMode treats
+  // that alias pair as still vocabulary-only.
+  const applyMode = vocabSurgical.resolveConnectedApplyMode(mutationAllowlist, command);
+  if (applyMode.mode === "surgical_vocab") {
     return applyOperatorSurgicalVocab({
       store,
       lessonPlanId,
@@ -7244,6 +7251,13 @@ async function applyOperatorConnectedEnrichment({
       mutationAllowlist,
       lessonResult,
     });
+  }
+  if (applyMode.mode === "fail_closed") {
+    return {
+      ok: false,
+      code: applyMode.code || "vocab_only_surgical_required",
+      error: applyMode.error || "Vocabulary-only connected auto-apply cannot use broad enrichment persistence.",
+    };
   }
   const id = normalizedShortText(lessonPlanId, 160);
   if (!id) return { ok: false, code: "LESSON_NOT_FOUND", error: "lessonPlanId required" };
