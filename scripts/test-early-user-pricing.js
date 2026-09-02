@@ -118,6 +118,20 @@ function stopServer(child) {
 }
 
 function unitTests() {
+  const offer = require("../server/early-user-offer.js");
+  record("offer expires label August 25, 2026", offer.EARLY_USER_OFFER_EXPIRES_FULL_LABEL === "August 25, 2026");
+  record("offer still active before deadline", offer.earlyUserOfferStillActive(Date.parse("2026-08-25T12:00:00.000Z")) === true);
+  record("offer still active at CDT end-of-day", offer.earlyUserOfferStillActive(offer.EARLY_USER_OFFER_EXPIRES_AT_MS) === true);
+  record("offer expired after deadline", offer.earlyUserOfferStillActive(Date.parse("2026-08-26T05:00:00.000Z")) === false);
+  const prevFlag = process.env.EARLY_USER_PRICING_ENABLED;
+  process.env.EARLY_USER_PRICING_ENABLED = "true";
+  record("public promo active with flag on before deadline", offer.earlyUserPublicPromoActive(Date.parse("2026-08-20T12:00:00.000Z")) === true);
+  record("public promo inactive after deadline even with flag on", offer.earlyUserPublicPromoActive(Date.parse("2026-08-26T05:00:00.000Z")) === false);
+  process.env.EARLY_USER_PRICING_ENABLED = "false";
+  record("public promo inactive with flag off", offer.earlyUserPublicPromoActive(Date.parse("2026-08-20T12:00:00.000Z")) === false);
+  if (prevFlag === undefined) delete process.env.EARLY_USER_PRICING_ENABLED;
+  else process.env.EARLY_USER_PRICING_ENABLED = prevFlag;
+
   const earlyUser = membershipAccess.stripeSubscriptionToMembershipUpdates({
     id: "sub_eu",
     status: "active",
@@ -280,7 +294,9 @@ async function apiTests() {
     record("flag ON: primaryPaidOffer=early_user", onFounding.primaryPaidOffer === "early_user", onFounding.primaryPaidOffer);
     record("flag ON: primaryMonthlyPrice=$13.99", onFounding.primaryMonthlyPrice === "$13.99/month", onFounding.primaryMonthlyPrice);
     record("flag ON: regularMonthlyPrice still $19.99", onFounding.regularMonthlyPrice === "$19.99/month", onFounding.regularMonthlyPrice);
-    record("flag ON: Limited-Time Early User Price copy", /Limited-Time Early User Price/i.test(String(onFounding.earlyUserAvailabilityCopy || onFounding.spotsLeftMessage || onFounding.earlyUserOfferName || "")));
+    record("flag ON: Early User Special copy", /Early User Special/i.test(String(onFounding.earlyUserAvailabilityCopy || onFounding.spotsLeftMessage || onFounding.earlyUserOfferName || "")));
+    record("flag ON: expires August 25, 2026", String(onFounding.earlyUserOfferExpiresLabel || "").includes("August 25, 2026"));
+    record("flag ON: expiresAt present", Number(onFounding.earlyUserOfferExpiresAt) > Date.now());
 
     const euCheckout = await requestJson("POST", "/api/create-checkout-session", {
       email: "early-on@test.local",
@@ -317,7 +333,8 @@ async function apiTests() {
       await page.waitForTimeout(800);
       const desktopText = await page.locator("body").innerText();
       record("UI enabled: shows $13.99", /\$13\.99/.test(desktopText));
-      record("UI enabled: shows Limited-Time Early User Price", /Limited-Time Early User Price/i.test(desktopText));
+      record("UI enabled: shows Early User Special", /Early User Special/i.test(desktopText));
+      record("UI enabled: shows through August 25", /through August 25/i.test(desktopText));
       record("UI enabled: still mentions regular $19.99", /\$19\.99/.test(desktopText));
       await page.screenshot({ path: path.join(OUT_DIR, "desktop-pricing-early-user.png"), fullPage: true });
 

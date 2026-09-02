@@ -5281,6 +5281,56 @@ function syncPublicFoundingOfferUi() {
     }
   }
 
+  const earlyAnnounce = document.querySelector("#llhFoundingAnnounceBanner[data-home-early-user-announce]");
+  if (earlyAnnounce) {
+    if (!earlyUser) {
+      earlyAnnounce.hidden = true;
+    } else {
+      earlyAnnounce.hidden = false;
+      const copy = earlyAnnounce.querySelector(".llh-announce-copy");
+      if (copy) {
+        const expiresLabel = String(foundingStatusCache?.earlyUserOfferExpiresLabel || "August 25, 2026");
+        const shortExpires = expiresLabel.replace(/,?\s*20\d{2}$/, "").trim() || "August 25";
+        copy.innerHTML = `<span class="llh-announce-promo-primary">Early User Special: ${escapeHtml(offeredProMonthlyLabel())} through ${escapeHtml(shortExpires)}</span> <span class="llh-announce-promo-secondary">— then ${escapeHtml(regularProMonthlyLabel())}</span> <a class="llh-announce-link" href="#homePricing" data-home-nav="pricing">View pricing</a>`;
+      }
+    }
+  }
+
+  const homeEarlyCard = document.querySelector("#homePricing .llh-early-user-card, #homePricing .lp-pro-card");
+  if (homeEarlyCard) {
+    const cardTitle = homeEarlyCard.querySelector(".lp-price-header h3");
+    const amountStrong = homeEarlyCard.querySelector(".lp-price-amount strong");
+    const compare = homeEarlyCard.querySelector(".lp-price-compare");
+    const promoNote = homeEarlyCard.querySelector(".lp-price-promo-note");
+    const cta = homeEarlyCard.querySelector("[data-checkout-plan]");
+    if (earlyUser) {
+      homeEarlyCard.hidden = false;
+      homeEarlyCard.classList.add("llh-early-user-card");
+      if (cardTitle) cardTitle.textContent = "Early User Special";
+      if (amountStrong) amountStrong.textContent = offeredProMonthlyAmount();
+      if (compare) compare.textContent = `Regular Pro Monthly: ${regularProMonthlyLabel()}`;
+      if (promoNote) {
+        const expiresLabel = String(foundingStatusCache?.earlyUserOfferExpiresLabel || "August 25, 2026");
+        promoNote.textContent = `Temporary promotional rate through ${expiresLabel}.`;
+      }
+      if (cta) {
+        cta.dataset.checkoutPlan = "early_user";
+        cta.textContent = "Choose Early User";
+      }
+    } else {
+      homeEarlyCard.hidden = false;
+      homeEarlyCard.classList.remove("llh-early-user-card");
+      if (cardTitle) cardTitle.textContent = "Pro Monthly";
+      if (amountStrong) amountStrong.textContent = "$19.99";
+      if (compare) compare.textContent = "";
+      if (promoNote) promoNote.textContent = "";
+      if (cta) {
+        cta.dataset.checkoutPlan = "monthly";
+        cta.textContent = "Choose Pro Monthly";
+      }
+    }
+  }
+
   const foundingCard = document.querySelector(".llh-founding-card");
   if (foundingCard) {
     const title = foundingCard.querySelector(".lp-price-header h3");
@@ -5830,12 +5880,12 @@ function accountIsEarlyUser(account = currentAccount()) {
 }
 
 function earlyUserOfferHeadline() {
-  return String(foundingStatusCache?.earlyUserOfferName || "Limited-Time Early User Price");
+  return String(foundingStatusCache?.earlyUserOfferName || "Early User Special");
 }
 
 function earlyUserLimitedTimePriceCopy() {
   return String(foundingStatusCache?.earlyUserAvailabilityCopy
-    || `Limited-Time Early User Price – ${offeredProMonthlyLabel()}`);
+    || `Early User Special: ${offeredProMonthlyLabel()} through August 25`);
 }
 
 function earlyUserLockCopy() {
@@ -5844,12 +5894,12 @@ function earlyUserLockCopy() {
 
 function earlyUserSupportingCopy() {
   return String(foundingStatusCache?.earlyUserSupportingCopy
-    || "Join Little Learner Hub early and lock in discounted access while we continue building the complete childcare provider platform.");
+    || "Temporary promotional rate through August 25, 2026, then $19.99/month.");
 }
 
 function trialAfterChargeCopy() {
   return earlyUserPricingEnabled()
-    ? `after 7 days you are charged Limited-Time Early User Price (${offeredProMonthlyLabel()}) unless you cancel first`
+    ? `after 7 days you are charged Early User Special (${offeredProMonthlyLabel()}) unless you cancel first`
     : `after 7 days you are charged Pro Monthly (${regularProMonthlyLabel()}) unless you cancel first`;
 }
 

@@ -57,7 +57,7 @@ test("Pro, free, and final CTAs exist; sticky CTA is Start Free; Early User anno
   assert.doesNotMatch(stickyHtml, /Preview Free Lesson Plans/);
   assert.match(html, /data-checkout-plan="early_user"/);
   assert.match(html, /id="llhFoundingAnnounceBanner"/);
-  assert.match(html, /Early User access is \$13\.99\/month/);
+  assert.match(html, /Early User Special: \$13\.99\/month through August 25/);
   assert.match(appJs, /FOUNDING_CLOSED_FOR_ACQUISITION\s*=\s*true/);
 });
 

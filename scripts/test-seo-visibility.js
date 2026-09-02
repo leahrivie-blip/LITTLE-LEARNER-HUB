@@ -53,6 +53,7 @@ function startServer() {
       NODE_ENV: "test",
       GOOGLE_SITE_VERIFICATION: "test-google-token",
       BING_SITE_VERIFICATION: "test-bing-token",
+      EARLY_USER_PRICING_ENABLED: "true",
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -96,7 +97,7 @@ async function main() {
   assert(!indexHtml.includes("Little Learner Hub Founding Membership"), "homepage must not advertise Founding Membership Product schema");
   assert(!indexHtml.includes("#founding-membership"), "homepage must not include founding-membership schema id");
   assert(!/Founding Member/i.test(indexHtml), "homepage HTML must not mention Founding Member");
-  assert(indexHtml.includes("All-in-One Childcare Platform") || indexHtml.includes(seo.SEO_TITLE), "homepage title should use platform SEO title");
+  assert(indexHtml.includes(seo.SEO_TITLE), "homepage title should use platform SEO title");
   assert(indexHtml.includes("featureList") || indexHtml.includes('"featureList"'), "homepage WebApplication should include featureList");
   assert(indexHtml.includes('"@type": "Organization"'), "homepage missing Organization schema");
   assert(indexHtml.includes('"@type": "WebApplication"'), "homepage missing WebApplication schema");
@@ -186,6 +187,17 @@ async function main() {
     assert(pricing.body.includes("$199/year"), "pricing page missing Pro Annual price");
     assert(!/Founding Member/i.test(pricing.body), "pricing page must not mention Founding Member");
     assert(pricing.body.includes("$19.99/month"), "pricing page missing Pro Monthly after founding removal");
+    const earlyUserOffer = require("../server/early-user-offer.js");
+    // Server boots with EARLY_USER_PRICING_ENABLED=true; date gate is the automatic expiration.
+    if (earlyUserOffer.earlyUserOfferStillActive()) {
+      assert(pricing.body.includes("Early User Special"), "active Early User promo missing on pricing page");
+      assert(pricing.body.includes("$13.99/month"), "active Early User price missing on pricing page");
+      assert(pricing.body.includes("August 25, 2026"), "pricing page missing verified Early User expiration");
+      assert(pricing.body.includes("Regular Pro Monthly"), "pricing page should distinguish regular Pro while promo is active");
+    } else {
+      assert(!pricing.body.includes("$13.99"), "expired Early User promo must not appear on pricing page");
+      assert(!pricing.body.includes("Early User Special"), "expired Early User heading must not appear on pricing page");
+    }
 
     const contact = await request("GET", "/contact");
     assert(contact.body.includes(seo.supportEmailAddress()), "contact page missing support email");
