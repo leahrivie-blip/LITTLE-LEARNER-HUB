@@ -248,16 +248,65 @@ function isCombinedVocabularyList(value) {
   return false;
 }
 
+function isUsableVocabularyTerm(value) {
+  const term = text(value, 200).trim();
+  if (!term) return false;
+  if (isCombinedVocabularyList(term)) return false;
+  // Require at least one letter so punctuation-only dumps like ", ," never become a card.
+  return /[A-Za-z]/.test(term);
+}
+
+/**
+ * Expand raw vocab entries into individually structured cards.
+ * Combined comma/semicolon/newline dumps become separate { word } cards.
+ * Never returns a card whose word field still contains a combined list.
+ */
+function expandVocabularyCardEntries(rawCards = []) {
+  const expanded = [];
+  asArray(rawCards).forEach((card) => {
+    if (card == null) return;
+    if (typeof card === "string" || typeof card === "number") {
+      const word = text(card, 200).trim();
+      if (!word) return;
+      if (isCombinedVocabularyList(word)) {
+        word.split(/[,;\n]+/).map((part) => part.trim()).filter(Boolean).forEach((part) => {
+          const term = text(part, 120).trim();
+          if (isUsableVocabularyTerm(term)) expanded.push({ word: term });
+        });
+      } else if (isUsableVocabularyTerm(word)) {
+        expanded.push({ word: text(word, 120) });
+      }
+      return;
+    }
+    if (typeof card !== "object" || Array.isArray(card)) return;
+    const word = text(card.word || card.title || card.term || card.label, 200).trim();
+    if (!word) return;
+    if (isCombinedVocabularyList(word)) {
+      word.split(/[,;\n]+/).map((part) => part.trim()).filter(Boolean).forEach((part) => {
+        const term = text(part, 120).trim();
+        if (isUsableVocabularyTerm(term)) expanded.push({ word: term });
+      });
+      return;
+    }
+    if (!isUsableVocabularyTerm(word)) return;
+    const normalized = { word: text(word, 120) };
+    const definition = text(card.definition || card.description || card.meaning, 400);
+    const example = text(card.example || card.sentence, 400);
+    if (definition) normalized.definition = definition;
+    if (example) normalized.example = example;
+    expanded.push(normalized);
+  });
+  return dedupeValidVocabularyCards(expanded);
+}
+
 function isValidVocabularyCard(card) {
   if (card == null) return false;
   if (typeof card === "string") {
-    const term = text(card, 200).trim();
-    return Boolean(term) && !isCombinedVocabularyList(term);
+    return isUsableVocabularyTerm(card);
   }
   if (typeof card !== "object" || Array.isArray(card)) return false;
   const term = vocabCardTerm(card);
-  if (!term || isCombinedVocabularyList(term)) return false;
-  return true;
+  return isUsableVocabularyTerm(term);
 }
 
 function dedupeValidVocabularyCards(cards = []) {
@@ -566,6 +615,8 @@ module.exports = {
   vocabCardLabel,
   normalizeVocabTermKey,
   isCombinedVocabularyList,
+  isUsableVocabularyTerm,
+  expandVocabularyCardEntries,
   isValidVocabularyCard,
   dedupeValidVocabularyCards,
   getValidVocabularyCards,
