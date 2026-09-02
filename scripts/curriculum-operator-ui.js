@@ -1005,10 +1005,8 @@
         state.message = error.message || "Could not list jobs.";
       }
     }
-    if (doRender && !state.runInFlight && !state.interpretInFlight) {
-      state.busy = false;
-      render();
-    }
+    if (!state.interpretInFlight) state.busy = false;
+    if (doRender && !state.runInFlight) render();
   }
 
   async function mount() {

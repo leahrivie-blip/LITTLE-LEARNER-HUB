@@ -140,8 +140,8 @@ function isDraftOnlyCommand(rawCommand) {
 function wantsExplicitImageGeneration(rawCommand) {
   const raw = text(rawCommand);
   return (
-    /\b(?:generate|regenerate|create|make|replace|finish)\b.{0,40}\b(?:images?|pictures?|photos?)\b/i.test(raw)
-    || /\b(?:images?|pictures?)\b.{0,40}\b(?:generate|regenerate|create|replace|finish)\b/i.test(raw)
+    /\b(?:generate|regenerate|create|make|replace|finish|fix)\b.{0,40}\b(?:images?|pictures?|photos?)\b/i.test(raw)
+    || /\b(?:images?|pictures?)\b.{0,40}\b(?:generate|regenerate|create|replace|finish|fix)\b/i.test(raw)
   );
 }
 

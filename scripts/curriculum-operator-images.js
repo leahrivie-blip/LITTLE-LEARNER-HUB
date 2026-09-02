@@ -251,6 +251,8 @@ function parseProtectedActivityIds(command = {}) {
   }
   if (/giant floor drawing/i.test(raw)) ids.add("cur-act-0a02697c73ccac85");
   if (/sponge squish painting/i.test(raw)) ids.add("cur-act-c36723f91d3a9637");
+  ids.add("cur-act-0a02697c73ccac85");
+  ids.add("cur-act-c36723f91d3a9637");
   return ids;
 }
 

@@ -61,7 +61,12 @@ function extractSuppliedTitles(rawCommand) {
   const labeledMatch = raw.match(/\blesson\s*title\s*:\s*([^\n\r]{2,120})/i);
   if (labeledMatch) labeled.push(labeledMatch[1].split(/\n|\.(?:\s|$)/)[0].trim());
   return [...new Set([...structured, ...quoted, ...labeled].map((t) => text(t, 180)).filter(Boolean))]
-    .filter((title) => !commandSafety.isGarbageTitleCandidate(title));
+    .filter((title) => {
+      if (commandSafety.isGarbageTitleCandidate(title)) return false;
+      if (/cur-lp-[a-f0-9]{16}/i.test(title)) return false;
+      if (/^lesson\s+id\b/i.test(title)) return false;
+      return true;
+    });
 }
 
 function catalogRow(plan) {
@@ -305,7 +310,23 @@ function resolveTargets(options = {}) {
     mismatches.push(`You requested ${requestedLessonCount} lesson${requestedLessonCount === 1 ? "" : "s"}, but ${resolvedLessonCount} lessons matched.`);
   }
 
-  const protectedHits = resolved.filter(isProtectedLesson);
+  const protectedHits = [];
+  const seenProtected = new Set();
+  const pushProtected = (row) => {
+    if (!row?.id || seenProtected.has(row.id) || !isProtectedLesson(row)) return;
+    seenProtected.add(row.id);
+    protectedHits.push(row);
+  };
+  resolved.forEach(pushProtected);
+  const rawKey = normalizeTitleKey(raw);
+  plans.forEach((plan) => {
+    const row = catalogRow(plan);
+    if (!isProtectedLesson(row)) return;
+    const titleKey = normalizeTitleKey(row.title);
+    if ((titleKey && rawKey.includes(titleKey)) || (row.id && raw.includes(row.id))) {
+      pushProtected(row);
+    }
+  });
   const lessonIds = resolved.map((row) => row.id);
 
   return {
