@@ -380,4 +380,41 @@ console.log("\n8. Catalog-less printable compatibility");
   ok(negated.command.actions.generatePrintables !== true, "negated printable command keeps generatePrintables locked");
 }
 
+console.log("\n9. Residual printable phrases stay fail-closed without a verified target");
+{
+  const case1 = "Create Little Makers Workshop printable";
+  const noCatalog = commandApi.parseOperatorCommand(case1, { phase: 7 });
+  const noCatalogSelect = selectApi.selectLessons({ lessonPlans: [], activities: [], resources: [] }, noCatalog.command);
+  ok(noCatalog.command.actions.createLesson !== true, "Create <lesson> printable is not create-lesson");
+  ok(noCatalogSelect.blocked === true || noCatalogSelect.selected.length === 0, "catalog-less Create LMW printable selects no lesson");
+  ok(
+    noCatalogSelect.blocked === true || noCatalogSelect.selected.length === 0,
+    "server gate (ambiguous or empty selection) would refuse a job",
+  );
+  ok((noCatalog.targetResolution.resolvedLessonIds || []).length === 0, "catalog-less Create LMW printable has no verified lesson id");
+
+  const withCatalog = parse(case1);
+  const withCatalogSelect = selectApi.selectLessons(curriculum, withCatalog.command);
+  if (withCatalogSelect.selected.length) {
+    ok(withCatalogSelect.selected.length === 1 && withCatalogSelect.selected[0].id === LMW_ID, "catalog-backed Create LMW printable resolves only LMW when a job is allowed");
+    ok(withCatalogSelect.blocked !== true, "verified unique LMW target is not blocked");
+  } else {
+    ok(withCatalog.preflight.createJob === false || withCatalogSelect.blocked === true, "catalog-backed Create LMW printable creates no job without a verified target");
+  }
+
+  const mixed = parse(`Audit lesson IDs ${LMW_ID} and ${INVALID_ID}. Do not touch drafts.`);
+  ok(mixed.preflight.valid === false && mixed.preflight.createJob === false, "mixed valid+invalid IDs create no job");
+  ok(!(mixed.command.scope.lessonIds || []).includes(LMW_ID) || mixed.preflight.selectionMethod === "unresolved", "mixed IDs do not silently execute the valid target");
+
+  const case2 = "Generate Fall Leaf Cards printable for Little Makers Workshop";
+  const fall = parse(case2);
+  ok(fall.preflight.createJob === false, "Fall Leaf Cards + LMW stays fail-closed (no job)");
+  ok(fall.preflight.valid === false, "Fall Leaf Cards + LMW does not authorize execution");
+  ok(
+    !targetResolver.extractSuppliedTitles(case2, fall.command.scope.titles || [])
+      .some((title) => /fall leaf cards/i.test(title)),
+    "Fall Leaf Cards is not treated as a lesson title",
+  );
+}
+
 console.log(`\nOK curriculum-operator-interpretation-gate (${passed} assertions)`);

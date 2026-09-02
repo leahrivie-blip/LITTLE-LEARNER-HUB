@@ -29,6 +29,7 @@ function mockCallAi(_system, user) {
 const ROOT = path.join(__dirname, "..");
 const PORT = 20650 + Math.floor(Math.random() * 80);
 const STORE_PATH = path.join(os.tmpdir(), `llh-curriculum-operator-p2-${crypto.randomBytes(4).toString("hex")}.json`);
+const JOB_STORE_PATH = path.join(os.tmpdir(), `llh-curriculum-operator-p2-jobs-${crypto.randomBytes(4).toString("hex")}.json`);
 const OWNER = {
   email: "leahivie@icloud.com",
   password: "operator-pass",
@@ -640,6 +641,7 @@ async function assertHttpContracts() {
       HOST: "127.0.0.1",
       DATABASE_PROVIDER: "local-json",
       LLH_STORE_PATH: STORE_PATH,
+      CURRICULUM_OPERATOR_JOB_STORE_PATH: JOB_STORE_PATH,
       NODE_ENV: "test",
       LLH_SKIP_STARTUP_CURRICULUM_SEED: "1",
       LLH_ENFORCE_TK_OWNER_ADMIN: "1",
@@ -767,6 +769,7 @@ async function assertHttpContracts() {
   } finally {
     child.kill("SIGTERM");
     try { fs.unlinkSync(STORE_PATH); } catch { /* ignore */ }
+    try { fs.unlinkSync(JOB_STORE_PATH); } catch { /* ignore */ }
     if (stderr.includes("Error:") && !stderr.includes("DeprecationWarning")) {
       console.error(stderr.slice(-2000));
     }
