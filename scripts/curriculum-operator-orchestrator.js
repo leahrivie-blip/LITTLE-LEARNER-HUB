@@ -470,6 +470,35 @@ function parseExclusionHints(rawCommand) {
     notes.push("Cover locked by exclusion.");
   }
 
+  const lockList = raw.match(/\b(?:do\s+not|don['’]?t)\s+touch\s+([^.;\n]+)/i);
+  if (lockList) {
+    const blob = lockList[1].toLowerCase();
+    if (/\bsongs?\b/.test(blob)) {
+      flags.touchSongs = false;
+      notes.push("Songs locked by exclusion.");
+    }
+    if (/\bbooks?\b/.test(blob)) {
+      flags.touchBooks = false;
+      notes.push("Books locked by exclusion.");
+    }
+    if (/\bprintables?\b/.test(blob)) {
+      flags.touchPrintables = false;
+      notes.push("Printables locked by exclusion.");
+    }
+    if (/\b(?:images?|pictures?|photos?|visuals?)\b/.test(blob)) {
+      flags.touchImages = false;
+      notes.push("Images locked by exclusion.");
+    }
+    if (/\bcover\b/.test(blob)) {
+      flags.touchCover = false;
+      notes.push("Cover locked by exclusion.");
+    }
+    if (/\bdrafts?\b/.test(blob)) {
+      flags.touchDraft = false;
+      notes.push("Drafts locked by exclusion.");
+    }
+  }
+
   if (/\b(?:update|change|replace|create|generate|make|new)\s+(?:the\s+)?(?:a\s+)?(?:realistic\s+)?(?:lesson\s+)?cover\b/i.test(raw)
     || /\bREALISTIC_LESSON_COVER\b/i.test(raw)
     || /\brealistic\s+lesson\s+cover\b/i.test(raw)

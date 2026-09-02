@@ -9,6 +9,9 @@ const orchestrator = require("./curriculum-operator-orchestrator.js");
 const createApi = require("./curriculum-operator-create.js");
 const intentRouter = require("./curriculum-operator-intent-router.js");
 const commandSafety = require("./curriculum-operator-command-safety.js");
+const targetResolver = require("./curriculum-operator-target-resolver.js");
+const actionScopeApi = require("./curriculum-operator-action-scope.js");
+const preflightApi = require("./curriculum-operator-preflight.js");
 
 function parseCount(command) {
   const m = String(command || "").match(/\b(?:top|next|first|the)?\s*(\d{1,2})\b/i)
@@ -534,6 +537,102 @@ function parseOperatorCommand(rawCommand, options = {}) {
     command.confirmations.reasons = [...new Set([...(command.confirmations.reasons || []), ...safety.reasons])];
   }
 
+  const resolution = targetResolver.resolveTargets({
+    rawCommand: raw,
+    lessonPlans: options.lessonPlans || [],
+    currentlySelectedLessonId: options.currentlySelectedLessonId,
+  });
+  const scoped = actionScopeApi.applyActionScope(raw, command.actions, { resolution, command });
+  Object.assign(command.actions, scoped.actions);
+  command.scope.suppliedLessonIds = resolution.suppliedLessonIds;
+  command.scope.selectionMethod = resolution.selectionMethod;
+  command.scope.requestedLessonCount = resolution.requestedLessonCount;
+  command.scope.requestedItemCount = resolution.requestedItemCount;
+  command.scope.itemCountKind = resolution.itemCountKind;
+  command.scope.hardCap = resolution.hardCap;
+  command.scope.titleMismatches = resolution.titleMismatches;
+  if (resolution.suppliedLessonIds.length) {
+    command.scope.lessonIds = resolution.resolvedLessonIds.slice();
+    command.scope.selection = resolution.selectionMethod === "explicit_ids"
+      ? "explicit_ids"
+      : (resolution.selectionMethod === "unresolved" ? "unresolved" : command.scope.selection);
+    if (resolution.selectionMethod === "explicit_ids" && resolution.resolvedLessonIds.length) {
+      command.scope.count = resolution.resolvedLessonIds.length;
+      command.limits.maxLessons = resolution.resolvedLessonIds.length;
+    }
+  } else if (resolution.selectionMethod === "title_match" || resolution.selectionMethod === "ambiguous") {
+    command.scope.lessonIds = resolution.resolvedLessonIds.slice();
+    command.scope.selection = resolution.selectionMethod === "ambiguous" ? "ambiguous" : "named_titles";
+    if (resolution.selectionMethod === "title_match") command.scope.count = 1;
+  }
+  if (resolution.requestedLessonCount != null && !resolution.suppliedLessonIds.length) {
+    command.scope.count = resolution.requestedLessonCount;
+    command.limits.maxLessons = resolution.requestedLessonCount;
+  }
+  if (resolution.requestedItemCount != null && resolution.resolvedLessonIds.length === 1) {
+    command.scope.count = 1;
+    command.limits.maxLessons = 1;
+  }
+  if (scoped.auditOnly) {
+    command.intent = "audit";
+    command.completion.mutationsEnabled = false;
+    command.completion.saveAsDraft = false;
+    command.completion.readyForOwnerReview = false;
+    command.actions.touchDraft = false;
+    command.actions.saveDraft = false;
+    command.actions.publish = false;
+    notes.push("Audit-only mode: no draft or curriculum mutations are allowed.");
+  } else if (scoped.imageOnly) {
+    command.intent = scoped.generateImages ? "finish_images" : "audit";
+    command.completion.mutationsEnabled = scoped.mutationsEnabled;
+    command.completion.saveAsDraft = scoped.actions.saveDraft === true;
+    command.completion.readyForOwnerReview = scoped.actions.saveDraft === true;
+  } else if (scoped.narrow) {
+    command.completion.mutationsEnabled = scoped.mutationsEnabled;
+  }
+  if (scoped.imageOnly) {
+    notes.push("This request is image-only; songs, books, printables, lesson text, and cover are locked.");
+  }
+  resolution.mismatches.forEach((msg) => {
+    if (!notes.includes(msg)) notes.push(msg);
+  });
+  command.parsedNotes = [...new Set([...(command.parsedNotes || []), ...notes])].slice(0, 24);
+
+  if (resolution.blockReasons.length) {
+    confirmReasons.push(...resolution.blockReasons);
+    ambiguous = true;
+  }
+  if (resolution.selectionMethod === "unresolved" || resolution.selectionMethod === "ambiguous") {
+    command.completion.mutationsEnabled = false;
+    command.actions.saveDraft = false;
+    command.actions.touchDraft = false;
+    command.actions.upgradeLesson = false;
+    command.actions.upgradeActivities = false;
+    command.actions.generateImages = false;
+    command.actions.generatePrintables = false;
+    command.actions.generateSongsBooks = false;
+    ambiguous = true;
+  }
+
+  const preflight = preflightApi.buildPreflight({
+    rawCommand: raw,
+    command,
+    resolution,
+    actionScope: scoped,
+    limits: command.limits,
+  });
+  command.scope.requestHash = preflight.requestHash;
+  command.scope.requestId = preflight.requestId;
+  if (!preflight.valid) {
+    command.completion.mutationsEnabled = false;
+    command.actions.saveDraft = false;
+    command.actions.publish = false;
+    confirmReasons.push(...preflight.blockReasons);
+    ambiguous = true;
+    if (preflight.blockMessage) notes.push(preflight.blockMessage);
+    command.parsedNotes = [...new Set([...(command.parsedNotes || []), ...notes])].slice(0, 24);
+  }
+
   return {
     command,
     ownerIntent: {
@@ -551,9 +650,16 @@ function parseOperatorCommand(rawCommand, options = {}) {
       || confirmReasons.includes("scope_review_required")
       || confirmReasons.includes("possible_duplicate")
       || confirmReasons.includes("unexpected_scope_expansion")
-      || confirmReasons.includes("parsed_intent_contradiction"),
+      || confirmReasons.includes("parsed_intent_contradiction")
+      || confirmReasons.includes("unresolved_lesson_id")
+      || confirmReasons.includes("ambiguous_title")
+      || confirmReasons.includes("title_mismatch")
+      || confirmReasons.includes("count_mismatch"),
     confirmReasons: [...new Set(confirmReasons)],
     parseSafety: safety,
+    targetResolution: resolution,
+    actionScope: scoped,
+    preflight,
     phase1Executable: true,
     phase2Executable: phase >= 2,
     mutationsStripped: !command.completion.mutationsEnabled,
