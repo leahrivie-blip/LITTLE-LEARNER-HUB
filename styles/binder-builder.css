@@ -352,7 +352,7 @@
   break-inside: avoid;
 }
 
-/* Subtle pink/lavender gingham margin strip + thin wavy inner frame */
+/* Subtle pink/lavender gingham margin strip */
 .bb-page::before {
   content: "";
   position: absolute;
@@ -376,16 +376,6 @@
   background-origin: border-box;
   background-clip: padding-box, border-box, border-box;
   opacity: 0.95;
-}
-.bb-page::after {
-  content: "";
-  position: absolute;
-  inset: 0.36in;
-  pointer-events: none;
-  z-index: 0;
-  border: 1.25px solid rgba(183, 164, 212, 0.55);
-  border-radius: 42% 58% 47% 53% / 48% 44% 56% 52%;
-  opacity: 0.7;
 }
 .bb-page > *:not(.bb-page-footer):not(.bb-divider-accent) {
   position: relative;
@@ -1488,7 +1478,6 @@
   .bb-day-thursday,
   .bb-day-friday,
   .bb-page::before,
-  .bb-page::after,
   .bb-washi,
   .bb-divider-ornament,
   .bb-divider-accent {

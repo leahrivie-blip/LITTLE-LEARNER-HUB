@@ -670,7 +670,7 @@ function unitTests() {
   ok(/bb-footer-brand[\s\S]{0,220}color:\s*#000000/.test(printCss.replace(/\s+/g, " ")), "footer brand prints in black");
   ok(/object-fit:\s*contain/.test(printCss), "photos preserve aspect ratio without stretch-crop cover");
   ok(/bb-media-stack/.test(printCss) && /\.bb-washi/.test(printCss), "photo frames include sparse washi-tape accents");
-  ok(/border-radius:\s*42%\s*58%/.test(printCss) || /\.bb-page::after/.test(printCss), "pages use a thin wavy scrapbook frame");
+  ok(!/\.bb-page::after/.test(printCss), "interior pages omit the large oval scrapbook frame");
   ok(/--bb-gingham-a/.test(printCss) && /--bb-gingham-b/.test(printCss), "subtle pink/lavender gingham tokens exist");
   ok(!/bb-divider-ornament[\s\S]{0,180}border-radius:\s*50%/.test(printCss), "divider ornament is not a glossy sphere");
   ok(/font-size:\s*11pt/.test(printCss), "body copy targets printer-friendly 11pt");
