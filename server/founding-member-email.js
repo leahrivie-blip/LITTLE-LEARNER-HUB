@@ -24,7 +24,7 @@ const EMAIL_TEXT = [
   "",
   "I wanted to personally reach out and say thank you for being one of the first people to support Little Learner Hub.",
   "",
-  "When I started building this platform, I had one goal: to create an affordable, all-in-one resource built by a childcare provider, for childcare providers. Your early support has helped make that possible.",
+  "When I started building this platform, I had one goal: to create affordable childcare curriculum and ready-to-use lesson planning built by a childcare provider, for childcare providers. Your early support has helped make that possible.",
   "",
   "As a reminder, your Founding Member pricing is $9.99/month locked while your membership remains continuously active. No matter how many new features, lesson plans, activities, printables, tools, or updates are added in the future, you will continue to keep your special Founding Member rate as long as your membership remains active and in good standing.",
   "",

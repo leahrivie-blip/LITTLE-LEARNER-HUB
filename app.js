@@ -3961,7 +3961,7 @@ const DEFAULT_SIGNUP_PLAN_COPY = Object.freeze({
   freeConfirmContinue: "Continue with Free",
   freeConfirmUpgrade: "Upgrade Instead",
   preferredFoundingNote: "You’re upgrading to Pro — here’s everything included:",
-  foundingUrgency: "Pro unlocks the full all-in-one childcare platform",
+  foundingUrgency: "Pro unlocks the full curriculum library and teacher tools",
   soldOutNote: "Pro is available at $19.99/month.",
 });
 
@@ -5212,7 +5212,7 @@ function foundingSpotsLeftMessage(remaining = foundingSpotsRemaining()) {
 }
 
 function foundingUrgencyText() {
-  return "Pro is $19.99/month for the full all-in-one childcare platform.";
+  return "Pro is $19.99/month for the full curriculum library and teacher tools.";
 }
 
 function foundingMeterHtml() {
@@ -5234,7 +5234,7 @@ function syncPublicFoundingOfferUi() {
   const spotsWithRegular = earlyUser
     ? `${earlyUserLimitedTimePriceCopy()}. Regular Pro is ${regularProMonthlyLabel()} or $199/year.`
     : (soldOut
-      ? `Pro is ${regularProMonthlyLabel()} (or $199/year) for the full all-in-one childcare provider platform.`
+      ? `Pro is ${regularProMonthlyLabel()} (or $199/year) for the full curriculum library and teacher tools.`
       : `${spotsMsg} Regular price will be ${regularProMonthlyLabel()}.`);
 
   // Keep every Founding count surface on the same server-provided message.
@@ -5844,7 +5844,7 @@ function earlyUserLockCopy() {
 
 function earlyUserSupportingCopy() {
   return String(foundingStatusCache?.earlyUserSupportingCopy
-    || "Join Little Learner Hub early and lock in discounted access while we continue building the complete childcare provider platform.");
+    || "Join Little Learner Hub early and lock in discounted access while we continue building affordable childcare curriculum and teacher tools.");
 }
 
 function trialAfterChargeCopy() {
@@ -32876,7 +32876,7 @@ function libraryCompactUpgradeStripHtml() {
   if (!isLoggedIn() && !hasAdminFullAccess()) {
     return `
       <section class="library-upgrade-strip library-upgrade-strip--guest" role="region" aria-label="Create your free account">
-        <p>Create a free account to save Free lesson plans and explore the all-in-one childcare platform.</p>
+        <p>Create a free account to save Free lesson plans and explore affordable childcare curriculum for busy teachers.</p>
         <div class="library-upgrade-strip-actions">
           <button class="primary-button" type="button" data-action="start-free">Get Started</button>
           <button class="ghost-button" type="button" data-action="open-login">Log In</button>

@@ -6674,7 +6674,7 @@ function foundingStatusPayload(store = readStore()) {
     earlyUserPriceAmount: "13.99",
     earlyUserOfferName: "Limited-Time Early User Price",
     earlyUserLockCopy: "Lock in $13.99/month while your subscription remains active.",
-    earlyUserSupportingCopy: "Join Little Learner Hub early and lock in discounted access while we continue building the complete childcare provider platform.",
+    earlyUserSupportingCopy: "Join Little Learner Hub early and lock in discounted access while we continue building affordable childcare curriculum and teacher tools.",
     earlyUserAvailabilityCopy: "Limited-Time Early User Price – $13.99/month",
     primaryPaidOffer: earlyUserEnabled ? "early_user" : "monthly",
     primaryMonthlyPrice: earlyUserEnabled ? "$13.99/month" : "$19.99/month",

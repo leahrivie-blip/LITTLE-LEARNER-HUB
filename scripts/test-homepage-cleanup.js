@@ -183,7 +183,7 @@ async function main() {
   assert.match(indexHtml, /See what we&rsquo;re building|See what we’re building/);
   assert.match(indexHtml, /llh-founder-brand-fallback/);
   assert.match(indexHtml, /Create your account to continue with Pro membership/);
-  assert.match(indexHtml, /All-in-One Childcare Platform/);
+  assert.match(indexHtml, /Affordable Childcare Curriculum & Lesson Plans for Busy Teachers \| Little Learner Hub/);
   assert.doesNotMatch(indexHtml, /Founding Member/);
   assert.match(appJs, /function foundingSpotsLeftMessageFromCount/);
   assert.match(appJs, /FOUNDING_CLOSED_FOR_ACQUISITION\s*=\s*true/);
