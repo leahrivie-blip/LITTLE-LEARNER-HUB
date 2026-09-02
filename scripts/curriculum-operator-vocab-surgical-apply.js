@@ -59,33 +59,10 @@ function isVocabOnlyCommand(command = {}) {
 
 /**
  * Preserve structured { word, definition } cards. Coerce plain strings.
- * Reject combined-list dumps and empty terms.
+ * Combined-list dumps are expanded into separate single-word cards (never kept as one card).
  */
 function normalizeStructuredVocabCards(rawCards = []) {
-  const out = [];
-  const seen = new Set();
-  schema.asArray(rawCards).forEach((card) => {
-    let normalized = null;
-    if (typeof card === "string") {
-      const word = text(card, 120);
-      if (!word || lessonRead.isCombinedVocabularyList(word)) return;
-      normalized = { word };
-    } else if (card && typeof card === "object" && !Array.isArray(card)) {
-      const word = text(card.word || card.title || card.term || card.label, 120);
-      if (!word || lessonRead.isCombinedVocabularyList(word)) return;
-      normalized = { word };
-      const definition = text(card.definition || card.description || card.meaning, 400);
-      const example = text(card.example || card.sentence, 400);
-      if (definition) normalized.definition = definition;
-      if (example) normalized.example = example;
-    }
-    if (!normalized || !lessonRead.isValidVocabularyCard(normalized)) return;
-    const key = lessonRead.normalizeVocabTermKey(normalized.word);
-    if (!key || seen.has(key)) return;
-    seen.add(key);
-    out.push(normalized);
-  });
-  return out.slice(0, 40);
+  return lessonRead.expandVocabularyCardEntries(rawCards).slice(0, 40);
 }
 
 function vocabularyWordsFromCards(cards = []) {
@@ -287,17 +264,36 @@ function applySurgicalVocabToPlan(existingPlan = {}, rawCards = []) {
 
 /**
  * Extract vocab cards for surgical apply from composer diagnostics / enrichment draft.
- * Prefer draft.week.vocabCards written by this job; never invent from historical songs/books.
+ * Prefer this job's intended/composer output over historical draft cards so a prior
+ * malformed enrichmentDraft.week.vocabCards dump cannot poison surgical apply.
  */
 function extractVocabCardsForSurgicalApply(plan = {}, lessonResult = {}) {
+  const intendedCards = schema.asArray(
+    lessonResult?.intended?.week?.vocabCards
+    || lessonResult?.draftWeek?.vocabCards,
+  );
+  const intendedNormalized = normalizeStructuredVocabCards(intendedCards);
+  if (intendedNormalized.length) return intendedNormalized;
+
   const draftCards = schema.asArray(plan?.enrichmentDraft?.week?.vocabCards);
-  if (draftCards.length) return draftCards;
-  const accepted = schema.asArray(lessonResult?.composerDiagnostics?.accepted)
-    .some((row) => row.scope === "week" && row.field === "vocabCards");
-  if (!accepted) return [];
-  return schema.asArray(lessonResult?.intended?.week?.vocabCards
-    || lessonResult?.draftWeek?.vocabCards
-    || plan?.teachingKit?.vocabCards);
+  const draftNormalized = normalizeStructuredVocabCards(draftCards);
+  if (draftNormalized.length) return draftNormalized;
+
+  return normalizeStructuredVocabCards(plan?.teachingKit?.vocabCards);
+}
+
+/**
+ * Vocab-only connected auto-apply should not persist a broad enrichment draft first.
+ * Stage intended cards in memory and let surgical apply write authoritative fields.
+ */
+function shouldDeferVocabDraftPersist(command = {}, allowlist = null) {
+  const actions = command?.actions || {};
+  if (actions.planOnly === true) return false;
+  if (actions.connectedAutoApply === false) return false;
+  const autoApply = actions.connectedAutoApply === true || actions.connectedUpgrade === true;
+  if (!autoApply) return false;
+  if (allowlist && isVocabOnlyAllowlist(allowlist)) return true;
+  return isVocabOnlyCommand(command);
 }
 
 module.exports = {
@@ -319,4 +315,5 @@ module.exports = {
   verifyVocabOnlyAuthoritativeDiff,
   applySurgicalVocabToPlan,
   extractVocabCardsForSurgicalApply,
+  shouldDeferVocabDraftPersist,
 };

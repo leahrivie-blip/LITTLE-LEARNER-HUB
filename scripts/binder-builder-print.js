@@ -41,6 +41,10 @@
     friday: "bb-day-friday",
   };
 
+  /** Set for the duration of buildBinderPrintHtml so image URLs can be absolutized. */
+  let currentAssetOrigin = "";
+
+
   function esc(value) {
     return String(value ?? "")
       .replace(/&/g, "&amp;")
@@ -131,11 +135,29 @@
   }
 
   /**
+   * Resolve binder media URLs for print. Relative /api/... paths need an absolute origin
+   * or Chromium print/PDF can leave empty frames.
+   * @param {string} url
+   * @param {string} [assetOrigin]
+   */
+  function resolvePrintAssetUrl(url, assetOrigin) {
+    const raw = asText(url);
+    if (!raw) return "";
+    if (/^https?:\/\//i.test(raw)) return raw;
+    if (raw.startsWith("/") && asText(assetOrigin)) {
+      return `${String(assetOrigin).replace(/\/$/, "")}${raw}`;
+    }
+    if (raw.startsWith("/")) return raw;
+    return "";
+  }
+
+  /**
    * Print image helper. By default omits markup when there is no URL (no empty placeholder).
    * Cover may pass { allowFallback: true } for an intentional decorative fallback.
+   * Print uses eager loading so browser PDF does not leave reserved empty frames.
    */
   function imageHtml(image, className, options = {}) {
-    let url = asText(image?.url);
+    let url = resolvePrintAssetUrl(image?.url, options.assetOrigin || currentAssetOrigin);
     if (url && !(url.startsWith("/") || /^https?:\/\//i.test(url))) {
       url = "";
     }
@@ -146,7 +168,22 @@
       return "";
     }
     const alt = esc(image?.alt || "Lesson image");
-    return `<div class="${esc(className)}"><img src="${esc(url)}" alt="${alt}" loading="lazy" decoding="async" onerror="this.parentElement.remove();"></div>`;
+    // Eager + sync decode: lazy images frequently fail to paint in window.print()/PDF.
+    // onerror collapses the frame and marks broken for readiness/owner review.
+    // Washi accents live on .bb-media-stack so the photo frame can keep overflow:hidden
+    // (prevents object-fit images from painting over instructions below).
+    return [
+      `<div class="bb-media-stack">`,
+      `<span class="bb-washi bb-washi-a" aria-hidden="true"></span>`,
+      `<span class="bb-washi bb-washi-b" aria-hidden="true"></span>`,
+      `<div class="${esc(className)}" data-bb-image-frame="1" data-bb-image-url="${esc(url)}">`,
+      `<img src="${esc(url)}" alt="${alt}" loading="eager" decoding="sync" data-bb-print-image="1" `,
+      `onload="this.setAttribute('data-bb-image-state','loaded');" `,
+      `onerror="this.setAttribute('data-bb-image-state','failed');var f=this.parentElement;if(f){f.classList.add('is-broken');f.setAttribute('data-bb-image-state','failed');var s=f.parentElement;if(s&&s.classList.contains('bb-media-stack')){s.classList.add('is-broken');}this.remove();}"`,
+      `>`,
+      `</div>`,
+      `</div>`,
+    ].join("");
   }
 
   /**
@@ -237,12 +274,30 @@
     ].join("");
   }
 
+  function normalizeWeekdayKey(value) {
+    const raw = asText(value).toLowerCase();
+    if (WEEKDAYS.includes(raw)) return raw;
+    const map = {
+      mon: "monday", tue: "tuesday", wed: "wednesday", thu: "thursday", fri: "friday",
+      monday: "monday", tuesday: "tuesday", wednesday: "wednesday", thursday: "thursday", friday: "friday",
+    };
+    return map[raw] || "";
+  }
+
+  /** Explicit day→title only. Never fall back to books[0]/songs[0]. */
+  function resourceTitleForDay(entries, dayKey) {
+    const key = normalizeWeekdayKey(dayKey);
+    if (!key) return "";
+    const hit = (entries || []).find((item) => normalizeWeekdayKey(item?.weekday || item?.suggestedWeekday || item?.linkedWeekday) === key);
+    return asText(hit?.title);
+  }
+
   function renderWeekAtAGlance(doc, page) {
     const days = Array.isArray(doc.days) ? doc.days : [];
     const books = Array.isArray(doc.books) ? doc.books : [];
     const songs = Array.isArray(doc.songs) ? doc.songs : [];
-    const bookHint = books[0]?.title ? books[0].title : "";
-    const songHint = songs[0]?.title ? songs[0].title : "";
+    const weekStories = books.map((b) => asText(b.title)).filter(Boolean);
+    const weekSongs = songs.map((s) => asText(s.title)).filter(Boolean);
 
     const plannerCols = days.map((day) => {
       const activities = Array.isArray(day.activities) ? day.activities : [];
@@ -253,9 +308,12 @@
           `</ul>`,
         ].join("")
         : `<p class="bb-week-planner-empty">—</p>`;
+      // Only show story/song under a day when an explicit weekday association exists.
+      const dayBook = resourceTitleForDay(books, day.dayKey);
+      const daySong = resourceTitleForDay(songs, day.dayKey);
       const extras = [];
-      if (bookHint) extras.push(`<p class="bb-week-extra"><span>Story</span> ${esc(bookHint)}</p>`);
-      if (songHint) extras.push(`<p class="bb-week-extra"><span>Song</span> ${esc(songHint)}</p>`);
+      if (dayBook) extras.push(`<p class="bb-week-extra"><span>Story</span> ${esc(dayBook)}</p>`);
+      if (daySong) extras.push(`<p class="bb-week-extra"><span>Song</span> ${esc(daySong)}</p>`);
       return [
         `<section class="bb-week-planner-day ${dayToneClass(day.dayKey)}" data-bb-week-day="${esc(day.dayKey || "")}">`,
         `<h3>${esc(day.label || "")}</h3>`,
@@ -277,6 +335,12 @@
       doc.weekFocus?.text ? `<p class="bb-week-focus"><strong>Weekly focus:</strong> ${esc(doc.weekFocus.text)}</p>` : "",
       doc.developmentalFocus?.text
         ? `<p class="bb-week-learning"><strong>Learning focus:</strong> ${esc(doc.developmentalFocus.text)}</p>`
+        : "",
+      weekStories.length
+        ? `<p class="bb-week-catalog" data-bb-week-stories><strong>Stories this week:</strong> ${esc(weekStories.join(" · "))}</p>`
+        : "",
+      weekSongs.length
+        ? `<p class="bb-week-catalog" data-bb-week-songs><strong>Songs this week:</strong> ${esc(weekSongs.join(" · "))}</p>`
         : "",
       `</div>`,
       `<div class="bb-week-planner" data-bb-week-planner aria-label="Monday through Friday weekly planner">`,
@@ -302,8 +366,6 @@
     });
     const books = Array.isArray(doc.books) ? doc.books : [];
     const songs = Array.isArray(doc.songs) ? doc.songs : [];
-    const bookTitle = asText(books[0]?.title);
-    const songTitle = asText(songs[0]?.title);
 
     const rows = [
       {
@@ -329,12 +391,13 @@
       {
         key: "story",
         label: "Story or Book",
-        cell: () => bookTitle || "—",
+        // Explicit weekday association only — never repeat books[0] across the week.
+        cell: (day) => resourceTitleForDay(books, day.dayKey) || "—",
       },
       {
         key: "song",
         label: "Song or Movement",
-        cell: () => songTitle || "—",
+        cell: (day) => resourceTitleForDay(songs, day.dayKey) || "—",
       },
       {
         key: "notes",
@@ -588,33 +651,128 @@
   /**
    * @param {object} draft
    * @param {object|null} lesson
-   * @param {{ qrSvgByUrl?: Record<string, string>, mode?: "print"|"preview" }} [options]
+   * @param {{ qrSvgByUrl?: Record<string, string>, mode?: "print"|"preview", assetOrigin?: string }} [options]
    */
   function buildBinderPrintHtml(draft, lesson, options = {}) {
-    const document = buildBinderDocument(draft, lesson, { qrSvgByUrl: options.qrSvgByUrl || {} });
-    const contentPages = buildContentPagePlan(document);
-    const { pages, tocEntries } = finalizePrintPagePlan(contentPages, document);
-    const mode = options.mode === "preview" ? "preview" : "print";
+    currentAssetOrigin = asText(options.assetOrigin);
+    try {
+      const document = buildBinderDocument(draft, lesson, { qrSvgByUrl: options.qrSvgByUrl || {} });
+      const contentPages = buildContentPagePlan(document);
+      const { pages, tocEntries } = finalizePrintPagePlan(contentPages, document);
+      const mode = options.mode === "preview" ? "preview" : "print";
 
-    const pageHtml = pages.map((page) => renderPage(document, page)).filter(Boolean).join("\n");
-    const html = [
-      `<div class="bb-print-root" data-bb-mode="${mode}">`,
-      pageHtml,
-      `</div>`,
-    ].join("\n");
+      const pageHtml = pages.map((page) => renderPage(document, page)).filter(Boolean).join("\n");
+      const html = [
+        `<div class="bb-print-root bb-scrapbook" data-bb-mode="${mode}" data-bb-theme="scrapbook-pink-lavender">`,
+        pageHtml,
+        `</div>`,
+      ].join("\n");
 
-    return {
-      document,
-      pages,
-      tocEntries,
-      html,
-      validation: validateBinderPrintOutput(html, pages),
-    };
+      return {
+        document,
+        pages,
+        tocEntries,
+        html,
+        validation: validateBinderPrintOutput(html, pages),
+      };
+    } finally {
+      currentAssetOrigin = "";
+    }
+  }
+
+  /**
+   * Wait for print images inside a host element to load or fail.
+   * Distinguishes assigned-but-failed from never-assigned (no frame).
+   * @param {ParentNode} root
+   * @param {{ timeoutMs?: number }} [opts]
+   */
+  function waitForPrintImages(root, opts = {}) {
+    const timeoutMs = Math.max(1000, Number(opts.timeoutMs) || 20000);
+    const imgs = [...(root?.querySelectorAll?.("img[data-bb-print-image]") || [])];
+    if (!imgs.length) {
+      return Promise.resolve({ loaded: [], failed: [], timedOut: [] });
+    }
+
+    function markFailed(img) {
+      const src = img.getAttribute("src") || "";
+      img.setAttribute("data-bb-image-state", "failed");
+      const frame = img.parentElement;
+      if (frame) {
+        frame.classList.add("is-broken");
+        frame.setAttribute("data-bb-image-state", "failed");
+      }
+      try { img.remove(); } catch { /* ignore */ }
+      return src;
+    }
+
+    return new Promise((resolve) => {
+      let settled = false;
+      const loaded = [];
+      const failed = [];
+      let remaining = imgs.length;
+
+      const finish = (timedOut = []) => {
+        if (settled) return;
+        settled = true;
+        resolve({ loaded: [...loaded], failed: [...failed], timedOut });
+      };
+
+      const tick = () => {
+        remaining -= 1;
+        if (remaining <= 0) finish([]);
+      };
+
+      const timer = setTimeout(() => {
+        const timedOut = [];
+        imgs.forEach((img) => {
+          const state = img.getAttribute("data-bb-image-state");
+          if (state === "loaded" || state === "failed") return;
+          if (img.complete && img.naturalWidth > 0) {
+            img.setAttribute("data-bb-image-state", "loaded");
+            loaded.push(img.getAttribute("src") || "");
+            return;
+          }
+          timedOut.push(markFailed(img));
+          failed.push(timedOut[timedOut.length - 1]);
+        });
+        finish(timedOut);
+      }, timeoutMs);
+
+      imgs.forEach((img) => {
+        const src = img.getAttribute("src") || "";
+        if (img.complete && img.naturalWidth > 0) {
+          img.setAttribute("data-bb-image-state", "loaded");
+          loaded.push(src);
+          tick();
+          return;
+        }
+        if (img.complete && img.naturalWidth === 0) {
+          failed.push(markFailed(img));
+          tick();
+          return;
+        }
+        img.addEventListener("load", () => {
+          if (settled) return;
+          img.setAttribute("data-bb-image-state", "loaded");
+          loaded.push(src);
+          tick();
+          if (remaining <= 0) clearTimeout(timer);
+        }, { once: true });
+        img.addEventListener("error", () => {
+          if (settled) return;
+          failed.push(markFailed(img));
+          tick();
+          if (remaining <= 0) clearTimeout(timer);
+        }, { once: true });
+      });
+    });
   }
 
   return {
     buildBinderPrintHtml,
     validateBinderPrintOutput,
+    waitForPrintImages,
+    resolvePrintAssetUrl,
     esc,
   };
 });

@@ -54,6 +54,7 @@ const { createCommsApi } = require("./comms-api.js");
 const commsLib = require("./comms-lib.js");
 const tempPasswordAuth = require("./temp-password-auth.js");
 const emailAuth = require("./email-auth.js");
+const { createMemberAuthRateLimit } = require("./member-auth-rate-limit.js");
 const { createAdminSessionStore } = require("./admin-session-store.js");
 const analyticsStore = require("./analytics-store.js");
 const analyticsRevenue = require("./analytics-revenue.js");
@@ -381,6 +382,7 @@ function shouldSkipStartupCurriculumSeed() {
 const adminSessionStorePath = process.env.LLH_ADMIN_SESSIONS_PATH
   || storePath.replace(/(\.json)?$/, ".admin-sessions.json");
 const adminSessionStore = createAdminSessionStore({ localFilePath: adminSessionStorePath });
+const memberAuthRateLimit = createMemberAuthRateLimit();
 const spaRoutePaths = new Set([
   "/admin",
 ]);
@@ -1131,6 +1133,7 @@ function defaultStore() {
     automationRuns: [],
     archivedConversations: [],
     memberSessions: {},
+    emailAuth: { tokens: [], consumedHashes: [] },
     onboardingWelcome: defaultOnboardingWelcomeStore(),
     visualProduction: { briefs: [], updatedAt: "" },
     binderBuilder: { drafts: [], updatedAt: "" },
@@ -6090,6 +6093,7 @@ function applyStoreWriteMerges(store, { preferIncomingSiteContent = false } = {}
     next = mergeStorePreferNewerSiteContent(next);
   }
   next = mergeStorePreserveAdminSessions(next);
+  next = emailAuth.mergeStorePreserveEmailAuth(next, storeCache);
   next = mergeStorePreserveEmailCampaigns(next);
   next = mergeStorePreserveVisualProduction(next, storeCache);
   next = mergeStorePreserveBinderBuilder(next, storeCache);
@@ -10073,6 +10077,17 @@ async function handleAccountProfileSync(request, response) {
     jsonResponse(response, 400, { error: "Email is required." });
     return;
   }
+  let identity;
+  try {
+    identity = await resolveMemberIdentity(request);
+  } catch (error) {
+    jsonResponse(response, 401, { error: error.message || "Please log in before updating your account." });
+    return;
+  }
+  if (normalizeEmail(identity.email) !== email) {
+    jsonResponse(response, 403, { error: "You can only update your own account profile." });
+    return;
+  }
   if (testAccountGuard.shouldRejectTestAccountPersistence(email)) {
     const firstName = normalizedShortText(body.firstName, 80);
     const lastName = normalizedShortText(body.lastName, 80);
@@ -10398,6 +10413,17 @@ async function handlePasswordResetRequest(request, response) {
     jsonResponse(response, 400, { error: "Email is required." });
     return;
   }
+  const ip = memberAuthRateLimit.requestIp(request);
+  const resetLimit = memberAuthRateLimit.resetStatus(ip, email);
+  if (resetLimit.limited) {
+    jsonResponse(response, 429, {
+      ok: false,
+      error: "Please wait before requesting another password reset.",
+      retryAfterSeconds: Math.ceil((resetLimit.retryAfterMs || 0) / 1000),
+    });
+    return;
+  }
+  memberAuthRateLimit.recordResetRequest(ip, email);
   let delivery = "not_ready";
   try {
     const result = await sendPasswordResetEmail(email);
@@ -10417,14 +10443,15 @@ async function handlePasswordResetRequest(request, response) {
     }));
     delivery = "failed";
   }
-  // Always return a generic success body so callers cannot enumerate accounts.
-  // `delivery` lets the client keep Firebase/demo paths when Resend is not ready.
+  // Public body is identical for sent / skipped / failed so callers cannot enumerate accounts.
+  // `not_ready` stays distinct so the client can use Firebase/demo fallbacks when Resend is down.
+  const providerReady = delivery !== "not_ready";
   jsonResponse(response, 200, {
     ok: true,
-    delivery,
-    message: delivery === "not_ready"
-      ? "Server password-reset email is not ready yet. Use Firebase Auth recovery or try again after Resend is configured."
-      : "If an account exists for that email, password reset instructions have been sent.",
+    delivery: providerReady ? "accepted" : "not_ready",
+    message: providerReady
+      ? "If an account exists for that email, password reset instructions have been sent."
+      : "Server password-reset email is not ready yet. Use Firebase Auth recovery or try again after Resend is configured.",
   });
 }
 
@@ -10560,6 +10587,13 @@ async function handlePasswordLogin(request, response) {
     jsonResponse(response, 400, { error: "Email and password are required." });
     return;
   }
+  const loginIp = memberAuthRateLimit.requestIp(request);
+  const loginLock = memberAuthRateLimit.loginLockoutStatus(loginIp, email);
+  if (loginLock.limited) {
+    authAuditLog("password_login_rejected", { email, reason: "rate_limited" });
+    jsonResponse(response, 429, { error: "Too many sign-in attempts. Please try again later." });
+    return;
+  }
   const store = readStore();
   store.users = store.users || {};
   let user = store.users[email];
@@ -10580,6 +10614,7 @@ async function handlePasswordLogin(request, response) {
     }
   }
   if (!user) {
+    memberAuthRateLimit.recordLoginFailure(loginIp, email);
     authAuditLog("password_login_failed", { email, reason: "account_not_found" });
     jsonResponse(response, 401, { error: "The email or password did not match. Please try again." });
     return;
@@ -10598,6 +10633,7 @@ async function handlePasswordLogin(request, response) {
       await writeStoreAsync(store);
       authAuditLog("password_login_cleared_expired_temp", { email });
     }
+    memberAuthRateLimit.recordLoginFailure(loginIp, email);
     authAuditLog("password_login_failed", { email, reason: "bad_password", hadTemp: Boolean(user.tempPasswordHash) });
     jsonResponse(response, 401, { error: verified.error || "The email or password did not match. Please try again." });
     return;
@@ -10631,6 +10667,7 @@ async function handlePasswordLogin(request, response) {
     verified.mustChangePassword ? "temp-password" : "server-password",
   );
   await writeStoreAsync(store);
+  memberAuthRateLimit.recordLoginSuccess(loginIp, email);
   authAuditLog("password_login_success", {
     email,
     mode: verified.mode,

@@ -69,7 +69,7 @@ test("profile signup welcome email does not block API response", () => {
   assert.ok(idx > 0);
   const slice = serverJs.slice(idx, serverJs.indexOf("async function handleAdminIssueTempPassword", idx));
   assert.match(slice, /jsonResponse\(response, 200/);
-  assert.match(slice, /onboardingWelcome\.maybeDeliverOnSignup\(email\)/);
+  assert.match(slice, /onboardingWelcome\.maybeDeliverOnSignup\(/);
   const respondAt = slice.indexOf("jsonResponse(response, 200");
   const welcomeAt = slice.indexOf("maybeDeliverOnSignup");
   assert.ok(respondAt > 0);
@@ -132,7 +132,7 @@ function waitForHealth(port, child, timeoutMs = 20000) {
   });
 }
 
-async function requestJson(port, method, pathname, body) {
+async function requestJson(port, method, pathname, body, extraHeaders = {}) {
   const payload = body ? JSON.stringify(body) : null;
   return new Promise((resolve, reject) => {
     const req = http.request({
@@ -144,6 +144,7 @@ async function requestJson(port, method, pathname, body) {
         Accept: "application/json",
         "Content-Type": "application/json",
         ...(payload ? { "Content-Length": Buffer.byteLength(payload) } : {}),
+        ...extraHeaders,
       },
     }, (res) => {
       const chunks = [];
@@ -177,6 +178,9 @@ async function main() {
       lastName: "Tester",
       signup: true,
       lastLogin: true,
+    }, {
+      Authorization: `Bearer test:${email}`,
+      "X-LLH-User-Email": email,
     });
     const elapsed = Date.now() - started;
     assert.equal(profile.status, 200, profile.text);

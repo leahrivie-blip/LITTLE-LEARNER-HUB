@@ -27,6 +27,7 @@ const allowlistApi = require("../scripts/curriculum-operator-mutation-allowlist.
 const executionScopeApi = require("../scripts/curriculum-operator-execution-scope.js");
 const preflightApi = require("../scripts/curriculum-operator-preflight.js");
 const targetResolver = require("../scripts/curriculum-operator-target-resolver.js");
+const vocabSurgicalApi = require("../scripts/curriculum-operator-vocab-surgical-apply.js");
 
 const ACTIONS = Object.freeze([
   "parse",
@@ -1237,6 +1238,7 @@ function createCurriculumOperatorApi(deps) {
       let historyId = null;
       let kept = (before.audit.weeklyContent || []).filter((f) => f.decision === "KEEP").map((f) => f.field);
       let updated = [];
+      let intended = null;
       let aiUsage = null;
       let composerDiagnostics = null;
       let upgradeVerification = null;
@@ -1331,8 +1333,31 @@ function createCurriculumOperatorApi(deps) {
 
         kept = built.kept;
         updated = built.changed;
+        intended = built.intended;
 
         if (built.changed.length) {
+          const deferVocabDraft = vocabSurgicalApi.shouldDeferVocabDraftPersist(job.command, mutationAllowlist);
+          if (deferVocabDraft) {
+            // Vocabulary-only connected auto-apply: stage intended cards only.
+            // Surgical apply writes teachingKit.vocabCards + vocabularyWords (and mirrors
+            // draft.week.vocabCards) without a broad enrichmentDraft save that would bump
+            // operatorPhase / draft updatedAt unnecessarily.
+            ownerReviewStatus = "READY_FOR_OWNER_REVIEW";
+            upgradeVerification = {
+              ok: true,
+              checks: [{
+                ok: true,
+                code: "vocab_surgical_deferred",
+                message: "Vocabulary staged for surgical connected auto-apply; intermediate draft persist deferred.",
+              }],
+            };
+            jobApi.appendLog(
+              job,
+              `Vocabulary staged for surgical connected auto-apply on “${plan.title}” (intermediate draft not written). NOT published.`,
+              "info",
+              plan.id,
+            );
+          } else {
           job.progress.currentAction = "lesson.saveDraft";
           const saveResult = await saveDraftGuarded({
             job,
@@ -1383,6 +1408,7 @@ function createCurriculumOperatorApi(deps) {
               afterScores,
               kept,
               updated,
+              intended: built.intended,
               generated: [],
               workPlan,
               kitScope,
@@ -1404,6 +1430,7 @@ function createCurriculumOperatorApi(deps) {
             "info",
             plan.id,
           );
+          }
         } else {
           ownerReviewStatus = "READY_FOR_OWNER_REVIEW";
           jobApi.appendLog(job, `No draft text changes needed for “${plan.title}”.`, "info", plan.id);
@@ -1895,6 +1922,7 @@ function createCurriculumOperatorApi(deps) {
         afterScores,
         kept,
         updated,
+        intended,
         generated: [],
         workPlan,
         coverPlan,
@@ -2691,10 +2719,26 @@ function createCurriculumOperatorApi(deps) {
       job = await runJob(jobApi.normalizeOperatorJob(job), store, session.email);
       bag.jobs = bag.jobs.map((j) => (j.id === job.id ? job : j));
       await writeJobs(store, bag);
+
+      // Preserve connectedAutoApply across plan → resume (same path as action=run).
+      let autoApply = { applied: [], skipped: [] };
+      const cmdActions = job?.command?.actions || {};
+      const shouldAutoApply = !cmdActions.planOnly
+        && cmdActions.connectedAutoApply !== false
+        && (cmdActions.connectedAutoApply === true || cmdActions.connectedUpgrade === true);
+      if (shouldAutoApply) {
+        autoApply = await tryConnectedAutoApply(job, store, session.email);
+        if (autoApply.applied.length) await writeStoreAsync(store);
+        const bagAfter = readJobs(store);
+        bagAfter.jobs = [job, ...bagAfter.jobs.filter((j) => j.id !== job.id)].slice(0, 100);
+        await writeJobs(store, bagAfter);
+      }
+
       jsonResponse(response, 200, {
         ok: true,
         action,
         job,
+        autoApply,
         published: false,
       });
       return;

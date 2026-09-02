@@ -370,6 +370,8 @@
           questions,
           alternative,
           resourceUrl,
+          // Explicit day association from source only — never inferred by order.
+          weekday: firstMeaningful(book.suggestedWeekday, book.weekday, source?.suggestedWeekday, source?.linkedWeekday),
           qrEnabled: book.qrEnabled !== false && Boolean(resourceUrl),
           qrSvg,
         };
@@ -411,6 +413,8 @@
           directions,
           lyrics,
           resourceUrl,
+          // Explicit day association from source only — never inferred by order.
+          weekday: firstMeaningful(song.linkedWeekday, song.suggestedWeekday, song.weekday, source?.linkedWeekday, source?.suggestedWeekday),
           qrEnabled: song.qrEnabled !== false && Boolean(resourceUrl),
           qrSvg,
         };

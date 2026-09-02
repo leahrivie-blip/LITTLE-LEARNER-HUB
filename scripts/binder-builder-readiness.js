@@ -120,17 +120,70 @@
               `${label} — “${activity.title}”`,
               "Activity image reference looks invalid.",
             );
+          } else if (!asText(activity.image?.url)) {
+            add(
+              "info",
+              "no_activity_image_assigned",
+              `${label} — “${activity.title}”`,
+              "No image is assigned for this activity (frame will be omitted).",
+            );
           }
         });
       }
     });
 
+    function normalizeTitleKey(value) {
+      return asText(value)
+        .toLowerCase()
+        .replace(/[’']/g, "'")
+        .replace(/[^a-z0-9]+/g, " ")
+        .trim();
+    }
+
     if (document.sections.books !== false) {
+      const seenBookTitles = new Map();
       (document.books || []).forEach((book) => {
         const section = `Story Time — “${book.title}”`;
+        const title = asText(book.title);
+        const author = asText(book.author);
+        if (/^all$/i.test(title) && /myself/i.test(author)) {
+          add(
+            "warn",
+            "malformed_book_entry",
+            section,
+            "Book title/author look split incorrectly in source data (owner review). Source lesson was not changed.",
+          );
+        }
+        const key = normalizeTitleKey(`${title} ${author}`);
+        if (key && seenBookTitles.has(key)) {
+          add(
+            "warn",
+            "duplicate_book_entry",
+            section,
+            `Duplicate story entry vs “${seenBookTitles.get(key)}”. Omit extras in Binder Review — do not edit source here.`,
+          );
+        } else if (key) {
+          seenBookTitles.set(key, title);
+        }
+        // Also catch near-duplicates where malformed title is prefix of another
+        const softKey = normalizeTitleKey(title);
+        if (softKey && softKey.length <= 3) {
+          const fuller = (document.books || []).find((other) => {
+            if (other === book) return false;
+            return normalizeTitleKey(other.title).startsWith(softKey);
+          });
+          if (fuller) {
+            add(
+              "warn",
+              "malformed_book_entry",
+              section,
+              `Likely malformed duplicate of “${asText(fuller.title)}”. Flagged for owner source review.`,
+            );
+          }
+        }
         if (book.qrEnabled) {
           if (!book.resourceUrl) {
-            add("warn", "missing_story_qr", section, "QR is enabled but no resource URL is configured.");
+            add("warn", "missing_story_qr", section, "QR is enabled but no approved resource URL is configured.");
           } else {
             const checked = validateBinderUrl(book.resourceUrl);
             if (!checked.ok) {
@@ -139,14 +192,39 @@
           }
         }
       });
+      // Draft intent: QR toggled on but URL still empty (transform suppresses print QR).
+      (draft.books || []).forEach((book) => {
+        if (book?.omit === true) return;
+        if (book?.qrEnabled === false) return;
+        if (asText(book?.resourceUrl)) return;
+        const title = asText(book?.title) || "Untitled story";
+        add(
+          "warn",
+          "missing_story_qr",
+          `Story Time — “${title}”`,
+          "QR is enabled on this binder story but no approved URL is set — no QR will print.",
+        );
+      });
     }
 
     if (document.sections.songs !== false) {
+      const seenSongTitles = new Map();
       (document.songs || []).forEach((song) => {
         const section = `Music & Movement — “${song.title}”`;
+        const key = normalizeTitleKey(song.title);
+        if (key && seenSongTitles.has(key)) {
+          add(
+            "warn",
+            "duplicate_song_entry",
+            section,
+            `Duplicate song entry vs “${seenSongTitles.get(key)}”. Omit extras in Binder Review — source lesson unchanged.`,
+          );
+        } else if (key) {
+          seenSongTitles.set(key, asText(song.title));
+        }
         if (song.qrEnabled) {
           if (!song.resourceUrl) {
-            add("warn", "missing_song_qr", section, "QR is enabled but no resource URL is configured.");
+            add("warn", "missing_song_qr", section, "QR is enabled but no approved resource URL is configured.");
           } else {
             const checked = validateBinderUrl(song.resourceUrl);
             if (!checked.ok) {
@@ -155,7 +233,26 @@
           }
         }
       });
+      (draft.songs || []).forEach((song) => {
+        if (song?.omit === true) return;
+        if (song?.qrEnabled === false) return;
+        if (asText(song?.resourceUrl)) return;
+        const title = asText(song?.title) || "Untitled song";
+        add(
+          "warn",
+          "missing_song_qr",
+          `Music & Movement — “${title}”`,
+          "QR is enabled on this binder song but no approved URL is set — no QR will print.",
+        );
+      });
     }
+
+    add(
+      "info",
+      "printables_not_embedded",
+      "Printable Sheets",
+      "Binder Builder does not embed activity printable PDF sheets yet. Titles/materials mentions are not included printables. Link approved printable files before claiming a sellable prototype.",
+    );
 
     if (document.sections.learningCenters === true && !(document.learningCenters || []).length) {
       add("info", "empty_centers", "Learning Centers", "Learning Centers is enabled but no center content is populated.");
@@ -196,8 +293,42 @@
     };
   }
 
+  /**
+   * Merge client-side image load results into a readiness object (non-mutating clone).
+   * Failed assigned images become warnings and are never treated as successfully included.
+   * @param {object} readiness
+   * @param {{ loaded?: string[], failed?: string[], timedOut?: string[] }} imageResults
+   */
+  function applyImageLoadResults(readiness, imageResults) {
+    const next = readiness && typeof readiness === "object" ? { ...readiness } : {};
+    const issues = Array.isArray(next.issues) ? [...next.issues] : [];
+    const failed = [...new Set([...(imageResults?.failed || []), ...(imageResults?.timedOut || [])].filter(Boolean))];
+    failed.forEach((url) => {
+      issues.push({
+        severity: "warn",
+        code: "image_load_failed",
+        section: "Images",
+        message: `Assigned image failed to load before export: ${url}`,
+      });
+    });
+    next.issues = issues;
+    next.warnings = issues.filter((item) => item.severity === "warn");
+    next.blockers = issues.filter((item) => item.severity === "block");
+    next.info = issues.filter((item) => item.severity === "info");
+    next.status = next.blockers.length ? "NEEDS REVIEW" : (next.warnings.length ? "NEEDS REVIEW" : "READY");
+    next.ready = next.blockers.length === 0;
+    next.canPrint = next.blockers.length === 0;
+    next.imageLoad = {
+      loadedCount: (imageResults?.loaded || []).length,
+      failedCount: failed.length,
+      failedUrls: failed,
+    };
+    return next;
+  }
+
   return {
     evaluateBinderReadiness,
     pageUniquenessKey,
+    applyImageLoadResults,
   };
 });
