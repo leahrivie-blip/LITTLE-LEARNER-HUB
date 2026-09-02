@@ -370,4 +370,74 @@ console.log("\n25) composer apply strips out-of-scope fields");
   ok(Array.isArray(applied.enrichmentDraft.week.vocabCards), "vocabCards applied");
 }
 
+const STRONG_KEEP_ID = "cur-lp-operator-strong-preschool";
+const STRONG_KEEP_RAW = "Improve weak activities but keep strong existing content.";
+const STRONG_KEEP_SCOPED = "Improve weak activities in Preschool Weather Lab but keep strong existing content.";
+const strongKeepPlans = [
+  { id: "cur-lp-operator-weak-toddler", title: "Toddler Apple Scribbles", age: "Toddler 18–24 Months", plan: "Pro", status: "published" },
+  { id: STRONG_KEEP_ID, title: "Preschool Weather Lab", age: "Preschool 3–4 Years", plan: "Pro", status: "published" },
+  { id: "cur-lp-preschool-weather-watchers", title: "Weather Watchers", age: "Preschool 3–4 Years", plan: "Pro", status: "published" },
+];
+
+console.log("\n26) unscoped keep-strong raw command is RUN_BLOCKED");
+{
+  const revalidated = allowlistApi.revalidateRunScope({ rawCommand: STRONG_KEEP_RAW }, {
+    phase: 2,
+    lessonPlans: strongKeepPlans,
+  });
+  ok(revalidated.ok === false, "unscoped keep-strong revalidation fails");
+  ok(revalidated.code === "RUN_BLOCKED", "unscoped keep-strong code is RUN_BLOCKED");
+  ok((revalidated.reparsed?.confirmReasons || []).includes("ambiguous_scope"), "unscoped reason is ambiguous_scope");
+}
+
+console.log("\n27) crafted explicit IDs cannot bypass raw reparse");
+{
+  const revalidated = allowlistApi.revalidateRunScope({
+    rawCommand: STRONG_KEEP_RAW,
+    intent: "fix_lesson",
+    scope: { selection: "explicit_ids", lessonIds: [STRONG_KEEP_ID], count: 1 },
+    actions: { audit: true, upgradeLesson: true, upgradeActivities: true, saveDraft: true },
+  }, { phase: 2, lessonPlans: strongKeepPlans });
+  ok(revalidated.ok === false, "structured IDs do not bypass unscoped raw");
+  ok(revalidated.code === "RUN_BLOCKED", "crafted-scope code remains RUN_BLOCKED");
+  ok(!(revalidated.reparsed?.command?.scope?.lessonIds || []).includes(STRONG_KEEP_ID), "reparsed scope drops crafted IDs");
+}
+
+console.log("\n28) title-scoped keep-strong command revalidates");
+{
+  const revalidated = allowlistApi.revalidateRunScope({ rawCommand: STRONG_KEEP_SCOPED }, {
+    phase: 2,
+    lessonPlans: strongKeepPlans,
+  });
+  ok(revalidated.ok === true, "title-scoped keep-strong revalidation passes");
+  ok(revalidated.command?.scope?.lessonIds?.[0] === STRONG_KEEP_ID, "title-scoped target is Preschool Weather Lab");
+  ok(revalidated.allowlist?.lessonIds?.[0] === STRONG_KEEP_ID, "allowlist lesson is Preschool Weather Lab");
+  ok(revalidated.allowlist?.assets?.images === false, "scoped keep-strong still denies images");
+  ok(revalidated.allowlist?.assets?.printables === false, "scoped keep-strong still denies printables");
+  ok(revalidated.command?.actions?.publish !== true, "scoped keep-strong does not enable publish");
+}
+
+console.log("\n29) selected-lesson keep-strong command revalidates");
+{
+  const revalidated = allowlistApi.revalidateRunScope({ rawCommand: STRONG_KEEP_RAW }, {
+    phase: 2,
+    lessonPlans: strongKeepPlans,
+    currentlySelectedLessonId: STRONG_KEEP_ID,
+  });
+  ok(revalidated.ok === true, "selected-lesson keep-strong revalidation passes");
+  ok(revalidated.command?.scope?.lessonIds?.[0] === STRONG_KEEP_ID, "selected-lesson target is Preschool Weather Lab");
+}
+
+console.log("\n30) named title wins over a different selected lesson");
+{
+  const revalidated = allowlistApi.revalidateRunScope({ rawCommand: STRONG_KEEP_SCOPED }, {
+    phase: 2,
+    lessonPlans: strongKeepPlans,
+    currentlySelectedLessonId: "cur-lp-operator-weak-toddler",
+  });
+  ok(revalidated.ok === true, "named title still revalidates with a different selection");
+  ok(revalidated.command?.scope?.lessonIds?.[0] === STRONG_KEEP_ID, "named title wins over selected weak lesson");
+  ok(!(revalidated.command?.scope?.lessonIds || []).includes("cur-lp-operator-weak-toddler"), "weak selected lesson stays out of mutation scope");
+}
+
 console.log(`\n${passed} assertions passed.`);
