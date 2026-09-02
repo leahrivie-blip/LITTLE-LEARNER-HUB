@@ -343,14 +343,18 @@
    */
   function booksFromLesson(lesson) {
     const list = Array.isArray(lesson?.books) ? lesson.books : [];
-    return list.map((book, index) => normalizeBook({
-      sourceIndex: index,
-      title: book.title,
-      author: book.author,
-      resourceUrl: book.resourceUrl || book.externalUrl || book.videoUrl || "",
-      qrEnabled: true,
-      useSource: true,
-    })).filter(Boolean);
+    return list.map((book, index) => {
+      const resourceUrl = book.resourceUrl || book.externalUrl || book.videoUrl || "";
+      return normalizeBook({
+        sourceIndex: index,
+        title: book.title,
+        author: book.author,
+        resourceUrl,
+        // Only pre-enable QR when an approved URL already exists.
+        qrEnabled: Boolean(String(resourceUrl || "").trim()),
+        useSource: true,
+      });
+    }).filter(Boolean);
   }
 
   /**
@@ -358,14 +362,17 @@
    */
   function songsFromLesson(lesson) {
     const list = Array.isArray(lesson?.songs) ? lesson.songs : [];
-    return list.map((song, index) => normalizeSong({
-      sourceIndex: index,
-      title: song.title,
-      resourceUrl: song.audioUrl || song.externalReference || song.resourceUrl || "",
-      allowPrintLyrics: song.allowPrintLyrics === true,
-      qrEnabled: true,
-      useSource: true,
-    })).filter(Boolean);
+    return list.map((song, index) => {
+      const resourceUrl = song.audioUrl || song.externalReference || song.resourceUrl || "";
+      return normalizeSong({
+        sourceIndex: index,
+        title: song.title,
+        resourceUrl,
+        allowPrintLyrics: song.allowPrintLyrics === true,
+        qrEnabled: Boolean(String(resourceUrl || "").trim()),
+        useSource: true,
+      });
+    }).filter(Boolean);
   }
 
   /**
