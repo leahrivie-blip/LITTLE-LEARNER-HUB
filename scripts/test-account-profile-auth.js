@@ -56,8 +56,19 @@ function memberHeaders(email) {
   };
 }
 
-function readUsers() {
-  return JSON.parse(fs.readFileSync(STORE_PATH, "utf8")).users || {};
+async function readUsers() {
+  // The test server may rewrite the local JSON store in place after a profile
+  // write. Read mid-persist can throw SyntaxError even when HTTP asserts passed.
+  let lastError;
+  for (let i = 0; i < 40; i += 1) {
+    try {
+      return JSON.parse(fs.readFileSync(STORE_PATH, "utf8")).users || {};
+    } catch (error) {
+      lastError = error;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+  }
+  throw lastError;
 }
 
 async function waitForHealth() {
@@ -117,14 +128,14 @@ async function main() {
       body: { email: OWNER, firstName: "Hacked", lastName: "Name" },
     });
     assert.equal(anon.status, 401, `anonymous update got ${anon.status}: ${anon.text}`);
-    assert.equal(readUsers()[OWNER].firstName, "Owner", "anonymous write must not persist");
+    assert.equal((await readUsers())[OWNER].firstName, "Owner", "anonymous write must not persist");
 
     const cross = await request("POST", "/api/account/profile", {
       body: { email: OWNER, firstName: "Stolen" },
       headers: memberHeaders(TEACHER),
     });
     assert.equal(cross.status, 403, `cross-account update got ${cross.status}: ${cross.text}`);
-    assert.equal(readUsers()[OWNER].firstName, "Owner");
+    assert.equal((await readUsers())[OWNER].firstName, "Owner");
 
     const own = await request("POST", "/api/account/profile", {
       body: { email: OWNER, firstName: "Leah", lastName: "Owner", phone: "555-0100" },
@@ -132,15 +143,15 @@ async function main() {
     });
     assert.equal(own.status, 200, own.text);
     assert.equal(own.json?.user?.firstName, "Leah");
-    assert.equal(readUsers()[OWNER].firstName, "Leah");
-    assert.equal(readUsers()[OWNER].phone, "555-0100");
+    assert.equal((await readUsers())[OWNER].firstName, "Leah");
+    assert.equal((await readUsers())[OWNER].phone, "555-0100");
 
     const escalate = await request("POST", "/api/account/profile", {
       body: { email: TEACHER, firstName: "Teach", role: "owner" },
       headers: memberHeaders(TEACHER),
     });
     assert.equal(escalate.status, 200, escalate.text);
-    assert.equal(readUsers()[TEACHER].role, "teacher", "established teacher must not self-promote");
+    assert.equal((await readUsers())[TEACHER].role, "teacher", "established teacher must not self-promote");
 
     const signup = await request("POST", "/api/account/profile", {
       body: {
@@ -154,13 +165,13 @@ async function main() {
     });
     assert.equal(signup.status, 200, signup.text);
     assert.equal(signup.json?.user?.plan, "Free");
-    assert.equal(readUsers()[NEW_SIGNUP].plan, "Free");
-    assert.equal(readUsers()[NEW_SIGNUP].role, "owner");
-    assert.ok(readUsers()[NEW_SIGNUP].signupAt);
+    assert.equal((await readUsers())[NEW_SIGNUP].plan, "Free");
+    assert.equal((await readUsers())[NEW_SIGNUP].role, "owner");
+    assert.ok((await readUsers())[NEW_SIGNUP].signupAt);
 
-    const ownerAfter = readUsers()[OWNER];
+    const ownerAfter = (await readUsers())[OWNER];
     assert.equal(ownerAfter.role, "owner");
-    assert.equal(readUsers()[TEACHER].linkedProgramOwnerEmail, OWNER);
+    assert.equal((await readUsers())[TEACHER].linkedProgramOwnerEmail, OWNER);
 
     console.log("PASS  account profile identity gate");
   } finally {
