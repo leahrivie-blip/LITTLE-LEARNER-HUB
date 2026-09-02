@@ -541,6 +541,7 @@ function parseOperatorCommand(rawCommand, options = {}) {
     rawCommand: raw,
     lessonPlans: options.lessonPlans || [],
     currentlySelectedLessonId: options.currentlySelectedLessonId,
+    suppliedTitles: titles,
   });
   const scoped = actionScopeApi.applyActionScope(raw, command.actions, { resolution, command });
   Object.assign(command.actions, scoped.actions);
@@ -564,6 +565,10 @@ function parseOperatorCommand(rawCommand, options = {}) {
     command.scope.lessonIds = resolution.resolvedLessonIds.slice();
     command.scope.selection = resolution.selectionMethod === "ambiguous" ? "ambiguous" : "named_titles";
     if (resolution.selectionMethod === "title_match") command.scope.count = 1;
+    if (resolution.selectionMethod === "ambiguous") {
+      command.scope.count = resolution.resolvedLessonIds.length;
+      command.limits.maxLessons = resolution.resolvedLessonIds.length;
+    }
   }
   if (resolution.requestedLessonCount != null && !resolution.suppliedLessonIds.length) {
     command.scope.count = resolution.requestedLessonCount;

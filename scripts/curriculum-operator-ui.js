@@ -556,10 +556,14 @@
     const interpretationCurrent = interpretationBelongsToCommand(state);
     const runBlocked = !isPreflightValid(state.commandParsed, plan)
       || isRunBlockedByParsed(state.commandParsed, plan)
-      || !interpretationCurrent;
+      || !interpretationCurrent
+      || preflight?.auditOnly === true
+      || preflight?.createJob === false;
     const runBlockNotice = !interpretationCurrent && (state.commandParsed || plan)
       ? "Command changed — Interpret again before running. The displayed plan belongs to the previous command."
-      : (runBlocked ? (preflight?.blockMessage || runBlockMessage(state.commandParsed, plan)) : "");
+      : (runBlocked && preflight?.valid && (preflight.auditOnly || preflight.createJob === false)
+        ? "Audit-only interpretation — no job will be created. Run is disabled."
+        : (runBlocked ? (preflight?.blockMessage || runBlockMessage(state.commandParsed, plan)) : ""));
     const canConfirmRun = Boolean(
       job?.status === "awaiting_confirm"
       && preflight?.valid

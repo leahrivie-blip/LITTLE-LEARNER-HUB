@@ -53,14 +53,26 @@ function extractQuotedTitles(rawCommand) {
   return titles;
 }
 
-function extractSuppliedTitles(rawCommand) {
+function extractTitleCaseAfterVerb(rawCommand) {
+  const raw = String(rawCommand || "");
+  const match = raw.match(
+    /\b(?:[Cc]heck|[Aa]udit|[Ff]ix|[Rr]eview|[Ii]nspect|[Ff]inish|[Uu]pgrade|[Cc]omplete)\s+([A-Z][\w'’\-]*(?:\s+[A-Z][\w'’\-]*){0,5})(?=\s+and\b|[,.!?:]|$|\s+to\b|\s+but\b|\s+for\b)/,
+  );
+  if (!match) return [];
+  const candidate = match[1].trim();
+  if (/^(The|All|These|Those|Lessons?|Plans?|Toddler|Preschool|Infant|Pro|Free)\b/.test(candidate)) return [];
+  return [candidate];
+}
+
+function extractSuppliedTitles(rawCommand, extraTitles = []) {
   const raw = text(rawCommand);
   const structured = commandSafety.extractStructuredLessonTitles(raw);
   const quoted = extractQuotedTitles(raw);
   const labeled = [];
   const labeledMatch = raw.match(/\blesson\s*title\s*:\s*([^\n\r]{2,120})/i);
   if (labeledMatch) labeled.push(labeledMatch[1].split(/\n|\.(?:\s|$)/)[0].trim());
-  return [...new Set([...structured, ...quoted, ...labeled].map((t) => text(t, 180)).filter(Boolean))]
+  const fromVerb = extractTitleCaseAfterVerb(raw);
+  return [...new Set([...structured, ...quoted, ...labeled, ...fromVerb, ...schema.asArray(extraTitles)].map((t) => text(t, 180)).filter(Boolean))]
     .filter((title) => {
       if (commandSafety.isGarbageTitleCandidate(title)) return false;
       if (/cur-lp-[a-f0-9]{16}/i.test(title)) return false;
@@ -211,7 +223,7 @@ function resolveTargets(options = {}) {
   const plans = schema.asArray(options.lessonPlans);
   const byId = new Map(plans.filter((p) => p && p.id).map((p) => [text(p.id, 160), catalogRow(p)]));
   const suppliedLessonIds = extractSuppliedLessonIds(raw);
-  const suppliedTitles = extractSuppliedTitles(raw);
+  const suppliedTitles = extractSuppliedTitles(raw, options.suppliedTitles);
   const counts = parseRequestedCounts(raw);
   const mismatches = [];
   const blockReasons = [];

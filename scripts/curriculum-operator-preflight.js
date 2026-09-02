@@ -70,6 +70,7 @@ function buildPreflight(options = {}) {
     rawCommand: raw,
     lessonPlans: options.lessonPlans || [],
     currentlySelectedLessonId: command.scope?.currentlySelectedLessonId,
+    suppliedTitles: command.scope?.titles,
   });
   const actionScope = options.actionScope || actionScopeApi.applyActionScope(raw, command.actions || {});
   const limits = options.limits || command.limits || schema.DEFAULT_LIMITS;
@@ -217,7 +218,8 @@ function buildPreflight(options = {}) {
 
 function shouldCreateJob(preflight, action = "plan") {
   if (!preflight || preflight.valid !== true) return false;
-  if (action === "plan" && preflight.auditOnly) return false;
+  if (preflight.auditOnly || preflight.createJob === false) return false;
+  void action;
   return true;
 }
 

@@ -132,7 +132,7 @@ function isBooksExcluded(rawCommand, exclusions = {}) {
   return exclusions.touchBooks === false
     || /\bbooks?\s*:\s*excluded\b/i.test(raw)
     || /\bbooks?\s*:\s*excluded\s+from\s+mutation\b/i.test(raw)
-    || /\b(?:do\s+not|don['’]?t)\s+(?:touch|change|mutate)\b[^.\n]{0,60}\bbooks?\b/i.test(raw);
+    || /\b(?:do\s+not|don['’]?t)\s+(?:touch|change|mutate|generate|create)\b[^.\n]{0,80}\bbooks?\b/i.test(raw);
 }
 
 function isSongsExcluded(rawCommand, exclusions = {}) {
@@ -140,7 +140,7 @@ function isSongsExcluded(rawCommand, exclusions = {}) {
   return exclusions.touchSongs === false
     || /\bsongs?\s*:\s*excluded\b/i.test(raw)
     || /\bsongs?\s*:\s*excluded\s+from\s+mutation\b/i.test(raw)
-    || /\b(?:do\s+not|don['’]?t)\s+(?:touch|change|mutate)\b[^.\n]{0,60}\bsongs?\b/i.test(raw);
+    || /\b(?:do\s+not|don['’]?t)\s+(?:touch|change|mutate|generate|create)\b[^.\n]{0,80}\bsongs?\b/i.test(raw);
 }
 
 function isConnectedUpgradeRequested(rawCommand, explicitBooleans = {}) {

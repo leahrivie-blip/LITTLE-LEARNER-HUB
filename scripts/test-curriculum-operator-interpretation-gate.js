@@ -94,6 +94,17 @@ console.log("1. Exact lesson-ID behavior");
   ok(dupNoId.preflight.valid === false, "duplicate titles without an ID block mutation");
   ok(dupNoId.preflight.selectionMethod === "ambiguous", "duplicate titles are ambiguous");
   ok(dupNoId.command.completion.mutationsEnabled === false, "ambiguous title is not mutation-enabled");
+
+  const unquotedDup = parse("Audit Story Circle. Do not generate images, printables, songs, or books. Do not save a draft or publish.");
+  ok(unquotedDup.preflight.valid === false, "unquoted duplicate title blocks preflight");
+  ok(unquotedDup.preflight.selectionMethod === "ambiguous", "unquoted Story Circle is ambiguous");
+  ok(unquotedDup.preflight.candidates.length === 2, "ambiguous title lists both Story Circle candidates");
+  ok(unquotedDup.preflight.candidates.every((row) => /story circle/i.test(row.title)), "candidates are Story Circle rows");
+  ok(unquotedDup.preflight.auditOnly === true, "do-not-generate audit stays audit-only");
+  ok(unquotedDup.command.actions.touchSongs === false && unquotedDup.command.actions.touchBooks === false, "do not generate songs/books locks both");
+  ok(unquotedDup.command.actions.saveDraft === false && unquotedDup.command.actions.touchDraft === false, "do not save a draft stays locked");
+  ok(unquotedDup.preflight.createJob === false, "ambiguous audit-only does not create a job");
+  ok(preflightApi.shouldCreateJob(unquotedDup.preflight, "run") === false, "run path also creates no job for ambiguous audit");
 }
 
 console.log("\n2. Exact-count behavior");
@@ -172,6 +183,7 @@ console.log("\n4. Mode safety");
   ok(audit.command.actions.saveDraft === false, "audit-only saveDraft false");
   ok(audit.preflight.auditOnly === true, "audit-only flag set");
   ok(preflightApi.shouldCreateJob(audit.preflight, "plan") === false, "audit-only creates no job on plan");
+  ok(preflightApi.shouldCreateJob(audit.preflight, "run") === false, "audit-only creates no job on run");
   ok(audit.preflight.mutationsEnabled === false, "audit-only preflight mutations false");
 
   const draft = parse(`Save a draft-only upgrade of lesson text for ${LMW_ID}. Do not publish.`);

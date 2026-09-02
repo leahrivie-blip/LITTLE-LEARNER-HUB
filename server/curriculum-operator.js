@@ -2533,9 +2533,9 @@ function createCurriculumOperatorApi(deps) {
           || planSummary.confirmReasons.includes("scope_review_required")
           || planSummary.confirmReasons.includes("possible_duplicate"));
 
-      if (action === "plan" && !preflightApi.shouldCreateJob(preflight, "plan")) {
-        jsonResponse(response, 200, {
-          ok: true,
+      if (!preflightApi.shouldCreateJob(preflight, action)) {
+        jsonResponse(response, action === "plan" ? 200 : 409, {
+          ok: action === "plan",
           action,
           awaitingConfirm: false,
           command,
@@ -2543,7 +2543,10 @@ function createCurriculumOperatorApi(deps) {
           preflight,
           job: null,
           publishEnabled: false,
-          note: planSummary.phaseNote,
+          runBlocked: action === "run",
+          note: action === "plan"
+            ? planSummary.phaseNote
+            : (preflight.blockMessage || "No job was created."),
         });
         return;
       }

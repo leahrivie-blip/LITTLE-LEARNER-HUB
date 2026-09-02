@@ -24,12 +24,15 @@ function text(value, max = 4000) {
   return schema.text(value, max);
 }
 
+function stripNegatedClauses(rawCommand) {
+  return text(rawCommand).replace(/\b(?:do\s+not|don['’]?t)\s+[^.;\n]+/gi, " ");
+}
+
 function parseLockedCategories(rawCommand) {
   const raw = text(rawCommand);
   const locked = new Set();
-  const listMatch = raw.match(/\b(?:do\s+not|don['’]?t)\s+touch\s+([^.;\n]+)/i);
+  const listMatch = raw.match(/\b(?:do\s+not|don['’]?t)\s+(?:touch|generate|create|save|change)\s+([^.;\n]+)/i);
   const blob = listMatch ? listMatch[1].toLowerCase() : "";
-  const consider = `${blob} ${raw.toLowerCase()}`;
 
   if (commandSafety.isSongsExcluded(raw) || /\bsongs?\b/.test(blob)) locked.add("songs");
   if (commandSafety.isBooksExcluded(raw) || /\bbooks?\b/.test(blob)) locked.add("books");
@@ -59,23 +62,24 @@ function parseLockedCategories(rawCommand) {
 
 function isAuditOnlyCommand(rawCommand) {
   const raw = text(rawCommand);
+  const positive = stripNegatedClauses(raw);
   if (!/\b(audit|identify\s+the\s+weakest|find\s+the\s+weakest|check\s+only|inspect)\b/i.test(raw)
     && !/\baudit[-\s]?only\b/i.test(raw)) {
     return false;
   }
-  if (/\b(upgrade|finish|complete|save\s+draft|create\s+(?:a\s+)?new\s+lesson|publish\s+it)\b/i.test(raw)
+  if (/\b(upgrade|finish|complete|save\s+draft|create\s+(?:a\s+)?new\s+lesson|publish\s+it)\b/i.test(positive)
     && !/\baudit\b/i.test(raw)) {
     return false;
   }
-  if (/\b(?:generate|regenerate|create|make|replace)\b.{0,40}\b(?:images?|pictures?|printables?)\b/i.test(raw)
+  if (/\b(?:generate|regenerate|create|make|replace)\b.{0,40}\b(?:images?|pictures?|printables?)\b/i.test(positive)
     && !/\baudit\b/i.test(raw)) {
     return false;
   }
-  if (/\baudit\b/i.test(raw) && /\b(?:do\s+not|don['’]?t)\s+touch\s+[^.;\n]*\bdrafts?\b/i.test(raw)) {
+  if (/\baudit\b/i.test(raw) && /\b(?:do\s+not|don['’]?t)\s+(?:touch|save|create)\s+[^.;\n]*\bdrafts?\b/i.test(raw)) {
     return true;
   }
   if (/\baudit[-\s]?only\b/i.test(raw)) return true;
-  if (/\baudit\b/i.test(raw) && !/\b(?:generate|regenerate|upgrade|finish|complete|save\s+draft|publish\s+it)\b/i.test(raw)) {
+  if (/\baudit\b/i.test(raw) && !/\b(?:generate|regenerate|upgrade|finish|complete|save\s+draft|publish\s+it)\b/i.test(positive)) {
     return true;
   }
   return false;
