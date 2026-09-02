@@ -49,7 +49,7 @@ const FREE_WELCOME_BODY = [
   "",
   "And Little Learner Hub goes beyond curriculum.",
   "",
-  "With the full platform, we're building tools to help with the everyday work of running a classroom or childcare program—from planning and child documentation to family communication and other time-consuming teacher tasks.",
+  "With the curriculum library and teacher tools, we're helping with everyday classroom work—from planning and child documentation to other time-consuming teacher tasks—and continuing to add more resources based on provider feedback.",
   "",
   "Your free account gives you a chance to explore Little Learner Hub and see how it fits into your day. If you find yourself wanting access to more of the plans, resources, and tools, you can upgrade whenever you're ready.",
   "",

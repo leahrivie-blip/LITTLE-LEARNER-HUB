@@ -45,8 +45,8 @@ function supportEmailAddress() {
 const SUPPORT_EMAIL = supportEmailAddress();
 const FOUNDER_NAME = process.env.ADMIN_NAME || "Leah";
 
-const SEO_TITLE = "Little Learner Hub by Leah | All-in-One Childcare Platform";
-const SEO_DESCRIPTION = "Little Learner Hub is an all-in-one childcare platform with hundreds of ready-to-use lesson plans, thousands of classroom activities, curriculum planning, AI documentation helpers, and child profiles — built by a childcare provider and continuously improved with real provider feedback.";
+const SEO_TITLE = "Affordable Childcare Curriculum & Lesson Plans for Busy Teachers | Little Learner Hub";
+const SEO_DESCRIPTION = "Ready-to-use lesson plans, activities, printables, songs, books, and teaching resources for infant, toddler, and preschool classrooms.";
 
 const OFFICIAL_SOCIAL_PROFILES = [
   { label: "TikTok", url: "https://www.tiktok.com/@leahrpoole" },
@@ -380,15 +380,15 @@ function renderCurriculumHubPage(page) {
 function renderAboutPage() {
   return renderPublicPage({
     title: `About | ${BUSINESS_NAME}`,
-    description: "Meet Leah, the childcare provider behind Little Learner Hub — an all-in-one childcare platform for planning, organizing, documenting, and saving time.",
+    description: "Meet Leah, the childcare provider behind Little Learner Hub — affordable childcare curriculum and ready-to-use lesson planning for busy teachers.",
     canonicalPath: "/about",
     bodyHtml: `
       <h1>About ${escapeHtml(BUSINESS_NAME)}</h1>
-      <p class="muted">An all-in-one childcare platform built by a childcare provider for childcare providers.</p>
+      <p class="muted">Affordable childcare curriculum and ready-to-use lesson planning, built by a childcare provider for childcare providers.</p>
 
       <h2>Meet Leah</h2>
       <p>My name is Leah. I have worked in childcare for about six years, directly in classrooms with young children. I am also a mom of three young children.</p>
-      <p>I created Little Learner Hub because I know how exhausting it is to plan lessons, gather activities, write documentation, and keep everything organized while caring for children. Providers deserve one place that helps them plan, organize, document, and save time.</p>
+      <p>I created Little Learner Hub because I know how exhausting it is to plan lessons, gather activities, write documentation, and keep everything organized while caring for children. Providers deserve ready-to-use curriculum and planning tools that save time.</p>
       <p>I listen to provider requests and continuously add lesson plans, activities, and platform improvements based on real classroom feedback.</p>
 
       <h2>What Little Learner Hub Does Now</h2>
@@ -438,8 +438,8 @@ function renderFeaturesPage() {
     description: "Explore Little Learner Hub — hundreds of lesson plans, thousands of activities, curriculum planning, AI documentation helpers, child profiles, and in-app requests. Built by a childcare provider.",
     canonicalPath: "/features",
     bodyHtml: `
-      <h1>Platform Features</h1>
-      <p>Little Learner Hub is an <strong>all-in-one online childcare platform</strong> that helps providers plan, organize, document, and save time. This page separates live features from testing and future roadmap work.</p>
+      <h1>Curriculum &amp; Teacher Features</h1>
+      <p>Little Learner Hub is <strong>affordable childcare curriculum and ready-to-use lesson planning</strong> for busy teachers — with lesson plans, activities, printables, planning tools, and documentation helpers. This page separates live features from testing and future roadmap work.</p>
       <h2>Available Now <span class="pill">Live</span></h2>
       <ul>
         <li>Hundreds of ready-to-use lesson plans for infants, toddlers, preschoolers, mixed-age groups, holidays, and seasonal themes (10 starter plans on Free; full library on Pro)</li>
@@ -476,7 +476,7 @@ function renderFeaturesPage() {
 
 function renderFaqPage() {
   const faqItems = [
-    ["What is Little Learner Hub?", "Little Learner Hub by Leah is an all-in-one childcare platform that helps providers plan, organize, document, and save time with hundreds of lesson plans, thousands of classroom activities, curriculum planning tools, AI documentation helpers, and child profiles — built by a childcare provider and continuously improved with provider feedback."],
+    ["What is Little Learner Hub?", "Little Learner Hub by Leah is affordable childcare curriculum for busy teachers — with ready-to-use lesson plans, activities, printables, songs, books, and teaching resources for infant, toddler, and preschool classrooms, plus curriculum planning tools and documentation helpers — built by a childcare provider and continuously improved with provider feedback."],
     ["What ages are included?", "Infants, Toddlers, and Preschoolers. Content is organized by age group and should still be adapted to each child’s development. Mixed-age, holiday, and seasonal themes are included."],
     ["Are lesson plans printable?", "Yes. Members can customize plans and print or save PDF copies for classroom use."],
     ["Are infant, toddler, and preschool plans available?", "Yes. The library includes published plans across all three age groups, plus mixed-age, holiday, and seasonal themes."],
@@ -509,11 +509,11 @@ function renderFaqPage() {
 function renderPricingPage() {
   return renderPublicPage({
     title: `Pricing | ${BUSINESS_NAME}`,
-    description: "Simple pricing for Little Learner Hub: Free starter lesson plans, Pro Monthly at $19.99/month, or Pro Annual at $199/year for the full all-in-one childcare platform.",
+    description: "Simple pricing for Little Learner Hub: Free starter lesson plans, Pro Monthly at $19.99/month, or Pro Annual at $199/year for the full curriculum library and teacher tools.",
     canonicalPath: "/pricing",
     bodyHtml: `
       <h1>Pricing</h1>
-      <p class="muted">Simple, honest pricing for childcare providers. Start free, then upgrade when you are ready for the full platform.</p>
+      <p class="muted">Simple, honest pricing for childcare providers. Start free, then upgrade when you are ready for the full curriculum library and teacher tools.</p>
       <h2>Free Plan — $0</h2>
       <ul>
         <li>10 complete starter lesson plans across Infant, Toddler, and Preschool</li>

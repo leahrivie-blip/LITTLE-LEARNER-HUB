@@ -36,8 +36,8 @@ test("hero prioritizes Start Free for TikTok conversion (no pricing in hero)", (
   assert.doesNotMatch(actionsHtml, /\$19\.99/);
   assert.doesNotMatch(actionsHtml, /Founding/);
   assert.doesNotMatch(actionsHtml, /llh-hero-login-link/);
-  assert.match(html, /Your whole week planned before Monday/);
-  assert.match(html, /id="homeFarmPreview"/);
+  assert.match(html, /Affordable Childcare Curriculum for Busy Teachers/);
+  assert.match(html, /Ready-to-use lesson plans, activities, printables/);
   assert.doesNotMatch(html, /127 lesson plans/);
   assert.doesNotMatch(html, /2,110 activities/);
   assert.doesNotMatch(html, /id="homeHeroInventory"/);
@@ -138,7 +138,7 @@ test("start-free opens signup modal for guests", () => {
 
 test("guest library browse keeps a signup path", () => {
   assert.match(appJs, /library-upgrade-strip--guest/);
-  assert.match(appJs, /Create a free account to save Free lesson plans and explore the all-in-one childcare platform/);
+  assert.match(appJs, /Create a free account to save Free lesson plans and explore affordable childcare curriculum for busy teachers/);
   const browseCss = fs.readFileSync(path.join(root, "styles/llh-library-browse.css"), "utf8");
   assert.match(browseCss, /body\.activities-view:not\(\.user-authenticated\) \.topbar \.account-actions/);
   assert.match(css, /body\.lessons-view:not\(\.user-authenticated\) \.topbar \.account-actions/);

@@ -50,7 +50,7 @@ const EMAIL_TEXT = [
   "⭐ Unlimited Calendar Planning",
   "⭐ Documentation Helpers, Child Profiles & Future Features",
   "",
-  "Ready for the full platform?",
+  "Ready for the full curriculum library?",
   "",
   "Upgrade to Pro for $19.99/month (or $199/year) to unlock hundreds of lesson plans, thousands of classroom activities, curriculum planning, AI documentation helpers, and child profiles.",
   "",
@@ -160,7 +160,7 @@ function htmlEscape(value) {
 
 function foundingReminderBlock(_foundingOpen) {
   return [
-    "Ready for the full platform?",
+    "Ready for the full curriculum library?",
     "",
     "Upgrade to Pro for $19.99/month (or $199/year) to unlock hundreds of lesson plans, thousands of classroom activities, curriculum planning, AI documentation helpers, and child profiles.",
     "",

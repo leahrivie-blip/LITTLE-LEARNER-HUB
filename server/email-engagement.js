@@ -639,11 +639,11 @@ function buildFreeReengagementContent(user, { siteUrl, htmlEscape, unsubscribeUr
   const safeUnsubscribe = htmlEscape(unsubscribeUrl || `${base}/`);
   const safePostalAddress = htmlEscape(postalAddress || "");
   const foundingPsText = foundingOpen
-    ? "P.S. Upgrade to Pro for $19.99/month to unlock the full all-in-one childcare platform — lesson plans, activities, curriculum planning, AI documentation helpers, and child profiles."
-    : "P.S. Upgrade to Pro for $19.99/month to unlock the full all-in-one childcare platform — lesson plans, activities, curriculum planning, AI documentation helpers, and child profiles.";
+    ? "P.S. Upgrade to Pro for $19.99/month to unlock the full curriculum library and teacher tools — lesson plans, activities, curriculum planning, AI documentation helpers, and child profiles."
+    : "P.S. Upgrade to Pro for $19.99/month to unlock the full curriculum library and teacher tools — lesson plans, activities, curriculum planning, AI documentation helpers, and child profiles.";
   const foundingPsHtml = foundingOpen
-    ? `<p><strong>P.S.</strong> Upgrade to Pro for $19.99/month to unlock the full all-in-one childcare platform — lesson plans, activities, curriculum planning, AI documentation helpers, and child profiles.</p>`
-    : `<p><strong>P.S.</strong> Upgrade to Pro for $19.99/month to unlock the full all-in-one childcare platform — lesson plans, activities, curriculum planning, AI documentation helpers, and child profiles.</p>`;
+    ? `<p><strong>P.S.</strong> Upgrade to Pro for $19.99/month to unlock the full curriculum library and teacher tools — lesson plans, activities, curriculum planning, AI documentation helpers, and child profiles.</p>`
+    : `<p><strong>P.S.</strong> Upgrade to Pro for $19.99/month to unlock the full curriculum library and teacher tools — lesson plans, activities, curriculum planning, AI documentation helpers, and child profiles.</p>`;
   const text = [
     "Hi!",
     "",
@@ -666,7 +666,7 @@ function buildFreeReengagementContent(user, { siteUrl, htmlEscape, unsubscribeUr
     "• Forms and paperwork tools",
     "• Even more lesson plans and activities",
     "",
-    "As a childcare provider myself, my goal is to create an affordable platform that truly gives providers everything they need in one place. Many of the updates we've made have come directly from feedback from childcare providers.",
+    "As a childcare provider myself, my goal is to create affordable childcare curriculum and ready-to-use lesson planning that truly helps busy teachers. Many of the updates we've made have come directly from feedback from childcare providers.",
     "",
     "I'd love for you to log back in, explore the updates, and let me know what you think.",
     "",
@@ -701,7 +701,7 @@ function buildFreeReengagementContent(user, { siteUrl, htmlEscape, unsubscribeUr
         <li>Observation and documentation tools</li><li>Behavior &amp; Support resources</li>
         <li>Forms and paperwork tools</li><li>Even more lesson plans and activities</li>
       </ul>
-      <p>As a childcare provider myself, my goal is to create an affordable platform that truly gives providers everything they need in one place. Many of the updates we've made have come directly from feedback from childcare providers.</p>
+      <p>As a childcare provider myself, my goal is to create affordable childcare curriculum and ready-to-use lesson planning that truly helps busy teachers. Many of the updates we've made have come directly from feedback from childcare providers.</p>
       <p>I'd love for you to log back in, explore the updates, and let me know what you think.</p>
       <p>If you see anything that would make Little Learner Hub better, easier, or more useful for your program, please let me know. I genuinely use provider feedback to decide what gets built next.</p>
       <p><strong>👉 Login Here:</strong><br><a href="${safeBase}">${safeBase}</a></p>

@@ -96,7 +96,7 @@ async function main() {
   assert(!indexHtml.includes("Little Learner Hub Founding Membership"), "homepage must not advertise Founding Membership Product schema");
   assert(!indexHtml.includes("#founding-membership"), "homepage must not include founding-membership schema id");
   assert(!/Founding Member/i.test(indexHtml), "homepage HTML must not mention Founding Member");
-  assert(indexHtml.includes("All-in-One Childcare Platform") || indexHtml.includes(seo.SEO_TITLE), "homepage title should use platform SEO title");
+  assert(indexHtml.includes("Affordable Childcare Curriculum") || indexHtml.includes(seo.SEO_TITLE), "homepage title should use curriculum SEO title");
   assert(indexHtml.includes("featureList") || indexHtml.includes('"featureList"'), "homepage WebApplication should include featureList");
   assert(indexHtml.includes('"@type": "Organization"'), "homepage missing Organization schema");
   assert(indexHtml.includes('"@type": "WebApplication"'), "homepage missing WebApplication schema");
