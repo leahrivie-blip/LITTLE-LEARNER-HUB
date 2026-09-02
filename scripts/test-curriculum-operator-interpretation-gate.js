@@ -345,4 +345,39 @@ console.log("\n7. Before/after image-only JSON contract");
   }, null, 2));
 }
 
+console.log("\n8. Catalog-less printable compatibility");
+{
+  const printableCmd = "Create Maker Station Signs printable for Little Makers Workshop teaching kit";
+  const noCatalog = commandApi.parseOperatorCommand(printableCmd, { phase: 7 });
+  ok(noCatalog.command.actions.generatePrintables === true, "catalog-less printable command keeps generatePrintables");
+  ok(noCatalog.command.actions.createLesson !== true, "catalog-less printable command is not create-lesson");
+  ok(
+    !targetResolver.extractSuppliedTitles(printableCmd, noCatalog.command.scope.titles || [])
+      .some((title) => /maker station signs/i.test(title)),
+    "Maker Station Signs is not treated as a lesson title",
+  );
+  ok(
+    (noCatalog.preflight.lessonIds || []).length <= 1
+      && (noCatalog.command.scope.lessonIds || []).filter(Boolean).length <= 1,
+    "printable artifact does not add a second lesson target",
+  );
+  ok(preflightApi.shouldCreateJob(noCatalog.preflight, "run") === false, "catalog-less parse still does not authorize a run job");
+
+  const withCatalog = parse(printableCmd);
+  ok(withCatalog.command.actions.generatePrintables === true, "catalog-backed printable command keeps generatePrintables");
+  ok(withCatalog.preflight.selectionMethod === "title_match", "catalog-backed printable resolves uniquely by title");
+  ok(withCatalog.command.scope.lessonIds.length === 1 && withCatalog.command.scope.lessonIds[0] === LMW_ID, "catalog-backed printable resolves Little Makers Workshop only");
+  ok(withCatalog.preflight.candidates.length <= 1, "printable name does not create title ambiguity");
+
+  const invalid = parse(`Audit images for lesson ID ${INVALID_ID}. Do not touch drafts.`);
+  ok(invalid.preflight.valid === false && invalid.preflight.selectionMethod === "unresolved", "invalid ID hard stop remains");
+  ok(invalid.preflight.createJob === false, "invalid ID still creates no job");
+
+  const ambiguous = parse("Audit Story Circle. Do not generate images, printables, songs, or books.");
+  ok(ambiguous.preflight.selectionMethod === "ambiguous" && ambiguous.preflight.valid === false, "ambiguous title hard stop remains");
+
+  const negated = parse("Do not generate printables for Little Makers Workshop");
+  ok(negated.command.actions.generatePrintables !== true, "negated printable command keeps generatePrintables locked");
+}
+
 console.log(`\nOK curriculum-operator-interpretation-gate (${passed} assertions)`);

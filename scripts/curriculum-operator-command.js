@@ -607,7 +607,10 @@ function parseOperatorCommand(rawCommand, options = {}) {
     confirmReasons.push(...resolution.blockReasons);
     ambiguous = true;
   }
-  if (resolution.selectionMethod === "unresolved" || resolution.selectionMethod === "ambiguous") {
+  const catalogPresent = schema.asArray(options.lessonPlans).length > 0;
+  const unresolvedHardStop = resolution.selectionMethod === "unresolved"
+    && (resolution.suppliedLessonIds.length > 0 || catalogPresent);
+  if (resolution.selectionMethod === "ambiguous" || unresolvedHardStop) {
     command.completion.mutationsEnabled = false;
     command.actions.saveDraft = false;
     command.actions.touchDraft = false;

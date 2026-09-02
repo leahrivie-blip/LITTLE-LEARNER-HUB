@@ -64,6 +64,21 @@ function extractTitleCaseAfterVerb(rawCommand) {
   return [candidate];
 }
 
+function escapeRegExp(value) {
+  return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** "Create Maker Station Signs printable for LMW" — artifact name, not a lesson title. */
+function isRequestedPrintableArtifactTitle(title, rawCommand) {
+  const raw = String(rawCommand || "");
+  const escaped = escapeRegExp(title);
+  if (!escaped) return false;
+  if (!new RegExp(`\\b(?:create|generate|make|add|build|replace)\\s+${escaped}\\s+printables?\\b`, "i").test(raw)) {
+    return false;
+  }
+  return !new RegExp(`\\bfor\\s+${escaped}\\b`, "i").test(raw);
+}
+
 function extractSuppliedTitles(rawCommand, extraTitles = []) {
   const raw = text(rawCommand);
   const structured = commandSafety.extractStructuredLessonTitles(raw);
@@ -77,6 +92,7 @@ function extractSuppliedTitles(rawCommand, extraTitles = []) {
       if (commandSafety.isGarbageTitleCandidate(title)) return false;
       if (/cur-lp-[a-f0-9]{16}/i.test(title)) return false;
       if (/^lesson\s+id\b/i.test(title)) return false;
+      if (isRequestedPrintableArtifactTitle(title, raw)) return false;
       return true;
     });
 }
@@ -397,6 +413,7 @@ module.exports = {
   UNRESOLVED_ID_MESSAGE,
   extractSuppliedLessonIds,
   extractSuppliedTitles,
+  isRequestedPrintableArtifactTitle,
   parseRequestedCounts,
   matchTitleCandidates,
   isProtectedLesson,
