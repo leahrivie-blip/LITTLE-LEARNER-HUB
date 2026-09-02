@@ -314,6 +314,7 @@
       const local = printApi().buildBinderPrintHtml(state.draft, state.lesson, {
         qrSvgByUrl: state.qrSvgByUrl,
         mode: "preview",
+        assetOrigin: typeof window !== "undefined" ? window.location.origin : "",
       });
       state.previewHtml = local.html;
       state.previewPages = local.pages;
@@ -671,15 +672,32 @@
           renderChromeOnly();
           return;
         }
+        const assetOrigin = typeof window !== "undefined" && window.location?.origin
+          ? window.location.origin
+          : "";
         const built = printApi().buildBinderPrintHtml(state.draft, state.lesson, {
           qrSvgByUrl: state.qrSvgByUrl,
           mode: "print",
+          assetOrigin,
         });
         const printHost = document.getElementById("bbPrintHost") || host()?.querySelector(".bb-print-host");
         if (!printHost) throw new Error("Print host missing.");
         printHost.hidden = false;
         printHost.innerHTML = built.html;
         document.body.classList.add("printing-binder-builder");
+        const imageResults = printApi().waitForPrintImages
+          ? await printApi().waitForPrintImages(printHost, { timeoutMs: 25000 })
+          : { loaded: [], failed: [], timedOut: [] };
+        if (readinessApi()?.applyImageLoadResults) {
+          const base = state.readiness || readinessApi().evaluateBinderReadiness(state.draft, state.lesson);
+          state.readiness = readinessApi().applyImageLoadResults(base, imageResults);
+        }
+        if ((imageResults.failed || []).length || (imageResults.timedOut || []).length) {
+          setMessage(
+            `Print opened with ${(imageResults.failed || []).length + (imageResults.timedOut || []).length} image load failure(s). Review readiness — failed images were not left as empty content claims.`,
+            true,
+          );
+        }
         const cleanup = () => {
           document.body.classList.remove("printing-binder-builder");
           printHost.hidden = true;
@@ -689,7 +707,9 @@
         window.addEventListener("afterprint", cleanup);
         window.print();
         setTimeout(cleanup, 1000);
-        setMessage("Print dialog opened.", false);
+        if (!((imageResults.failed || []).length || (imageResults.timedOut || []).length)) {
+          setMessage("Print dialog opened.", false);
+        }
         renderChromeOnly();
       }
     } catch (error) {
