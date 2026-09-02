@@ -379,4 +379,150 @@ console.log("\n28) filtered composer plan keeps only vocabCards");
   ok(!filtered.plan.songs.length && !filtered.plan.books.length, "songs/books stripped");
 }
 
+console.log("\nT1) autoApply survives plan → resume");
+{
+  const serverSrc = fs.readFileSync(path.join(__dirname, "../server/curriculum-operator.js"), "utf8");
+  const resumeIdx = serverSrc.indexOf('action === "resume"');
+  const cancelIdx = serverSrc.indexOf('action === "cancel"', resumeIdx);
+  ok(resumeIdx > 0 && cancelIdx > resumeIdx, "resume handler located");
+  const resumeBlock = serverSrc.slice(resumeIdx, cancelIdx);
+  ok(/tryConnectedAutoApply\s*\(/.test(resumeBlock), "resume calls tryConnectedAutoApply");
+  ok(/autoApply/.test(resumeBlock), "resume response includes autoApply");
+  ok(/connectedAutoApply/.test(resumeBlock), "resume gates on connectedAutoApply");
+  const cmd = vocabOnlyCommand();
+  ok(cmd.actions.connectedAutoApply === true, "vocab-only command keeps connectedAutoApply=true");
+  ok(vocabSurgical.shouldDeferVocabDraftPersist(cmd, allowlistApi.buildMutationAllowlist(cmd)) === true,
+    "vocab-only connected auto-apply defers intermediate draft persist");
+}
+
+console.log("\nT2) structured vocabulary — combined dump cannot persist as one card word");
+{
+  const combined = "art, create, explore, build";
+  ok(lessonRead.isCombinedVocabularyList(combined), "combined list detected");
+  ok(!lessonRead.isValidVocabularyCard({ word: combined }), "combined word card invalid");
+  const expanded = lessonRead.expandVocabularyCardEntries([{ word: combined }]);
+  ok(expanded.length === 4, "combined dump expands to 4 structured cards");
+  ok(expanded.every((c) => c.word && !lessonRead.isCombinedVocabularyList(c.word)), "no card retains combined word");
+
+  const plan = historicalDraftPlan();
+  const work = {
+    lessonId: LMW_ID,
+    weekRequests: [{ field: "vocabCards", action: "REPLACE", reason: "malformed" }],
+    weekKeep: [],
+    activityRequests: [],
+    activityKeep: [],
+    songRequests: [],
+    bookRequest: null,
+    hasWork: true,
+  };
+  const fromComposer = composer.validateComposerOutput(JSON.stringify({
+    lessonId: LMW_ID,
+    weeklyChanges: { vocabCards: { action: "REPLACE", value: [combined] } },
+    activities: [],
+  }), work, plan);
+  ok(fromComposer.ok === true, "composer accepts combined input by expanding");
+  const cards = fromComposer.plan.weeklyChanges.vocabCards.value;
+  ok(Array.isArray(cards) && cards.length === 4, "composer emits separate cards");
+  ok(cards.every((c) => typeof c === "object" && c.word && !/,/.test(c.word)),
+    "composer never keeps comma-list inside one word");
+
+  const emptyFail = composer.validateComposerOutput(JSON.stringify({
+    lessonId: LMW_ID,
+    weeklyChanges: { vocabCards: { action: "REPLACE", value: [" , , "] } },
+    activities: [],
+  }), work, plan);
+  ok(emptyFail.ok === false, "empty/garbage combined dump fails closed");
+}
+
+console.log("\nT3) authoritative repair of vocabularyWords + teachingKit.vocabCards");
+{
+  const before = historicalDraftPlan();
+  ok(before.vocabularyWords === "", "fixture starts with empty vocabularyWords");
+  ok(before.teachingKit.vocabCards[0].word.includes(","), "fixture starts with malformed card");
+  const applied = vocabSurgical.applySurgicalVocabToPlan(before, VALID_CARDS);
+  ok(applied.ok, "surgical apply succeeds");
+  ok(applied.plan.vocabularyWords.includes("press") && applied.plan.vocabularyWords.includes("build"),
+    "vocabularyWords repaired");
+  ok(applied.plan.teachingKit.vocabCards.length === VALID_CARDS.length, "teachingKit.vocabCards repaired");
+  ok(applied.plan.teachingKit.vocabCards.every((c) => !lessonRead.isCombinedVocabularyList(c.word)),
+    "authoritative cards are individually structured");
+}
+
+console.log("\nT4) surgical scope — unrelated fields byte-stable");
+{
+  const before = historicalDraftPlan();
+  const helloFall = {
+    id: "cur-lp-19fb387f75cfd1f1745",
+    title: "Hello Fall",
+    status: "published",
+    vocabularyWords: "leaf, crisp, orange",
+    teachingKit: { vocabCards: [{ word: "leaf" }] },
+    coverImageUrl: "/api/media/lesson-covers/hello-fall",
+    fingerprint: "hf-before",
+  };
+  const beforeHf = JSON.parse(JSON.stringify(helloFall));
+  const applied = vocabSurgical.applySurgicalVocabToPlan(before, VALID_CARDS);
+  const after = applied.plan;
+  const authDiff = vocabSurgical.computeAuthoritativeCurriculumDiff(before, after);
+  ok(authDiff.every((p) => /^(vocabularyWords|teachingKit\.vocabCards)/.test(p)),
+    "allowed persisted paths only vocabularyWords + teachingKit.vocabCards (+ nested)");
+  ok(JSON.stringify(after.songs) === JSON.stringify(before.songs), "songs unchanged");
+  ok(JSON.stringify(after.books) === JSON.stringify(before.books), "books unchanged");
+  ok(JSON.stringify(after.teachingKit.printableIds) === JSON.stringify(before.teachingKit.printableIds),
+    "printables unchanged");
+  ok(after.coverImageUrl === before.coverImageUrl, "cover unchanged");
+  ok(JSON.stringify(after.learningDomains) === JSON.stringify(before.learningDomains), "domains unchanged");
+  ok(JSON.stringify(after.teachingKit.milestones) === JSON.stringify(before.teachingKit.milestones),
+    "milestones unchanged");
+  ok(after.status === before.status && after.publishedAt === before.publishedAt, "status/publishedAt unchanged");
+  ok(after.dailyPlans.monday.items[0].itemId === ACT_DOT, "activity ids unchanged");
+  ok(JSON.stringify(helloFall) === JSON.stringify(beforeHf), "second lesson fingerprint unchanged (no cross-lesson write)");
+}
+
+console.log("\nT5) malformed composer output fails closed when unnormalizable");
+{
+  const plan = historicalDraftPlan();
+  const work = {
+    lessonId: LMW_ID,
+    weekRequests: [{ field: "vocabCards", action: "REPLACE", reason: "malformed" }],
+    weekKeep: [],
+    activityRequests: [],
+    activityKeep: [],
+    songRequests: [],
+    bookRequest: null,
+    hasWork: true,
+  };
+  const invalid = composer.validateComposerOutput(JSON.stringify({
+    lessonId: LMW_ID,
+    weeklyChanges: { vocabCards: { action: "REPLACE", value: [{ word: "" }, { foo: "bar" }, null] } },
+    activities: [],
+  }), work, plan);
+  ok(invalid.ok === false, "unnormalizable vocabCards fail composer validation");
+
+  const applyCombined = vocabSurgical.applySurgicalVocabToPlan(
+    historicalDraftPlan(),
+    [{ word: "art, create, explore, build, sticky, paper, press, paint" }],
+  );
+  ok(!applyCombined.ok || applyCombined.plan.teachingKit.vocabCards.every((c) => !/,/.test(c.word)),
+    "combined dump never persists as a single authoritative card word");
+
+  const applyEmpty = vocabSurgical.applySurgicalVocabToPlan(historicalDraftPlan(), [{ word: " , ; " }]);
+  ok(applyEmpty.ok === false, "empty expand fails surgical apply closed");
+}
+
+console.log("\nT6) extract prefers intended staged cards over historical malformed draft");
+{
+  const before = historicalDraftPlan();
+  const lessonResult = {
+    intended: { week: { vocabCards: VALID_CARDS } },
+    composerDiagnostics: { accepted: [{ scope: "week", field: "vocabCards", action: "REPLACE" }] },
+  };
+  const extracted = vocabSurgical.extractVocabCardsForSurgicalApply(before, lessonResult);
+  ok(extracted.length === VALID_CARDS.length, "extract uses intended cards");
+  ok(extracted[0].word === "press", "extract does not keep historical combined dump");
+  const applied = vocabSurgical.applySurgicalVocabToPlan(before, extracted);
+  ok(applied.ok, "staged intended cards surgically apply");
+  ok(applied.plan.vocabularyWords.split(",").length >= 4, "authoritative string synced from intended");
+}
+
 console.log(`\n${passed} assertions passed.`);

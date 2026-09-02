@@ -1099,14 +1099,16 @@ function normalizeChangeEntry(field, raw) {
     }
     if (!Array.isArray(value)) return { ok: false, error: `${field} must be an array` };
     // Preserve structured { word, definition } cards — do not String(object) → "[object Object]".
-    value = value.map((v) => {
+    // Combined comma-dumps must expand into separate cards or fail closed (never one card word).
+    const lessonReadApi = require("./curriculum-operator-lesson-read.js");
+    const preserved = value.map((v) => {
       if (v == null) return null;
       if (typeof v === "string" || typeof v === "number") {
-        const word = text(v, 120);
+        const word = text(v, 200);
         return word || null;
       }
       if (typeof v === "object" && !Array.isArray(v)) {
-        const word = text(v.word || v.title || v.term || v.label, 120);
+        const word = text(v.word || v.title || v.term || v.label, 200);
         if (!word) return null;
         const out = { word };
         const definition = text(v.definition || v.description || v.meaning, 400);
@@ -1116,7 +1118,14 @@ function normalizeChangeEntry(field, raw) {
         return out;
       }
       return null;
-    }).filter(Boolean).slice(0, 40);
+    }).filter(Boolean);
+    value = lessonReadApi.expandVocabularyCardEntries(preserved).slice(0, 40);
+    if (!value.length) {
+      return {
+        ok: false,
+        error: "vocabCards must contain valid structured vocabulary cards; combined-word dumps are not allowed as a single card word",
+      };
+    }
   } else if (field === "prepChecklist" || field === "observationFocus" || field === "milestones"
     || field === "teacherTips" || field === "vocabulary"
     || field === "observationPrompts") {
