@@ -427,6 +427,7 @@
     "test:postgres-pool-hardening": "NODE_ENV=test node scripts/test-postgres-pool-hardening.js",
     "test:postgres-startup-readiness": "NODE_ENV=test node scripts/test-postgres-startup-readiness.js",
     "test:curriculum-operator-job-store-offload": "NODE_ENV=test node scripts/test-curriculum-operator-job-store-offload.js",
+    "test:curriculum-operator-job-store-path": "NODE_ENV=test node scripts/test-curriculum-operator-job-store-path.js",
     "test:postgres-reliability-repair": "NODE_ENV=test node scripts/test-postgres-reliability-repair.js",
     "test:postgres-final-safety-gate": "NODE_ENV=test node scripts/test-postgres-final-safety-gate.js",
     "test:store-write-race": "NODE_ENV=test node scripts/test-store-write-race.js",

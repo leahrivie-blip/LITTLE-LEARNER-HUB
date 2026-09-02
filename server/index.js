@@ -23,17 +23,11 @@ const { createDraftReviewApi } = require("./curriculum-draft-review.js");
 const { createVisualProductionApi, mergeStorePreserveVisualProduction } = require("./visual-production.js");
 const { createBinderBuilderApi, mergeStorePreserveBinderBuilder } = require("./binder-builder.js");
 const { createCurriculumOperatorApi, mergeStorePreserveCurriculumOperatorJobs } = require("./curriculum-operator.js");
-const { createCurriculumOperatorJobStore } = require("./curriculum-operator-job-store.js");
+const { createCurriculumOperatorJobStore, resolveCurriculumOperatorJobStoreLocalPath } = require("./curriculum-operator-job-store.js");
 // Local side-file ONLY when not configured for Postgres. Production Postgres mode must
 // never attach a filesystem durability substitute (see curriculum-operator-job-store backendMode).
 const curriculumOperatorJobStore = createCurriculumOperatorJobStore({
-  localFilePath: (() => {
-    const provider = String(process.env.DATABASE_PROVIDER || "local-json").toLowerCase();
-    const url = String(process.env.PRODUCTION_DATABASE_URL || "").trim();
-    const postgresIntended = (provider === "postgres" || provider === "postgresql") && Boolean(url);
-    if (postgresIntended) return null;
-    return path.join(__dirname, "data", "curriculum-operator-jobs.json");
-  })(),
+  localFilePath: resolveCurriculumOperatorJobStoreLocalPath(process.env),
 });
 const { createCurriculumOperatorOwnerPublishApi } = require("./curriculum-operator-owner-publish.js");
 const restoreIndependentLesson = require("./curriculum-restore-independent-lesson.js");
