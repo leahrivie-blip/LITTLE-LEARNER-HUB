@@ -398,7 +398,11 @@ function assertUnitContracts() {
   ok(!schema.isPhase2Executable("image.generate"), "image.generate not executable in phase2");
   ok(!schema.isPhase2Executable("printable.buildPdf"), "printable.buildPdf not executable in phase2");
 
-  const fix = commandApi.parseOperatorCommand("Fix Weather Watchers.", { phase: 2 });
+  const curriculum = seedCurriculum();
+  const fix = commandApi.parseOperatorCommand("Fix Weather Watchers.", {
+    phase: 2,
+    lessonPlans: curriculum.lessonPlans,
+  });
   ok(fix.command.intent === "fix_lesson", "Fix → fix_lesson");
   ok(fix.command.scope.selection === "named_titles", "Fix named title targeting");
   ok(fix.command.scope.titles.some((t) => /weather watchers/i.test(t)), "extracts Weather Watchers");
@@ -419,7 +423,6 @@ function assertUnitContracts() {
   ok(fill.command.scope.selection === "missing_teaching_kit", "fill missing → missing_teaching_kit");
   ok(fill.command.actions.saveDraft === true, "fill missing saves draft");
 
-  const curriculum = seedCurriculum();
   const namedSel = selectApi.selectLessons(curriculum, fix.command);
   ok(namedSel.selected.length === 1 && namedSel.selected[0].id === WEATHER_ID, "exact lesson targeting");
 
