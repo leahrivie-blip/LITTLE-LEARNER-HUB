@@ -4210,6 +4210,7 @@ async function finishSignupWithPlan(planChoice) {
     updateAuthButtons();
     updatePlanLabel();
     refreshPublicCurriculumLibrary().catch(() => {});
+    window.LLHGoogleAdsFreeSignupConversion?.emitAfterFreeSignupCompletion();
     // Phase 1: onboarding welcome (experience-first) instead of Calendar upgrade card.
     if (typeof beginNewUserOnboardingAfterFreeSignup === "function") {
       beginNewUserOnboardingAfterFreeSignup();
@@ -17448,6 +17449,7 @@ async function signUpWithProvider(email, password, phone, firstName, lastName) {
       lastName: cleanLast,
       name: fullName || undefined,
     });
+    window.LLHGoogleAdsFreeSignupConversion?.markAccountCreated();
     return { email: cleanEmail, verified: credential.user.emailVerified, message: "Account created. Please check your email to verify your address." };
   }
   ensureAccount(cleanEmail);
@@ -17460,6 +17462,7 @@ async function signUpWithProvider(email, password, phone, firstName, lastName) {
     name: fullName || undefined,
     passwordHash: await localPasswordHash(password),
   });
+  window.LLHGoogleAdsFreeSignupConversion?.markAccountCreated();
   return { email: cleanEmail, verified: false, message: "Welcome! Your account is ready — you can start exploring right away." };
 }
 
