@@ -64,7 +64,6 @@ const { createMemberAuthRateLimit } = require("./member-auth-rate-limit.js");
 const { createAdminSessionStore } = require("./admin-session-store.js");
 const analyticsStore = require("./analytics-store.js");
 const analyticsRevenue = require("./analytics-revenue.js");
-const googleAdsConversionOutbox = require("./google-ads-conversion-outbox.js");
 const storeWriteMetricsLib = require("./store-write-metrics.js");
 const llhStoreUpdatedAtReconcile = require("./llh-store-updated-at-reconcile.js");
 const curriculumMedia = require("./curriculum-media.js");
@@ -1113,7 +1112,6 @@ function defaultStore() {
     membershipAudit: [],
     roleReconciliationAudit: [],
     processedStripeEvents: {},
-    googleAdsConversionOutbox: [],
     leads: [],
     conversionLeads: {},
     promoRedemptions: [],
@@ -10178,7 +10176,7 @@ async function handleAccountProfileSync(request, response) {
   const isSignupRequest = body.signup === true;
   const shouldClaimGoogleAdsFreeSignup = body.googleAdsFreeSignupComplete === true
     && (existing.googleAdsFreeSignupEligible === true || (isSignupRequest && !existing.signupAt))
-    && !existing.googleAdsFreeSignupClaimedAt;
+    && (existing.plan || "Free") === "Free";
   if (isSignupRequest && !existing.signupAt) {
     updates.signupAt = new Date().toISOString();
     updates.createdAt = existing.createdAt || updates.signupAt;
@@ -10199,10 +10197,6 @@ async function handleAccountProfileSync(request, response) {
   } else if (body.freeLessonAccessMode) {
     const modeFromBody = freePlanGrandfathering.normalizeAccessMode(body.freeLessonAccessMode);
     if (modeFromBody) updates.freeLessonAccessMode = modeFromBody;
-  }
-  if (shouldClaimGoogleAdsFreeSignup) {
-    updates.googleAdsFreeSignupEligible = false;
-    updates.googleAdsFreeSignupClaimedAt = new Date().toISOString();
   }
   if (body.lastLogin === true) {
     updates.lastLoginAt = new Date().toISOString();
@@ -12361,12 +12355,8 @@ function claimGoogleAdsCheckoutConversion({ email, session, trialDays, subscript
   const complete = session?.status === "complete";
   const sessionId = String(session?.id || "").trim();
   if (!cleanEmail || !complete || !sessionId) return null;
-  const user = existingUser || {};
-  if (trialDays > 0 && subscription?.status === "trialing" && !user.googleAdsTrialStartSessionId) {
-    upsertUser(cleanEmail, {
-      googleAdsTrialStartSessionId: sessionId,
-      googleAdsTrialStartClaimedAt: new Date().toISOString(),
-    }, { deferPersist: true });
+  void existingUser;
+  if (trialDays > 0 && subscription?.status === "trialing") {
     return { type: "trial_start", dedupeKey: sessionId };
   }
   return null;
@@ -12816,9 +12806,6 @@ async function handleStripeWebhook(request, response) {
               paidUpdates.firstPaidInvoiceAt = store.users?.[email]?.firstPaidInvoiceAt || paidAt;
               paidUpdates.foundingSpotReleasable = false;
               markFoundingReservationConverted(email, WEBHOOK_DEFER);
-              if (!alreadyHadFirstPaid) {
-                googleAdsConversionOutbox.enqueuePaidSubscription(writableStore(), invoice);
-              }
               // Purchase ONLY for the first successful paid invoice — never renewals
               // (including Founding renewals) and never $0 trial invoices.
               if (metaCapi.shouldFireMetaPurchase({ amountPaid, alreadyHadFirstPaid })) {

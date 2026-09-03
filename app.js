@@ -67644,12 +67644,9 @@ async function completeCheckoutFromStripeSession(session) {
     return;
   }
   const googleAdsConversion = session.googleAdsConversion;
-  if (googleAdsConversion?.type === "trial_start" || googleAdsConversion?.type === "paid_subscription") {
+  if (googleAdsConversion?.type === "trial_start") {
     window.LLHGoogleAdsConversions?.emit(googleAdsConversion.type, {
       dedupeKey: googleAdsConversion.dedupeKey,
-      transactionId: googleAdsConversion.transactionId,
-      value: googleAdsConversion.value,
-      currency: googleAdsConversion.currency,
     });
   }
   if (session?.founding) applyFoundingStatus(session.founding);
