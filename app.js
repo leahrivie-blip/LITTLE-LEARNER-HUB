@@ -3082,6 +3082,7 @@ const adRouteMap = {
   "/home-daycare-provider-tools": "home",
   "/admin": "admin",
   "/subscription-success": "payment-success",
+  "/privacy-settings": "home",
   "#/free-daycare-forms": "forms",
   "#/daycare-lesson-plans": "lessons",
   "#/observation-generator": "ai",
