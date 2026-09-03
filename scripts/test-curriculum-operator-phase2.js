@@ -719,7 +719,7 @@ async function assertHttpContracts() {
     ok(batchRun.json.job.lessonResults.every((lr) => /toddler/i.test(lr.title || "")), "batch toddler titles");
     ok(batchRun.json.job.lessonResults.every((lr) => lr.published === false), "batch not published");
 
-    const keepRun = await requestJson("POST", "/api/admin/curriculum/operator", {
+    const unscopedKeep = await requestJson("POST", "/api/admin/curriculum/operator", {
       action: "run",
       phase: 2,
       command: {
@@ -729,6 +729,20 @@ async function assertHttpContracts() {
         actions: { audit: true, upgradeLesson: true, upgradeActivities: true, saveDraft: true },
         completion: { phase: 2 },
       },
+    }, ownerAuth);
+    ok(unscopedKeep.status === 409, "unscoped keep-strong command is blocked");
+    ok(unscopedKeep.json.code === "RUN_BLOCKED", "unscoped keep-strong returns RUN_BLOCKED");
+    ok(unscopedKeep.json.runBlocked === true, "unscoped keep-strong sets runBlocked");
+    ok(
+      (unscopedKeep.json.confirmReasons || []).includes("ambiguous_scope"),
+      "unscoped keep-strong reason is ambiguous_scope",
+    );
+
+    const keepRun = await requestJson("POST", "/api/admin/curriculum/operator", {
+      action: "run",
+      phase: 2,
+      currentlySelectedLessonId: STRONG_ID,
+      command: "Improve weak activities in Preschool Weather Lab but keep strong existing content.",
     }, ownerAuth);
     ok(keepRun.status === 200, "strong lesson upgrade run");
     const keepLr = keepRun.json.job.lessonResults[0];
@@ -773,8 +787,85 @@ async function assertHttpContracts() {
   }
 }
 
+function assertLearningDomainsVerification() {
+  console.log("learningDomains verification shape");
+  const beforePlan = {
+    id: "cur-lp-aaaaaaaaaaaaaaaa",
+    title: "Apple Studio",
+    age: "Toddler 18–24 Months",
+    plan: "Pro",
+  };
+  const afterWithWeek = (week) => ({
+    ...beforePlan,
+    enrichmentDraft: { week, activities: {} },
+  });
+  const intendedDomains = ["Social Emotional", "Physical Development", "Creative Arts"];
+  const proseOverview = "Children explore apples through play-based painting and conversation all week.";
+
+  const valid = upgradeApi.verifyUpgradeResult({
+    beforePlan,
+    afterPlan: afterWithWeek({ learningDomains: intendedDomains.slice() }),
+    intended: { week: { learningDomains: intendedDomains.slice() }, activities: {} },
+    changed: [{ path: "week.learningDomains" }],
+  });
+  ok(valid.ok === true, "valid multi-item learningDomains array passes saved_learningDomains");
+  ok(!valid.failed.some((row) => row.code === "saved_learningDomains"), "saved_learningDomains check is ok for valid array");
+
+  const empty = upgradeApi.verifyUpgradeResult({
+    beforePlan,
+    afterPlan: afterWithWeek({ learningDomains: [] }),
+    intended: { week: { learningDomains: intendedDomains.slice() }, activities: {} },
+    changed: [],
+  });
+  ok(empty.ok === false, "empty learningDomains array fails verification");
+  ok(empty.failed.some((row) => row.code === "saved_learningDomains"), "empty array fails saved_learningDomains");
+
+  const blanks = upgradeApi.verifyUpgradeResult({
+    beforePlan,
+    afterPlan: afterWithWeek({ learningDomains: ["", "   "] }),
+    intended: { week: { learningDomains: intendedDomains.slice() }, activities: {} },
+    changed: [],
+  });
+  ok(blanks.ok === false, "blank learningDomains entries fail verification");
+  ok(blanks.failed.some((row) => row.code === "saved_learningDomains"), "blank entries fail saved_learningDomains");
+
+  const shortProse = upgradeApi.verifyUpgradeResult({
+    beforePlan,
+    afterPlan: afterWithWeek({ weeklyOverview: "Too short." }),
+    intended: { week: { weeklyOverview: proseOverview }, activities: {} },
+    changed: [],
+  });
+  ok(shortProse.ok === false, "short prose weeklyOverview still fails");
+  ok(shortProse.failed.some((row) => row.code === "saved_weeklyOverview"), "prose fields still use word-count verification");
+
+  const longProse = upgradeApi.verifyUpgradeResult({
+    beforePlan,
+    afterPlan: afterWithWeek({ weeklyOverview: proseOverview }),
+    intended: { week: { weeklyOverview: proseOverview }, activities: {} },
+    changed: [],
+  });
+  ok(longProse.ok === true, "sufficient prose weeklyOverview still passes");
+  ok(!longProse.failed.some((row) => row.code === "saved_weeklyOverview"), "prose saved_weeklyOverview unchanged");
+
+  const incomplete = upgradeApi.verifyUpgradeResult({
+    beforePlan,
+    afterPlan: afterWithWeek({ weeklyOverview: proseOverview }),
+    intended: {
+      week: {
+        weeklyOverview: proseOverview,
+        learningDomains: intendedDomains.slice(),
+      },
+      activities: {},
+    },
+    changed: [],
+  });
+  ok(incomplete.ok === false, "missing persisted learningDomains still fails verification");
+  ok(incomplete.failed.some((row) => row.code === "saved_learningDomains"), "incomplete save still rejects saved_learningDomains");
+}
+
 async function main() {
   console.log("Curriculum Operator Phase 2 tests");
+  assertLearningDomainsVerification();
   await assertUnitContracts();
   await assertHttpContracts();
   console.log(`\n${passed} assertions passed`);
