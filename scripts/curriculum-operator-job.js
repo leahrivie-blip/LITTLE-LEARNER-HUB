@@ -162,6 +162,8 @@ function normalizeOperatorJob(raw = {}) {
       || command.actions?.generateSongsBooks === true
     ),
     publishEnabled: false,
+    requestHash: schema.text(input.requestHash || input.planSummary?.preflight?.requestHash || command.scope?.requestHash, 64) || "",
+    requestId: schema.text(input.requestId || input.planSummary?.preflight?.requestId || command.scope?.requestId, 80) || "",
     command,
     planSummary: input.planSummary && typeof input.planSummary === "object"
       ? input.planSummary

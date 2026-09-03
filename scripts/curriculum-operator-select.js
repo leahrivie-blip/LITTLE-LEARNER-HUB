@@ -104,10 +104,64 @@ function selectLessons(curriculum, command, options = {}) {
   let selected = [];
   let selectionNote = "";
 
-  if (scope.selection === "explicit_ids" || scope.lessonIds?.length) {
-    selected = scope.lessonIds.map((id) => byId.get(id)).filter(Boolean);
+  const suppliedIds = schema.asArray(scope.suppliedLessonIds).filter(Boolean);
+  const explicitIdMode = scope.selection === "explicit_ids"
+    || scope.selectionMethod === "explicit_ids"
+    || suppliedIds.length > 0;
+  if (explicitIdMode) {
+    const ids = suppliedIds.length ? suppliedIds : schema.asArray(scope.lessonIds);
+    const missing = [];
+    selected = ids.map((id) => {
+      const hit = byId.get(id);
+      if (!hit) missing.push(id);
+      return hit;
+    }).filter(Boolean);
+    if (missing.length) {
+      return {
+        selected: [],
+        candidatesConsidered: scored.length,
+        selectionNote: "The supplied lesson ID was not found. No job was created.",
+        selectionMethod: "unresolved",
+        unresolvedLessonIds: missing,
+        unresolvedTitles: [],
+        ambiguous: true,
+        blocked: true,
+      };
+    }
     selectionNote = "Selected by explicit lesson IDs.";
-  } else if (scope.selection === "named_titles" || scope.titles?.length) {
+    return {
+      selected,
+      candidatesConsidered: scored.length,
+      selectionNote,
+      selectionMethod: "explicit_ids",
+      unresolvedTitles: [],
+      unresolvedLessonIds: [],
+      ambiguous: false,
+    };
+  } else if (scope.selection === "ambiguous" || scope.selectionMethod === "ambiguous") {
+    const ids = schema.asArray(scope.lessonIds);
+    selected = ids.map((id) => byId.get(id)).filter(Boolean);
+    return {
+      selected,
+      candidatesConsidered: scored.length,
+      selectionNote: "Ambiguous title match — exact lesson ID required.",
+      selectionMethod: "ambiguous",
+      unresolvedTitles: [],
+      ambiguous: true,
+      blocked: true,
+    };
+  } else if (scope.selection === "unresolved" || scope.selectionMethod === "unresolved") {
+    return {
+      selected: [],
+      candidatesConsidered: scored.length,
+      selectionNote: "The supplied lesson ID was not found. No job was created.",
+      selectionMethod: "unresolved",
+      unresolvedTitles: scope.titles || [],
+      unresolvedLessonIds: schema.asArray(scope.suppliedLessonIds),
+      ambiguous: true,
+      blocked: true,
+    };
+  } else if (scope.selection === "named_titles" || scope.selection === "title_match" || scope.titles?.length) {
     const keys = scope.titles.map(normalizeTitleKey);
     selected = scored.filter((s) => {
       const titleKey = normalizeTitleKey(s.title);
@@ -119,8 +173,21 @@ function selectLessons(curriculum, command, options = {}) {
         selected: [],
         candidatesConsidered: scored.length,
         selectionNote: "No lessons matched the named titles.",
+        selectionMethod: "unresolved",
         unresolvedTitles: scope.titles,
         ambiguous: true,
+        blocked: true,
+      };
+    }
+    if (selected.length > 1 && (scope.requireExplicitIdsIfAmbiguous !== false)) {
+      return {
+        selected,
+        candidatesConsidered: scored.length,
+        selectionNote: "Ambiguous title match — exact lesson ID required.",
+        selectionMethod: "ambiguous",
+        unresolvedTitles: [],
+        ambiguous: true,
+        blocked: true,
       };
     }
   } else if (scope.selection === "currently_selected") {
@@ -198,6 +265,7 @@ function selectLessons(curriculum, command, options = {}) {
     selected: selected.slice(0, limit),
     candidatesConsidered: scored.length,
     selectionNote,
+    selectionMethod: scope.selectionMethod || scope.selection || "filter",
     unresolvedTitles: [],
     ambiguous: false,
   };

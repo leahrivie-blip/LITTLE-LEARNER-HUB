@@ -26,6 +26,36 @@ const ACTIVE_STATUSES = Object.freeze(["planned", "awaiting_confirm", "running",
 const TERMINAL_STATUSES = Object.freeze(["completed", "completed_with_gaps", "failed", "cancelled"]);
 /** Max terminal job stubs retained in the hot llh_store compatibility bag. */
 const HOT_STORE_RECENT_TERMINAL_LIMIT = 10;
+const DEFAULT_LOCAL_JOB_STORE_FILENAME = "curriculum-operator-jobs.json";
+const JOB_STORE_PATH_ENV = "CURRICULUM_OPERATOR_JOB_STORE_PATH";
+
+function defaultLocalJobStorePath() {
+  return path.join(__dirname, "data", DEFAULT_LOCAL_JOB_STORE_FILENAME);
+}
+
+/**
+ * Resolve the local Operator job-store file path.
+ * Production default is unchanged. A dedicated env override is honored only
+ * outside postgres mode and outside NODE_ENV=production (test/dev isolation).
+ * @param {NodeJS.ProcessEnv} [env]
+ * @returns {string|null} absolute file path, or null when postgres is intended
+ */
+function resolveCurriculumOperatorJobStoreLocalPath(env = process.env) {
+  const source = env && typeof env === "object" ? env : {};
+  const provider = String(source.DATABASE_PROVIDER || "local-json").toLowerCase();
+  const url = String(source.PRODUCTION_DATABASE_URL || "").trim();
+  const postgresIntended = (provider === "postgres" || provider === "postgresql") && Boolean(url);
+  if (postgresIntended) return null;
+
+  const nodeEnv = String(source.NODE_ENV || "").trim().toLowerCase();
+  const override = String(source[JOB_STORE_PATH_ENV] || "").trim();
+  if (override && nodeEnv !== "production") {
+    const resolved = path.resolve(override);
+    if (resolved && resolved !== path.parse(resolved).root) return resolved;
+  }
+  return defaultLocalJobStorePath();
+}
+
 const HOT_STORE_LOG_KEEP = 5;
 
 function byteLen(value) {
@@ -532,6 +562,10 @@ function selectJobsChangedInWrite(previousBag, nextBag) {
 }
 
 module.exports = {
+  JOB_STORE_PATH_ENV,
+  DEFAULT_LOCAL_JOB_STORE_FILENAME,
+  defaultLocalJobStorePath,
+  resolveCurriculumOperatorJobStoreLocalPath,
   createCurriculumOperatorJobStore,
   buildHotStoreJobBag,
   toHotStoreStub,

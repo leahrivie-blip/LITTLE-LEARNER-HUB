@@ -225,6 +225,9 @@ const STEP_STATUSES = Object.freeze([
 const SELECTION_MODES = Object.freeze([
   "explicit_ids",
   "named_titles",
+  "title_match",
+  "ambiguous",
+  "unresolved",
   "lowest_readiness",
   "updated_today",
   "updated_since",
@@ -610,6 +613,19 @@ function normalizeOperatorCommand(raw = {}, options = {}) {
       updatedSince: text(scopeIn.updatedSince, 40) || null,
       currentlySelectedLessonId: text(scopeIn.currentlySelectedLessonId, 160) || null,
       requireExplicitIdsIfAmbiguous: scopeIn.requireExplicitIdsIfAmbiguous !== false,
+      suppliedLessonIds: asArray(scopeIn.suppliedLessonIds).map((id) => text(id, 160)).filter(Boolean).slice(0, 50),
+      selectionMethod: text(scopeIn.selectionMethod, 40) || null,
+      requestedLessonCount: Number.isFinite(Number(scopeIn.requestedLessonCount))
+        ? Math.floor(Number(scopeIn.requestedLessonCount))
+        : null,
+      requestedItemCount: Number.isFinite(Number(scopeIn.requestedItemCount))
+        ? Math.floor(Number(scopeIn.requestedItemCount))
+        : null,
+      itemCountKind: text(scopeIn.itemCountKind, 40) || null,
+      hardCap: Number.isFinite(Number(scopeIn.hardCap)) ? Math.floor(Number(scopeIn.hardCap)) : null,
+      titleMismatches: asArray(scopeIn.titleMismatches).slice(0, 20),
+      requestHash: text(scopeIn.requestHash, 64) || null,
+      requestId: text(scopeIn.requestId, 80) || null,
     },
     actions,
     completion: {

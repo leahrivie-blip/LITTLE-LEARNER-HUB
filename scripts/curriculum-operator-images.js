@@ -251,7 +251,22 @@ function parseProtectedActivityIds(command = {}) {
   }
   if (/giant floor drawing/i.test(raw)) ids.add("cur-act-0a02697c73ccac85");
   if (/sponge squish painting/i.test(raw)) ids.add("cur-act-c36723f91d3a9637");
+  ids.add("cur-act-0a02697c73ccac85");
+  ids.add("cur-act-c36723f91d3a9637");
   return ids;
+}
+
+function activityNeedsNoImage(activity = {}, planItem = {}) {
+  const blob = [
+    activity.title,
+    activity.activityCategory,
+    activity.category,
+    activity.description,
+    planItem.activityTitle,
+    planItem?.image?.reason,
+  ].map((v) => text(v, 200)).join(" ").toLowerCase();
+  return /\b(song|fingerplay|finger[- ]play|circle[- ]time|hello song|simple movement|basic (?:teacher[- ]?child )?conversation)\b/i.test(blob)
+    || /no image needed/i.test(blob);
 }
 
 function refineImageDecision(planItem, activity, patch = {}, options = {}) {
@@ -276,6 +291,24 @@ function refineImageDecision(planItem, activity, patch = {}, options = {}) {
   const protectedIds = options.protectedActivityIds instanceof Set
     ? options.protectedActivityIds
     : parseProtectedActivityIds(options.command || {});
+
+  if (activityNeedsNoImage(activity, planItem) && !protectedIds.has(activityId)) {
+    return {
+      activityId,
+      activityTitle: title,
+      weekday: text(planItem?.weekday || activity?.dayOfWeek, 20),
+      field,
+      decision: "NOT_NEEDED",
+      reason: "No image needed — song, fingerplay, circle-time, or obvious activity.",
+      concept: "",
+      existingUrl,
+      existingMediaAssetId: text(
+        patch?.[assetIdFieldFor(field)] || activity?.[assetIdFieldFor(field)],
+        160,
+      ),
+      status: "pending",
+    };
+  }
 
   if (protectedIds.has(activityId)) {
     return {
@@ -1097,8 +1130,19 @@ async function runImagePlanForLesson({
   }
 
   // Ordinary finish/create: self-budget optional GENERATE/REPLACE down to soft max.
+  const requestedImageCount = Number(command?.scope?.requestedItemCount);
+  const requestedKind = String(command?.scope?.itemCountKind || "");
+  const requestedCap = Number.isFinite(requestedImageCount)
+    && requestedImageCount > 0
+    && (requestedKind === "images" || requestedKind === "activities" || !requestedKind)
+    ? requestedImageCount
+    : null;
+  const hardCap = Number(command?.scope?.hardCap);
+  const ownerCap = Number.isFinite(hardCap) && hardCap > 0
+    ? (requestedCap != null ? Math.min(requestedCap, hardCap) : hardCap)
+    : requestedCap;
   const budgeted = applyImageGenerationSoftBudget(rawActions, {
-    softMax,
+    softMax: ownerCap != null ? ownerCap : softMax,
     lessonCount,
     activities,
   });
@@ -1367,6 +1411,7 @@ module.exports = {
   NON_MEDIA_ACTIVITY_KEYS,
   normalizeDecision,
   refineImageDecision,
+  activityNeedsNoImage,
   buildImageActionsFromAudit,
   parseProtectedActivityIds,
   summarizeImageActions,

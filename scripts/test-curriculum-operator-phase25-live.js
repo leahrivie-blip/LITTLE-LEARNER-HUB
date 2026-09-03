@@ -21,6 +21,7 @@ const { spawn } = require("node:child_process");
 const ROOT = path.join(__dirname, "..");
 const PORT = 20810 + Math.floor(Math.random() * 40);
 const STORE_PATH = path.join(os.tmpdir(), `llh-op-p25-live-${crypto.randomBytes(4).toString("hex")}.json`);
+const JOB_STORE_PATH = path.join(os.tmpdir(), `llh-op-p25-live-jobs-${crypto.randomBytes(4).toString("hex")}.json`);
 const OWNER = {
   email: "leahivie@icloud.com",
   password: "operator-pass",
@@ -137,6 +138,7 @@ async function main() {
       HOST: "127.0.0.1",
       DATABASE_PROVIDER: "local-json",
       LLH_STORE_PATH: STORE_PATH,
+      CURRICULUM_OPERATOR_JOB_STORE_PATH: JOB_STORE_PATH,
       // Intentionally NOT NODE_ENV=test so live OpenAI path is used
       NODE_ENV: "development",
       LLH_SKIP_STARTUP_CURRICULUM_SEED: "1",
@@ -205,6 +207,7 @@ async function main() {
   } finally {
     child.kill("SIGTERM");
     try { fs.unlinkSync(STORE_PATH); } catch { /* ignore */ }
+    try { fs.unlinkSync(JOB_STORE_PATH); } catch { /* ignore */ }
     if (stderr && /Error:/.test(stderr)) console.error(stderr.slice(-1500));
   }
 }

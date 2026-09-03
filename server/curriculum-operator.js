@@ -25,6 +25,8 @@ const lessonRead = require("../scripts/curriculum-operator-lesson-read.js");
 const printableAgeBand = require("../scripts/curriculum-operator-printable-age-band.js");
 const allowlistApi = require("../scripts/curriculum-operator-mutation-allowlist.js");
 const executionScopeApi = require("../scripts/curriculum-operator-execution-scope.js");
+const preflightApi = require("../scripts/curriculum-operator-preflight.js");
+const targetResolver = require("../scripts/curriculum-operator-target-resolver.js");
 const vocabSurgicalApi = require("../scripts/curriculum-operator-vocab-surgical-apply.js");
 
 const ACTIONS = Object.freeze([
@@ -363,6 +365,10 @@ function createCurriculumOperatorApi(deps) {
       generatesSongsBooks: songsBooks,
       publishes: false,
       createsLesson: create,
+      selectionMethod: selection.selectionMethod || command.scope?.selectionMethod || command.scope?.selection,
+      requestedCount: command.scope?.requestedItemCount ?? command.scope?.requestedLessonCount ?? null,
+      resolvedCount: command.scope?.requestedItemCount ?? lessons.length,
+      mismatches: schema.asArray(selection.mismatches),
     };
   }
 
@@ -2300,6 +2306,32 @@ function createCurriculumOperatorApi(deps) {
         return;
       }
 
+      if (parsed.preflight && parsed.preflight.valid !== true && !wantsCreate(command)) {
+        jsonResponse(response, 409, {
+          ok: false,
+          code: parsed.preflight.blockReasons?.[0] || "PREFLIGHT_BLOCKED",
+          error: parsed.preflight.blockMessage || parsed.preflight.correction
+            || "The command could not be resolved. No job was created.",
+          command,
+          preflight: parsed.preflight,
+          targetResolution: parsed.targetResolution || null,
+          actionScope: parsed.actionScope || null,
+          planSummary: {
+            selectionNote: parsed.preflight.blockMessage || parsed.preflight.correction,
+            selectionMethod: parsed.preflight.selectionMethod,
+            lessons: [],
+            selectedLessonIds: [],
+            mismatches: parsed.preflight.mismatches || [],
+            preflight: parsed.preflight,
+          },
+          job: null,
+          runBlocked: true,
+          needsConfirmation: true,
+          confirmReasons: parsed.confirmReasons || parsed.preflight.blockReasons || [],
+        });
+        return;
+      }
+
       if (action === "run" && allowlistApi.isRunBlockedByConfirmations(parsed.confirmReasons, parsed.parseSafety)) {
         jsonResponse(response, 409, {
           ok: false,
@@ -2467,9 +2499,45 @@ function createCurriculumOperatorApi(deps) {
         return;
       }
 
+      const preflight = preflightApi.buildPreflight({
+        rawCommand: command.rawCommand,
+        command,
+        resolution: parsed.targetResolution,
+        actionScope: parsed.actionScope,
+        selection,
+        limits: command.limits,
+        lessonPlans: schema.asArray(curriculum?.lessonPlans),
+      });
+      if (!preflight.valid && !wantsCreate(command)) {
+        jsonResponse(response, 409, {
+          ok: false,
+          code: preflight.blockReasons?.[0] || "PREFLIGHT_BLOCKED",
+          error: preflight.blockMessage || preflight.correction || "Preflight failed. No job was created.",
+          command,
+          preflight,
+          targetResolution: parsed.targetResolution || null,
+          planSummary: {
+            selectionNote: preflight.blockMessage || selection.selectionNote,
+            selectionMethod: preflight.selectionMethod || selection.selectionMethod,
+            lessons: [],
+            selectedLessonIds: [],
+            mismatches: preflight.mismatches || [],
+            preflight,
+          },
+          job: null,
+          runBlocked: true,
+        });
+        return;
+      }
+
       const planSummary = buildPlanSummary(command, selection);
       planSummary.needsConfirmation = Boolean(parsed.needsConfirmation);
       planSummary.confirmReasons = parsed.confirmReasons || [];
+      planSummary.preflight = preflight;
+      planSummary.selectionMethod = preflight.selectionMethod || selection.selectionMethod || command.scope?.selectionMethod;
+      planSummary.mismatches = preflight.mismatches || [];
+      planSummary.requestHash = preflight.requestHash;
+      planSummary.requestId = preflight.requestId;
 
       const scopeContradiction = executionScopeApi.detectPlannedScopeContradiction(command, planSummary);
       if (scopeContradiction.blocked) {
@@ -2494,6 +2562,24 @@ function createCurriculumOperatorApi(deps) {
           || planSummary.confirmReasons.includes("scope_review_required")
           || planSummary.confirmReasons.includes("possible_duplicate"));
 
+      if (!preflightApi.shouldCreateJob(preflight, action)) {
+        jsonResponse(response, action === "plan" ? 200 : 409, {
+          ok: action === "plan",
+          action,
+          awaitingConfirm: false,
+          command,
+          planSummary,
+          preflight,
+          job: null,
+          publishEnabled: false,
+          runBlocked: action === "run",
+          note: action === "plan"
+            ? planSummary.phaseNote
+            : (preflight.blockMessage || "No job was created."),
+        });
+        return;
+      }
+
       if (action === "plan" || mustConfirm) {
         const planned = jobApi.createJobFromPlan({
           command,
@@ -2512,6 +2598,7 @@ function createCurriculumOperatorApi(deps) {
           awaitingConfirm: mustConfirm,
           command,
           planSummary,
+          preflight,
           job: mustConfirm || action === "plan" ? planned : null,
           publishEnabled: false,
           note: planSummary.phaseNote,

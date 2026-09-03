@@ -119,11 +119,7 @@ function matchLessonsFromCatalog(command, lessonPlans = [], options = {}) {
   const normalizedCommand = normalizeTitleKey(command);
   if (!normalizedCommand) return [];
   const explicitIds = extractExplicitLessonIds(command, lessonPlans);
-  if (explicitIds.length === 1 && (
-    commandSafety.isOneLessonScopeCommand(command)
-    || commandSafety.isVocabularyOnlyCommand(command)
-    || /\bcur-lp-[a-f0-9]{16}\b/i.test(command)
-  )) {
+  if (explicitIds.length >= 1) {
     return [];
   }
   const plans = schema.asArray(lessonPlans).filter((p) => p && p.status !== "archived");
@@ -175,8 +171,7 @@ function extractExplicitLessonIds(rawCommand, lessonPlans = []) {
   const re = /\b(cur-lp-[a-f0-9]{16})\b/gi;
   let match;
   while ((match = re.exec(raw))) ids.push(String(match[1]).toLowerCase());
-  const catalogIds = new Set(schema.asArray(lessonPlans).map((p) => text(p?.id, 160)).filter(Boolean));
-  return [...new Set(ids.filter((id) => !catalogIds.size || catalogIds.has(id)))];
+  return [...new Set(ids)];
 }
 
 /** Owner asked to save into the editable lesson record without a separate Apply Enrichment step. */
@@ -242,9 +237,9 @@ function detectExistingLessonReferences(rawCommand, options = {}) {
     || commandSafety.isVocabularyOnlyCommand(raw)
     || /\b(?:same|existing)\s+lesson\s+id\b/i.test(raw)
   );
-  const catalogMatches = singleExplicitOnly
+  const catalogMatches = explicitLessonIds.length >= 1
     ? []
-    : matchLessonsFromCatalog(raw, options.lessonPlans || []);
+    : (singleExplicitOnly ? [] : matchLessonsFromCatalog(raw, options.lessonPlans || []));
   const selectedId = text(options.currentlySelectedLessonId, 160) || null;
   const selectedLesson = selectedId
     ? catalogMatches.find((m) => m.id === selectedId)

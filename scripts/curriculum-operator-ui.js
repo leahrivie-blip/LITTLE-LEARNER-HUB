@@ -47,6 +47,14 @@
     "ambiguous_scope",
     "missing_selected_lesson",
     "planned_scope_contradiction",
+    "unresolved_lesson_id",
+    "unresolved_title",
+    "ambiguous_title",
+    "title_mismatch",
+    "count_mismatch",
+    "count_limit_conflict",
+    "protected_lesson",
+    "interpretation_mismatch",
   ];
 
   function isRunBlockedByParsed(parsed, planSummary) {
@@ -76,10 +84,58 @@
     if (reasons.includes("planned_scope_contradiction")) {
       return "Run blocked — execution plan contradicts parsed weekly scope. Interpret again.";
     }
+    if (reasons.includes("unresolved_lesson_id")) {
+      return "The supplied lesson ID was not found. No job was created.";
+    }
+    if (reasons.includes("ambiguous_title") || reasons.includes("multiple_lessons_matched")) {
+      return "You requested 1 lesson, but multiple lessons matched. Supply an exact lesson ID.";
+    }
+    if (reasons.includes("count_mismatch") || reasons.includes("count_limit_conflict")) {
+      return "Requested count does not match the resolved target. The count was not changed silently.";
+    }
     if (reasons.includes("ambiguous_scope") || reasons.includes("missing_selected_lesson")) {
       return "Run blocked — command scope is ambiguous. Interpret again with an explicit lesson ID.";
     }
     return "Run blocked — resolve confirmation issues before running.";
+  }
+
+  function currentPreflight(parsed, plan) {
+    return parsed?.preflight || plan?.preflight || null;
+  }
+
+  function isPreflightValid(parsed, plan) {
+    const preflight = currentPreflight(parsed, plan);
+    if (preflight) return preflight.valid === true;
+    return !isRunBlockedByParsed(parsed, plan);
+  }
+
+  function selectionMethodLabel(method) {
+    if (method === "explicit_ids") return "Selected by explicit lesson IDs.";
+    if (method === "title_match" || method === "named_titles") return "Selected by lesson title match.";
+    if (method === "ambiguous") return "Ambiguous title match — exact lesson ID required.";
+    if (method === "unresolved") return "Target unresolved.";
+    if (method === "currently_selected") return "Currently selected lesson.";
+    return "";
+  }
+
+  function commandModeLabel(parsed, preflight) {
+    if (preflight?.auditOnly || parsed?.actionScope?.auditOnly) return "read-only audit";
+    if (preflight?.draftOnly || parsed?.actionScope?.draftOnly) return "draft-only";
+    if (preflight?.mutationsEnabled) return "mutation-enabled";
+    return "read-only";
+  }
+
+  function shouldShowDraftLanguage(job, preflight) {
+    if (preflight?.auditOnly) return false;
+    if (!job) return false;
+    if (job.mutationsEnabled !== true && !job.command?.actions?.saveDraft) return false;
+    return (job.lessonResults || []).some((lr) => lr.createdLessonId || lr.readyForReview);
+  }
+
+  function interpretationBelongsToCommand(stateRef) {
+    const current = String(stateRef.command || "").trim();
+    const interpreted = String(stateRef.interpretedCommand || "").trim();
+    return Boolean(current) && current === interpreted;
   }
 
   const state = {
@@ -92,6 +148,9 @@
     runPollHandle: null,
     runStartedAt: 0,
     command: "",
+    interpretedCommand: "",
+    interpretInFlight: false,
+    lastRequestId: "",
     message: "",
     isError: false,
     planSummary: null,
@@ -493,8 +552,24 @@
 
     const plan = state.planSummary;
     const job = state.job;
-    const runBlocked = isRunBlockedByParsed(state.commandParsed, plan);
-    const runBlockNotice = runBlocked ? runBlockMessage(state.commandParsed, plan) : "";
+    const preflight = currentPreflight(state.commandParsed, plan);
+    const interpretationCurrent = interpretationBelongsToCommand(state);
+    const runBlocked = !isPreflightValid(state.commandParsed, plan)
+      || isRunBlockedByParsed(state.commandParsed, plan)
+      || !interpretationCurrent
+      || preflight?.auditOnly === true
+      || preflight?.createJob === false;
+    const runBlockNotice = !interpretationCurrent && (state.commandParsed || plan)
+      ? "Command changed — Interpret again before running. The displayed plan belongs to the previous command."
+      : (runBlocked && preflight?.valid && (preflight.auditOnly || preflight.createJob === false)
+        ? "Audit-only interpretation — no job will be created. Run is disabled."
+        : (runBlocked ? (preflight?.blockMessage || runBlockMessage(state.commandParsed, plan)) : ""));
+    const canConfirmRun = Boolean(
+      job?.status === "awaiting_confirm"
+      && preflight?.valid
+      && preflight?.mutationsEnabled
+      && interpretationCurrent,
+    );
     el.innerHTML = `
       <div class="co-operator">
         <div class="section-heading">
@@ -512,38 +587,53 @@
         </label>
         ${runBlockNotice ? `<p class="access-notice error" role="alert">${esc(runBlockNotice)}</p>` : ""}
         <div class="account-actions-row co-run-actions">
-          <button type="button" class="ghost-button" id="coParseBtn" ${state.busy ? "disabled" : ""}>Interpret</button>
-          <button type="button" class="primary-button" id="coRunBtn" ${state.busy || state.runInFlight || runBlocked ? "disabled" : ""} title="${esc(runBlocked ? runBlockNotice : "")}">${esc(runButtonLabel(state.runPhase))}</button>
-          <button type="button" class="ghost-button" id="coRefreshJobsBtn" ${state.busy ? "disabled" : ""}>Refresh jobs</button>
+          <button type="button" class="ghost-button" id="coParseBtn" ${state.busy || state.interpretInFlight ? "disabled" : ""}>Interpret</button>
+          <button type="button" class="primary-button" id="coRunBtn" ${state.busy || state.runInFlight || runBlocked || !preflight?.valid ? "disabled" : ""} title="${esc(runBlocked ? runBlockNotice : "")}">${esc(runButtonLabel(state.runPhase))}</button>
+          <button type="button" class="ghost-button" id="coRefreshJobsBtn">Refresh jobs</button>
         </div>
-        ${state.commandParsed ? `
+        ${state.commandParsed && interpretationCurrent ? `
           <section class="co-panel">
             <h4>Interpreted command</h4>
-            <pre class="co-json">${esc(JSON.stringify(state.commandParsed.command, null, 2))}</pre>
+            <p><strong>Intent:</strong> ${esc(state.commandParsed.command?.intent || "")} · <strong>Mode:</strong> ${esc(commandModeLabel(state.commandParsed, preflight))}</p>
+            <p><strong>Resolved lesson IDs:</strong> ${esc((preflight?.lessonIds || state.commandParsed.command?.scope?.lessonIds || []).join(", ") || "none")}</p>
+            <p><strong>Selection:</strong> ${esc(selectionMethodLabel(preflight?.selectionMethod || state.commandParsed.command?.scope?.selectionMethod || ""))}</p>
+            <p><strong>Requested count:</strong> ${esc(preflight?.requestedCount ?? "—")} · <strong>Selected count:</strong> ${esc(preflight?.resolvedCount ?? plan?.lessons?.length ?? "—")}</p>
+            <p><strong>Allowed actions:</strong> ${esc((preflight?.allowedActions || []).join(", ") || "none")}</p>
+            <p><strong>Locked:</strong> ${esc((preflight?.blockedActions || []).join(", ") || "none")}</p>
+            <p class="muted-copy">Images ${preflight?.generateImages ? "will generate" : "locked"} · Printables ${preflight?.generatePrintables ? "will generate" : "locked"} · Songs ${preflight?.touchSongs ? "may change" : "locked"} · Books ${preflight?.touchBooks ? "may change" : "locked"} · Lesson body ${preflight?.touchLessonBody ? "may change" : "locked"} · Draft save ${preflight?.saveDraft ? "on" : "off"} · Publish disabled</p>
+            ${(preflight?.mismatches || []).map((n) => `<p class="access-notice error" role="alert">${esc(n)}</p>`).join("")}
+            ${preflight?.requestId ? `<p class="muted-copy">Request ID: <code>${esc(preflight.requestId)}</code></p>` : ""}
+            <pre class="co-json">${esc(JSON.stringify({
+              intent: state.commandParsed.command?.intent,
+              scope: state.commandParsed.command?.scope,
+              actions: state.commandParsed.command?.actions,
+              preflight,
+            }, null, 2))}</pre>
             ${(state.commandParsed.command?.parsedNotes || []).map((n) => `<p class="muted-copy">${esc(n)}</p>`).join("")}
           </section>` : ""}
-        ${plan ? `
+        ${plan && interpretationCurrent ? `
           <section class="co-panel">
             <h4>${plan.createsLesson ? "Create new lesson" : "Execution plan"}</h4>
             ${plan.creationBrief ? `
               <p><strong>Parsed brief:</strong> ${esc(plan.creationBrief.ageBand || "")} · ${esc(plan.creationBrief.accessPlan || "")} · ${esc(plan.creationBrief.title || "")} · ${esc(plan.creationBrief.activityTarget || "")} activities · Draft only</p>
               <p class="muted-copy">Images ${plan.creationBrief.requestedFeatures?.images === false ? "off" : "on"} · Printables ${plan.creationBrief.requestedFeatures?.printables === false ? "off" : "on"} · Songs ${plan.creationBrief.requestedFeatures?.songs === false ? "off" : "on"} · Books ${plan.creationBrief.requestedFeatures?.books === false ? "off" : "on"}</p>
             ` : ""}
-            <p>${esc(plan.selectionNote || "")}</p>
-            <p class="muted-copy">${esc(plan.lessons?.length || 0)} lesson(s) · candidates considered ${esc(plan.candidatesConsidered || 0)}</p>
+            <p>${esc(selectionMethodLabel(plan.selectionMethod || preflight?.selectionMethod) || plan.selectionNote || "")}</p>
+            <p class="muted-copy">${esc(preflight?.lessonCount || plan.lessons?.length || 0)} lesson(s) · requested ${esc(preflight?.requestedCount ?? "—")} · selected ${esc(preflight?.resolvedCount ?? plan.lessons?.length ?? 0)}</p>
             <ol>${(plan.lessons || []).map((l) => `
-              <li><strong>${esc(l.title)}</strong> — readiness ${esc(l.readinessPercent)}% · ${esc(l.plan)} · ${esc(l.ageBand)}</li>`).join("")}</ol>
+              <li><strong>${esc(l.title)}</strong> — ${esc(l.id || "")} · ${esc(l.plan)} · ${esc(l.ageBand || l.age || "")} · ${esc(l.status || "")}</li>`).join("")}</ol>
+            ${(preflight?.candidates || []).length ? `<p class="muted-copy">Matching candidates:</p><ul>${preflight.candidates.map((c) => `<li><code>${esc(c.id)}</code> — ${esc(c.title)} · ${esc(c.ageGroup || c.ageBand)} · ${esc(c.accessLevel)} · ${esc(c.status)} · ${esc(c.theme || "")}</li>`).join("")}</ul>` : ""}
             <p class="muted-copy">${esc(plan.phaseNote || plan.phase1?.note || "")}</p>
           </section>` : ""}
-        ${job ? `
+        ${job && interpretationCurrent ? `
           <section class="co-panel">
             <h4>Job ${esc(job.id)}</h4>
-            <p>Status: <strong>${esc(job.status)}</strong> · ${esc(job.progress?.completed || 0)}/${esc(job.progress?.lessonCount || 0)} complete · failed ${esc(job.progress?.failed || 0)} · Publish: NOT PUBLISHED</p>
+            <p>Status: <strong>${esc(job.status)}</strong> · ${esc(job.progress?.completed || 0)}/${esc(job.progress?.lessonCount || 0)} complete · failed ${esc(job.progress?.failed || 0)} · Publish: NOT PUBLISHED${job.requestId ? ` · Request: <code>${esc(job.requestId)}</code>` : ""}</p>
             <pre class="co-log">${esc((job.log || []).slice(-12).map((e) => `${e.at} [${e.level}] ${e.message}`).join("\n"))}</pre>
             <div class="co-lesson-results">${(job.lessonResults || []).map(renderAuditCard).join("")}</div>
-            ${(job.lessonResults || []).some((lr) => lr.createdLessonId || (lr.lessonId && String(lr.lessonId).startsWith("cur-lp-"))) ? `
+            ${shouldShowDraftLanguage(job, preflight) ? `
               <p class="muted-copy">Open the new draft in Owner Admin → Curriculum to inspect and manually publish.</p>` : ""}
-            ${job.status === "awaiting_confirm" ? `
+            ${canConfirmRun ? `
               <button type="button" class="primary-button" id="coConfirmResumeBtn">Confirm &amp; run</button>` : ""}
           </section>` : ""}
         <section class="co-panel">
@@ -604,6 +694,16 @@
 
     el.querySelector("#coCommandInput")?.addEventListener("input", (e) => {
       state.command = e.target.value;
+      if (state.interpretedCommand && e.target.value !== state.interpretedCommand) {
+        el.querySelectorAll(".co-panel").forEach((panel) => {
+          const heading = panel.querySelector("h4");
+          if (heading && /Interpreted command|Execution plan|Create new lesson|Job /.test(heading.textContent || "")) {
+            panel.hidden = true;
+          }
+        });
+        const runBtn = el.querySelector("#coRunBtn");
+        if (runBtn) runBtn.disabled = true;
+      }
     });
     el.querySelector("#coParseBtn")?.addEventListener("click", () => void onParse());
     el.querySelector("#coRunBtn")?.addEventListener("click", () => void onRun());
@@ -713,31 +813,72 @@
   }
 
   async function onParse() {
+    if (state.interpretInFlight) return;
+    state.interpretInFlight = true;
     state.busy = true;
     state.message = "";
     state.isError = false;
+    state.commandParsed = null;
+    state.planSummary = null;
+    state.job = null;
+    state.interpretedCommand = state.command;
     render();
     try {
       const result = await api("parse", { command: state.command, phase: 7 });
       state.commandParsed = result;
-      const planned = await api("plan", { command: state.command, phase: 7 });
-      state.planSummary = planned.planSummary;
-      state.job = planned.job || null;
-      state.message = planned.planSummary?.createsLesson
-        ? "Create plan ready. Review the brief, then run the job."
-        : "Command interpreted. Review the plan, then run the job.";
+      state.lastRequestId = result.preflight?.requestId || "";
+      if (result.preflight && result.preflight.valid !== true) {
+        state.planSummary = {
+          selectionNote: result.preflight.blockMessage || result.preflight.correction,
+          selectionMethod: result.preflight.selectionMethod,
+          lessons: [],
+          mismatches: result.preflight.mismatches || [],
+          preflight: result.preflight,
+        };
+        state.job = null;
+        state.isError = true;
+        state.message = result.preflight.blockMessage || result.preflight.correction || "Interpretation blocked. No job was created.";
+        return;
+      }
+      try {
+        const planned = await api("plan", { command: state.command, phase: 7 });
+        state.commandParsed = { ...result, ...planned, command: planned.command || result.command };
+        state.planSummary = planned.planSummary;
+        state.job = planned.job || null;
+        state.lastRequestId = planned.preflight?.requestId || planned.planSummary?.requestId || state.lastRequestId;
+        if (planned.preflight?.auditOnly || result.preflight?.auditOnly) {
+          state.message = "Audit-only interpretation ready. No draft or curriculum mutations are allowed. No job was created.";
+        } else {
+          state.message = planned.planSummary?.createsLesson
+            ? "Create plan ready. Review the brief, then run the job."
+            : "Command interpreted. Review the plan, then run the job.";
+        }
+      } catch (planError) {
+        state.isError = true;
+        state.message = planError.payload?.error || planError.message || "Interpret failed.";
+        state.commandParsed = planError.payload
+          ? { ...result, ...planError.payload, command: planError.payload.command || result.command }
+          : result;
+        state.planSummary = planError.payload?.planSummary || {
+          selectionNote: planError.message,
+          lessons: [],
+          mismatches: planError.payload?.preflight?.mismatches || [],
+          preflight: planError.payload?.preflight || result.preflight,
+        };
+        state.job = null;
+      }
     } catch (error) {
       state.isError = true;
       state.message = error.message || "Interpret failed.";
-      state.planSummary = error.payload?.planSummary || error.payload?.creationBrief
-        ? {
-          selectionNote: error.payload?.error || error.message,
-          lessons: [],
-          creationBrief: error.payload?.creationBrief,
-          duplicateMatches: error.payload?.duplicateMatches,
-        }
-        : state.planSummary;
+      state.commandParsed = error.payload || null;
+      state.planSummary = error.payload?.planSummary || {
+        selectionNote: error.message,
+        lessons: [],
+        preflight: error.payload?.preflight || null,
+      };
+      state.job = null;
     } finally {
+      state.interpretInFlight = false;
       state.busy = false;
       render();
     }
@@ -868,6 +1009,7 @@
         state.message = error.message || "Could not list jobs.";
       }
     }
+    if (!state.interpretInFlight) state.busy = false;
     if (doRender && !state.runInFlight) render();
   }
 
@@ -886,6 +1028,11 @@
       mapCurrentActionToLabel,
       formatRunStatusFromJob,
       runButtonLabel,
+      selectionMethodLabel,
+      commandModeLabel,
+      shouldShowDraftLanguage,
+      isPreflightValid,
+      interpretationBelongsToCommand,
     },
   };
 })(typeof window !== "undefined" ? window : globalThis);

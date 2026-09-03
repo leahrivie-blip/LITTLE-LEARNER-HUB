@@ -29,6 +29,7 @@ function mockCallAi(_system, user) {
 const ROOT = path.join(__dirname, "..");
 const PORT = 20650 + Math.floor(Math.random() * 80);
 const STORE_PATH = path.join(os.tmpdir(), `llh-curriculum-operator-p2-${crypto.randomBytes(4).toString("hex")}.json`);
+const JOB_STORE_PATH = path.join(os.tmpdir(), `llh-curriculum-operator-p2-jobs-${crypto.randomBytes(4).toString("hex")}.json`);
 const OWNER = {
   email: "leahivie@icloud.com",
   password: "operator-pass",
@@ -397,7 +398,11 @@ function assertUnitContracts() {
   ok(!schema.isPhase2Executable("image.generate"), "image.generate not executable in phase2");
   ok(!schema.isPhase2Executable("printable.buildPdf"), "printable.buildPdf not executable in phase2");
 
-  const fix = commandApi.parseOperatorCommand("Fix Weather Watchers.", { phase: 2 });
+  const curriculum = seedCurriculum();
+  const fix = commandApi.parseOperatorCommand("Fix Weather Watchers.", {
+    phase: 2,
+    lessonPlans: curriculum.lessonPlans,
+  });
   ok(fix.command.intent === "fix_lesson", "Fix → fix_lesson");
   ok(fix.command.scope.selection === "named_titles", "Fix named title targeting");
   ok(fix.command.scope.titles.some((t) => /weather watchers/i.test(t)), "extracts Weather Watchers");
@@ -418,7 +423,6 @@ function assertUnitContracts() {
   ok(fill.command.scope.selection === "missing_teaching_kit", "fill missing → missing_teaching_kit");
   ok(fill.command.actions.saveDraft === true, "fill missing saves draft");
 
-  const curriculum = seedCurriculum();
   const namedSel = selectApi.selectLessons(curriculum, fix.command);
   ok(namedSel.selected.length === 1 && namedSel.selected[0].id === WEATHER_ID, "exact lesson targeting");
 
@@ -640,6 +644,7 @@ async function assertHttpContracts() {
       HOST: "127.0.0.1",
       DATABASE_PROVIDER: "local-json",
       LLH_STORE_PATH: STORE_PATH,
+      CURRICULUM_OPERATOR_JOB_STORE_PATH: JOB_STORE_PATH,
       NODE_ENV: "test",
       LLH_SKIP_STARTUP_CURRICULUM_SEED: "1",
       LLH_ENFORCE_TK_OWNER_ADMIN: "1",
@@ -781,6 +786,7 @@ async function assertHttpContracts() {
   } finally {
     child.kill("SIGTERM");
     try { fs.unlinkSync(STORE_PATH); } catch { /* ignore */ }
+    try { fs.unlinkSync(JOB_STORE_PATH); } catch { /* ignore */ }
     if (stderr.includes("Error:") && !stderr.includes("DeprecationWarning")) {
       console.error(stderr.slice(-2000));
     }

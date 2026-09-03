@@ -23,6 +23,8 @@ const teachingKit = require("./teaching-kit.js");
 const ROOT = path.join(__dirname, "..");
 const PORT = 20570 + Math.floor(Math.random() * 80);
 const STORE_PATH = path.join(os.tmpdir(), `llh-curriculum-operator-${crypto.randomBytes(4).toString("hex")}.json`);
+const JOB_STORE_PATH = path.join(os.tmpdir(), `llh-curriculum-operator-jobs-${crypto.randomBytes(4).toString("hex")}.json`);
+const DEDICATED_JOB_STORE_PATH = path.join(ROOT, "server", "data", "curriculum-operator-jobs.json");
 const OWNER = {
   email: "leahivie@icloud.com",
   password: "operator-pass",
@@ -382,8 +384,33 @@ function assertUnitContracts() {
   ok(!schema.isPhase1Executable("lesson.publish"), "lesson.publish not executable in phase1");
 }
 
+function fingerprintJobStoreFile(filePath) {
+  if (!fs.existsSync(filePath)) {
+    return { exists: false, size: 0, sha256: "", ids: [] };
+  }
+  const buf = fs.readFileSync(filePath);
+  let ids = [];
+  try {
+    const parsed = JSON.parse(buf.toString("utf8"));
+    const jobs = parsed && typeof parsed === "object" ? parsed.jobs : null;
+    ids = jobs && typeof jobs === "object" && !Array.isArray(jobs)
+      ? Object.keys(jobs)
+      : [];
+  } catch (_error) {
+    ids = [];
+  }
+  return {
+    exists: true,
+    size: buf.length,
+    sha256: crypto.createHash("sha256").update(buf).digest("hex"),
+    ids,
+  };
+}
+
 async function assertHttpContracts() {
   console.log("HTTP contracts");
+  ok(JOB_STORE_PATH !== DEDICATED_JOB_STORE_PATH, "temp Operator job store is not the dedicated repository file");
+  const dedicatedBefore = fingerprintJobStoreFile(DEDICATED_JOB_STORE_PATH);
   const curriculum = seedCurriculum();
   fs.writeFileSync(STORE_PATH, JSON.stringify({
     users: {},
@@ -408,6 +435,7 @@ async function assertHttpContracts() {
       HOST: "127.0.0.1",
       DATABASE_PROVIDER: "local-json",
       LLH_STORE_PATH: STORE_PATH,
+      CURRICULUM_OPERATOR_JOB_STORE_PATH: JOB_STORE_PATH,
       NODE_ENV: "test",
       LLH_SKIP_STARTUP_CURRICULUM_SEED: "1",
       LLH_ENFORCE_TK_OWNER_ADMIN: "1",
@@ -482,9 +510,21 @@ async function assertHttpContracts() {
       && storeAfter.curriculumOperatorJobs.jobs.length >= 1, "jobs persisted in store");
     ok(weakAfter.plan === "Pro" && weakAfter.status === "published", "access plan/status untouched");
     ok(storeAfter.curriculumOperatorJobs.jobs.every((j) => j.publishEnabled === false && j.mutationsEnabled === false), "stored jobs remain mutation-safe");
+    ok(fs.existsSync(JOB_STORE_PATH), "isolated Operator job store file was written");
+    const isolatedJobs = JSON.parse(fs.readFileSync(JOB_STORE_PATH, "utf8"));
+    const isolatedIds = isolatedJobs.jobs && typeof isolatedJobs.jobs === "object"
+      ? Object.keys(isolatedJobs.jobs)
+      : [];
+    ok(isolatedIds.length >= 2, "isolated Operator job store received the HTTP-run jobs");
+    ok(!isolatedIds.includes("opjob_f6ec125e054400e9"), "isolated store does not reuse review-evidence job ids");
+    const dedicatedAfter = fingerprintJobStoreFile(DEDICATED_JOB_STORE_PATH);
+    ok(dedicatedAfter.sha256 === dedicatedBefore.sha256, "dedicated repository Operator job store sha256 unchanged");
+    ok(dedicatedAfter.size === dedicatedBefore.size, "dedicated repository Operator job store size unchanged");
+    ok(JSON.stringify(dedicatedAfter.ids) === JSON.stringify(dedicatedBefore.ids), "dedicated repository Operator job IDs unchanged");
   } finally {
     child.kill("SIGTERM");
     try { fs.unlinkSync(STORE_PATH); } catch { /* ignore */ }
+    try { fs.unlinkSync(JOB_STORE_PATH); } catch { /* ignore */ }
     if (stderr.includes("Error:") && !stderr.includes("DeprecationWarning")) {
       console.error(stderr.slice(-2000));
     }
