@@ -10,7 +10,7 @@ function boot(path = "/") {
   const nodes = new Map();
   const document = {
     getElementById: (id) => nodes.get(id) || null,
-    createElement: () => ({ dataset: {}, addEventListener(_n, fn) { this.click = fn; }, remove() { nodes.delete(this.id); } }),
+    createElement: () => ({ dataset: {}, setAttribute() {}, addEventListener(_n, fn) { this.click = fn; }, remove() { nodes.delete(this.id); } }),
     body: { appendChild(node) { nodes.set(node.id, node); } },
   };
   const window = { location: { pathname: path }, localStorage: { getItem: (k) => storage.get(k) || null, setItem: (k, v) => storage.set(k, v), removeItem: (k) => storage.delete(k) }, gtag: (...args) => calls.push(args) };
