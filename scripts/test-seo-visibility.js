@@ -141,11 +141,11 @@ async function main() {
     const sitemap = await request("GET", "/sitemap.xml");
     assert(sitemap.status === 200, `sitemap.xml status ${sitemap.status}`);
     const hubPaths = seo.seoCurriculum.hubPages().map((page) => page.path);
-    for (const route of ["/", "/about", "/features", "/faq", "/pricing", "/contact", ...hubPaths]) {
+    for (const route of ["/", "/about", "/features", "/faq", "/pricing", "/contact", "/privacy", "/terms", ...hubPaths]) {
       assert(sitemap.body.includes(`<loc>http://127.0.0.1:${PORT}${route === "/" ? "/" : route}</loc>`) || sitemap.body.includes(route), `sitemap missing ${route}`);
     }
 
-    for (const route of ["/about", "/features", "/faq", "/pricing", "/contact", ...hubPaths]) {
+    for (const route of ["/about", "/features", "/faq", "/pricing", "/contact", "/privacy", "/terms", ...hubPaths]) {
       const page = await request("GET", route);
       assert(page.status === 200, `${route} status ${page.status}`);
       assert(page.body.includes(seo.BUSINESS_NAME), `${route} missing business name`);

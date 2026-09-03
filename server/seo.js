@@ -121,7 +121,7 @@ function renderPublicFooterHtml() {
   return `
       <footer>
         <p>© ${new Date().getFullYear()} ${escapeHtml(BUSINESS_NAME)}. All rights reserved.</p>
-        <p><a href="/about">About</a> · <a href="/features">Features</a> · <a href="/faq">FAQ</a> · <a href="/pricing">Pricing</a> · <a href="/contact">Contact</a></p>
+        <p><a href="/about">About</a> · <a href="/features">Features</a> · <a href="/faq">FAQ</a> · <a href="/pricing">Pricing</a> · <a href="/contact">Contact</a> · <a href="/privacy">Privacy Policy</a> · <a href="/terms">Terms of Service</a></p>
         <p class="footer-hub">${hubLinks}</p>
         ${renderSocialLinksHtml()}
       </footer>`;
@@ -247,6 +247,8 @@ function publicPageRoutes() {
     { path: "/faq", changefreq: "monthly", priority: "0.8" },
     { path: "/pricing", changefreq: "weekly", priority: "0.8" },
     { path: "/contact", changefreq: "monthly", priority: "0.7" },
+    { path: "/privacy", changefreq: "yearly", priority: "0.5" },
+    { path: "/terms", changefreq: "yearly", priority: "0.5" },
     ...seoCurriculum.hubPageRoutes(),
   ];
 }
@@ -569,6 +571,24 @@ function renderContactPage() {
   });
 }
 
+function renderPrivacyPage() {
+  return renderPublicPage({
+    title: `Privacy Policy | ${BUSINESS_NAME}`,
+    description: `Privacy Policy for ${BUSINESS_NAME}.`,
+    canonicalPath: "/privacy",
+    bodyHtml: `<h1>Privacy Policy</h1><p>Little Learner Hub may collect account details, support messages, billing status, saved resources, child profile details, observations, AI prompts, AI-generated content, and generated documents needed to operate the platform.</p><p>Information should be used only for providing childcare resource tools, account access, support, billing, and product improvement. Payment details should be processed through Stripe and not stored directly inside Little Learner Hub.</p><p class="muted">This page is provided for owner and legal review.</p>`,
+  });
+}
+
+function renderTermsPage() {
+  return renderPublicPage({
+    title: `Terms of Service | ${BUSINESS_NAME}`,
+    description: `Terms of Service for ${BUSINESS_NAME}.`,
+    canonicalPath: "/terms",
+    bodyHtml: `<h1>Terms of Service</h1><p>Resources, AI outputs, forms, and policy drafts are templates for childcare providers to review and adapt. Providers are responsible for checking state licensing rules, program policies, family agreements, and professional requirements before use.</p><p>AI-generated content may be incomplete, inaccurate, or not specific to a provider's state or program. Providers must review, edit, and approve all AI-generated content before sharing it with families or using it for business records.</p><p class="muted">This page is provided for owner and legal review.</p>`,
+  });
+}
+
 function injectHomeHtmlHead(html) {
   const url = siteUrl();
   const tags = [
@@ -603,6 +623,8 @@ function handleSeoRoute(request, response, pathname) {
     "/faq": renderFaqPage,
     "/pricing": renderPricingPage,
     "/contact": renderContactPage,
+    "/privacy": renderPrivacyPage,
+    "/terms": renderTermsPage,
   };
   const hubPage = seoCurriculum.getHubPage(pathname);
   const render = hubPage ? () => renderCurriculumHubPage(hubPage) : pages[pathname];
