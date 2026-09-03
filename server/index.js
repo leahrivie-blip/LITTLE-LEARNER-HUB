@@ -10174,6 +10174,9 @@ async function handleAccountProfileSync(request, response) {
     updates.centerInviteCode = centerInviteCode || "";
   }
   const isSignupRequest = body.signup === true;
+  const shouldClaimGoogleAdsFreeSignup = body.googleAdsFreeSignupComplete === true
+    && (existing.googleAdsFreeSignupEligible === true || (isSignupRequest && !existing.signupAt))
+    && (existing.plan || "Free") === "Free";
   if (isSignupRequest && !existing.signupAt) {
     updates.signupAt = new Date().toISOString();
     updates.createdAt = existing.createdAt || updates.signupAt;
@@ -10184,6 +10187,7 @@ async function handleAccountProfileSync(request, response) {
       || freePlanGrandfathering.modeForNewSignup({
         siteContent: normalizedSiteContent(readStore().siteContent || defaultSiteContentStore()),
       });
+    updates.googleAdsFreeSignupEligible = true;
   } else if (isSignupRequest && existing.signupAt) {
     // Profile sync remains authoritative even if analytics already stamped signupAt.
     updates.signupAt = existing.signupAt;
@@ -10224,6 +10228,7 @@ async function handleAccountProfileSync(request, response) {
   jsonResponse(response, 200, {
     ok: true,
     metaEventId: isSignupRequest ? metaEventId : undefined,
+    googleAdsConversion: shouldClaimGoogleAdsFreeSignup ? { type: "free_signup", dedupeKey: metaEventId } : null,
     user: {
       email: user.email,
       firstName: user.firstName || "",
@@ -12345,6 +12350,18 @@ async function findStripeSubscriptionByEmail(email) {
   return null;
 }
 
+function claimGoogleAdsCheckoutConversion({ email, session, trialDays, subscription, existingUser }) {
+  const cleanEmail = normalizeEmail(email);
+  const complete = session?.status === "complete";
+  const sessionId = String(session?.id || "").trim();
+  if (!cleanEmail || !complete || !sessionId) return null;
+  void existingUser;
+  if (trialDays > 0 && subscription?.status === "trialing") {
+    return { type: "trial_start", dedupeKey: sessionId };
+  }
+  return null;
+}
+
 async function handleCheckoutStatus(request, response, url) {
   if (!requireStripe(response)) return;
   const sessionId = url.searchParams.get("session_id");
@@ -12367,6 +12384,8 @@ async function handleCheckoutStatus(request, response, url) {
     const promoLabel = session.metadata?.promoLabel || userEntry?.[1]?.pendingPromoLabel || "";
     const paid = session.payment_status === "paid" || session.status === "complete";
     let upgradedUser = null;
+    let liveSubscription = null;
+    let googleAdsConversion = null;
     if (paid && email) {
       upgradedUser = applyCheckoutMembershipUpgrade(email, {
         planKey,
@@ -12383,6 +12402,7 @@ async function handleCheckoutStatus(request, response, url) {
         try {
           const liveSub = await stripeGet(`subscriptions/${encodeURIComponent(session.subscription)}`);
           if (liveSub?.id) {
+            liveSubscription = liveSub;
             upgradedUser = upsertStripeSubscription(email, session.customer, liveSub, { deferPersist: true });
             logMembershipTransition("membership_synced_from_subscription", email, {
               plan: upgradedUser.plan,
@@ -12395,6 +12415,13 @@ async function handleCheckoutStatus(request, response, url) {
           console.warn(`[membership] checkout_status subscription sync failed email=${email}:`, syncError.message);
         }
       }
+      googleAdsConversion = claimGoogleAdsCheckoutConversion({
+        email,
+        session,
+        trialDays: promoTrialDays,
+        subscription: liveSubscription,
+        existingUser: userEntry?.[1],
+      });
       try {
         await writeStoreAsync(writableStore());
       } catch (error) {
@@ -12418,6 +12445,7 @@ async function handleCheckoutStatus(request, response, url) {
       trial: promoTrialDays > 0
         ? { applied: true, trialDays: promoTrialDays, label: promoLabel || "Trial", paymentMethodRequired: true }
         : null,
+      googleAdsConversion,
       founding: foundingStatusPayload(readStore()),
       membership: upgradedUser ? membershipSummaryForUser(upgradedUser) : null,
     });

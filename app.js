@@ -4209,6 +4209,21 @@ async function finishSignupWithPlan(planChoice) {
     updateAuthButtons();
     updatePlanLabel();
     refreshPublicCurriculumLibrary().catch(() => {});
+    void syncAccountProfileToBackend(email, {
+      firstName: currentAccount()?.firstName || "",
+      lastName: currentAccount()?.lastName || "",
+      phone: currentAccount()?.phone || "",
+    }, {
+      signup: true,
+      googleAdsFreeSignupComplete: true,
+      includeGoogleAdsConversion: true,
+    }).then((signupConfirmation) => {
+      const googleAdsConversion = signupConfirmation?.googleAdsConversion;
+      if (googleAdsConversion?.type !== "free_signup") return;
+      window.LLHGoogleAdsConversions?.emit(googleAdsConversion.type, {
+        dedupeKey: googleAdsConversion.dedupeKey,
+      });
+    });
     // Phase 1: onboarding welcome (experience-first) instead of Calendar upgrade card.
     if (typeof beginNewUserOnboardingAfterFreeSignup === "function") {
       beginNewUserOnboardingAfterFreeSignup();
@@ -17144,6 +17159,7 @@ async function syncAccountProfileToBackend(email, profile = {}, options = {}) {
         centerAssociation: profile.centerAssociation || "",
         centerInviteCode: profile.centerInviteCode || "",
         signup: Boolean(options.signup),
+        googleAdsFreeSignupComplete: Boolean(options.googleAdsFreeSignupComplete),
         lastLogin: Boolean(options.lastLogin),
         metaEventId: options.metaEventId || "",
         eventId: options.metaEventId || "",
@@ -17154,7 +17170,7 @@ async function syncAccountProfileToBackend(email, profile = {}, options = {}) {
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data?.error || "Could not sync account profile.");
-    return data.user || null;
+    return options.includeGoogleAdsConversion ? data : (data.user || null);
   } catch (error) {
     console.warn("Account profile sync failed", error);
     return null;
@@ -67626,6 +67642,12 @@ async function completeCheckoutFromStripeSession(session) {
     addBillingHistory("Payment Pending", "Stripe checkout returned, but payment was not marked paid yet.", "");
     setView("payment-failed");
     return;
+  }
+  const googleAdsConversion = session.googleAdsConversion;
+  if (googleAdsConversion?.type === "trial_start") {
+    window.LLHGoogleAdsConversions?.emit(googleAdsConversion.type, {
+      dedupeKey: googleAdsConversion.dedupeKey,
+    });
   }
   if (session?.founding) applyFoundingStatus(session.founding);
   const pending = readSavedJson("llhPendingCheckout", null);
