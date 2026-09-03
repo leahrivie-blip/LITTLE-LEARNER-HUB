@@ -38,6 +38,19 @@ const SHORT_NAME = "Little Learner Hub";
 const DEFAULT_SITE_URL = "https://littlelearnershubbyleah.com";
 const GOOGLE_ADS_TAG_ID = "AW-18405245658";
 
+function googleConsentDefaultTag() {
+  return `<script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag("consent", "default", {
+        ad_storage: "denied",
+        analytics_storage: "denied",
+        ad_user_data: "denied",
+        ad_personalization: "denied"
+      });
+    </script>`;
+}
+
 function googleAdsBaseTag() {
   return `<script async src="https://www.googletagmanager.com/gtag/js?id=${GOOGLE_ADS_TAG_ID}"></script>
     <script>
@@ -121,7 +134,7 @@ function renderPublicFooterHtml() {
   return `
       <footer>
         <p>© ${new Date().getFullYear()} ${escapeHtml(BUSINESS_NAME)}. All rights reserved.</p>
-        <p><a href="/about">About</a> · <a href="/features">Features</a> · <a href="/faq">FAQ</a> · <a href="/pricing">Pricing</a> · <a href="/contact">Contact</a> · <a href="/privacy">Privacy Policy</a> · <a href="/terms">Terms of Service</a></p>
+        <p><a href="/about">About</a> · <a href="/features">Features</a> · <a href="/faq">FAQ</a> · <a href="/pricing">Pricing</a> · <a href="/contact">Contact</a> · <a href="/privacy">Privacy Policy</a> · <a href="/terms">Terms of Service</a> · <a href="/privacy-settings">Privacy Settings</a></p>
         <p class="footer-hub">${hubLinks}</p>
         ${renderSocialLinksHtml()}
       </footer>`;
@@ -322,7 +335,9 @@ function renderPublicPage({ title, description, canonicalPath, bodyHtml, extraSc
     <meta name="twitter:description" content="${escapeHtml(description)}" />
     <meta name="twitter:image" content="${escapeHtml(ogImageUrl())}" />
     <link rel="icon" href="/images/icons/icon-192.png" />
+    ${googleConsentDefaultTag()}
     ${googleAdsBaseTag()}
+    <script src="/scripts/google-consent.js" defer></script>
     ${verification ? `${verification}\n    ` : ""}<script type="application/ld+json">${JSON.stringify(graph)}</script>
     <style>
       :root { color-scheme: light; font-family: "Segoe UI", system-ui, sans-serif; line-height: 1.55; color: #1f2a44; }
@@ -597,6 +612,7 @@ function injectHomeHtmlHead(html) {
     `<meta property="og:image" content="${escapeHtml(ogImageUrl())}" />`,
     `<meta name="twitter:image" content="${escapeHtml(ogImageUrl())}" />`,
     verificationMetaTags(),
+    googleConsentDefaultTag(),
     googleAdsBaseTag(),
   ].filter(Boolean).join("\n    ");
   if (!tags) return html;
