@@ -119,6 +119,7 @@
     "test:teaching-kit-enrichment-qa": "NODE_ENV=test node scripts/test-teaching-kit-enrichment-qa.js",
     "test:owner-notification-email": "NODE_ENV=test node scripts/test-owner-notification-email.js",
     "test:meta-tracking": "NODE_ENV=test node scripts/test-meta-tracking.js",
+    "test:google-ads-conversions": "NODE_ENV=test node scripts/test-google-ads-conversions.js",
     "test:marketing-analytics": "NODE_ENV=test node scripts/test-marketing-analytics.js",
     "test:production-monitoring": "NODE_ENV=test node scripts/test-production-monitoring.js",
     "test:memory-profile": "NODE_ENV=test node scripts/profile-memory-workflows.js",
