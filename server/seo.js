@@ -36,6 +36,18 @@ function loadCurriculumSnapshot() {
 const BUSINESS_NAME = "Little Learner Hub by Leah";
 const SHORT_NAME = "Little Learner Hub";
 const DEFAULT_SITE_URL = "https://littlelearnershubbyleah.com";
+const GOOGLE_ADS_TAG_ID = "AW-18405245658";
+
+function googleAdsBaseTag() {
+  return `<script async src="https://www.googletagmanager.com/gtag/js?id=${GOOGLE_ADS_TAG_ID}"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag("js", new Date());
+      gtag("config", "${GOOGLE_ADS_TAG_ID}");
+    </script>`;
+}
+
 function supportEmailAddress() {
   const raw = String(process.env.SUPPORT_EMAIL_TO || "support@littlelearnershubbyleah.com").trim();
   const match = raw.match(/<([^>]+)>/);
@@ -308,6 +320,7 @@ function renderPublicPage({ title, description, canonicalPath, bodyHtml, extraSc
     <meta name="twitter:description" content="${escapeHtml(description)}" />
     <meta name="twitter:image" content="${escapeHtml(ogImageUrl())}" />
     <link rel="icon" href="/images/icons/icon-192.png" />
+    ${googleAdsBaseTag()}
     ${verification ? `${verification}\n    ` : ""}<script type="application/ld+json">${JSON.stringify(graph)}</script>
     <style>
       :root { color-scheme: light; font-family: "Segoe UI", system-ui, sans-serif; line-height: 1.55; color: #1f2a44; }
@@ -564,6 +577,7 @@ function injectHomeHtmlHead(html) {
     `<meta property="og:image" content="${escapeHtml(ogImageUrl())}" />`,
     `<meta name="twitter:image" content="${escapeHtml(ogImageUrl())}" />`,
     verificationMetaTags(),
+    googleAdsBaseTag(),
   ].filter(Boolean).join("\n    ");
   if (!tags) return html;
   return html.replace("</head>", `    ${tags}\n  </head>`);
