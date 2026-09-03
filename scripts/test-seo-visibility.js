@@ -20,6 +20,10 @@ function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
 
+function googleAdsTagCount(html) {
+  return (String(html || "").match(new RegExp(`gtag/js\\?id=${GOOGLE_ADS_TAG_ID}`, "g")) || []).length;
+}
+
 function request(method, urlPath) {
   return new Promise((resolve, reject) => {
     const req = http.request({
@@ -149,7 +153,7 @@ async function main() {
       assert(page.body.includes("application/ld+json"), `${route} missing JSON-LD`);
       assert(!page.body.includes("LocalBusiness"), `${route} must not include LocalBusiness`);
       assert(page.body.includes('name="viewport"'), `${route} missing mobile viewport`);
-      assert(page.body.includes(`gtag/js?id=${GOOGLE_ADS_TAG_ID}`), `${route} missing Google Ads base tag`);
+      assert.equal(googleAdsTagCount(page.body), 1, `${route} must load one Google Ads base tag`);
       assert(page.body.includes(`gtag("config", "${GOOGLE_ADS_TAG_ID}")`), `${route} missing Google Ads config`);
     }
 
@@ -205,7 +209,7 @@ async function main() {
 
     const home = await request("GET", "/");
     assert(home.body.includes('rel="canonical"'), "homepage missing injected canonical");
-    assert(home.body.includes(`gtag/js?id=${GOOGLE_ADS_TAG_ID}`), "homepage missing Google Ads base tag");
+    assert.equal(googleAdsTagCount(home.body), 1, "homepage must load one Google Ads base tag");
     assert(home.body.includes(`gtag("config", "${GOOGLE_ADS_TAG_ID}")`), "homepage missing Google Ads config");
     assert(home.body.includes('name="google-site-verification"'), "homepage missing google verification injection");
     assert(home.body.includes('name="msvalidate.01"'), "homepage missing bing verification injection");
