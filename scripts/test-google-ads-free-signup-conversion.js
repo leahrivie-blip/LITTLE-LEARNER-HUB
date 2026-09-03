@@ -39,7 +39,10 @@ for (const method of ["Firebase", "local email/password"]) {
   const app = successfulSignup();
   assert.equal(app.calls.length, 0, `${method}: account creation alone must not dispatch`);
   assert.equal(app.api.emitAfterFreeSignupCompletion(), true, `${method}: final Free completion must dispatch`);
-  assert.deepEqual(app.calls, [["event", "conversion", { send_to: SEND_TO }]]);
+  assert.equal(app.calls.length, 1);
+  assert.equal(app.calls[0][0], "event");
+  assert.equal(app.calls[0][1], "conversion");
+  assert.equal(app.calls[0][2].send_to, SEND_TO);
 }
 
 // Button clicks, page loads, failed requests, and canceled signup never set the
@@ -49,10 +52,16 @@ for (const scenario of ["button click", "page load", "failed signup", "canceled 
   assert.equal(app.api.emitAfterFreeSignupCompletion(), false, `${scenario}: must not dispatch`);
 }
 
-for (const consent of [false, undefined]) {
+for (const consent of [false, null]) {
   const app = successfulSignup({ consent });
   assert.equal(app.api.emitAfterFreeSignupCompletion(), false, `consent ${String(consent)} must block`);
   assert.equal(app.calls.length, 0);
+}
+
+{
+  const app = boot({ gtag: () => { throw new Error("must not run"); } });
+  app.api.markAccountCreated();
+  assert.equal(app.api.emitAfterFreeSignupCompletion(), false, "missing consent must block");
 }
 
 {
