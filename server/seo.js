@@ -121,7 +121,7 @@ function renderPublicFooterHtml() {
   return `
       <footer>
         <p>© ${new Date().getFullYear()} ${escapeHtml(BUSINESS_NAME)}. All rights reserved.</p>
-        <p><a href="/about">About</a> · <a href="/features">Features</a> · <a href="/faq">FAQ</a> · <a href="/pricing">Pricing</a> · <a href="/contact">Contact</a></p>
+        <p><a href="/about">About</a> · <a href="/features">Features</a> · <a href="/faq">FAQ</a> · <a href="/pricing">Pricing</a> · <a href="/contact">Contact</a> · <a href="/privacy">Privacy Policy</a> · <a href="/terms">Terms of Service</a></p>
         <p class="footer-hub">${hubLinks}</p>
         ${renderSocialLinksHtml()}
       </footer>`;
@@ -247,6 +247,8 @@ function publicPageRoutes() {
     { path: "/faq", changefreq: "monthly", priority: "0.8" },
     { path: "/pricing", changefreq: "weekly", priority: "0.8" },
     { path: "/contact", changefreq: "monthly", priority: "0.7" },
+    { path: "/privacy", changefreq: "yearly", priority: "0.5" },
+    { path: "/terms", changefreq: "yearly", priority: "0.5" },
     ...seoCurriculum.hubPageRoutes(),
   ];
 }
@@ -569,6 +571,24 @@ function renderContactPage() {
   });
 }
 
+function renderPrivacyPage() {
+  return renderPublicPage({
+    title: `Privacy Policy | ${BUSINESS_NAME}`,
+    description: `Privacy Policy for ${BUSINESS_NAME}.`,
+    canonicalPath: "/privacy",
+    bodyHtml: `<h1>Privacy Policy</h1><p class="muted"><strong>Draft for owner and legal review.</strong></p><h2>Information the platform processes</h2><p>Little Learner Hub may collect account details, support messages, billing status, saved resources, child profile details, observations, AI prompts, AI-generated content, and generated documents needed to operate the platform. This information is used to provide childcare resource tools, account access, support, billing, and product improvement.</p><h2>Accounts and authentication</h2><p>Account information is used to create and secure access to the platform. The application supports email-and-password authentication and may use Firebase Authentication when it is configured for the service.</p><h2>Billing</h2><p>Subscription checkout and billing are processed through Stripe. Little Learner Hub stores billing status and Stripe customer or subscription references needed to provide access. Payment card details are processed through Stripe and are not stored directly inside Little Learner Hub.</p><h2>Analytics and local storage</h2><p>The application uses first-party analytics to understand product use and improve the service. It may use browser cookies or local storage to keep account, preference, and session information available in the browser. The public site also loads Google Ads measurement and may load the Meta Pixel when configured to measure advertising effectiveness; these services may process limited device and interaction data under their own policies.</p><h2>Support and service operations</h2><p>Support and contact submissions are used to respond to requests and improve the service. Server logs and operational monitoring may process technical request and error information needed to maintain reliability and security.</p><h2>Children&rsquo;s data</h2><p>Child profiles, observations, and related classroom records may contain sensitive information entered by providers. Providers should enter only information needed for their program and follow their own family-consent and recordkeeping requirements.</p><h2>Retention, choices, and contact</h2><p>Information is retained in service records as needed to operate, secure, support, and improve the platform. Contact <a href="/contact">support</a> with privacy questions or requests about your account information.</p><h2>Google account data</h2><p>Little Learner Hub does not currently request Google account data through an application OAuth flow.</p><p class="muted">This page is provided for owner and legal review.</p>`,
+  });
+}
+
+function renderTermsPage() {
+  return renderPublicPage({
+    title: `Terms of Service | ${BUSINESS_NAME}`,
+    description: `Terms of Service for ${BUSINESS_NAME}.`,
+    canonicalPath: "/terms",
+    bodyHtml: `<h1>Terms of Service</h1><p>Resources, AI outputs, forms, and policy drafts are templates for childcare providers to review and adapt. Providers are responsible for checking state licensing rules, program policies, family agreements, and professional requirements before use.</p><p>AI-generated content may be incomplete, inaccurate, or not specific to a provider's state or program. Providers must review, edit, and approve all AI-generated content before sharing it with families or using it for business records.</p><h2>Copyright</h2><p>© 2026 Little Learner Hub by Leah. All Rights Reserved.</p><p>Lesson plans, activities, printables, curriculum materials, graphics, and other content on Little Learner Hub are protected intellectual property. Members receive a limited, personal license to use content for their own childcare program. Unauthorized copying, sharing, resale, public redistribution, or commercial reuse outside the member's program is prohibited.</p><p class="muted">This page is provided for owner and legal review.</p>`,
+  });
+}
+
 function injectHomeHtmlHead(html) {
   const url = siteUrl();
   const tags = [
@@ -603,6 +623,8 @@ function handleSeoRoute(request, response, pathname) {
     "/faq": renderFaqPage,
     "/pricing": renderPricingPage,
     "/contact": renderContactPage,
+    "/privacy": renderPrivacyPage,
+    "/terms": renderTermsPage,
   };
   const hubPage = seoCurriculum.getHubPage(pathname);
   const render = hubPage ? () => renderCurriculumHubPage(hubPage) : pages[pathname];

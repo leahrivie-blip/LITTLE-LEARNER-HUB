@@ -141,11 +141,11 @@ async function main() {
     const sitemap = await request("GET", "/sitemap.xml");
     assert(sitemap.status === 200, `sitemap.xml status ${sitemap.status}`);
     const hubPaths = seo.seoCurriculum.hubPages().map((page) => page.path);
-    for (const route of ["/", "/about", "/features", "/faq", "/pricing", "/contact", ...hubPaths]) {
+    for (const route of ["/", "/about", "/features", "/faq", "/pricing", "/contact", "/privacy", "/terms", ...hubPaths]) {
       assert(sitemap.body.includes(`<loc>http://127.0.0.1:${PORT}${route === "/" ? "/" : route}</loc>`) || sitemap.body.includes(route), `sitemap missing ${route}`);
     }
 
-    for (const route of ["/about", "/features", "/faq", "/pricing", "/contact", ...hubPaths]) {
+    for (const route of ["/about", "/features", "/faq", "/pricing", "/contact", "/privacy", "/terms", ...hubPaths]) {
       const page = await request("GET", route);
       assert(page.status === 200, `${route} status ${page.status}`);
       assert(page.body.includes(seo.BUSINESS_NAME), `${route} missing business name`);
@@ -193,6 +193,16 @@ async function main() {
     assert(pricing.body.includes("$199/year"), "pricing page missing Pro Annual price");
     assert(!/Founding Member/i.test(pricing.body), "pricing page must not mention Founding Member");
     assert(pricing.body.includes("$19.99/month"), "pricing page missing Pro Monthly after founding removal");
+
+    const terms = await request("GET", "/terms");
+    assert(terms.body.includes("Unauthorized copying, sharing, resale, public redistribution, or commercial reuse outside the member's program is prohibited."), "terms page missing copyright detail");
+
+    const privacy = await request("GET", "/privacy");
+    assert(privacy.status === 200, "privacy page must be public");
+    assert(privacy.body.includes("Information the platform processes"), "privacy page missing data section");
+    assert(privacy.body.includes("Google account data"), "privacy page missing OAuth section");
+    assert(privacy.body.includes(`rel="canonical" href="http://127.0.0.1:${PORT}/privacy"`), "privacy page canonical incorrect");
+    assert(!privacy.body.includes("stripeCustomerId"), "privacy page must not expose account data");
 
     const contact = await request("GET", "/contact");
     assert(contact.body.includes(seo.supportEmailAddress()), "contact page missing support email");
