@@ -7250,6 +7250,7 @@ async function applyOperatorConnectedEnrichment({
       operatorJobId,
       mutationAllowlist,
       lessonResult,
+      command,
     });
   }
   if (applyMode.mode === "fail_closed") {
@@ -7333,6 +7334,7 @@ async function applyOperatorSurgicalVocab({
   operatorJobId = "",
   mutationAllowlist = null,
   lessonResult = null,
+  command = null,
 } = {}) {
   const vocabSurgical = require("../scripts/curriculum-operator-vocab-surgical-apply.js");
   const id = normalizedShortText(lessonPlanId, 160);
@@ -7345,7 +7347,25 @@ async function applyOperatorSurgicalVocab({
   const existingPlan = (curriculum.lessonPlans || []).find((item) => item.id === id);
   if (!existingPlan) return { ok: false, code: "LESSON_NOT_FOUND", error: "Lesson plan not found." };
 
-  const rawCards = vocabSurgical.extractVocabCardsForSurgicalApply(existingPlan, lessonResult || {});
+  // Explicit vocabulary authority is applied in the upgrade/composer path so
+  // lessonResult.intended already carries the user-requested set. Extract then
+  // fail-closes (VOCAB_CONTENT_MISMATCH) if intended still diverges — never
+  // persist AI/generated substitutes for an explicit list.
+  let rawCards;
+  try {
+    rawCards = vocabSurgical.extractVocabCardsForSurgicalApply(
+      existingPlan,
+      lessonResult,
+      command,
+    );
+  } catch (error) {
+    return {
+      ok: false,
+      code: error?.code || "VOCAB_CONTENT_MISMATCH",
+      error: error?.message || "Explicit vocabulary content mismatch; refusing to persist.",
+      details: error?.details || null,
+    };
+  }
   const applied = vocabSurgical.applySurgicalVocabToPlan(existingPlan, rawCards);
   if (!applied.ok) {
     return {

@@ -369,13 +369,32 @@ async function buildUpgradeDraft(plan, curriculum, audit, options = {}) {
   applied.enrichmentDraft.operatorPhase = 2.5;
   applied.enrichmentDraft.composerSource = "structured-ai";
 
+  // Explicit user vocabulary list outranks AI/composer-generated vocabulary.
+  // Generative vocab-only requests (no exact list) are left unchanged.
+  let intended = applied.intended;
+  const vocabSurgical = require("./curriculum-operator-vocab-surgical-apply.js");
+  const authority = vocabSurgical.applyExplicitVocabularyAuthorityToIntended(
+    options.command || {},
+    intended || {},
+  );
+  if (authority.changed) {
+    intended = authority.intended;
+    if (!applied.enrichmentDraft.week || typeof applied.enrichmentDraft.week !== "object") {
+      applied.enrichmentDraft.week = {};
+    }
+    applied.enrichmentDraft.week.vocabCards = authority.cards;
+    if (!schema.asArray(applied.changed).includes("week.vocabCards")) {
+      applied.changed = [...schema.asArray(applied.changed), "week.vocabCards"];
+    }
+  }
+
   return {
     ok: true,
     aiFailed: false,
     enrichmentDraft: applied.enrichmentDraft,
     changed: applied.changed,
     kept: applied.kept,
-    intended: applied.intended,
+    intended,
     keepSnapshots,
     usage: composed.usage || { calls: 1, inputChars: 0, outputChars: 0 },
     validatedPlan: composed.validatedPlan,
