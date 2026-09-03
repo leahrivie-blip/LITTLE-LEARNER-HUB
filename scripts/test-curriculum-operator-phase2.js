@@ -719,7 +719,7 @@ async function assertHttpContracts() {
     ok(batchRun.json.job.lessonResults.every((lr) => /toddler/i.test(lr.title || "")), "batch toddler titles");
     ok(batchRun.json.job.lessonResults.every((lr) => lr.published === false), "batch not published");
 
-    const keepRun = await requestJson("POST", "/api/admin/curriculum/operator", {
+    const unscopedKeep = await requestJson("POST", "/api/admin/curriculum/operator", {
       action: "run",
       phase: 2,
       command: {
@@ -729,6 +729,20 @@ async function assertHttpContracts() {
         actions: { audit: true, upgradeLesson: true, upgradeActivities: true, saveDraft: true },
         completion: { phase: 2 },
       },
+    }, ownerAuth);
+    ok(unscopedKeep.status === 409, "unscoped keep-strong command is blocked");
+    ok(unscopedKeep.json.code === "RUN_BLOCKED", "unscoped keep-strong returns RUN_BLOCKED");
+    ok(unscopedKeep.json.runBlocked === true, "unscoped keep-strong sets runBlocked");
+    ok(
+      (unscopedKeep.json.confirmReasons || []).includes("ambiguous_scope"),
+      "unscoped keep-strong reason is ambiguous_scope",
+    );
+
+    const keepRun = await requestJson("POST", "/api/admin/curriculum/operator", {
+      action: "run",
+      phase: 2,
+      currentlySelectedLessonId: STRONG_ID,
+      command: "Improve weak activities in Preschool Weather Lab but keep strong existing content.",
     }, ownerAuth);
     ok(keepRun.status === 200, "strong lesson upgrade run");
     const keepLr = keepRun.json.job.lessonResults[0];
