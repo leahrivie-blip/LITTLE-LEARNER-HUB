@@ -194,6 +194,9 @@ async function main() {
     assert(!/Founding Member/i.test(pricing.body), "pricing page must not mention Founding Member");
     assert(pricing.body.includes("$19.99/month"), "pricing page missing Pro Monthly after founding removal");
 
+    const terms = await request("GET", "/terms");
+    assert(terms.body.includes("Unauthorized copying, sharing, resale, public redistribution, or commercial reuse outside the member's program is prohibited."), "terms page missing copyright detail");
+
     const contact = await request("GET", "/contact");
     assert(contact.body.includes(seo.supportEmailAddress()), "contact page missing support email");
     assert(contact.body.includes("https://www.tiktok.com/@leahrpoole"), "contact page missing TikTok");
