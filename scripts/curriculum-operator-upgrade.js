@@ -447,6 +447,19 @@ function verifyUpgradeResult({
       pass(schema.asArray(week[field]).length > 0, `saved_${field}`, `Saved week.${field}`);
       return;
     }
+    if (field === "learningDomains") {
+      const savedRaw = week.learningDomains;
+      const intendedRaw = intended?.week?.learningDomains;
+      const saved = schema.asArray(savedRaw).map((item) => text(item, 80)).filter(Boolean);
+      const intendedList = schema.asArray(intendedRaw).map((item) => text(item, 80)).filter(Boolean);
+      const ok = Array.isArray(savedRaw)
+        && saved.length > 0
+        && saved.length === schema.asArray(savedRaw).length
+        && intendedList.length > 0
+        && intendedList.every((domain) => saved.includes(domain));
+      pass(ok, `saved_${field}`, `Saved week.${field}`);
+      return;
+    }
     pass(wordCount(week[field]) >= 6, `saved_${field}`, `Saved week.${field}`);
   });
 
