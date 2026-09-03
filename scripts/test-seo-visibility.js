@@ -14,9 +14,14 @@ const seo = require("../server/seo.js");
 const ROOT = path.join(__dirname, "..");
 const PORT = 19680 + Math.floor(Math.random() * 40);
 const STORE_PATH = path.join(os.tmpdir(), `llh-seo-${crypto.randomBytes(4).toString("hex")}.json`);
+const GOOGLE_ADS_TAG_ID = "AW-18405245658";
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
+}
+
+function googleAdsTagCount(html) {
+  return (String(html || "").match(new RegExp(`gtag/js\\?id=${GOOGLE_ADS_TAG_ID}`, "g")) || []).length;
 }
 
 function request(method, urlPath) {
@@ -148,6 +153,8 @@ async function main() {
       assert(page.body.includes("application/ld+json"), `${route} missing JSON-LD`);
       assert(!page.body.includes("LocalBusiness"), `${route} must not include LocalBusiness`);
       assert(page.body.includes('name="viewport"'), `${route} missing mobile viewport`);
+      assert(googleAdsTagCount(page.body) === 1, `${route} must load one Google Ads base tag`);
+      assert(page.body.includes(`gtag("config", "${GOOGLE_ADS_TAG_ID}")`), `${route} missing Google Ads config`);
     }
 
     const inventory = JSON.parse((await request("GET", "/api/public/home-inventory")).body);
@@ -202,6 +209,8 @@ async function main() {
 
     const home = await request("GET", "/");
     assert(home.body.includes('rel="canonical"'), "homepage missing injected canonical");
+    assert(googleAdsTagCount(home.body) === 1, "homepage must load one Google Ads base tag");
+    assert(home.body.includes(`gtag("config", "${GOOGLE_ADS_TAG_ID}")`), "homepage missing Google Ads config");
     assert(home.body.includes('name="google-site-verification"'), "homepage missing google verification injection");
     assert(home.body.includes('name="msvalidate.01"'), "homepage missing bing verification injection");
     assert(home.body.includes(`aria-label="${seo.BUSINESS_NAME} on Facebook"`), "homepage Facebook link missing official business aria-label");
