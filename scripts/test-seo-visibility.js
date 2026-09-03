@@ -200,6 +200,9 @@ async function main() {
     const privacy = await request("GET", "/privacy");
     assert(privacy.status === 200, "privacy page must be public");
     assert(privacy.body.includes("Information the platform processes"), "privacy page missing data section");
+    ["Accounts and authentication", "Childcare program, staff, and child information", "Billing and payments", "Analytics, cookies, and browser storage", "Support, logs, and service operations", "Service providers", "Retention, account closure, and requests", "Security"].forEach((heading) => {
+      assert(privacy.body.includes(heading), `privacy page missing ${heading}`);
+    });
     assert(privacy.body.includes("Google account data"), "privacy page missing OAuth section");
     assert(privacy.body.includes(`rel="canonical" href="http://127.0.0.1:${PORT}/privacy"`), "privacy page canonical incorrect");
     assert(!privacy.body.includes("stripeCustomerId"), "privacy page must not expose account data");
