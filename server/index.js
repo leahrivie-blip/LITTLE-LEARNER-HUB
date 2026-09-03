@@ -64,6 +64,7 @@ const { createMemberAuthRateLimit } = require("./member-auth-rate-limit.js");
 const { createAdminSessionStore } = require("./admin-session-store.js");
 const analyticsStore = require("./analytics-store.js");
 const analyticsRevenue = require("./analytics-revenue.js");
+const googleAdsConversionOutbox = require("./google-ads-conversion-outbox.js");
 const storeWriteMetricsLib = require("./store-write-metrics.js");
 const llhStoreUpdatedAtReconcile = require("./llh-store-updated-at-reconcile.js");
 const curriculumMedia = require("./curriculum-media.js");
@@ -1112,6 +1113,7 @@ function defaultStore() {
     membershipAudit: [],
     roleReconciliationAudit: [],
     processedStripeEvents: {},
+    googleAdsConversionOutbox: [],
     leads: [],
     conversionLeads: {},
     promoRedemptions: [],
@@ -12367,27 +12369,6 @@ function claimGoogleAdsCheckoutConversion({ email, session, trialDays, subscript
     }, { deferPersist: true });
     return { type: "trial_start", dedupeKey: sessionId };
   }
-  const amountTotal = Number(session?.amount_total || 0);
-  const currency = String(session?.currency || "").toUpperCase();
-  if (
-    trialDays === 0
-    && session?.payment_status === "paid"
-    && amountTotal > 0
-    && /^[A-Z]{3}$/.test(currency)
-    && !user.googleAdsPaidSubscriptionTransactionId
-  ) {
-    upsertUser(cleanEmail, {
-      googleAdsPaidSubscriptionTransactionId: sessionId,
-      googleAdsPaidSubscriptionClaimedAt: new Date().toISOString(),
-    }, { deferPersist: true });
-    return {
-      type: "paid_subscription",
-      dedupeKey: sessionId,
-      transactionId: sessionId,
-      value: Number((amountTotal / 100).toFixed(2)),
-      currency,
-    };
-  }
   return null;
 }
 
@@ -12835,6 +12816,9 @@ async function handleStripeWebhook(request, response) {
               paidUpdates.firstPaidInvoiceAt = store.users?.[email]?.firstPaidInvoiceAt || paidAt;
               paidUpdates.foundingSpotReleasable = false;
               markFoundingReservationConverted(email, WEBHOOK_DEFER);
+              if (!alreadyHadFirstPaid) {
+                googleAdsConversionOutbox.enqueuePaidSubscription(writableStore(), invoice);
+              }
               // Purchase ONLY for the first successful paid invoice — never renewals
               // (including Founding renewals) and never $0 trial invoices.
               if (metaCapi.shouldFireMetaPurchase({ amountPaid, alreadyHadFirstPaid })) {
