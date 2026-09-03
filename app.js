@@ -4209,7 +4209,7 @@ async function finishSignupWithPlan(planChoice) {
     updateAuthButtons();
     updatePlanLabel();
     refreshPublicCurriculumLibrary().catch(() => {});
-    const signupConfirmation = await syncAccountProfileToBackend(email, {
+    void syncAccountProfileToBackend(email, {
       firstName: currentAccount()?.firstName || "",
       lastName: currentAccount()?.lastName || "",
       phone: currentAccount()?.phone || "",
@@ -4217,13 +4217,13 @@ async function finishSignupWithPlan(planChoice) {
       signup: true,
       googleAdsFreeSignupComplete: true,
       includeGoogleAdsConversion: true,
-    });
-    const googleAdsConversion = signupConfirmation?.googleAdsConversion;
-    if (googleAdsConversion?.type === "free_signup") {
+    }).then((signupConfirmation) => {
+      const googleAdsConversion = signupConfirmation?.googleAdsConversion;
+      if (googleAdsConversion?.type !== "free_signup") return;
       window.LLHGoogleAdsConversions?.emit(googleAdsConversion.type, {
         dedupeKey: googleAdsConversion.dedupeKey,
       });
-    }
+    });
     // Phase 1: onboarding welcome (experience-first) instead of Calendar upgrade card.
     if (typeof beginNewUserOnboardingAfterFreeSignup === "function") {
       beginNewUserOnboardingAfterFreeSignup();
