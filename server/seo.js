@@ -134,7 +134,7 @@ function renderPublicFooterHtml() {
   return `
       <footer>
         <p>© ${new Date().getFullYear()} ${escapeHtml(BUSINESS_NAME)}. All rights reserved.</p>
-        <p><a href="/about">About</a> · <a href="/features">Features</a> · <a href="/faq">FAQ</a> · <a href="/pricing">Pricing</a> · <a href="/contact">Contact</a> · <a href="/privacy">Privacy Policy</a> · <a href="/terms">Terms of Service</a></p>
+        <p><a href="/about">About</a> · <a href="/features">Features</a> · <a href="/faq">FAQ</a> · <a href="/pricing">Pricing</a> · <a href="/contact">Contact</a> · <a href="/privacy">Privacy Policy</a> · <a href="/terms">Terms of Service</a> · <a href="/privacy-settings">Privacy Settings</a></p>
         <p class="footer-hub">${hubLinks}</p>
         ${renderSocialLinksHtml()}
       </footer>`;
@@ -337,6 +337,7 @@ function renderPublicPage({ title, description, canonicalPath, bodyHtml, extraSc
     <link rel="icon" href="/images/icons/icon-192.png" />
     ${googleConsentDefaultTag()}
     ${googleAdsBaseTag()}
+    <script src="/scripts/google-consent.js" defer></script>
     ${verification ? `${verification}\n    ` : ""}<script type="application/ld+json">${JSON.stringify(graph)}</script>
     <style>
       :root { color-scheme: light; font-family: "Segoe UI", system-ui, sans-serif; line-height: 1.55; color: #1f2a44; }
