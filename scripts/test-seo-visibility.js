@@ -153,6 +153,7 @@ async function main() {
       assert(page.body.includes("application/ld+json"), `${route} missing JSON-LD`);
       assert(!page.body.includes("LocalBusiness"), `${route} must not include LocalBusiness`);
       assert(page.body.includes('name="viewport"'), `${route} missing mobile viewport`);
+      assert(page.body.includes('href="/privacy-settings"'), `${route} missing Privacy Settings link`);
       assert(googleAdsTagCount(page.body) === 1, `${route} must load one Google Ads base tag`);
       assert(page.body.includes(`gtag("config", "${GOOGLE_ADS_TAG_ID}")`), `${route} missing Google Ads config`);
     }
