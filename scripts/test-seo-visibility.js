@@ -197,6 +197,13 @@ async function main() {
     const terms = await request("GET", "/terms");
     assert(terms.body.includes("Unauthorized copying, sharing, resale, public redistribution, or commercial reuse outside the member's program is prohibited."), "terms page missing copyright detail");
 
+    const privacy = await request("GET", "/privacy");
+    assert(privacy.status === 200, "privacy page must be public");
+    assert(privacy.body.includes("Information the platform processes"), "privacy page missing data section");
+    assert(privacy.body.includes("Google account data"), "privacy page missing OAuth section");
+    assert(privacy.body.includes(`rel="canonical" href="http://127.0.0.1:${PORT}/privacy"`), "privacy page canonical incorrect");
+    assert(!privacy.body.includes("stripeCustomerId"), "privacy page must not expose account data");
+
     const contact = await request("GET", "/contact");
     assert(contact.body.includes(seo.supportEmailAddress()), "contact page missing support email");
     assert(contact.body.includes("https://www.tiktok.com/@leahrpoole"), "contact page missing TikTok");
