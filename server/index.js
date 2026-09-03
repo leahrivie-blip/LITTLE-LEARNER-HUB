@@ -12374,7 +12374,6 @@ function claimGoogleAdsCheckoutConversion({ email, session, trialDays, subscript
     && session?.payment_status === "paid"
     && amountTotal > 0
     && /^[A-Z]{3}$/.test(currency)
-    && !user.firstPaidInvoiceAt
     && !user.googleAdsPaidSubscriptionTransactionId
   ) {
     upsertUser(cleanEmail, {
