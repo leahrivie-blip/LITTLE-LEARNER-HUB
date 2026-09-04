@@ -15,6 +15,11 @@ const DANGEROUS_CONFIRM_REASONS = Object.freeze([
   "ambiguous_scope",
   "missing_selected_lesson",
   "planned_scope_contradiction",
+  "semantic_contradiction",
+  "meta_instruction",
+  "unresolved_target",
+  "access_tier_mismatch",
+  "age_band_mismatch",
 ]);
 
 const WEEKLY_FIELD_ALIASES = Object.freeze({

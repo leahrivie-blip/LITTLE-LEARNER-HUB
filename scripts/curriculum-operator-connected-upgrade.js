@@ -386,7 +386,9 @@ function canAutoApplyConnectedEnrichment(lessonResult, job) {
   if (actions.connectedAutoApply === false) {
     return { ok: false, code: "auto_apply_not_requested", message: "Auto-apply not requested for this job." };
   }
-  const autoApplyRequested = actions.connectedAutoApply === true || actions.connectedUpgrade === true;
+  const autoApplyRequested = actions.connectedAutoApply === true
+    || actions.connectedUpgrade === true
+    || actions.composeReviewDraft === true;
   if (!autoApplyRequested) {
     return { ok: false, code: "auto_apply_not_requested", message: "Auto-apply not requested for this job." };
   }
