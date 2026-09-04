@@ -9,6 +9,7 @@ const orchestrator = require("./curriculum-operator-orchestrator.js");
 const createApi = require("./curriculum-operator-create.js");
 const intentRouter = require("./curriculum-operator-intent-router.js");
 const commandSafety = require("./curriculum-operator-command-safety.js");
+const semanticInterpret = require("./curriculum-operator-semantic-interpret.js");
 
 function parseCount(command) {
   const m = String(command || "").match(/\b(?:top|next|first|the)?\s*(\d{1,2})\b/i)
@@ -534,7 +535,7 @@ function parseOperatorCommand(rawCommand, options = {}) {
     command.confirmations.reasons = [...new Set([...(command.confirmations.reasons || []), ...safety.reasons])];
   }
 
-  return {
+  const parsed = {
     command,
     ownerIntent: {
       route: ownerIntent.route,
@@ -558,6 +559,13 @@ function parseOperatorCommand(rawCommand, options = {}) {
     phase2Executable: phase >= 2,
     mutationsStripped: !command.completion.mutationsEnabled,
   };
+  return semanticInterpret.applyToParsedResult(parsed, {
+    phase,
+    lessonPlans: options.lessonPlans || [],
+    currentlySelectedLessonId: options.currentlySelectedLessonId || null,
+    operatorContext: options.operatorContext || null,
+    rawCommand: raw,
+  });
 }
 
 module.exports = {
