@@ -285,7 +285,15 @@ async function main() {
       const detail = await requestJson("GET", `/api/curriculum/lesson-plans/${encodeURIComponent(planId)}`, null, {
         headers: authHeader(email),
       });
-      assert(detail.status === 403, `${email} should be denied full Pro detail (got ${detail.status})`);
+      // Free members may browse the authorized preview DTO (200 + locked) but must
+      // never receive full dailyPlans / how-to content. 403 remains acceptable.
+      assert([200, 403].includes(detail.status), `${email} unexpected Pro detail status ${detail.status}`);
+      if (detail.status === 200) {
+        assert(detail.json.lessonPlan?.locked === true, `${email} Pro detail must remain locked`);
+        assert(!detail.json.lessonPlan?.dailyPlans, `${email} must not receive full dailyPlans`);
+        assert(!detail.json.lessonPlan?.objectives, `${email} must not receive objectives`);
+        assert(!JSON.stringify(detail.json).includes("Invite children to scoop"), `${email} leaked premium directions`);
+      }
     }
     const allowed = [
       "trial@preview.test",
