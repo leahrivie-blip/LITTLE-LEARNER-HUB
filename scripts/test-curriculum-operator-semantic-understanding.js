@@ -293,4 +293,76 @@ console.log("\n13) production exclusive image repair + exclusion list + infant l
   ok((reval.command.scope.lessonIds || []).includes(INFANT_ID), "prod revalidated scope keeps the pinned id");
 }
 
+console.log("\n14) exact free-lesson image-repair command");
+{
+  const raw = "go through my free lesson plans and fix the bad activity pictures make them look like real daycare activities no cartoons keep the good pics don't change anything else and don't publish";
+  const parsed = parse(raw);
+  const a = parsed.command.actions;
+  ok(parsed.command.intent === "finish_images", "exact command: intent finish_images");
+  ok(parsed.interpretation.primary === "ACTIVITY_IMAGE_REPAIR", "exact command: operation ACTIVITY_IMAGE_REPAIR");
+  ok(!parsed.command.scope.ageBand, "exact command: no ageBand inferred");
+  ok(a.connectedUpgrade !== true, "exact command: no connectedUpgrade");
+  ok(a.upgradeActivities !== true, "exact command: no upgradeActivities");
+  ok(a.generatePrintables !== true, "exact command: no generatePrintables");
+  ok(a.generateSongsBooks !== true, "exact command: no generateSongsBooks");
+  ok(a.touchCover !== true, "exact command: no cover generation");
+  ok(a.publish !== true, "exact command: publish false");
+  ok(a.composeReviewDraft === true, "exact command: composeReviewDraft true");
+}
+
+console.log("\n15) lesson IDs containing infant/toddler/preschool do not invent ageBand");
+{
+  const rows = [
+    { id: "cur-lp-infant-colors-all-around-us", title: "ID Infant Colors", word: "infant" },
+    { id: "cur-lp-toddler-bugs-and-butterflies", title: "ID Toddler Bugs", word: "toddler" },
+    { id: "cur-lp-preschool-weather-watchersx", title: "ID Preschool Weather", word: "preschool" },
+  ];
+  const catalog = [
+    ...rows.map((row) => ({ id: row.id, title: row.title, plan: "Free", status: "published", age: "Preschool 3–5 Years" })),
+    ...CATALOG,
+  ];
+  rows.forEach((row) => {
+    const raw = `Repair only the bad activity images in this lesson. Lesson ID: ${row.id}. Keep good images. Do not publish.`;
+    const parsed = parse(raw, { lessonPlans: catalog, currentlySelectedLessonId: row.id });
+    ok(!parsed.command.scope.ageBand, `${row.word} in lesson ID does not set ageBand`);
+    ok(parsed.command.intent === "finish_images", `${row.word} ID stays finish_images`);
+    ok(parsed.interpretation.primary === "ACTIVITY_IMAGE_REPAIR", `${row.word} ID stays ACTIVITY_IMAGE_REPAIR`);
+  });
+  const explicit = parse(
+    "Fix the pictures in my toddler free lessons. Lesson ID: cur-lp-infant-colors-all-around-us. Images only. Do not publish.",
+    { lessonPlans: catalog, currentlySelectedLessonId: "cur-lp-infant-colors-all-around-us" },
+  );
+  ok(explicit.command.scope.ageBand === "toddler", "explicit toddler request still sets ageBand");
+  ok(explicit.command.scope.ageBand !== "infant", "infant inside the lesson ID does not override explicit toddler");
+}
+
+console.log("\n16) do-not-change exclusions never activate that capability");
+{
+  const cases = [
+    { x: "vocabulary", flags: ["upgradeActivities", "connectedUpgrade"], extra: (p) => !(p.command.actions.weeklyFieldScope || []).includes("vocabCards") },
+    { x: "printables", flags: ["generatePrintables", "touchPrintables"] },
+    { x: "songs", flags: ["generateSongsBooks", "touchSongs"] },
+    { x: "books", flags: ["generateSongsBooks", "touchBooks"] },
+    { x: "cover images", flags: ["touchCover"] },
+  ];
+  cases.forEach((row) => {
+    const parsed = parse(`Fix the bad activity pictures on my free lessons. Do not change ${row.x}. Keep the good pics. Do not publish.`);
+    ok(parsed.command.intent === "finish_images", `do not change ${row.x}: stays finish_images`);
+    ok(parsed.interpretation.primary === "ACTIVITY_IMAGE_REPAIR", `do not change ${row.x}: stays ACTIVITY_IMAGE_REPAIR`);
+    row.flags.forEach((flag) => {
+      ok(parsed.command.actions[flag] !== true, `do not change ${row.x}: does not activate ${flag}`);
+    });
+    if (row.extra) ok(row.extra(parsed), `do not change ${row.x}: no vocab/weekly activation`);
+  });
+  const list = parse(
+    "Repair only the bad activity images in Colors All Around Us. Do not change activity text, weekly content, vocabulary, printables, songs, books, cover images, or lesson structure. Do not publish.",
+  );
+  ok(list.interpretation.primary === "ACTIVITY_IMAGE_REPAIR", "exclusion list stays ACTIVITY_IMAGE_REPAIR");
+  ok(list.command.actions.upgradeActivities !== true, "exclusion list does not activate upgradeActivities");
+  ok(list.command.actions.generatePrintables !== true, "exclusion list does not activate printables");
+  ok(list.command.actions.generateSongsBooks !== true, "exclusion list does not activate songs/books");
+  ok(list.command.actions.touchCover !== true, "exclusion list does not activate cover");
+  ok(list.command.actions.connectedUpgrade !== true, "exclusion list does not activate connectedUpgrade");
+}
+
 console.log(`\nSemantic understanding passed ${passed} assertions.`);
