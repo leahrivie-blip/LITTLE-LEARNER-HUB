@@ -4631,7 +4631,7 @@ function saveLead(email, source = "Free Daycare Starter Pack") {
   trackEvent("lead_capture", { source });
 }
 
-function showProFeatureModal(message = "This is a Pro Feature.", type = "feature") {
+function showProFeatureModal(message = "This is a Pro Feature.", type = "feature", intent = "") {
   // Never interrupt care saves on the testing site when Testing Pro (or real Pro) applies.
   // Guard boot TDZ: this can run while app.js is still initializing currentUser.
   try {
@@ -4664,6 +4664,10 @@ function showProFeatureModal(message = "This is a Pro Feature.", type = "feature
     proModalReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   }
   document.body.classList.add("auth-modal-open");
+  const finishWeek = typeof window !== "undefined" ? window.LLHFinishWeekConversion : null;
+  const intentCopy = finishWeek && intent && typeof finishWeek.copyForIntent === "function"
+    ? finishWeek.copyForIntent(intent)
+    : null;
   const um = effectiveSiteContent().upgradeMessaging || {};
   const isDraft = um._draft === true;
   const offerFounding = canSeePaidUpgradeOffer() && foundingOpenForAcquisition();
@@ -4702,18 +4706,20 @@ function showProFeatureModal(message = "This is a Pro Feature.", type = "feature
       ${offerEarlyUser ? `<p class="founding-upgrade-compare"><s>${escapeHtml(regularProMonthlyLabel())}</s> · <strong>${escapeHtml(earlyUserLimitedTimePriceCopy())}</strong></p><p class="muted-copy">${escapeHtml(earlyUserSupportingCopy())}</p>` : ""}
     `;
   } else {
-    const popupHeadline = offerFounding
-      ? "⭐ Upgrade to Pro"
-      : (offerEarlyUser
-        ? earlyUserOfferHeadline()
-        : ((!isDraft && um.upgradePopupHeadline) ? um.upgradePopupHeadline : "This is included in Pro"));
+    const popupHeadline = intentCopy?.title
+      || (offerFounding
+        ? "⭐ Upgrade to Pro"
+        : (offerEarlyUser
+          ? earlyUserOfferHeadline()
+          : ((!isDraft && um.upgradePopupHeadline) ? um.upgradePopupHeadline : "This is included in Pro")));
     if (eyebrow) eyebrow.textContent = offerFounding ? "Founding Member" : (offerEarlyUser ? earlyUserLimitedTimePriceCopy() : "Included in Pro");
     if (title) title.textContent = popupHeadline;
     body.innerHTML = `
-      <p>${escapeHtml(message)}</p>
+      <p>${escapeHtml(intentCopy?.body || message)}</p>
       <p class="muted-copy">What Pro unlocks:</p>
       ${benefitListHtml}
       <p>${escapeHtml(upgradePopupBody)}</p>
+      ${finishWeek?.weeklyPriceFraming ? `<p class="muted-copy">${escapeHtml(finishWeek.weeklyPriceFraming())} The billed amount is <strong>$19.99/month</strong>.</p>` : ""}
       ${offerFounding ? `<p class="founding-upgrade-compare"><strong>$9.99/month locked while your membership remains continuously active</strong> · Regular price will be ${escapeHtml(regularProMonthlyLabel())}</p>` : ""}
       ${offerEarlyUser ? `<p class="founding-upgrade-compare"><s>${escapeHtml(regularProMonthlyLabel())}</s> · <strong>${escapeHtml(earlyUserLimitedTimePriceCopy())}</strong></p><p class="muted-copy">${escapeHtml(earlyUserSupportingCopy())}</p>` : ""}
     `;
@@ -4730,9 +4736,10 @@ function showProFeatureModal(message = "This is a Pro Feature.", type = "feature
       upgradeBtn.dataset.upgradeMode = "early_user";
       upgradeBtn.removeAttribute("data-start-pro-trial");
     } else if (offerPro) {
-      upgradeBtn.textContent = `Upgrade to Pro Monthly — ${regularProMonthlyLabel()}`;
+      upgradeBtn.textContent = intentCopy?.cta || `Upgrade to Pro Monthly — ${regularProMonthlyLabel()}`;
       upgradeBtn.dataset.checkoutPlan = "monthly";
       upgradeBtn.dataset.upgradeMode = "monthly";
+      if (intent) upgradeBtn.dataset.upgradeIntent = intent;
       upgradeBtn.removeAttribute("data-start-pro-trial");
     } else if (typeof isTrialPromptSuppressedThisSession === "function" && isTrialPromptSuppressedThisSession()) {
       upgradeBtn.textContent = "Continue Exploring for Free";
@@ -9745,6 +9752,9 @@ function loadCurriculumManagedLessonPlans() {
       _curriculumManaged: true,
       _curriculumResourceIds: curriculumAsStringArray(plan.resourceIds),
       _curriculumLessonPlan: plan,
+      _weekPreview: item.weekPreview && typeof item.weekPreview === "object" ? item.weekPreview : null,
+      _packetSummary: item.packetSummary && typeof item.packetSummary === "object" ? item.packetSummary : null,
+      _printableCount: Number(item.printableCount) || 0,
     });
     } catch (error) {
       console.warn("Skipping malformed curriculum lesson plan", item?.id || "(unknown)", error);
@@ -21805,6 +21815,8 @@ function showLessonCustomizationUpgrade(resourceId = "") {
     upgradeBtn.dataset.checkoutPlan = offerFounding ? "founding" : "monthly";
     upgradeBtn.dataset.upgradeMode = offerFounding ? "founding" : "monthly";
     upgradeBtn.dataset.upgradePromptId = "lesson_customization";
+    upgradeBtn.dataset.upgradeIntent = "duplicate_plan";
+    if (resourceId) upgradeBtn.dataset.returnLesson = resourceId;
   }
   modal.dataset.proUpgradePromptOpen = "1";
   document.body.classList.add("auth-modal-open");
@@ -31990,7 +32002,13 @@ function buildResourcePdfBlob(resource) {
 
 async function downloadResourcePdf(id) {
   const resource = resources.find((item) => item.id === id);
-  if (!hasResourcePdf(resource) || !canAccess(resource)) return;
+  if (!hasResourcePdf(resource) || !canAccess(resource)) {
+    if (resource && !canAccess(resource) && typeof canSeePaidUpgradeOffer === "function" && canSeePaidUpgradeOffer()) {
+      try { window.LLHFinishWeekConversion?.captureReturnContext?.({ intent: "printable", lessonId: resource.id, action: "printable" }); } catch { /* ignore */ }
+      showProFeatureModal("Your printable is ready with Pro.", "feature", "printable");
+    }
+    return;
+  }
   const gate = await confirmTrialCurriculumExport(resource, "download");
   if (!gate.allowed) return;
   const watermark = gate.watermark || trialWatermarkForCurrentView(resource);
@@ -32204,16 +32222,33 @@ function openLockedResourcePreview(resource, triggerEl = null) {
   const showProMonthlyOffer = canSeePaidUpgradeOffer() && !foundingOpenForAcquisition();
   const showProTrialOffer = !canSeePaidUpgradeOffer() && !isProUser();
   // Never mix Founding ($9.99 locked) with Pro trial (converts to $19.99/month).
+  const finishWeekApi = typeof window !== "undefined" ? window.LLHFinishWeekConversion : null;
+  const lockedIntent = isLockedActivity
+    ? (finishWeekApi?.INTENT?.PREMIUM_ACTIVITY || "premium_activity")
+    : (finishWeekApi?.INTENT?.UNLOCK_WEEK || "unlock_week");
+  const lockedIntentCopy = finishWeekApi?.copyForIntent?.(lockedIntent);
+  const lockedCtaLabel = lockedIntentCopy?.cta
+    || (isLockedActivity ? "Finish My Lesson Plan" : "Unlock the Full Week");
   const lockedUpgradeCta = showFoundingOffer
     ? paidUpgradeCtaButtonHtml({
-      label: "Upgrade to Pro — $19.99/month",
+      label: `${lockedCtaLabel} — $19.99/month`,
       short: true,
+      intent: lockedIntent,
+      lessonId: resource.id || "",
     })
     : (showProMonthlyOffer
-      ? paidUpgradeCtaButtonHtml({ label: "Upgrade to Pro Monthly — $19.99/month", short: true })
+      ? paidUpgradeCtaButtonHtml({
+        label: `${lockedCtaLabel} — $19.99/month`,
+        short: true,
+        intent: lockedIntent,
+        lessonId: resource.id || "",
+      })
       : (showProTrialOffer
         ? `<button class="primary-button" type="button" data-start-pro-trial="1">Start 7-Day Pro Trial — then $19.99/month</button>`
-        : paidUpgradeCtaButtonHtml()));
+        : paidUpgradeCtaButtonHtml({ label: lockedCtaLabel, intent: lockedIntent, lessonId: resource.id || "" })));
+  const printWeekCta = (!isLockedActivity && (showFoundingOffer || showProMonthlyOffer))
+    ? `<button class="ghost-button" type="button" data-checkout-plan="${preferredPaidCheckoutPlan()}" data-upgrade-intent="print_week" data-return-lesson="${escapeHtml(resource.id || "")}" data-return-action="print_week">Print My Entire Week</button>`
+    : "";
   const stickyUpgradeCta = lockedUpgradeCta;
   const lockedUpgradeNote = showFoundingOffer
     ? `${foundingSpotsLeftMessage()} $9.99/month locked while your membership remains continuously active. This is Founding Membership — not a Pro trial.`
@@ -32226,8 +32261,11 @@ function openLockedResourcePreview(resource, triggerEl = null) {
   const lockedCurriculum = isLockedLessonPlan
     ? renderApi?.lockedCurriculumLessonPreviewHtml(resource, {
       upgradeCtaHtml: lockedUpgradeCta,
+      printWeekCtaHtml: printWeekCta,
       upgradeNote: lockedUpgradeNote,
       showFoundingOffer,
+      weekPreview: resource._weekPreview || resource._curriculumLessonPlan?.weekPreview || null,
+      packetSummary: resource._packetSummary || resource._curriculumLessonPlan?.packetSummary || null,
     })
     : (isLockedActivity
       ? renderApi?.lockedCurriculumActivityPreviewHtml(resource, {
@@ -32266,10 +32304,17 @@ function openLockedResourcePreview(resource, triggerEl = null) {
   }
   if (isLockedLessonPlan || isLockedActivity) {
     trackUpgradePrompt(isLockedActivity ? "locked_activity_preview" : "locked_lesson_preview", { resourceId: resource.id });
+    try {
+      window.LLHFinishWeekConversion?.trackFunnelEvent?.("premium_preview_seen", {
+        featureType: isLockedActivity ? "premium_activity_locked" : "pro_lesson_locked",
+        location: "locked_preview",
+        lessonId: resource.id || "",
+      });
+    } catch { /* ignore */ }
     stickyBar.hidden = false;
     stickyBar.innerHTML = `
       <div class="fp-sticky-upgrade-copy">
-        <strong>${isLockedActivity ? "Unlock this Pro activity" : "Unlock this Pro lesson plan"}</strong>
+        <strong>${isLockedActivity ? "Finish this activity" : "Unlock the Full Week"}</strong>
         <span>${escapeHtml(lockedContentUnlockLines({ kind: isLockedActivity ? "activity" : "lesson" }).join(" · "))}</span>
       </div>
       ${stickyUpgradeCta}
@@ -32312,6 +32357,20 @@ async function openResourceViewer(resourceId, options = {}) {
   captureLessonLibraryBrowseState(resourceId);
   if (resource.category === "Lesson Plans") rememberLessonRecentlyViewed(resourceId);
   if (resource.category === "Activity Center") rememberActivityRecentlyViewed(resourceId);
+  try {
+    if (resource.category === "Lesson Plans" && canSeePaidUpgradeOffer() && canAccess(resource)) {
+      window.LLHFinishWeekConversion?.trackFunnelEvent?.("free_week_started", {
+        location: "lesson_viewer",
+        lessonId: resourceId,
+      });
+    }
+    if (resource.category === "Activity Center" && canSeePaidUpgradeOffer() && canAccess(resource)) {
+      window.LLHFinishWeekConversion?.trackFunnelEvent?.("free_activity_used", {
+        location: "activity_viewer",
+        lessonId: resource._curriculumLessonPlanId || "",
+      });
+    }
+  } catch { /* ignore */ }
   ensureResourceViewer();
   if (options.returnTo) resourceViewerReturnToId = options.returnTo;
   activeGeneratedPdfResource = null;
@@ -65743,6 +65802,37 @@ function freeWelcomeCardHtml() {
 /**
  * Deferred dashboard upgrade card — only after a meaningful value moment (not right after signup).
  */
+function finishWeekDashboardState() {
+  if (!canSeePaidUpgradeOffer()) return null;
+  const recentIds = Array.isArray(lessonRecentlyViewed) ? lessonRecentlyViewed : [];
+  const savedCount = Array.isArray(favorites) ? favorites.length : 0;
+  const recentLessons = recentIds
+    .map((id) => (Array.isArray(resources) ? resources.find((item) => item.id === id) : null))
+    .filter((item) => item && item.category === "Lesson Plans");
+  const started = recentLessons.find((item) => item.locked !== true && canAccess(item)) || null;
+  const unlock = recentLessons.find((item) => item.locked === true || !canAccess(item)) || null;
+  const weekPreview = unlock?._weekPreview || unlock?._curriculumLessonPlan?.weekPreview || null;
+  const printableCount = Number(unlock?._printableCount || weekPreview?.printableCount || 0);
+  if (!started && !unlock && savedCount <= 0) return null;
+  const lines = [];
+  if (started) lines.push({ done: true, label: `${started.title || "Lesson"} started` });
+  if (savedCount > 0) lines.push({ done: true, label: `${savedCount} ${savedCount === 1 ? "activity" : "activities"} saved` });
+  const days = Array.isArray(weekPreview?.days) ? weekPreview.days : [];
+  days.forEach((day) => {
+    if (Array.isArray(day.activities) && day.activities.length) {
+      lines.push({ done: false, label: `${day.dayLabel || day.day} ready` });
+    }
+  });
+  return {
+    show: true,
+    startedTitle: started?.title || "",
+    lessonId: unlock?.id || started?.id || "",
+    printableCount,
+    checkoutPlan: preferredPaidCheckoutPlan(),
+    lines: lines.slice(0, 6),
+  };
+}
+
 function freeDashboardUpgradeCardHtml() {
   if (!canSeePaidUpgradeOffer()) return "";
   // Large dashboard upgrade card is contextual only — never stacks with header Upgrade.
@@ -65752,6 +65842,10 @@ function freeDashboardUpgradeCardHtml() {
     return "";
   }
   if (typeof renderFreeStarterExploreHtml === "function" && renderFreeStarterExploreHtml()) return "";
+  const finishState = finishWeekDashboardState();
+  if (finishState && window.LLHFinishWeekConversion?.dashboardCardHtml) {
+    return window.LLHFinishWeekConversion.dashboardCardHtml(finishState);
+  }
   const unlockLines = lockedContentUnlockLines();
   return `
     <section class="free-dashboard-upgrade-card" role="region" aria-label="Upgrade offer" data-free-upgrade-surface="contextual">
@@ -66010,11 +66104,13 @@ function foundingUpgradeBannerHtml(options = {}) {
 function paidUpgradeCtaButtonHtml(options = {}) {
   const className = options.className || "primary-button";
   const label = options.label || freeUpgradePrimaryButtonLabel({ short: Boolean(options.short) });
+  const intentAttr = options.intent ? ` data-upgrade-intent="${escapeHtml(options.intent)}"` : "";
+  const lessonAttr = options.lessonId ? ` data-return-lesson="${escapeHtml(options.lessonId)}"` : "";
   if (!canSeePaidUpgradeOffer()) {
     if (isProUser()) return "";
-    return `<button class="${className}" type="button" data-pro-feature="${escapeHtml(options.featureId || "upgrade")}">${escapeHtml(label)}</button>`;
+    return `<button class="${className}" type="button" data-pro-feature="${escapeHtml(options.featureId || "upgrade")}"${intentAttr}${lessonAttr}>${escapeHtml(label)}</button>`;
   }
-  return `<button class="${className}" type="button" data-checkout-plan="${preferredPaidCheckoutPlan()}">${escapeHtml(label)}</button>`;
+  return `<button class="${className}" type="button" data-checkout-plan="${preferredPaidCheckoutPlan()}"${intentAttr}${lessonAttr}>${escapeHtml(label)}</button>`;
 }
 
 async function startPreferredPaidCheckout() {
@@ -67346,6 +67442,7 @@ async function startCheckout(type, trackingContext = "checkout") {
     promoCode,
     trialDays: promoValidation?.trialDays || 0,
     promoLabel: promoValidation?.label || "",
+    returnContext: (typeof window !== "undefined" && window.LLHFinishWeekConversion?.readReturnContext?.()) || null,
   };
   localStorage.setItem("llhPendingCheckout", JSON.stringify(pending));
   // Internal analytics only — Meta InitiateCheckout fires after Stripe session create succeeds.
@@ -67457,6 +67554,7 @@ async function startProTrial(options = {}) {
     trialDays: 7,
     promoLabel: "7-Day Pro Trial",
     fromOnboarding: Boolean(options.fromOnboarding),
+    returnContext: (typeof window !== "undefined" && window.LLHFinishWeekConversion?.readReturnContext?.()) || null,
   };
   localStorage.setItem("llhPendingCheckout", JSON.stringify(pending));
   trackEvent("checkout_start", { type: checkoutType, amount, promoCode: "", trial7day: true, fromOnboarding: Boolean(options.fromOnboarding) });
@@ -67517,6 +67615,32 @@ async function startProTrial(options = {}) {
       </section>
     `);
   }
+}
+
+function restoreFinishWeekReturnAfterPaidConfirm() {
+  const api = typeof window !== "undefined" ? window.LLHFinishWeekConversion : null;
+  if (!api || typeof api.restoreAfterPaidConfirm !== "function") return;
+  let paid = false;
+  try {
+    paid = typeof isProUser === "function" && isProUser();
+  } catch {
+    paid = false;
+  }
+  if (!paid) return;
+  try {
+    api.trackFunnelEvent("subscription_confirmed", { location: "authoritative_membership" });
+  } catch { /* ignore */ }
+  api.restoreAfterPaidConfirm({
+    isPaid: true,
+    openLesson: (id) => {
+      if (typeof openResourceViewer === "function") {
+        void openResourceViewer(id);
+      }
+    },
+    setView: (view) => {
+      if (typeof setView === "function") setView(view);
+    },
+  });
 }
 
 function completeCheckout() {
@@ -67604,6 +67728,9 @@ function completeCheckout() {
     markCheckoutPromoRedeemed(pending.promoCode, { trialDays, label: pending.promoLabel });
   }
   addBillingHistory("Payment Succeeded", `${billingPlanLabel(plan)} subscription activated${pending.promoCode ? " with promo trial" : ""}`, monthlyPrice);
+  if (pending.returnContext) {
+    try { window.LLHFinishWeekConversion?.captureReturnContext?.(pending.returnContext); } catch { /* ignore */ }
+  }
   trackEvent("checkout_success", {
     plan,
     monthlyPrice,
@@ -67623,6 +67750,7 @@ function completeCheckout() {
   if (completedFromOnboardingTrial && typeof NewUserOnboarding?.handleTrialCheckoutSuccess === "function") {
     NewUserOnboarding.handleTrialCheckoutSuccess();
   }
+  restoreFinishWeekReturnAfterPaidConfirm();
 }
 
 async function completeCheckoutFromStripeSession(session) {
@@ -67656,6 +67784,9 @@ async function completeCheckoutFromStripeSession(session) {
     trialDays,
     promoLabel: session.trial?.label || session.promo?.label || pending?.promoLabel || "",
     fromOnboarding: Boolean(pending?.fromOnboarding),
+    returnContext: pending?.returnContext
+      || (typeof window !== "undefined" && window.LLHFinishWeekConversion?.readReturnContext?.())
+      || null,
   }));
   completeCheckout();
   updateCurrentAccountBilling({
@@ -67695,6 +67826,7 @@ async function completeCheckoutFromStripeSession(session) {
     `[membership] checkout_complete email=${currentUser || session.email} plan=${currentAccount()?.plan || "n/a"} foundingActive=${Boolean(currentAccount()?.foundingMemberActive)} isPro=${typeof isProUser === "function" ? isProUser() : "n/a"}`,
   );
   renderPaymentSuccessPage();
+  restoreFinishWeekReturnAfterPaidConfirm();
 }
 
 async function verifyStripeReturnIfNeeded() {
@@ -68925,6 +69057,7 @@ document.addEventListener("click", async (event) => {
   const checkoutButton = event.target.closest("[data-checkout-plan]");
   if (checkoutButton) {
     event.preventDefault();
+    try { window.LLHFinishWeekConversion?.captureFromCta?.(checkoutButton); } catch { /* ignore */ }
     const planType = checkoutButton.dataset.checkoutPlan || "monthly";
     const fromLessonPreviewCta = Boolean(
       checkoutButton.closest("#resourceViewerModal .llh-public-preview-cta, #resourceViewerModal [data-lesson-action-bars], #resourceViewerModal .llh-public-preview-cta-actions"),
