@@ -292,7 +292,7 @@
           ${lines.length ? `<ul class="fw-dash-progress">${lines.map((line) => `<li>${line.done ? "✓" : "○"} ${escapeHtml(line.label)}</li>`).join("")}</ul>` : ""}
           ${printableLine}
           <p class="muted-copy">The rest of the week is already planned. Unlock it when you want the full packet.</p>
-          <p class="muted-copy">${escapeHtml(weeklyPriceFraming())} Billed <strong>$19.99/month</strong>.</p>
+          ${state.checkoutPlan === "monthly" || !state.checkoutPlan ? `<p class="muted-copy">${escapeHtml(weeklyPriceFraming())} Billed <strong>$19.99/month</strong>.</p>` : ""}
         </div>
         <div class="free-dashboard-upgrade-card-actions">
           <button class="primary-button" type="button" data-checkout-plan="${escapeHtml(state.checkoutPlan || "monthly")}" data-upgrade-intent="${INTENT.FINISH_WEEK}" data-return-lesson="${escapeHtml(lessonId)}" data-return-view="lessons">${escapeHtml(copyForIntent(INTENT.FINISH_WEEK).cta)}</button>

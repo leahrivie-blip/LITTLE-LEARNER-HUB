@@ -88,9 +88,11 @@ async function main() {
   ["Weekly Objectives", "dailyPlans", "Teacher Language", "Materials List"].forEach((forbidden) => {
     assert.equal(lockedFn.includes(forbidden), false, `locked preview should not include ${forbidden}`);
   });
-  ["Age Group", "Theme", "Learning Domains", "Weekly Overview"].forEach((required) => {
+  assertIncludes(lockedFn, "publicLessonAgeFieldHtml", "locked preview age field helper");
+  ["Theme", "Learning Domains", "Weekly Overview"].forEach((required) => {
     assertIncludes(lockedFn, required, "locked preview teaser field");
   });
+  assertIncludes(viewerJs, 'label = "Age Group"', "age-group label still used for locked teasers");
 
   fs.writeFileSync(STORE, JSON.stringify({
     users: {

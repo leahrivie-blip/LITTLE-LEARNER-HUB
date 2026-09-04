@@ -4719,7 +4719,7 @@ function showProFeatureModal(message = "This is a Pro Feature.", type = "feature
       <p class="muted-copy">What Pro unlocks:</p>
       ${benefitListHtml}
       <p>${escapeHtml(upgradePopupBody)}</p>
-      ${finishWeek?.weeklyPriceFraming ? `<p class="muted-copy">${escapeHtml(finishWeek.weeklyPriceFraming())} The billed amount is <strong>$19.99/month</strong>.</p>` : ""}
+      ${finishWeek?.weeklyPriceFraming && offerPro && !offerEarlyUser ? `<p class="muted-copy">${escapeHtml(finishWeek.weeklyPriceFraming())} The billed amount is <strong>$19.99/month</strong>.</p>` : ""}
       ${offerFounding ? `<p class="founding-upgrade-compare"><strong>$9.99/month locked while your membership remains continuously active</strong> · Regular price will be ${escapeHtml(regularProMonthlyLabel())}</p>` : ""}
       ${offerEarlyUser ? `<p class="founding-upgrade-compare"><s>${escapeHtml(regularProMonthlyLabel())}</s> · <strong>${escapeHtml(earlyUserLimitedTimePriceCopy())}</strong></p><p class="muted-copy">${escapeHtml(earlyUserSupportingCopy())}</p>` : ""}
     `;
