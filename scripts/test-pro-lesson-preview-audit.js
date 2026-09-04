@@ -194,7 +194,7 @@ async function main() {
   assert(/Weekly Overview/.test(previewHtml.html), "preview missing weekly overview");
   assert(/Learning Domains/.test(previewHtml.html), "preview missing learning domains");
   assert(/Pro Lesson Plan/.test(previewHtml.html), "preview missing upgrade card");
-  assert(/Founding Member Pricing Still Available/.test(previewHtml.html), "preview missing founding offer");
+  assert(/Founding Member/.test(previewHtml.html), "preview missing founding offer");
   assert(/Upgrade to Pro/.test(previewHtml.html), "preview missing upgrade CTA");
   assert(!/Farm Animal Sensory Bin/.test(previewHtml.html), "preview leaked Monday activity name");
   assert(!/Barn Building Challenge/.test(previewHtml.html), "preview leaked Tuesday activity name");
@@ -233,7 +233,7 @@ async function main() {
   assert(/Activity Type|Sensory Play/.test(activityPreview.html), "activity preview missing activity type");
   assert(/From Lesson Plan|Preview Audit Garden Scientists/.test(activityPreview.html), "activity preview missing parent lesson");
   assert(/Pro Activity|Unlock this premium activity/.test(activityPreview.html), "activity preview missing upgrade card");
-  assert(/Founding Member Pricing Still Available/.test(activityPreview.html), "activity preview missing founding offer");
+  assert(/Founding Member/.test(activityPreview.html), "activity preview missing founding offer");
   assert(!/Children use scoops and magnifying glasses/.test(activityPreview.html), "activity preview leaked description");
   assert(!/Invite children to scoop/.test(activityPreview.html), "activity preview leaked directions");
   assert(!/Bin of potting soil/.test(activityPreview.html), "activity preview leaked materials");

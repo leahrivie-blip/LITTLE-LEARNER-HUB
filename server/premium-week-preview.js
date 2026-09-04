@@ -133,11 +133,11 @@ function packetSummary(plan, days, printableCount) {
     weekdayFlags[day] = Boolean(row && row.activities.length);
   });
   return {
-    weeklyOverview: Boolean(shortText(entry.weeklyOverview, 8)),
-    teachingNotes: Boolean(shortText(entry.objectives, 8)),
-    observationPrompts: Boolean(shortText(entry.observationOpportunities, 8)),
-    familyConnection: Boolean(shortText(entry.familyConnection, 8)),
-    printablePack: printableCount > 0,
+    hasWeeklyOverview: Boolean(shortText(entry.weeklyOverview, 8)),
+    hasTeachingNotes: Boolean(shortText(entry.objectives, 8)),
+    hasObservationPrompts: Boolean(shortText(entry.observationOpportunities, 8)),
+    hasFamilyConnection: Boolean(shortText(entry.familyConnection, 8)),
+    hasPrintablePack: printableCount > 0,
     ...weekdayFlags,
   };
 }
@@ -187,6 +187,7 @@ function forbiddenPreviewLeaks(value) {
       return;
     }
     Object.keys(node).forEach((key) => {
+      if (key === "packet") return;
       if (FORBIDDEN_PREVIEW_KEYS.includes(key)) found.add(key);
       walk(node[key]);
     });

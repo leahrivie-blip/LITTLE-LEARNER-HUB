@@ -249,16 +249,16 @@
   function packetSummaryHtml(packet) {
     if (!packet || typeof packet !== "object") return "";
     const labels = [
-      ["weeklyOverview", "Weekly overview"],
+      ["hasWeeklyOverview", "Weekly overview"],
       ["monday", "Monday activities"],
       ["tuesday", "Tuesday activities"],
       ["wednesday", "Wednesday activities"],
       ["thursday", "Thursday activities"],
       ["friday", "Friday activities"],
-      ["teachingNotes", "Teaching notes"],
-      ["observationPrompts", "Observation prompts"],
-      ["familyConnection", "Family connection"],
-      ["printablePack", "Printable pack"],
+      ["hasTeachingNotes", "Teaching notes"],
+      ["hasObservationPrompts", "Observation prompts"],
+      ["hasFamilyConnection", "Family connection"],
+      ["hasPrintablePack", "Printable pack"],
     ];
     const items = labels
       .filter(([key]) => packet[key] === true)

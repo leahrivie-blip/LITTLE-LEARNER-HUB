@@ -155,7 +155,6 @@ async function publishLessons(token) {
       status: "published",
       age: "Preschool",
       theme: "Garden Scientists",
-      resourceIds: ["cur-res-garden-print"],
     },
   });
   assert.equal(proSave.status, 200, `pro save failed: ${proSave.status} ${proSave.text}`);
@@ -228,10 +227,10 @@ function projectionChecks() {
   assert.equal(preview.days[0].activities[0].prepMinutes, 5);
   assert.equal(preview.days[0].activities[0].printableIncluded, true);
   assert.equal(preview.printableCount, 2);
-  assert.equal(preview.packet.weeklyOverview, true);
+  assert.equal(preview.packet.hasWeeklyOverview, true);
   assert.equal(preview.packet.monday, true);
   assert.equal(preview.packet.friday, false);
-  assert.equal(preview.packet.printablePack, true);
+  assert.equal(preview.packet.hasPrintablePack, true);
   const leaks = premiumWeekPreview.forbiddenPreviewLeaks(preview);
   assert.deepEqual(leaks, [], `preview leaked forbidden keys: ${leaks.join(",")}`);
   const raw = JSON.stringify(preview);
