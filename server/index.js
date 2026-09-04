@@ -23355,6 +23355,9 @@ function applyMergedEnrichmentToActivities(existingActivities, mergedActivities,
       substitutions: Array.isArray(match.substitutions) ? match.substitutions : act.substitutions,
       settingTags: Array.isArray(match.settingTags) ? match.settingTags : act.settingTags,
       observationOpportunities: match.observationOpportunities || act.observationOpportunities || "",
+      observationPrompts: Array.isArray(match.observationPrompts) && match.observationPrompts.length
+        ? match.observationPrompts
+        : (Array.isArray(act.observationPrompts) ? act.observationPrompts : []),
       vocabulary: match.vocabulary || act.vocabulary || "",
       indoorAlternatives: match.indoorAlternatives || act.indoorAlternatives || "",
       outdoorAlternatives: match.outdoorAlternatives || act.outdoorAlternatives || "",
