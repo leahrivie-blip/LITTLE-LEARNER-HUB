@@ -200,6 +200,7 @@
     "test:admin-curriculum-load-e2e": "node scripts/test-admin-curriculum-load-e2e.js",
     "test:curriculum-activities-wipe-protection": "node scripts/test-curriculum-activities-wipe-protection.js",
     "test:login-logout-session-audit": "node scripts/test-login-logout-session-audit.js",
+    "test:form-state-stability": "NODE_ENV=test node scripts/test-form-state-stability.js",
     "curriculum:restore-dry-run": "node scripts/curriculum-restore-dry-run.js",
     "test:boot-currentuser-tdz": "node scripts/test-boot-currentuser-tdz.js",
     "test:homescreen-pwa-boot": "node scripts/test-homescreen-pwa-boot.js",
