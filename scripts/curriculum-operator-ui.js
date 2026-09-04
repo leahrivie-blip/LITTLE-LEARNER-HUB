@@ -47,6 +47,11 @@
     "ambiguous_scope",
     "missing_selected_lesson",
     "planned_scope_contradiction",
+    "semantic_contradiction",
+    "meta_instruction",
+    "unresolved_target",
+    "access_tier_mismatch",
+    "age_band_mismatch",
   ];
 
   function isRunBlockedByParsed(parsed, planSummary) {
@@ -79,7 +84,32 @@
     if (reasons.includes("ambiguous_scope") || reasons.includes("missing_selected_lesson")) {
       return "Run blocked — command scope is ambiguous. Interpret again with an explicit lesson ID.";
     }
+    if (reasons.includes("meta_instruction")) {
+      return "This appears to be a system-development instruction rather than a curriculum job. No curriculum mutation planned.";
+    }
+    if (reasons.includes("semantic_contradiction") || reasons.includes("access_tier_mismatch") || reasons.includes("age_band_mismatch")) {
+      return "Run blocked — the understood request contradicts itself. Clarify FREE/PRO, images-only, or publish before running.";
+    }
     return "Run blocked — resolve confirmation issues before running.";
+  }
+
+  function renderUnderstoodRequest(parsed) {
+    const interp = parsed?.interpretation || parsed?.command?.interpretation;
+    if (!interp?.ownerSummary) return "";
+    const flags = interp.ownerFacingFlags || {};
+    return `
+          <section class="co-panel">
+            <h4>Understood request</h4>
+            <pre class="co-summary">${esc(interp.ownerSummary)}</pre>
+            <p class="muted-copy">${esc(flags.connectedAutoApply || "Successful approved AI changes will be saved directly into the lesson draft for your review.")}</p>
+            <p class="muted-copy">${esc(flags.publish || "Nothing will publish automatically.")}</p>
+            <p class="muted-copy">${esc(flags.touchPrintables || "")}</p>
+            ${parsed.aiHealth ? `<p class="muted-copy">AI configured: ${parsed.aiHealth.configured ? "yes" : "no"}${parsed.aiHealth.lastErrorCategory ? ` · last error: ${esc(parsed.aiHealth.lastErrorCategory)}` : ""}</p>` : ""}
+            <details>
+              <summary>Technical details</summary>
+              <pre class="co-json">${esc(JSON.stringify(parsed.command, null, 2))}</pre>
+            </details>
+          </section>`;
   }
 
   const state = {
@@ -96,6 +126,7 @@
     isError: false,
     planSummary: null,
     commandParsed: null,
+    operatorContext: null,
     job: null,
     jobs: [],
     flagEnabled: false,
@@ -516,7 +547,8 @@
           <button type="button" class="primary-button" id="coRunBtn" ${state.busy || state.runInFlight || runBlocked ? "disabled" : ""} title="${esc(runBlocked ? runBlockNotice : "")}">${esc(runButtonLabel(state.runPhase))}</button>
           <button type="button" class="ghost-button" id="coRefreshJobsBtn" ${state.busy ? "disabled" : ""}>Refresh jobs</button>
         </div>
-        ${state.commandParsed ? `
+        ${state.commandParsed ? renderUnderstoodRequest(state.commandParsed) : ""}
+        ${state.commandParsed && !state.commandParsed.interpretation?.ownerSummary ? `
           <section class="co-panel">
             <h4>Interpreted command</h4>
             <pre class="co-json">${esc(JSON.stringify(state.commandParsed.command, null, 2))}</pre>
@@ -576,7 +608,7 @@
       <style>
         .co-operator textarea { width: 100%; max-width: 52rem; }
         .co-panel { margin: 1.25rem 0; padding: 1rem 0; border-top: 1px solid rgba(0,0,0,.08); }
-        .co-json, .co-log { background: rgba(0,0,0,.04); padding: .75rem; overflow: auto; max-height: 16rem; font-size: .85rem; }
+        .co-json, .co-log, .co-summary { background: rgba(0,0,0,.04); padding: .75rem; overflow: auto; max-height: 16rem; font-size: .85rem; white-space: pre-wrap; }
         .co-lesson-card { border: 1px solid rgba(0,0,0,.08); border-radius: 12px; padding: 1rem; margin: 1rem 0; }
         .co-lesson-card-head { display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start; }
         .co-status-pill { display: inline-block; padding: .25rem .6rem; border-radius: 999px; background: #f3e8d8; font-size: .85rem; }
@@ -718,9 +750,18 @@
     state.isError = false;
     render();
     try {
-      const result = await api("parse", { command: state.command, phase: 7 });
+      const result = await api("parse", {
+        command: state.command,
+        phase: 7,
+        operatorContext: state.operatorContext || undefined,
+      });
       state.commandParsed = result;
-      const planned = await api("plan", { command: state.command, phase: 7 });
+      if (result.interpretation?.nextContext) state.operatorContext = result.interpretation.nextContext;
+      const planned = await api("plan", {
+        command: state.command,
+        phase: 7,
+        operatorContext: state.operatorContext || undefined,
+      });
       state.planSummary = planned.planSummary;
       state.job = planned.job || null;
       state.message = planned.planSummary?.createsLesson
@@ -763,7 +804,12 @@
     render();
     startRunPolling(commandSnapshot, state.runStartedAt);
     try {
-      const result = await api("run", { command: commandSnapshot, confirm: true, phase: 7 });
+      const result = await api("run", {
+        command: commandSnapshot,
+        confirm: true,
+        phase: 7,
+        operatorContext: state.operatorContext || undefined,
+      });
       state.commandParsed = { command: result.command };
       state.planSummary = result.planSummary;
       state.job = result.job;
@@ -782,7 +828,7 @@
       } else if (result.draftOnly) {
         state.runPhase = "complete";
         state.runStatusMessage = autoApplied
-          ? "Job complete — enrichment applied. Open the lesson to review."
+          ? "Job complete — approved changes are in the lesson draft. Open the lesson, then Publish."
           : "Job complete — open the lesson to review.";
         const createdId = result.job?.lessonResults?.[0]?.createdLessonId || result.job?.lessonResults?.[0]?.lessonId;
         const publishRequested = (result.job?.lessonResults || []).some((lr) => lr.publishRequested)
@@ -792,7 +838,7 @@
             ? `READY FOR REVIEW — PUBLISH REQUESTED (${createdId}). AI did not publish. Confirm Publish in the Owner review panel.`
             : "READY FOR REVIEW — PUBLISH REQUESTED. AI did not publish. Confirm Publish in the Owner review panel.";
         } else if (autoApplied) {
-          state.message = "Upgrade complete and auto-applied to the existing lesson. Open the lesson to review (still draft).";
+          state.message = "Upgrade complete. Approved changes are already in the lesson draft. Open the lesson to review, then click Publish. Nothing published automatically.";
         } else {
           state.message = createdId
             ? `Draft lesson created (${createdId}) — READY FOR OWNER REVIEW / NOT PUBLISHED. Open the lesson to inspect.`

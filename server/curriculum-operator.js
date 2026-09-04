@@ -2068,7 +2068,9 @@ function createCurriculumOperatorApi(deps) {
     const refreshed = [];
     const actions = job?.command?.actions || {};
     if (actions.planOnly || actions.connectedAutoApply === false) return { applied, skipped, refreshed };
-    const autoApplyRequested = actions.connectedAutoApply === true || actions.connectedUpgrade === true;
+    const autoApplyRequested = actions.connectedAutoApply === true
+      || actions.connectedUpgrade === true
+      || actions.composeReviewDraft === true;
     if (!autoApplyRequested) return { applied, skipped, refreshed };
     for (let i = 0; i < schema.asArray(job.lessonResults).length; i += 1) {
       const lr = job.lessonResults[i];
@@ -2266,12 +2268,18 @@ function createCurriculumOperatorApi(deps) {
         currentlySelectedLessonId: body.currentlySelectedLessonId,
         phase,
         lessonPlans: schema.asArray(curriculum?.lessonPlans),
+        operatorContext: body.operatorContext,
       });
       jsonResponse(response, 200, {
         ok: true,
         action,
         ...parsed,
         publishEnabled: false,
+        aiHealth: require("../scripts/curriculum-operator-ai-transport.js").summarizeAiHealth({
+          configured: openAiConfigured === true,
+          reachable: openAiConfigured === true,
+          model: process.env.OPENAI_MODEL || "",
+        }),
       });
       return;
     }
@@ -2288,6 +2296,7 @@ function createCurriculumOperatorApi(deps) {
           currentlySelectedLessonId: body.currentlySelectedLessonId,
           phase,
           lessonPlans: schema.asArray(curriculum?.lessonPlans),
+          operatorContext: body.operatorContext,
         });
 
       let command = parsed.command;
@@ -2553,7 +2562,9 @@ function createCurriculumOperatorApi(deps) {
       const cmdActions = job?.command?.actions || {};
       const shouldAutoApply = !cmdActions.planOnly
         && cmdActions.connectedAutoApply !== false
-        && (cmdActions.connectedAutoApply === true || cmdActions.connectedUpgrade === true);
+        && (cmdActions.connectedAutoApply === true
+          || cmdActions.connectedUpgrade === true
+          || cmdActions.composeReviewDraft === true);
       if (shouldAutoApply) {
         autoApply = await tryConnectedAutoApply(job, store, session.email);
         if (autoApply.applied.length) await writeStoreAsync(store);
@@ -2639,7 +2650,9 @@ function createCurriculumOperatorApi(deps) {
       const cmdActions = job?.command?.actions || {};
       const shouldAutoApply = !cmdActions.planOnly
         && cmdActions.connectedAutoApply !== false
-        && (cmdActions.connectedAutoApply === true || cmdActions.connectedUpgrade === true);
+        && (cmdActions.connectedAutoApply === true
+          || cmdActions.connectedUpgrade === true
+          || cmdActions.composeReviewDraft === true);
       if (shouldAutoApply) {
         autoApply = await tryConnectedAutoApply(job, store, session.email);
         if (autoApply.applied.length) await writeStoreAsync(store);

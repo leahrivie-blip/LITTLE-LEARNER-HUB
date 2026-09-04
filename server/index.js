@@ -32895,10 +32895,23 @@ const server = http.createServer(async (request, response) => {
             const OPERATOR_AI_MAX_OUTPUT_TOKENS = Number(aiOptions.maxOutputTokens) > 0
               ? Math.floor(Number(aiOptions.maxOutputTokens))
               : (stagedCreate ? 12000 : 24000);
-            return callOpenAiRaw(systemPrompt, userPrompt, {
-              maxOutputTokens: OPERATOR_AI_MAX_OUTPUT_TOKENS,
-              returnMeta: aiOptions.returnMeta === true,
-            });
+            const aiTransport = require("../scripts/curriculum-operator-ai-transport.js");
+            return aiTransport.callWithBoundedRetry(async () => {
+              try {
+                return await callOpenAiRaw(systemPrompt, userPrompt, {
+                  maxOutputTokens: OPERATOR_AI_MAX_OUTPUT_TOKENS,
+                  returnMeta: aiOptions.returnMeta === true,
+                });
+              } catch (error) {
+                const category = aiTransport.classifyAiError(error);
+                const safe = aiTransport.ownerSafeAiError(error, category);
+                const wrapped = new Error(safe.message);
+                wrapped.category = category;
+                wrapped.retryable = safe.retryable;
+                if (!safe.retryable) wrapped.noRetry = true;
+                throw wrapped;
+              }
+            }, { maxAttempts: 3 });
           },
           enrichmentMedia,
           persistEnrichmentPhoto: persistEnrichmentPhotoVariants,

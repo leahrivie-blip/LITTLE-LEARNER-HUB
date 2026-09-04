@@ -162,7 +162,12 @@ function normalizeOperatorJob(raw = {}) {
       || command.actions?.generateSongsBooks === true
     ),
     publishEnabled: false,
-    command,
+    operatorPlanVersion: Number(input.operatorPlanVersion || input.command?.interpretation?.operatorPlanVersion) === 2
+      ? 2
+      : 1,
+    command: command.interpretation || input.command?.interpretation
+      ? Object.assign(command, { interpretation: input.command?.interpretation || command.interpretation })
+      : command,
     planSummary: input.planSummary && typeof input.planSummary === "object"
       ? input.planSummary
       : { task: "", lessons: [], selectionNote: "", needsConfirmation: false, confirmReasons: [] },
@@ -268,6 +273,7 @@ function createJobFromPlan({ command, planSummary, createdBy, status = "planned"
   const job = normalizeOperatorJob({
     createdBy,
     status,
+    operatorPlanVersion: 2,
     command,
     planSummary,
     phase,
