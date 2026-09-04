@@ -49,13 +49,36 @@ function requestedAccess(folded, raw) {
   return null;
 }
 
+function stripCatalogIds(value) {
+  return String(value || "").replace(/\bcur-(?:lp|act)-[a-z0-9-]+\b/gi, " ");
+}
+
 function requestedAgeBand(folded, raw, exampleSpan) {
-  const source = exampleSpan ? String(raw || "").slice(0, raw.length - exampleSpan.length) : raw;
-  const foldedSource = exampleSpan ? lexicon.foldCommandText(source) : folded;
+  // Lesson IDs such as cur-lp-infant-colors-all-around-us are not an age request.
+  // Folding also splits hyphens into words, so strip IDs from the raw source first.
+  const prefix = exampleSpan
+    ? String(raw || "").slice(0, Math.max(0, String(raw || "").length - exampleSpan.length))
+    : String(raw || "");
+  const source = stripCatalogIds(prefix);
+  const foldedSource = lexicon.foldCommandText(source);
   if (/\binfant\b/.test(foldedSource) || /\binfant\b/i.test(source)) return "infant";
   if (/\btoddler\b/.test(foldedSource) || /\btoddler\b/i.test(source)) return "toddler";
   if (/\bpreschool\b/.test(foldedSource) || /\bpreschool\b/i.test(source)) return "preschool";
   return null;
+}
+
+function inExclusionList(folded, topic) {
+  if (negationVariants(topic).test(folded)) return true;
+  if (new RegExp(String.raw`\bleave\s+(?:the\s+)?${topic}\s+alone\b`, "i").test(folded)) return true;
+  return new RegExp(
+    String.raw`\b(?:do\s+not|dont|don't|never)\s+(?:touch|change|update|replace|make|create|generate|mutate)\s+(?:the\s+|any\s+|all\s+)?[^.!?]{0,280}\b${topic}\b`,
+    "i",
+  ).test(folded);
+}
+
+function exclusiveImageRepairCommand(folded) {
+  return /\b(?:repair|fix|replace)\s+only\s+(?:the\s+)?(?:bad\s+|cartoon\s+|unrealistic\s+|generic\s+)*(?:activity\s+)?(?:images?|pictures?|photos?|pics|visuals?)\b/.test(folded)
+    || /\breplace\s+only\s+(?:the\s+)?(?:cartoon|unrealistic|generic|bad)\b/.test(folded);
 }
 
 function extractExampleSpan(raw) {
@@ -110,10 +133,12 @@ function extractSignals(rawCommand) {
     && (/\bdont\s+replace\b/.test(folded)
       || /\bdo not\s+replace\b/.test(folded)
       || !/\b(?:replace|generate|create|fix|make)\b/.test(folded));
-  const vocabWorkEarly = /\bvocab(?:ulary|ularies)?\b/.test(folded);
-  const coverHint = (/\b(?:update|replace|fix|make|change|create)\b.{0,40}\bcover\b/.test(folded)
-    || /\brealistic_lesson_cover\b/i.test(raw)
-    || /\brealistic\s+lesson\s+cover\b/.test(folded));
+  const vocabWorkEarly = /\bvocab(?:ulary|ularies)?\b/.test(folded)
+    && !inExclusionList(folded, "vocab(?:ulary|ularies)?");
+  const coverHint = !inExclusionList(folded, "cover")
+    && (/\b(?:update|replace|fix|make|change|create)\b.{0,40}\bcover\b/.test(folded)
+      || /\brealistic_lesson_cover\b/i.test(raw)
+      || /\brealistic\s+lesson\s+cover\b/.test(folded));
   const multiCapability = [
     vocabWorkEarly,
     coverHint,
@@ -122,9 +147,10 @@ function extractSignals(rawCommand) {
     positivelyRequested("printables?"),
     impliedImageRepair || /\b(?:images?|pictures?|photos?)\b/.test(folded),
   ].filter(Boolean).length > 1;
-  const imagesOnlyResolved = auditImagesOnly || multiCapability
-    ? false
-    : imagesOnly;
+  const exclusiveImages = exclusiveImageRepairCommand(folded) && !mentionsOtherKitWork;
+  const imagesOnlyResolved = exclusiveImages
+    ? true
+    : (auditImagesOnly || multiCapability ? false : imagesOnly);
 
   const vocabWork = /\bvocab(?:ulary|ularies)?\b/.test(folded);
   const exclusiveVocabLanguage = /\bvocab(?:ulary|ularies)?\s+only\b/.test(folded)
@@ -157,24 +183,25 @@ function extractSignals(rawCommand) {
   const generateMissingImages = /\bmissing\b/.test(folded) && /\b(?:images?|pictures?|photos?)\b/.test(folded);
 
   const exclude = {
-    printables: negationVariants("printables?").test(folded)
-      || /\bleave\s+(?:the\s+)?printables?\s+alone\b/.test(folded)
+    printables: inExclusionList(folded, "printables?")
       || imagesOnlyResolved
       || vocabOnly,
-    songs: negationVariants("songs?").test(folded) || imagesOnlyResolved || vocabOnly,
-    books: negationVariants("books?").test(folded) || imagesOnlyResolved || vocabOnly,
-    vocabulary: /\bleave\s+vocabulary\s+alone\b/.test(folded)
-      || negationVariants("vocab(?:ulary)?").test(folded)
+    songs: inExclusionList(folded, "songs?") || imagesOnlyResolved || vocabOnly,
+    books: inExclusionList(folded, "books?") || imagesOnlyResolved || vocabOnly,
+    vocabulary: inExclusionList(folded, "vocab(?:ulary)?")
       || imagesOnlyResolved,
     text: /\bdont\s+change\s+(?:lesson\s+)?text\b/.test(folded)
       || /\bno\s+text\s+changes?\b/.test(folded)
       || /\bdont\s+change\s+lesson\s+content\b/.test(folded)
+      || inExclusionList(folded, "(?:activity\\s+)?text")
+      || inExclusionList(folded, "(?:weekly\\s+)?content")
       || imagesOnlyResolved,
     activities: /\bdont\s+upgrade\s+activities\b/.test(folded)
       || /\bdont\s+change\s+activity\s+(?:text|content)\b/.test(folded)
+      || inExclusionList(folded, "activity\\s+(?:text|content)")
       || imagesOnlyResolved
       || vocabOnly,
-    cover: negationVariants("cover").test(folded)
+    cover: inExclusionList(folded, "cover")
       || (imagesOnlyResolved && !/\bcover\b/.test(folded)),
     publish: /\bdont\s+publ/.test(folded)
       || /\bdo not publ/.test(folded)
