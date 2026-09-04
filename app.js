@@ -10237,6 +10237,13 @@ async function openOwnerTeachingKitEditor(planId, options = {}) {
       else setTimeout(resolve, 0);
     });
 
+    if (typeof loadAdminSiteContent === "function") {
+      try {
+        await loadAdminSiteContent();
+      } catch (_error) {
+        // Keep opening the existing lesson even if refresh fails.
+      }
+    }
     captureAdminLessonListViewState();
     if (adminCurriculumLessonEditorId !== id) adminCurriculumLessonImportDraft = null;
     adminCurriculumLessonEditorId = id;
@@ -12620,13 +12627,51 @@ function curriculumLessonHasTeachingKit(plan) {
 
 function curriculumLessonHasUnpublishedChanges(plan) {
   if (!plan) return false;
+  if (plan.pendingOwnerReview === true) return true;
   if (plan.enrichmentDraft && typeof plan.enrichmentDraft === "object") {
     const draft = plan.enrichmentDraft;
     if (draft.activities && typeof draft.activities === "object" && Object.keys(draft.activities).length) return true;
     if (draft.week && typeof draft.week === "object" && Object.keys(draft.week).length) return true;
+    if (draft.operatorCover && (draft.operatorCover.coverImageUrl || draft.operatorCover.url)) return true;
     if (draft.previewReady === true) return true;
+    if (String(draft.ownerReviewStatus || "").toUpperCase() === "READY_FOR_OWNER_REVIEW") return true;
   }
   return false;
+}
+
+function curriculumLessonActivityCoverCandidates(record) {
+  const seen = new Set();
+  const out = [];
+  const add = (url, label) => {
+    const src = typeof sanitizedImageSource === "function"
+      ? sanitizedImageSource(url || "")
+      : String(url || "").trim();
+    if (!src || seen.has(src)) return;
+    seen.add(src);
+    out.push({
+      path: src,
+      label: String(label || "Lesson photo").trim() || "Lesson photo",
+      category: "This lesson",
+    });
+  };
+  const draft = record?.enrichmentDraft && typeof record.enrichmentDraft === "object"
+    ? record.enrichmentDraft
+    : {};
+  add(draft.operatorCover?.coverImageUrl || draft.operatorCover?.url, "Draft cover");
+  const acts = typeof curriculumActivitiesForLesson === "function" && record?.id
+    ? curriculumActivitiesForLesson(record.id)
+    : [];
+  acts.forEach((activity) => {
+    const patch = draft.activities?.[activity.id] || {};
+    add(patch.setupImageUrl || activity.setupImageUrl, activity.title || "Activity photo");
+    add(patch.exampleImageUrl || activity.exampleImageUrl, `${activity.title || "Activity"} example`);
+  });
+  Object.entries(draft.activities && typeof draft.activities === "object" ? draft.activities : {}).forEach(([id, patch]) => {
+    if (!patch || typeof patch !== "object") return;
+    add(patch.setupImageUrl, patch.title || "Draft activity photo");
+    add(patch.exampleImageUrl, "Draft example photo");
+  });
+  return out;
 }
 
 function deriveAdminCoverQualityStatus(plan) {
@@ -12668,7 +12713,7 @@ function adminLessonEditorStatusSummary(record) {
   else if (status === "archived") bits.push("Archived");
   else bits.push("Draft changes");
   bits.push(kit ? "Teaching Kit" : "Legacy lesson");
-  if (unpublished) bits.push("Unpublished Changes");
+  if (unpublished) bits.push("Pending owner review");
   return bits.join(" · ");
 }
 
@@ -12763,8 +12808,15 @@ function renderAdminCurriculumLessonCoverSection(record) {
     coverImageSource: source,
     coverQualityStatus: pending?.quality || record.coverQualityStatus,
   });
-  const library = Array.isArray(coversApi?.EXISTING_COVER_LIBRARY) ? coversApi.EXISTING_COVER_LIBRARY : [];
-  const categories = [...new Set(library.map((item) => item.category).filter(Boolean))];
+  const lessonPhotos = curriculumLessonActivityCoverCandidates(record);
+  const library = [
+    ...lessonPhotos,
+    ...(Array.isArray(coversApi?.EXISTING_COVER_LIBRARY) ? coversApi.EXISTING_COVER_LIBRARY : []),
+  ];
+  const categories = [...new Set([
+    ...(lessonPhotos.length ? ["This lesson"] : []),
+    ...library.map((item) => item.category).filter(Boolean),
+  ])];
   const savedUrlField = pending?.url != null ? (pending.url || "") : currentUrl;
   return `
     <fieldset class="admin-fieldset curriculum-cover-editor" data-curriculum-cover-editor>
@@ -12831,6 +12883,7 @@ function renderAdminCurriculumLessonCoverSection(record) {
       </label>
       <details class="curriculum-cover-library" data-curriculum-cover-library>
         <summary>Choose Existing Cover</summary>
+        ${lessonPhotos.length ? `<p class="muted-copy">Photos from this lesson (including pending owner-review images) appear first. Pick one as the cover — the published cover stays unchanged until you save or Publish.</p>` : ""}
         <label class="curriculum-cover-library-search">
           Search covers
           <input type="search" data-curriculum-cover-search placeholder="Search by theme or category" />
@@ -13038,7 +13091,7 @@ function renderAdminCurriculumLessonPlanForm(plan) {
             <strong>${escapeHtml(record.title || "New Lesson Plan")}</strong>
             <small>${escapeHtml(record.age || "Age not set")} · ${escapeHtml(statusSummary)}</small>
             <span class="tag admin-access-plan-badge is-${record.plan === "Pro" ? "pro" : "free"}" data-access-plan="${escapeHtml(record.plan === "Pro" ? "Pro" : "Free")}" title="Customer access plan">Access: ${record.plan === "Pro" ? "PRO" : "FREE"}</span>
-            ${unpublished ? `<span class="tag cover-quality-needs-upgrade">Unpublished Changes</span>` : ""}
+            ${unpublished ? `<span class="tag cover-quality-needs-upgrade">Pending owner review</span>` : ""}
           </div>
         </div>
         <div class="admin-lesson-sticky-bar__actions account-actions-row">
@@ -13443,7 +13496,7 @@ function curriculumLessonPlanAdminCardHtml(plan) {
             ${enrichEnabled ? `<span class="tag" title="Enrichment field fill (not full-week completion)">${Number(enrichment.enrichmentFillPercent || 0)}% enrichment fill</span>` : ""}
             ${enrichEnabled ? `<span class="tag" title="Premium Teaching Kit readiness (capped while blocked)">${Number(enrichment.premiumReadinessPercent || 0)}% readiness${enrichment.blocksPublish ? " · not publish-ready" : ""}</span>` : ""}
             ${enrichEnabled ? `<span class="tag ${aiReady ? "" : "tag-hidden"}" title="Enough base content for AI upgrade">${aiReady ? "AI Ready" : "Not AI Ready"}</span>` : ""}
-            ${hasDraft ? `<span class="tag cover-quality-needs-upgrade">Unpublished Changes</span>` : ""}
+            ${hasDraft ? `<span class="tag cover-quality-needs-upgrade">Pending owner review</span>` : ""}
             ${plan.disposableQaFixture === true ? `<span class="tag cover-quality-needs-upgrade">Disposable QA fixture</span>` : ""}
           </div>
           ${enrichEnabled ? `<div class="tk-enrich-lib-bar" aria-hidden="true"><i style="width:${Number(enrichment.blocksPublish ? Math.min(Number(enrichment.premiumReadinessPercent || 0), 99) : (enrichment.premiumReadinessPercent || enrichment.contentPercent || 0))}%"></i></div>` : ""}

@@ -575,6 +575,38 @@ function commandRequestsConnectedAutoApply(command) {
   return actions.connectedAutoApply === true || actions.connectedUpgrade === true;
 }
 
+function isPublishedLessonStatus(status) {
+  const value = String(status || "").toLowerCase();
+  return value === "published" || value === "featured";
+}
+
+/**
+ * Keep successful connected images on enrichmentDraft so Admin opens the
+ * same lesson ID and shows pending owner-review photos before Publish.
+ */
+function mirrorAppliedImagesIntoEnrichmentDraft(draftInput, appliedRows = []) {
+  let draft = draftInput && typeof draftInput === "object"
+    ? JSON.parse(JSON.stringify(draftInput))
+    : { week: {}, activities: {} };
+  schema.asArray(appliedRows).forEach((row) => {
+    const attached = attachImageToEnrichmentDraft(draft, {
+      lessonId: text(row.lessonId, 160) || text(row.expectedLessonId, 160),
+      expectedLessonId: text(row.expectedLessonId, 160) || text(row.lessonId, 160),
+      activityId: row.activityId,
+      field: IMAGE_FIELDS.includes(row.field) ? row.field : "setupImageUrl",
+      mediaAssetId: row.mediaAssetId,
+      mediaUrl: row.mediaUrl,
+      thumbUrl: row.thumbUrl,
+    });
+    if (attached.ok) draft = attached.enrichmentDraft;
+  });
+  if (draft && typeof draft === "object") {
+    draft.previewReady = true;
+    draft.ownerReviewStatus = "READY_FOR_OWNER_REVIEW";
+  }
+  return draft;
+}
+
 /**
  * Apply successful image actions onto editable draft lesson records
  * (activities + dailyPlans). Does not publish. Uses public media URLs only.
@@ -973,31 +1005,36 @@ function verifyConnectedImageJobRecords({
   const byId = new Map(
     schema.asArray(afterActivities).map((a) => [text(a.id, 160), a]),
   );
+  const published = isPublishedLessonStatus(afterPlan?.status);
   schema.asArray(actions).forEach((action) => {
     if (action.status !== "success") return;
     const act = byId.get(text(action.activityId, 160)) || {};
     const field = IMAGE_FIELDS.includes(action.field) ? action.field : "setupImageUrl";
-    pass(
-      text(act[field], 500) === text(action.mediaUrl, 500),
-      `live_media_${action.activityId}`,
-      `Live activity ${action.activityId} has intended public media URL.`,
-    );
-    pass(
-      text(act[assetIdFieldFor(field)], 160) === text(action.mediaAssetId, 160),
-      `live_asset_${action.activityId}`,
-      `Live activity ${action.activityId} has intended media asset id.`,
-    );
-    pass(
-      !isAdminOnlyEnrichmentMediaUrl(act[field]),
-      `not_admin_url_${action.activityId}`,
-      `Live activity ${action.activityId} does not use admin-only media URL.`,
-    );
     const draftAct = afterPlan?.enrichmentDraft?.activities?.[text(action.activityId, 160)] || {};
     pass(
-      !text(draftAct[field], 500),
-      `draft_image_cleared_${action.activityId}`,
-      `Successful image cleared from enrichmentDraft for ${action.activityId}.`,
+      text(draftAct[field], 500) === text(action.mediaUrl, 500),
+      `review_draft_media_${action.activityId}`,
+      `Owner-review draft for ${action.activityId} has the intended public media URL.`,
     );
+    pass(
+      !isAdminOnlyEnrichmentMediaUrl(draftAct[field] || act[field]),
+      `not_admin_url_${action.activityId}`,
+      `Activity ${action.activityId} does not use an admin-only media URL.`,
+    );
+    if (published) {
+      const previous = text(action.previousUrl || action.existingUrl, 500);
+      pass(
+        text(act[field], 500) === previous,
+        `published_live_unchanged_${action.activityId}`,
+        `Published activity ${action.activityId} stayed unchanged until owner Publish.`,
+      );
+    } else {
+      pass(
+        text(act[field], 500) === text(action.mediaUrl, 500),
+        `live_media_${action.activityId}`,
+        `Draft lesson activity ${action.activityId} has intended public media URL.`,
+      );
+    }
   });
 
   const failed = checks.filter((c) => !c.ok);
@@ -1384,6 +1421,8 @@ module.exports = {
   canonicalPublicActivityImageUrls,
   isAdminOnlyEnrichmentMediaUrl,
   commandRequestsConnectedAutoApply,
+  isPublishedLessonStatus,
+  mirrorAppliedImagesIntoEnrichmentDraft,
   applySuccessfulImageActionsToLessonRecords,
   stripSuccessfulImageFieldsFromEnrichmentDraft,
   verifyAttachedImage,
