@@ -73,7 +73,7 @@ function samplePlan({
     learningDomains: ["Approaches to Learning"],
     weeklyMaterials: "Scarves",
     enrichmentDraft: { week: { weeklyOverview: `${title} draft` }, activities: {} },
-    activityIds: [`${id}-act`],
+    activityIds: [],
     resourceIds: [],
     dailyPlans: {
       monday: { theme: "Day 1", items: [{ itemId: `${id}-mon`, title: "Circle" }] },
@@ -97,6 +97,7 @@ function startServer(initialStore) {
       ADMIN_NAME: "Owner Organization Test",
       DATABASE_PROVIDER: "local-json",
       LLH_STORE_PATH: STORE_PATH,
+      LLH_SKIP_STARTUP_CURRICULUM_SEED: "1",
       NODE_ENV: "test",
     },
     stdio: ["ignore", "pipe", "pipe"],
