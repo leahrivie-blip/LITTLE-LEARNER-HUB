@@ -45,6 +45,7 @@
       const activityIdentity = asText(page.sourceItemId) || asText(page.activityId);
       return `dayPlans:${page.dayKey || ""}:${activityIdentity}`;
     }
+    if (page.pageId) return `${page.type}:${page.pageId}`;
     return `${page.type}:${page.dayKey || ""}`;
   }
 
@@ -247,12 +248,14 @@
       });
     }
 
-    add(
-      "info",
-      "printables_not_embedded",
-      "Printable Sheets",
-      "Binder Builder does not embed activity printable PDF sheets yet. Titles/materials mentions are not included printables. Link approved printable files before claiming a sellable prototype.",
-    );
+    if (!(document.printables || []).length) {
+      add(
+        "info",
+        "no_printables_selected",
+        "Printable Sheets",
+        "No draft-owned printables are selected for this binder.",
+      );
+    }
 
     if (document.sections.learningCenters === true && !(document.learningCenters || []).length) {
       add("info", "empty_centers", "Learning Centers", "Learning Centers is enabled but no center content is populated.");

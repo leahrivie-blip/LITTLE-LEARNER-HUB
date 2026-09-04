@@ -2,7 +2,7 @@
  * Binder Builder — print HTML for US Letter physical binders.
  *
  * Isolated from Teaching Kit digital binder print. Never includes admin chrome,
- * materials lists (weekly), or preparation checklists.
+ * weekly source materials lists or source preparation checklists.
  */
 (function (root, factory) {
   const api = factory(
@@ -486,13 +486,57 @@
     return [
       `<section class="bb-activity-card" data-bb-activity="${esc(activity.id)}">`,
       imageHtml(activity.image, "bb-activity-media"),
+      sectionBlock("Activity Description", activity.introduction),
       sectionBlock("What We Are Doing", activity.whatWereDoing),
       sectionBlock("What You Need", activity.materials, "bb-materials"),
+      sectionBlock("Budget-Friendly Alternatives", activity.materialAlternatives),
+      sectionBlock("Teacher Preparation", activity.teacherPrep),
+      sectionBlock("Setup", activity.setup),
       stepsBlock("How To Do It", activity.howToDoIt),
       learningBlock("What Children Are Learning", activity.learning),
+      sectionBlock("Cleanup", activity.cleanup),
+      sectionBlock("Observation Notes", activity.observation),
+      sectionBlock("Family Connection", activity.familyConnection),
       tipCallout(activity.support),
       includedCallout(activity.includedResources),
       `</section>`,
+    ].join("");
+  }
+
+  function renderSupplyList(doc, page) {
+    const entries = (doc.days || []).flatMap((day) => (day.activities || []).flatMap((activity) => {
+      const materials = asText(activity.materials?.text).split(/\n+/).filter(Boolean);
+      const alternatives = asText(activity.materialAlternatives).split(/\n+/).filter(Boolean);
+      if (!materials.length && !alternatives.length) return [];
+      return [{
+        title: `${day.label} · ${activity.title}`,
+        materials,
+        alternatives,
+      }];
+    }));
+    return [
+      `<article class="bb-page bb-page-supply-list" data-bb-page="supplyList">`,
+      `<header class="bb-page-header bb-banner-header"><p class="bb-kicker">Binder Supplies</p><h2>Supply List</h2></header>`,
+      ...entries.map((entry) => [
+        `<section class="bb-activity-section"><h4>${esc(entry.title)}</h4>`,
+        entry.materials.length ? `<p>${multiline(entry.materials.join("\n"))}</p>` : "",
+        entry.alternatives.length ? `<p><strong>Alternatives:</strong><br>${multiline(entry.alternatives.join("\n"))}</p>` : "",
+        `</section>`,
+      ].join("")),
+      footerHtml(page.pageNumber),
+      `</article>`,
+    ].join("");
+  }
+
+  function renderReferencePage(type, title, entry, page) {
+    const checked = entry.referenceUrl ? validateBinderUrl(entry.referenceUrl) : { ok: false };
+    return [
+      `<article class="bb-page bb-page-${esc(type)}" data-bb-page="${esc(type)}">`,
+      `<header class="bb-page-header bb-banner-header"><p class="bb-kicker">Included Resource</p><h2>${esc(title)}</h2></header>`,
+      entry.description ? `<section class="bb-activity-section"><p>${multiline(entry.description)}</p></section>` : "",
+      checked.ok ? `<p class="bb-resource-reference">Reference: <a href="${esc(checked.url)}">${esc(checked.url)}</a></p>` : "",
+      footerHtml(page.pageNumber),
+      `</article>`,
     ].join("");
   }
 
@@ -563,6 +607,7 @@
         qrHtml,
         sectionBlock("When to Use", song.whenToUse),
         sectionBlock("Movement", song.movements),
+        sectionBlock("Lyrics", song.lyrics),
         `</section>`,
       ].join("");
     }).join("");
@@ -639,6 +684,15 @@
     if (page.type === "dayPlans") {
       const day = (document.days || []).find((item) => item.dayKey === page.dayKey);
       return day ? renderDayPlans(document, day, page) : "";
+    }
+    if (page.type === "supplyList") return renderSupplyList(document, page);
+    if (page.type === "printable") {
+      const printable = (document.printables || []).find((item) => item.id === page.printableId);
+      return printable ? renderReferencePage("printable", printable.name, printable, page) : "";
+    }
+    if (page.type === "card") {
+      const card = (document.cards || []).find((item) => item.id === page.cardId);
+      return card ? renderReferencePage("card", card.title, card, page) : "";
     }
     if (page.type === "books") return renderBooks(document, page);
     if (page.type === "songs") return renderSongs(document, page);

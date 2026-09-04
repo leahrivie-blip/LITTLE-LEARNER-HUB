@@ -177,6 +177,18 @@
       if (!day) return;
       const activity = (day.activities || []).find((item) => item.id === actId);
       if (!activity) return;
+      const list = (field) => String(actEl.querySelector(`[data-bb-act-field="${field}"]`)?.value || "")
+        .split(/\n+/).map((value) => value.trim()).filter(Boolean);
+      activity.activityTitle = String(actEl.querySelector('[data-bb-act-field="activityTitle"]')?.value || "");
+      activity.activityDescription = String(actEl.querySelector('[data-bb-act-field="activityDescription"]')?.value || "");
+      activity.materials = list("materials");
+      activity.materialAlternatives = list("materialAlternatives");
+      activity.teacherPrep = String(actEl.querySelector('[data-bb-act-field="teacherPrep"]')?.value || "");
+      activity.setup = String(actEl.querySelector('[data-bb-act-field="setup"]')?.value || "");
+      activity.steps = list("steps");
+      activity.cleanup = String(actEl.querySelector('[data-bb-act-field="cleanup"]')?.value || "");
+      activity.observation = String(actEl.querySelector('[data-bb-act-field="observation"]')?.value || "");
+      activity.familyConnection = String(actEl.querySelector('[data-bb-act-field="familyConnection"]')?.value || "");
       activity.introductionOverride = String(actEl.querySelector('[data-bb-act-field="introductionOverride"]')?.value || "");
       activity.whatWereDoingOverride = String(actEl.querySelector('[data-bb-act-field="whatWereDoingOverride"]')?.value || "");
       activity.howToDoItOverride = String(actEl.querySelector('[data-bb-act-field="howToDoItOverride"]')?.value || "");
@@ -184,6 +196,7 @@
       activity.questionsOverride = String(actEl.querySelector('[data-bb-act-field="questionsOverride"]')?.value || "");
       activity.supportOverride = String(actEl.querySelector('[data-bb-act-field="supportOverride"]')?.value || "");
       activity.challengeOverride = String(actEl.querySelector('[data-bb-act-field="challengeOverride"]')?.value || "");
+      activity.cleanupOverride = String(actEl.querySelector('[data-bb-act-field="cleanupOverride"]')?.value || "");
       activity.includedResources = String(actEl.querySelector('[data-bb-act-field="includedResources"]')?.value || "");
       activity.omit = Boolean(actEl.querySelector('[data-bb-act-field="omit"]')?.checked);
     });
@@ -192,6 +205,8 @@
       const bookId = bookEl.getAttribute("data-bb-book");
       const book = (draft.books || []).find((item) => item.id === bookId);
       if (!book) return;
+      book.title = String(bookEl.querySelector('[data-bb-book-field="title"]')?.value || "");
+      book.author = String(bookEl.querySelector('[data-bb-book-field="author"]')?.value || "");
       book.connectionOverride = String(bookEl.querySelector('[data-bb-book-field="connectionOverride"]')?.value || "");
       book.beforeReadingOverride = String(bookEl.querySelector('[data-bb-book-field="beforeReadingOverride"]')?.value || "");
       book.afterReadingOverride = String(bookEl.querySelector('[data-bb-book-field="afterReadingOverride"]')?.value || "");
@@ -205,12 +220,32 @@
       const songId = songEl.getAttribute("data-bb-song");
       const song = (draft.songs || []).find((item) => item.id === songId);
       if (!song) return;
+      song.title = String(songEl.querySelector('[data-bb-song-field="title"]')?.value || "");
       song.whenToUseOverride = String(songEl.querySelector('[data-bb-song-field="whenToUseOverride"]')?.value || "");
       song.movementsOverride = String(songEl.querySelector('[data-bb-song-field="movementsOverride"]')?.value || "");
       song.directionsOverride = String(songEl.querySelector('[data-bb-song-field="directionsOverride"]')?.value || "");
       song.resourceUrl = String(songEl.querySelector('[data-bb-song-field="resourceUrl"]')?.value || "").trim();
       song.qrEnabled = Boolean(songEl.querySelector('[data-bb-song-field="qrEnabled"]')?.checked);
       song.omit = Boolean(songEl.querySelector('[data-bb-song-field="omit"]')?.checked);
+      song.allowPrintLyrics = Boolean(songEl.querySelector('[data-bb-song-field="allowPrintLyrics"]')?.checked);
+      song.lyricsOverride = String(songEl.querySelector('[data-bb-song-field="lyricsOverride"]')?.value || "");
+    });
+
+    root.querySelectorAll("[data-bb-printable]").forEach((el) => {
+      const printable = (draft.printables || []).find((item) => item.id === el.getAttribute("data-bb-printable"));
+      if (!printable) return;
+      printable.name = String(el.querySelector('[data-bb-printable-field="name"]')?.value || "");
+      printable.description = String(el.querySelector('[data-bb-printable-field="description"]')?.value || "");
+      printable.referenceUrl = String(el.querySelector('[data-bb-printable-field="referenceUrl"]')?.value || "").trim();
+      printable.include = Boolean(el.querySelector('[data-bb-printable-field="include"]')?.checked);
+    });
+    root.querySelectorAll("[data-bb-card]").forEach((el) => {
+      const card = (draft.cards || []).find((item) => item.id === el.getAttribute("data-bb-card"));
+      if (!card) return;
+      card.title = String(el.querySelector('[data-bb-card-field="title"]')?.value || "");
+      card.description = String(el.querySelector('[data-bb-card-field="description"]')?.value || "");
+      card.referenceUrl = String(el.querySelector('[data-bb-card-field="referenceUrl"]')?.value || "").trim();
+      card.include = Boolean(el.querySelector('[data-bb-card-field="include"]')?.checked);
     });
 
     state.draft = draft;
@@ -449,6 +484,16 @@
           `<div class="bb-review-card" data-bb-activity="${esc(act.id)}" data-bb-day="${esc(dayKey)}">`,
           `<h3>${esc(act.title || resolved?.title || "Activity")}</h3>`,
           originNote(Boolean(act.howToDoItOverride || act.introductionOverride)),
+          `<label class="bb-field">Activity title<input data-bb-act-field="activityTitle" value="${esc(act.activityTitle || "")}" placeholder="${esc(resolved?.title || act.title || "")}"></label>`,
+          `<label class="bb-field">Activity description<textarea data-bb-act-field="activityDescription" rows="2">${esc(act.activityDescription || "")}</textarea></label>`,
+          `<label class="bb-field">Materials (one per line; add/remove lines)<textarea data-bb-act-field="materials" rows="3">${esc((act.materials || []).join("\n"))}</textarea></label>`,
+          `<label class="bb-field">Budget-friendly alternatives (one per line; add/remove lines)<textarea data-bb-act-field="materialAlternatives" rows="2">${esc((act.materialAlternatives || []).join("\n"))}</textarea></label>`,
+          `<label class="bb-field">Teacher preparation<textarea data-bb-act-field="teacherPrep" rows="2">${esc(act.teacherPrep || "")}</textarea></label>`,
+          `<label class="bb-field">Setup<textarea data-bb-act-field="setup" rows="2">${esc(act.setup || "")}</textarea></label>`,
+          `<label class="bb-field">Steps (one per line)<textarea data-bb-act-field="steps" rows="4">${esc((act.steps || []).join("\n"))}</textarea></label>`,
+          `<label class="bb-field">Cleanup<textarea data-bb-act-field="cleanup" rows="2">${esc(act.cleanup || "")}</textarea></label>`,
+          `<label class="bb-field">Observation notes<textarea data-bb-act-field="observation" rows="2">${esc(act.observation || "")}</textarea></label>`,
+          `<label class="bb-field">Family connection<textarea data-bb-act-field="familyConnection" rows="2">${esc(act.familyConnection || "")}</textarea></label>`,
           `<label class="bb-field">Introduction override<textarea data-bb-act-field="introductionOverride" rows="2">${esc(act.introductionOverride || "")}</textarea></label>`,
           `<label class="bb-field">What We're Doing override<textarea data-bb-act-field="whatWereDoingOverride" rows="2">${esc(act.whatWereDoingOverride || "")}</textarea></label>`,
           `<label class="bb-field">How To Do It override<textarea data-bb-act-field="howToDoItOverride" rows="3">${esc(act.howToDoItOverride || "")}</textarea></label>`,
@@ -480,6 +525,8 @@
         `<div class="bb-review-card" data-bb-book="${esc(book.id)}">`,
         `<h3>${esc(book.title)}</h3>`,
         originNote(Boolean(book.connectionOverride || book.resourceUrl)),
+        `<label class="bb-field">Book title<input data-bb-book-field="title" value="${esc(book.title || "")}"></label>`,
+        `<label class="bb-field">Author<input data-bb-book-field="author" value="${esc(book.author || "")}"></label>`,
         `<label class="bb-field">Connection override<textarea data-bb-book-field="connectionOverride" rows="2">${esc(book.connectionOverride || "")}</textarea></label>`,
         `<label class="bb-field">Before reading<textarea data-bb-book-field="beforeReadingOverride" rows="2">${esc(book.beforeReadingOverride || "")}</textarea></label>`,
         `<label class="bb-field">Questions<textarea data-bb-book-field="questionsOverride" rows="2">${esc(book.questionsOverride || "")}</textarea></label>`,
@@ -489,6 +536,7 @@
         !book.resourceUrl ? `<p class="bb-url-hint">No approved URL yet — story prints without a QR (no placeholder).</p>` : "",
         `<label><input type="checkbox" data-bb-book-field="qrEnabled"${book.qrEnabled !== false ? " checked" : ""}> Print QR when URL is valid</label>`,
         `<label><input type="checkbox" data-bb-book-field="omit"${book.omit ? " checked" : ""}> Omit from binder</label>`,
+        `<button type="button" class="ghost-button" data-bb-remove="book:${esc(book.id)}">Remove book</button>`,
         `</div>`,
       ].join("");
     }).join("") || `<p class="bb-empty-note">No books on this lesson.</p>`;
@@ -499,6 +547,7 @@
         `<div class="bb-review-card" data-bb-song="${esc(song.id)}">`,
         `<h3>${esc(song.title)}</h3>`,
         originNote(Boolean(song.directionsOverride || song.resourceUrl)),
+        `<label class="bb-field">Song title<input data-bb-song-field="title" value="${esc(song.title || "")}"></label>`,
         `<label class="bb-field">When to use<textarea data-bb-song-field="whenToUseOverride" rows="2" placeholder="Morning Meeting, Transition…">${esc(song.whenToUseOverride || "")}</textarea></label>`,
         `<label class="bb-field">Movement directions<textarea data-bb-song-field="movementsOverride" rows="2">${esc(song.movementsOverride || "")}</textarea></label>`,
         `<label class="bb-field">Teacher directions override<textarea data-bb-song-field="directionsOverride" rows="2">${esc(song.directionsOverride || "")}</textarea></label>`,
@@ -506,25 +555,59 @@
         song.resourceUrl && !checked.ok ? `<p class="bb-url-warn" data-bb-url-warn>Invalid approved URL — QR will not print. ${esc(checked.error || "")}</p>` : "",
         !song.resourceUrl ? `<p class="bb-url-hint">No approved URL yet — song prints without a QR (no placeholder).</p>` : "",
         `<label><input type="checkbox" data-bb-song-field="qrEnabled"${song.qrEnabled !== false ? " checked" : ""}> Print QR when URL is valid</label>`,
+        `<label><input type="checkbox" data-bb-song-field="allowPrintLyrics"${song.allowPrintLyrics ? " checked" : ""}> Include lyrics</label>`,
+        `<label class="bb-field">Lyrics<textarea data-bb-song-field="lyricsOverride" rows="3">${esc(song.lyricsOverride || "")}</textarea></label>`,
         `<label><input type="checkbox" data-bb-song-field="omit"${song.omit ? " checked" : ""}> Omit from binder</label>`,
+        `<button type="button" class="ghost-button" data-bb-remove="song:${esc(song.id)}">Remove song</button>`,
         `</div>`,
       ].join("");
     }).join("") || `<p class="bb-empty-note">No songs on this lesson.</p>`;
+
+    const printables = (draft.printables || []).map((item) => [
+      `<div class="bb-review-card" data-bb-printable="${esc(item.id)}">`,
+      `<label class="bb-field">Printable name<input data-bb-printable-field="name" value="${esc(item.name || "")}"></label>`,
+      `<label class="bb-field">Description<textarea data-bb-printable-field="description" rows="2">${esc(item.description || "")}</textarea></label>`,
+      `<label class="bb-field">Approved URL / reference<input data-bb-printable-field="referenceUrl" value="${esc(item.referenceUrl || "")}"></label>`,
+      `<label><input type="checkbox" data-bb-printable-field="include"${item.include !== false ? " checked" : ""}> Include in binder</label>`,
+      `<button type="button" class="ghost-button" data-bb-remove="printable:${esc(item.id)}">Remove printable</button>`,
+      `</div>`,
+    ].join("")).join("");
+    const cards = (draft.cards || []).map((item) => [
+      `<div class="bb-review-card" data-bb-card="${esc(item.id)}">`,
+      `<label class="bb-field">Card title<input data-bb-card-field="title" value="${esc(item.title || "")}"></label>`,
+      `<label class="bb-field">Description<textarea data-bb-card-field="description" rows="2">${esc(item.description || "")}</textarea></label>`,
+      `<label class="bb-field">Approved URL / reference<input data-bb-card-field="referenceUrl" value="${esc(item.referenceUrl || "")}"></label>`,
+      `<label><input type="checkbox" data-bb-card-field="include"${item.include !== false ? " checked" : ""}> Include in binder</label>`,
+      `<button type="button" class="ghost-button" data-bb-remove="card:${esc(item.id)}">Remove card</button>`,
+      `</div>`,
+    ].join("")).join("");
 
     return [
       `<div class="bb-panel bb-review-stack">`,
       `<p class="bb-lesson-meta">Binder-only edits never change the source lesson. Leave overrides blank to use lesson content.</p>`,
       days,
-      `<h3>Story Time</h3>${books}`,
-      `<h3>Music &amp; Movement</h3>${songs}`,
+      `<h3>Story Time</h3><button type="button" class="ghost-button" data-bb-add="book">Add book</button>${books}`,
+      `<h3>Music &amp; Movement</h3><button type="button" class="ghost-button" data-bb-add="song">Add song</button>${songs}`,
+      `<h3>Printables</h3><button type="button" class="ghost-button" data-bb-add="printable">Add printable</button>${printables}`,
+      `<h3>Cards</h3><button type="button" class="ghost-button" data-bb-add="card">Add card</button>${cards}`,
       `</div>`,
     ].join("");
   }
 
   function renderPreview() {
-    const pageList = (state.previewPages || []).map((page, index) => (
-      `<li>${index + 1}. ${esc(page.label)}</li>`
-    )).join("");
+    const pages = (state.previewPages || []).length
+      ? state.previewPages
+      : (state.draft && transform() ? transform().buildPagePlan(transform().buildBinderDocument(state.draft, state.lesson)) : []);
+    const pageList = pages.map((page, index) => {
+      const movable = Boolean(page.pageId);
+      return [
+        `<li${movable ? ` draggable="true" data-bb-page-order="${esc(page.pageId)}"` : ""}>`,
+        `${index + 1}. ${esc(page.label)}`,
+        movable ? ` <button type="button" class="ghost-button" data-bb-page-move="${esc(page.pageId)}" data-bb-direction="up" aria-label="Move ${esc(page.label)} up">↑</button>` : "",
+        movable ? ` <button type="button" class="ghost-button" data-bb-page-move="${esc(page.pageId)}" data-bb-direction="down" aria-label="Move ${esc(page.label)} down">↓</button>` : "",
+        `</li>`,
+      ].join("");
+    }).join("");
     return [
       `<div class="bb-panel">`,
       `<ol class="bb-issue-list">${pageList || "<li>Generate preview to see page order.</li>"}</ol>`,
@@ -839,6 +922,74 @@
         activity.cleanupOverride = "";
         activity.useSource = true;
         setMessage("Activity overrides cleared — using lesson content.", false);
+        render();
+      });
+    });
+
+    root.querySelectorAll("[data-bb-add]").forEach((button) => {
+      button.addEventListener("click", () => {
+        harvestOpenForm();
+        const type = button.getAttribute("data-bb-add");
+        if (!state.draft || !model()) return;
+        if (type === "book") state.draft.books.push(model().normalizeBinderDraft({ ...state.draft, books: [{ title: "New Book" }] }).books[0]);
+        if (type === "song") state.draft.songs.push(model().normalizeBinderDraft({ ...state.draft, songs: [{ title: "New Song" }] }).songs[0]);
+        if (type === "printable") state.draft.printables.push(model().normalizePrintable({ name: "New Printable" }));
+        if (type === "card") state.draft.cards.push(model().normalizeCard({ title: "New Card" }));
+        render();
+      });
+    });
+
+    root.querySelectorAll("[data-bb-remove]").forEach((button) => {
+      button.addEventListener("click", () => {
+        harvestOpenForm();
+        const [type, id] = String(button.getAttribute("data-bb-remove") || "").split(":");
+        if (!state.draft || !id) return;
+        const key = type === "book" ? "books" : type === "song" ? "songs" : `${type}s`;
+        if (!Array.isArray(state.draft[key])) return;
+        state.draft[key] = state.draft[key].filter((item) => item.id !== id);
+        render();
+      });
+    });
+
+    const reorderPage = (pageId, direction) => {
+      harvestOpenForm();
+      if (!state.draft || !transform()) return;
+      const pages = transform().buildContentPagePlan(transform().buildBinderDocument(state.draft, state.lesson));
+      const order = pages.map((page) => page.pageId).filter(Boolean);
+      const current = order.indexOf(pageId);
+      const target = direction === "up" ? current - 1 : current + 1;
+      if (current < 0 || target < 0 || target >= order.length) return;
+      [order[current], order[target]] = [order[target], order[current]];
+      state.draft.pageOrder = order;
+      state.previewPages = [];
+      render();
+    };
+    root.querySelectorAll("[data-bb-page-move]").forEach((button) => {
+      button.addEventListener("click", () => reorderPage(
+        button.getAttribute("data-bb-page-move"),
+        button.getAttribute("data-bb-direction"),
+      ));
+    });
+    root.querySelectorAll("[data-bb-page-order]").forEach((item) => {
+      item.addEventListener("dragstart", (event) => {
+        event.dataTransfer?.setData("text/plain", item.getAttribute("data-bb-page-order") || "");
+      });
+      item.addEventListener("dragover", (event) => event.preventDefault());
+      item.addEventListener("drop", (event) => {
+        event.preventDefault();
+        const from = event.dataTransfer?.getData("text/plain");
+        const to = item.getAttribute("data-bb-page-order");
+        if (!from || !to || from === to || !state.draft || !transform()) return;
+        harvestOpenForm();
+        const order = transform().buildContentPagePlan(transform().buildBinderDocument(state.draft, state.lesson))
+          .map((page) => page.pageId).filter(Boolean);
+        const fromIndex = order.indexOf(from);
+        const toIndex = order.indexOf(to);
+        if (fromIndex < 0 || toIndex < 0) return;
+        order.splice(fromIndex, 1);
+        order.splice(toIndex, 0, from);
+        state.draft.pageOrder = order;
+        state.previewPages = [];
         render();
       });
     });

@@ -70,6 +70,14 @@
         });
         return;
       }
+      if (page.type === "supplyList" || page.type === "printable" || page.type === "card") {
+        entries.push({
+          title: asText(page.label) || (page.type === "supplyList" ? "Supply List" : "Included Resource"),
+          indent: false,
+          match: { type: page.type, pageId: page.pageId },
+        });
+        return;
+      }
       if (page.type === "books") {
         entries.push({ title: "Story Time", indent: false, match: { type: "books" } });
         return;
@@ -91,13 +99,14 @@
   }
 
   /**
-   * @param {{ type: string, dayKey?: string, activityId?: string }} match
-   * @param {{ type: string, dayKey?: string, activityId?: string }} page
+   * @param {{ type: string, dayKey?: string, activityId?: string, pageId?: string }} match
+   * @param {{ type: string, dayKey?: string, activityId?: string, pageId?: string }} page
    */
   function pageMatches(match, page) {
     if (!match || !page || match.type !== page.type) return false;
     if (match.dayKey && match.dayKey !== page.dayKey) return false;
     if (match.activityId && match.activityId !== page.activityId) return false;
+    if (match.pageId && match.pageId !== page.pageId) return false;
     return true;
   }
 

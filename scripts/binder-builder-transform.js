@@ -57,6 +57,10 @@
     return { text: "", origin: "empty" };
   }
 
+  function listText(values) {
+    return Array.isArray(values) ? values.map((value) => asText(value)).filter(Boolean).join("\n") : "";
+  }
+
   function findSourceActivity(lesson, dayKey, sourceItemId, title) {
     const dayPlan = lesson?.dailyPlans?.[dayKey] || {};
     const items = Array.isArray(dayPlan.items) ? dayPlan.items : [];
@@ -271,20 +275,32 @@
         .map((act) => {
           const source = findSourceActivity(plan, dayKey, act.sourceItemId, act.title);
           const useSource = act.useSource !== false;
-          const title = firstMeaningful(act.title, source?.title) || "Activity";
-          const introduction = pickOverrideOrSource(act.introductionOverride, activityIntroduction(source), useSource);
+          const title = firstMeaningful(act.activityTitle, act.title, source?.title) || "Activity";
+          const introduction = pickOverrideOrSource(
+            firstMeaningful(act.activityDescription, act.introductionOverride),
+            activityIntroduction(source),
+            useSource,
+          );
           const whatWereDoing = pickOverrideOrSource(act.whatWereDoingOverride, activityWhatWereDoing(source), useSource);
-          const howToDoIt = pickOverrideOrSource(act.howToDoItOverride, activityHowTo(source), useSource);
+          const howToDoIt = pickOverrideOrSource(
+            firstMeaningful(listText(act.steps), act.howToDoItOverride, act.setup),
+            activityHowTo(source),
+            useSource,
+          );
           const learning = pickOverrideOrSource(act.learningOverride, activityLearning(source), useSource);
           const questions = pickOverrideOrSource(act.questionsOverride, activityQuestions(source), useSource);
           const support = pickOverrideOrSource(act.supportOverride, activitySupport(source), useSource);
           const challenge = pickOverrideOrSource(act.challengeOverride, activityChallenge(source), useSource);
           const safety = pickOverrideOrSource(act.safetyOverride, activitySafety(source), useSource);
-          const cleanup = pickOverrideOrSource(act.cleanupOverride, activityCleanup(source), useSource);
+          const cleanup = pickOverrideOrSource(act.cleanup || act.cleanupOverride, activityCleanup(source), useSource);
           const imagePick = act.imageOverride?.url
             ? act.imageOverride
             : (useSource ? activityImage(source) : { url: "", alt: "", source: "" });
-          const materials = pickOverrideOrSource(act.materialsOverride, activityMaterials(source), useSource);
+          const materials = pickOverrideOrSource(
+            firstMeaningful(listText(act.materials), act.materialsOverride),
+            activityMaterials(source),
+            useSource,
+          );
           const category = firstMeaningful(act.activityCategory, activityCategoryLabel(source));
           const included = asText(act.includedResources);
           return {
@@ -297,6 +313,11 @@
             howToDoIt,
             learning,
             materials,
+            materialAlternatives: listText(act.materialAlternatives),
+            teacherPrep: asText(act.teacherPrep),
+            setup: asText(act.setup),
+            observation: asText(act.observation),
+            familyConnection: asText(act.familyConnection),
             questions,
             support,
             challenge,
@@ -421,6 +442,25 @@
       })
       .filter((song) => song.title);
 
+    const printables = (Array.isArray(draft.printables) ? draft.printables : [])
+      .filter((item) => item && item.include !== false)
+      .map((item) => ({
+        id: item.id,
+        name: asText(item.name),
+        description: asText(item.description),
+        referenceUrl: asText(item.referenceUrl),
+      }))
+      .filter((item) => item.name);
+    const cards = (Array.isArray(draft.cards) ? draft.cards : [])
+      .filter((item) => item && item.include !== false)
+      .map((item) => ({
+        id: item.id,
+        title: asText(item.title),
+        description: asText(item.description),
+        referenceUrl: asText(item.referenceUrl),
+      }))
+      .filter((item) => item.title);
+
     const authoredCenters = draft.learningCenters || {};
     const inferred = inferLearningCenters(plan);
     const learningCenters = LEARNING_CENTER_KEYS
@@ -484,6 +524,9 @@
       days,
       books,
       songs,
+      printables,
+      cards,
+      pageOrder: Array.isArray(draft.pageOrder) ? draft.pageOrder.slice() : [],
       learningCenters,
       familyConnection,
       endOfWeek: {
@@ -508,20 +551,25 @@
     const pages = [];
 
     if (sections.welcome !== false) {
-      pages.push({ type: "welcome", label: "How to Use This Binder" });
+      pages.push({ type: "welcome", pageId: "welcome", label: "How to Use This Binder" });
     }
     if (sections.weekAtAGlance !== false) {
-      pages.push({ type: "weekAtAGlance", label: "Week at a Glance" });
+      pages.push({ type: "weekAtAGlance", pageId: "weekly-overview", label: "Week at a Glance" });
     }
     if (sections.weeklyGridCalendar !== false) {
-      pages.push({ type: "weeklyGridCalendar", label: "Weekly Grid Calendar" });
+      pages.push({ type: "weeklyGridCalendar", pageId: "weekly-calendar", label: "Weekly Grid Calendar" });
     }
+    const materials = (doc.days || []).flatMap((day) => (day.activities || []).flatMap((activity) => (
+      [activity.materials?.text, activity.materialAlternatives].filter(Boolean)
+    )));
+    if (materials.length) pages.push({ type: "supplyList", pageId: "supply-list", label: "Supply List" });
 
     WEEKDAYS.forEach((dayKey) => {
       const day = (doc.days || []).find((item) => item.dayKey === dayKey);
       if (sections.dailyDividers !== false) {
         pages.push({
           type: "dayDivider",
+          pageId: `divider:${dayKey}`,
           dayKey,
           label: `${WEEKDAY_LABELS[dayKey]} Divider`,
         });
@@ -531,6 +579,7 @@
         activities.forEach((activity) => {
           pages.push({
             type: "dayPlans",
+            pageId: `activity:${activity.id}`,
             dayKey,
             activityId: activity.id,
             sourceItemId: asText(activity.sourceItemId),
@@ -541,22 +590,35 @@
     });
 
     if (sections.books !== false && Array.isArray(doc.books) && doc.books.length) {
-      pages.push({ type: "books", label: "Story Time" });
+      pages.push({ type: "books", pageId: "books", label: "Story Time" });
     }
     if (sections.songs !== false && Array.isArray(doc.songs) && doc.songs.length) {
-      pages.push({ type: "songs", label: "Music & Movement" });
+      pages.push({ type: "songs", pageId: "songs", label: "Music & Movement" });
     }
+    (doc.printables || []).forEach((printable) => pages.push({
+      type: "printable", pageId: `printable:${printable.id}`, printableId: printable.id, label: printable.name,
+    }));
+    (doc.cards || []).forEach((card) => pages.push({
+      type: "card", pageId: `card:${card.id}`, cardId: card.id, label: card.title,
+    }));
     if (sections.learningCenters === true && Array.isArray(doc.learningCenters) && doc.learningCenters.length) {
-      pages.push({ type: "learningCenters", label: "Learning Centers" });
+      pages.push({ type: "learningCenters", pageId: "learning-centers", label: "Learning Centers" });
     }
     if (sections.familyConnection !== false && asText(doc.familyConnection?.text)) {
-      pages.push({ type: "familyConnection", label: "Family Connection" });
+      pages.push({ type: "familyConnection", pageId: "family-connection", label: "Family Connection" });
     }
     if (sections.endOfWeek !== false) {
-      pages.push({ type: "endOfWeek", label: "End of Week" });
+      pages.push({ type: "endOfWeek", pageId: "observation", label: "Observation Pages" });
     }
 
-    return pages;
+    const order = Array.isArray(doc.pageOrder) ? doc.pageOrder : [];
+    if (!order.length) return pages;
+    const positions = new Map(order.map((pageId, index) => [pageId, index]));
+    return pages.slice().sort((a, b) => {
+      const aPosition = positions.has(a.pageId) ? positions.get(a.pageId) : Number.MAX_SAFE_INTEGER;
+      const bPosition = positions.has(b.pageId) ? positions.get(b.pageId) : Number.MAX_SAFE_INTEGER;
+      return aPosition === bPosition ? 0 : aPosition - bPosition;
+    });
   }
 
   /**

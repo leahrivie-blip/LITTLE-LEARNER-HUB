@@ -87,6 +87,14 @@
     return text(value, max);
   }
 
+  function textList(value, maxItems = 80, maxItemLength = 500) {
+    if (!Array.isArray(value)) return [];
+    return value
+      .map((item) => shortText(item, maxItemLength))
+      .filter(Boolean)
+      .slice(0, maxItems);
+  }
+
   function id(prefix) {
     const rand = Math.random().toString(36).slice(2, 10);
     const stamp = Date.now().toString(36);
@@ -159,6 +167,15 @@
       sourceItemId,
       dayKey: WEEKDAYS.includes(dayKey) ? dayKey : shortText(entry.dayKey, 20),
       title: shortText(entry.title, 180),
+      activityTitle: shortText(entry.activityTitle, 180),
+      activityDescription: text(entry.activityDescription, 4000),
+      materials: textList(entry.materials, 80, 500),
+      materialAlternatives: textList(entry.materialAlternatives, 80, 500),
+      teacherPrep: text(entry.teacherPrep, 4000),
+      setup: text(entry.setup, 4000),
+      steps: textList(entry.steps, 80, 1000),
+      observation: text(entry.observation, 4000),
+      familyConnection: text(entry.familyConnection, 4000),
       introductionOverride: text(entry.introductionOverride, 4000),
       whatWereDoingOverride: text(entry.whatWereDoingOverride, 4000),
       howToDoItOverride: text(entry.howToDoItOverride, 8000),
@@ -168,6 +185,7 @@
       challengeOverride: text(entry.challengeOverride, 4000),
       safetyOverride: text(entry.safetyOverride, 2000),
       cleanupOverride: text(entry.cleanupOverride, 2000),
+      materialsOverride: text(entry.materialsOverride, 4000),
       includedResources: text(entry.includedResources, 2000),
       imageOverride: normalizeImageRef(entry.imageOverride),
       omit: entry.omit === true,
@@ -241,6 +259,32 @@
     };
   }
 
+  function normalizePrintable(value) {
+    const entry = value && typeof value === "object" ? value : {};
+    const name = shortText(entry.name, 180);
+    if (!name) return null;
+    return {
+      id: shortText(entry.id, 160) || id("bb-printable"),
+      name,
+      description: text(entry.description, 2000),
+      referenceUrl: shortText(entry.referenceUrl || entry.url, 500),
+      include: entry.include !== false,
+    };
+  }
+
+  function normalizeCard(value) {
+    const entry = value && typeof value === "object" ? value : {};
+    const title = shortText(entry.title, 180);
+    if (!title) return null;
+    return {
+      id: shortText(entry.id, 160) || id("bb-card"),
+      title,
+      description: text(entry.description, 2000),
+      referenceUrl: shortText(entry.referenceUrl || entry.url, 500),
+      include: entry.include !== false,
+    };
+  }
+
   /**
    * @param {unknown} value
    */
@@ -286,6 +330,9 @@
       days,
       books: Array.isArray(entry.books) ? entry.books.map(normalizeBook).filter(Boolean) : [],
       songs: Array.isArray(entry.songs) ? entry.songs.map(normalizeSong).filter(Boolean) : [],
+      printables: Array.isArray(entry.printables) ? entry.printables.map(normalizePrintable).filter(Boolean) : [],
+      cards: Array.isArray(entry.cards) ? entry.cards.map(normalizeCard).filter(Boolean) : [],
+      pageOrder: textList(entry.pageOrder, 100, 180),
       learningCenters: normalizeLearningCenters(entry.learningCenters),
       familyConnectionOverride: text(entry.familyConnectionOverride, 4000),
       endOfWeekOverride: text(entry.endOfWeekOverride, 4000),
@@ -319,6 +366,15 @@
           sourceItemId: shortText(item.itemId || item.id, 160),
           dayKey: day,
           title: shortText(item.title, 180),
+          activityTitle: "",
+          activityDescription: "",
+          materials: [],
+          materialAlternatives: [],
+          teacherPrep: "",
+          setup: "",
+          steps: [],
+          observation: "",
+          familyConnection: "",
           introductionOverride: "",
           whatWereDoingOverride: "",
           howToDoItOverride: "",
@@ -328,6 +384,7 @@
           challengeOverride: "",
           safetyOverride: "",
           cleanupOverride: "",
+          materialsOverride: "",
           includedResources: "",
           imageOverride: { url: "", alt: "", source: "" },
           omit: false,
@@ -402,6 +459,9 @@
       days: activityStubsFromLesson(plan),
       books: booksFromLesson(plan),
       songs: songsFromLesson(plan),
+      printables: [],
+      cards: [],
+      pageOrder: [],
       learningCenters: {},
       familyConnectionOverride: "",
       status: "draft",
@@ -467,6 +527,8 @@
     createDraftFromLesson,
     createEmptyDraft,
     duplicateDraft,
+    normalizePrintable,
+    normalizeCard,
     text,
     shortText,
   };

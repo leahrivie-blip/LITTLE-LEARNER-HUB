@@ -735,7 +735,7 @@ function unitTests() {
   const dirtyReady = readiness.evaluateBinderReadiness(dirtyDraft, dirtyLesson);
   ok(dirtyReady.issues.some((i) => i.code === "malformed_book_entry"), "malformed book title/author is flagged for owner review");
   ok(dirtyReady.issues.some((i) => i.code === "duplicate_song_entry"), "duplicate song entries are flagged for owner review");
-  ok(dirtyReady.issues.some((i) => i.code === "printables_not_embedded"), "readiness states printable sheets are not embedded");
+  ok(dirtyReady.issues.some((i) => i.code === "no_printables_selected"), "readiness identifies when no draft printables are selected");
   ok(JSON.stringify(dirtyLesson) === dirtyBefore, "flagging source-content problems does not mutate the source lesson");
 
   const imgReady = readiness.applyImageLoadResults(readyQr, {
@@ -761,6 +761,31 @@ function unitTests() {
   // here we assert harvest pattern via model normalize idempotence.
   const again = model.normalizeBinderDraft(draft);
   ok(again.id === draft.id && again.title === draft.title, "normalize is stable for typed draft fields");
+
+  const editableDraft = model.createDraftFromLesson(preschool);
+  const editableActivity = editableDraft.days.monday.activities[0];
+  editableActivity.activityTitle = "Draft-only activity title";
+  editableActivity.materials = ["Paper plates"];
+  editableActivity.materialAlternatives = ["Reused cereal boxes"];
+  editableActivity.teacherPrep = "Pre-cut the shapes.";
+  editableActivity.setup = "Set plates at each table.";
+  editableActivity.steps = ["Give each child a plate.", "Invite children to decorate."];
+  editableActivity.cleanup = "Recycle scraps.";
+  editableActivity.observation = "Notice grip and color choices.";
+  editableActivity.familyConnection = "Ask families to find circles at home.";
+  editableDraft.printables = [{ name: "Circle Template", description: "One per child.", referenceUrl: "https://example.com/circle.pdf" }];
+  editableDraft.cards = [{ title: "Shape Cards", description: "Cut apart for matching." }];
+  editableDraft.pageOrder = ["printable:bb-printable-custom", "supply-list"];
+  const normalizedEditable = model.normalizeBinderDraft(editableDraft);
+  normalizedEditable.unknownField = "discard me";
+  normalizedEditable.days.monday.activities[0].unknownField = "discard me";
+  const safeEditable = model.normalizeBinderDraft(normalizedEditable);
+  ok(!("unknownField" in safeEditable) && !("unknownField" in safeEditable.days.monday.activities[0]), "unknown draft payload fields are removed");
+  ok(safeEditable.days.monday.activities[0].materials[0] === "Paper plates", "draft-owned activity materials persist");
+  ok(safeEditable.pageOrder.includes("supply-list"), "page order persists through normalization");
+  const editablePrint = print.buildBinderPrintHtml(safeEditable, preschool, { qrSvgByUrl: {} });
+  ok(/Circle Template/.test(editablePrint.html) && /data-bb-page="printable"/.test(editablePrint.html), "included draft printable appears in print output");
+  ok(/Draft-only activity title/.test(editablePrint.html), "draft activity title appears in print output");
 }
 
 async function apiTests(ownerToken, otherToken, lessons) {
