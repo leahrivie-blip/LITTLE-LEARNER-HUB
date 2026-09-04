@@ -14,6 +14,10 @@
     "printable_viewed",
     "pricing_viewed",
     "pro_content_encountered",
+    "premium_preview_seen",
+    "free_week_started",
+    "free_activity_used",
+    "subscription_confirmed",
   ]);
 
   /**

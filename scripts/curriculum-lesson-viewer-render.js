@@ -383,11 +383,40 @@ function lockedFoundingOfferHtml(showFoundingOffer) {
   `;
 }
 
+function authorizedWeekOutlineHtml(weekPreview) {
+  const api = typeof globalThis !== "undefined" ? globalThis.LLHFinishWeekConversion : null;
+  if (api && typeof api.weekOutlineHtml === "function") {
+    return api.weekOutlineHtml(weekPreview);
+  }
+  const days = Array.isArray(weekPreview?.days) ? weekPreview.days : [];
+  if (!days.length) return "";
+  return `<ol class="fw-week-outline" aria-label="Authorized week preview">${days.map((day) => {
+    const activities = Array.isArray(day.activities) ? day.activities : [];
+    const cards = activities.map((activity) => {
+      const meta = [];
+      if (activity.activityCategory) meta.push(escapeHtml(activity.activityCategory));
+      if (activity.printableIncluded) meta.push("Printable included");
+      if (Number.isFinite(activity.prepMinutes) && activity.prepMinutes > 0) {
+        meta.push(`Approx. prep: ${Number(activity.prepMinutes)} minutes`);
+      }
+      return `<article class="fw-week-activity"><h4>${escapeHtml(activity.title || "Activity")}</h4>${meta.length ? `<p class="fw-week-activity-meta">${meta.join(" · ")}</p>` : ""}<p class="fw-week-lock" role="status"><span aria-hidden="true">🔒</span> Locked — unlock the full week for directions</p></article>`;
+    }).join("");
+    return `<li class="fw-week-day"><span class="fw-week-day-label">${escapeHtml(day.dayLabel || day.day)}</span>${cards || "<span class=\"fw-week-day-empty\">No activities listed</span>"}</li>`;
+  }).join("")}</ol>`;
+}
+
+function authorizedPacketSummaryHtml(packet) {
+  const api = typeof globalThis !== "undefined" ? globalThis.LLHFinishWeekConversion : null;
+  if (api && typeof api.packetSummaryHtml === "function") {
+    return api.packetSummaryHtml(packet);
+  }
+  return "";
+}
+
 function lockedCurriculumLessonPreviewHtml(resource = {}, options = {}) {
-  // Pro lesson previews intentionally sell quality without revealing plan content.
-  // Visible: title (set by caller), age, theme, learning domains, weekly overview.
-  // Hidden: objectives, materials, vocabulary, books, songs, family connection,
-  // observations, adaptations, Mon–Fri activities/names/descriptions, teacher notes/goals.
+  // Authorized preview: title, age, theme, domains, weekly overview, and
+  // server-projected weekday titles/categories. Never render full instructions,
+  // materials, books, songs, or asset URLs from the raw plan.
   const plan = normalizePlanForRender(resource._curriculumLessonPlan || {});
   const overview = String(plan.weeklyOverview || resource.description || "").trim();
   const domains = asStringArray(plan.learningDomains)
@@ -395,8 +424,21 @@ function lockedCurriculumLessonPreviewHtml(resource = {}, options = {}) {
     .map((domain) => `<span class="tag">${escapeHtml(domain)}</span>`)
     .join("");
   const upgradeCtaHtml = String(options.upgradeCtaHtml || "").trim();
+  const printWeekCtaHtml = String(options.printWeekCtaHtml || "").trim();
   const upgradeNote = String(options.upgradeNote || "").trim();
   const showFoundingOffer = options.showFoundingOffer !== false;
+  const weekPreview = options.weekPreview
+    || resource._weekPreview
+    || plan.weekPreview
+    || resource._curriculumLessonPlan?.weekPreview
+    || null;
+  const packet = options.packetSummary
+    || resource._packetSummary
+    || resource._curriculumLessonPlan?.packetSummary
+    || weekPreview?.packet
+    || null;
+  const weekHtml = authorizedWeekOutlineHtml(weekPreview);
+  const packetHtml = authorizedPacketSummaryHtml(packet);
 
   return {
     title: resource.title || plan.title || "Lesson Plan",
@@ -406,11 +448,13 @@ function lockedCurriculumLessonPreviewHtml(resource = {}, options = {}) {
         <div class="fp-field"><label>Theme</label><div class="fp-field-value">${escapeHtml(plan.theme || resource.theme || "—")}</div></div>
         ${domains ? `<div class="fp-field"><label>Learning Domains</label><div class="fp-field-value tag-row">${domains}</div></div>` : ""}
         ${overview ? `<div class="fp-field"><label>Weekly Overview</label><div class="fp-field-value">${escapeHtml(overview)}</div></div>` : ""}
+        ${weekHtml ? `<div class="fp-field fw-week-field"><label>This week at a glance</label><div class="fp-field-value">${weekHtml}</div></div>` : ""}
+        ${packetHtml}
       </div>
-      <section class="fp-pro-upgrade-card" data-fp-pro-upgrade-card aria-label="Pro Lesson Plan upgrade">
-        <p class="fp-pro-upgrade-eyebrow">🔒 Pro Lesson Plan</p>
-        <h3>This is a Pro Lesson Plan.</h3>
-        <p class="muted-copy">You're viewing a preview only.</p>
+      <section class="fp-pro-upgrade-card" data-fp-pro-upgrade-card aria-label="Unlock the full week">
+        <p class="fp-pro-upgrade-eyebrow">🔒 Locked</p>
+        <h3>Unlock the Full Week</h3>
+        <p class="muted-copy">This is a Pro Lesson Plan. You're viewing an authorized preview — not the full plan.</p>
         <p>Unlock:</p>
         <ul class="fp-pro-upgrade-benefits">
           <li>✓ Complete Monday–Friday lesson plans</li>
@@ -425,7 +469,7 @@ function lockedCurriculumLessonPreviewHtml(resource = {}, options = {}) {
         </ul>
         <p class="muted-copy">Unlock the full curriculum library and access new lesson plans added every week.</p>
         ${lockedFoundingOfferHtml(showFoundingOffer)}
-        ${upgradeCtaHtml ? `<div class="fp-pro-upgrade-actions pro-modal-actions">${upgradeCtaHtml}</div>` : ""}
+        ${upgradeCtaHtml || printWeekCtaHtml ? `<div class="fp-pro-upgrade-actions pro-modal-actions">${upgradeCtaHtml}${printWeekCtaHtml}</div>` : ""}
         ${upgradeNote ? `<p class="fp-pro-upgrade-note"><small>${escapeHtml(upgradeNote)}</small></p>` : ""}
       </section>
     `,
@@ -464,6 +508,8 @@ function lockedCurriculumActivityPreviewHtml(resource = {}, options = {}) {
         ${dayLabel ? `<div class="fp-field"><label>Day</label><div class="fp-field-value">${escapeHtml(dayLabel)}</div></div>` : ""}
         ${parentTitle ? `<div class="fp-field"><label>From Lesson Plan</label><div class="fp-field-value">${escapeHtml(parentTitle)}</div></div>` : ""}
         ${domains ? `<div class="fp-field"><label>Learning Domains</label><div class="fp-field-value tag-row">${domains}</div></div>` : ""}
+        ${resource.printableIncluded || activity.printableIncluded ? `<div class="fp-field"><label>Printable</label><div class="fp-field-value">Printable included</div></div>` : ""}
+        ${Number.isFinite(resource.prepMinutes || activity.prepMinutes) && (resource.prepMinutes || activity.prepMinutes) > 0 ? `<div class="fp-field"><label>Approx. prep</label><div class="fp-field-value">${Number(resource.prepMinutes || activity.prepMinutes)} minutes</div></div>` : ""}
       </div>
       <section class="fp-pro-upgrade-card" data-fp-pro-upgrade-card aria-label="Pro Activity upgrade">
         <p class="fp-pro-upgrade-eyebrow">🔒 Pro Activity</p>

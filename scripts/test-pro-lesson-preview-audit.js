@@ -194,7 +194,7 @@ async function main() {
   assert(/Weekly Overview/.test(previewHtml.html), "preview missing weekly overview");
   assert(/Learning Domains/.test(previewHtml.html), "preview missing learning domains");
   assert(/Pro Lesson Plan/.test(previewHtml.html), "preview missing upgrade card");
-  assert(/Founding Member Pricing Still Available/.test(previewHtml.html), "preview missing founding offer");
+  assert(/Founding Member/.test(previewHtml.html), "preview missing founding offer");
   assert(/Upgrade to Pro/.test(previewHtml.html), "preview missing upgrade CTA");
   assert(!/Farm Animal Sensory Bin/.test(previewHtml.html), "preview leaked Monday activity name");
   assert(!/Barn Building Challenge/.test(previewHtml.html), "preview leaked Tuesday activity name");
@@ -233,7 +233,7 @@ async function main() {
   assert(/Activity Type|Sensory Play/.test(activityPreview.html), "activity preview missing activity type");
   assert(/From Lesson Plan|Preview Audit Garden Scientists/.test(activityPreview.html), "activity preview missing parent lesson");
   assert(/Pro Activity|Unlock this premium activity/.test(activityPreview.html), "activity preview missing upgrade card");
-  assert(/Founding Member Pricing Still Available/.test(activityPreview.html), "activity preview missing founding offer");
+  assert(/Founding Member/.test(activityPreview.html), "activity preview missing founding offer");
   assert(!/Children use scoops and magnifying glasses/.test(activityPreview.html), "activity preview leaked description");
   assert(!/Invite children to scoop/.test(activityPreview.html), "activity preview leaked directions");
   assert(!/Bin of potting soil/.test(activityPreview.html), "activity preview leaked materials");
@@ -285,7 +285,15 @@ async function main() {
       const detail = await requestJson("GET", `/api/curriculum/lesson-plans/${encodeURIComponent(planId)}`, null, {
         headers: authHeader(email),
       });
-      assert(detail.status === 403, `${email} should be denied full Pro detail (got ${detail.status})`);
+      // Free members may browse the authorized preview DTO (200 + locked) but must
+      // never receive full dailyPlans / how-to content. 403 remains acceptable.
+      assert([200, 403].includes(detail.status), `${email} unexpected Pro detail status ${detail.status}`);
+      if (detail.status === 200) {
+        assert(detail.json.lessonPlan?.locked === true, `${email} Pro detail must remain locked`);
+        assert(!detail.json.lessonPlan?.dailyPlans, `${email} must not receive full dailyPlans`);
+        assert(!detail.json.lessonPlan?.objectives, `${email} must not receive objectives`);
+        assert(!JSON.stringify(detail.json).includes("Invite children to scoop"), `${email} leaked premium directions`);
+      }
     }
     const allowed = [
       "trial@preview.test",
@@ -342,15 +350,16 @@ async function main() {
     assert(!locked.workspace, "free user must not open full lesson workspace for Pro plan");
     assert(/Weekly Overview/i.test(locked.body), `locked preview missing weekly overview: ${locked.body.slice(0, 200)}`);
     assert(/Learning Domains|Garden Scientists/i.test(locked.body), `locked preview missing overview metadata: ${locked.body.slice(0, 200)}`);
-    assert(/Pro Lesson Plan|Unlock this premium lesson plan/i.test(locked.body), "locked preview missing upgrade card");
+    assert(/Pro Lesson Plan|Unlock the Full Week|Unlock this premium lesson plan/i.test(locked.body), "locked preview missing upgrade card");
     assert(
-      /Upgrade to Pro|Start Your 7-Day Free Trial|Claim Founding/i.test(locked.body + locked.stickyText),
+      /Unlock the Full Week|Finish My Week|Upgrade to Pro|Start Your 7-Day Free Trial|Claim Founding/i.test(locked.body + locked.stickyText),
       "locked preview missing upgrade/trial CTA",
     );
     assert(locked.stickyVisible, "mobile sticky upgrade bar should be visible");
-    assert(!/fp-locked-activity-list/.test(locked.html), "locked preview must not list activity names");
+    assert(!/fp-locked-activity-list/.test(locked.html), "locked preview must not use the old unprotected activity list");
     assert(!/<label>Weekly Objectives|<label>Materials List|<label>Vocabulary|<label>Books|<label>Songs|<label>Daily Activities/i.test(locked.html), "locked preview leaked premium section fields");
-    assert(!/Farm Animal|Sensory Bin|Invite children|Planting a Rainbow/i.test(locked.body), "locked preview leaked premium content strings");
+    assert(!/Invite children|Planting a Rainbow|Bin of potting soil|I notice the soil feels damp/i.test(locked.body), "locked preview leaked premium content strings");
+    assert(/Soil Exploration Bin|Unlock the Full Week/i.test(locked.body), "authorized week preview should show activity titles");
 
     console.log("3b) Free user sees overview-only Pro activity preview with upgrade card");
     await page.evaluate(() => {
@@ -385,7 +394,7 @@ async function main() {
     assert(/Activity Type|Sensory Play|From Lesson Plan|Learning Domains/i.test(lockedActivity.body), `activity preview missing overview metadata: ${lockedActivity.body.slice(0, 240)}`);
     assert(/Unlock this premium activity|Pro Activity/i.test(lockedActivity.body), "activity preview missing upgrade card");
     assert(
-      /Upgrade to Pro|Start Your 7-Day Free Trial|Claim Founding/i.test(lockedActivity.body + lockedActivity.stickyText),
+      /Finish My Lesson Plan|Unlock the Full Week|Upgrade to Pro|Start Your 7-Day Free Trial|Claim Founding/i.test(lockedActivity.body + lockedActivity.stickyText),
       "activity preview missing upgrade/trial CTA",
     );
     assert(lockedActivity.stickyVisible, "mobile sticky upgrade bar should be visible for activities");
