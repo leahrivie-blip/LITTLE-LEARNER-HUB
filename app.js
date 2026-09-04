@@ -43456,9 +43456,9 @@ function renderStaffManagementPage(options = {}) {
           <article class="platform-manage-row">
             <div>
               <strong>${escapeHtml(currentUser || "You")}</strong>
-              <p class="muted-copy">${escapeHtml(roleLabel(activeRole))} · active on this device · shared program data</p>
+              <p class="muted-copy">${escapeHtml(roleDisplayLabel(activeRole))} · active on this device · shared program data</p>
             </div>
-            <span class="tag">${escapeHtml(roleLabel(activeRole))}</span>
+            <span class="tag">${escapeHtml(roleDisplayLabel(activeRole))}</span>
           </article>
           ` : `
           <article class="platform-manage-row">
@@ -66975,7 +66975,7 @@ function renderAccountPage() {
       programConnectionHost.hidden = false;
       programConnectionHost.innerHTML = `
         <p class="eyebrow">Shared program</p>
-        <p class="muted-copy">You are connected to <strong>${escapeHtml(account.linkedProgramOwnerEmail)}</strong> as ${escapeHtml(roleLabel(getUserRole(account)))}. Children, calendar, and documentation use the shared program. Each person keeps a separate login — there is no account switcher.</p>
+        <p class="muted-copy">You are connected to <strong>${escapeHtml(account.linkedProgramOwnerEmail)}</strong> as ${escapeHtml(roleDisplayLabel(account))}. Children, calendar, and documentation use the shared program. Each person keeps a separate login — there is no account switcher.</p>
       `;
     } else if (canAccessPlatformFeature("staff_management", account) && canAccessStaffBeta(account)) {
       const teamMembers = Array.isArray(staffInviteRemoteCache.members) ? staffInviteRemoteCache.members : [];
