@@ -37,7 +37,7 @@ function ok(cond, msg) {
 function parse(raw, extra = {}) {
   return commandApi.parseOperatorCommand(raw, {
     phase: 7,
-    lessonPlans: CATALOG,
+    lessonPlans: extra.lessonPlans || CATALOG,
     currentlySelectedLessonId: extra.currentlySelectedLessonId || null,
     operatorContext: extra.operatorContext || null,
   });
@@ -260,6 +260,37 @@ console.log("\n12) authorization / run block reasons stay fail-closed");
   ok(allowlist.DANGEROUS_CONFIRM_REASONS.includes("semantic_contradiction"), "semantic contradiction blocks run");
   ok(allowlist.DANGEROUS_CONFIRM_REASONS.includes("meta_instruction"), "meta blocks run");
   ok(allowlist.DANGEROUS_CONFIRM_REASONS.includes("access_tier_mismatch"), "tier mismatch blocks run");
+}
+
+console.log("\n13) production exclusive image repair + exclusion list + infant lesson id");
+{
+  const INFANT_ID = "cur-lp-infant-colors-all-around-us";
+  const catalog = [
+    { id: INFANT_ID, title: "Colors All Around Us", plan: "Free", status: "published", age: "Preschool 3–5 Years" },
+    ...CATALOG.filter((row) => row.id !== COLORS),
+  ];
+  const raw = [
+    "Repair only the bad activity images in this lesson.",
+    `Lesson ID: ${INFANT_ID}.`,
+    "Title: Colors All Around Us.",
+    "Keep good images.",
+    "Replace only cartoon, unrealistic, or generic images with realistic daycare classroom activity photos.",
+    "Do not change activity text, weekly content, vocabulary, printables, songs, books, cover images, or lesson structure.",
+    "Save changes only to the lesson draft.",
+    "Do not publish.",
+  ].join(" ");
+  const parsed = parse(raw, { lessonPlans: catalog, currentlySelectedLessonId: INFANT_ID });
+  assertImageOnlyFree(parsed, "prod exclusive image repair");
+  ok(parsed.interpretation.primary === "ACTIVITY_IMAGE_REPAIR", "prod command primary ACTIVITY_IMAGE_REPAIR");
+  ok(parsed.command.actions.touchCover !== true, "exclusion-list cover is not requested");
+  ok(parsed.command.scope.lessonIds.length === 1, "prod command stays one lesson");
+  ok(parsed.command.scope.lessonIds[0] === INFANT_ID, "prod command pins the infant-id lesson");
+  ok(parsed.command.scope.selection !== "filter", "prod command is not a Free collection");
+  ok(parsed.command.actions.publish !== true, "prod command publish stays off");
+  const reval = allowlist.revalidateRunScope(parsed.command, { phase: 7, lessonPlans: catalog });
+  ok(reval.ok, "prod exclusive image repair revalidation passes");
+  ok(reval.command.intent === "finish_images", "prod revalidated intent stays finish_images");
+  ok((reval.command.scope.lessonIds || []).includes(INFANT_ID), "prod revalidated scope keeps the pinned id");
 }
 
 console.log(`\nSemantic understanding passed ${passed} assertions.`);
