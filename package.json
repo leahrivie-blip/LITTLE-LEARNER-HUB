@@ -249,6 +249,7 @@
     "test:staff-invite-flow": "NODE_ENV=test node scripts/test-staff-invite-flow.js",
     "test:staff-beta-access": "NODE_ENV=test node scripts/test-staff-beta-access.js",
     "test:staff-entitlement": "NODE_ENV=test node scripts/test-staff-entitlement.js",
+    "test:staff-account-role-label": "NODE_ENV=test node scripts/test-staff-account-role-label.js",
     "test:staff-entitlement-inheritance": "NODE_ENV=test node scripts/test-staff-entitlement-inheritance.js",
     "test:staff-plan": "NODE_ENV=test node scripts/test-staff-plan.js",
     "test:staff-plan-upgrade": "NODE_ENV=test node scripts/test-staff-plan-upgrade.js",
