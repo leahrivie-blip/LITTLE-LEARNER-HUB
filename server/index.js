@@ -13,6 +13,7 @@ const staffPlanUpgrade = require("./staff-plan-upgrade.js");
 const curriculumStandards = require("../scripts/curriculum-standards.js");
 const freeCurriculumSample = require("../scripts/free-curriculum-sample.js");
 const curriculumLessonAccessPlan = require("./curriculum-lesson-access-plan.js");
+const premiumWeekPreview = require("./premium-week-preview.js");
 const freePlanGrandfathering = require("../scripts/free-plan-grandfathering.js");
 const trialCurriculumExports = require("../scripts/trial-curriculum-exports.js");
 const trialClassification = require("../scripts/trial-classification.js");
@@ -2688,13 +2689,15 @@ function publicCurriculumLessonPlanPreviewDto(plan, storeOrContent = null) {
   if (!entry || !isCurriculumLessonPublic(entry.status)) return null;
   // Free unlock is plan-authoritative — Free lessons use the unlocked Free DTO path.
   if (userMayUnlockFreeCurriculumPlan(entry, { store: storeOrContent, siteContent: storeOrContent })) return null;
-  // Public Pro teaser: overview metadata only. Do not ship objectives, materials,
-  // vocabulary, books, songs, or activity names — those unlock with paid access.
-  let activityCount = 0;
-  CURRICULUM_WEEKDAYS.forEach((day) => {
-    const items = Array.isArray(entry.dailyPlans?.[day]?.items) ? entry.dailyPlans[day].items : [];
-    activityCount += items.filter((item) => String(item?.title || "").trim()).length;
-  });
+  // Public Pro teaser: authorized metadata only. Do not ship objectives, materials,
+  // vocabulary, books, songs, instructions, or asset URLs. Week titles/categories
+  // come from the server projection — never the full dailyPlans object.
+  const weekPreview = premiumWeekPreview.buildAuthorizedWeekPreview(entry);
+  const activityCount = weekPreview?.activityCount
+    || CURRICULUM_WEEKDAYS.reduce((count, day) => {
+      const items = Array.isArray(entry.dailyPlans?.[day]?.items) ? entry.dailyPlans[day].items : [];
+      return count + items.filter((item) => String(item?.title || "").trim()).length;
+    }, 0);
   return {
     id: entry.id,
     title: entry.title,
@@ -2706,6 +2709,9 @@ function publicCurriculumLessonPlanPreviewDto(plan, storeOrContent = null) {
     learningDomains: entry.learningDomains.slice(0, 6),
     weeklyOverview: curriculumTextExcerpt(entry.weeklyOverview, 80),
     activityCount,
+    weekPreview,
+    printableCount: weekPreview?.printableCount || 0,
+    packetSummary: weekPreview?.packet || null,
     coverImageUrl: entry.coverImageUrl,
     coverImageAlt: entry.coverImageAlt,
     coverImageSource: entry.coverImageSource,
@@ -2855,6 +2861,9 @@ function publicCurriculumActivityPreviewDto(activity, parentPlan, storeOrContent
   if (!parentPlan || !isCurriculumLessonPublic(parentPlan.status)) return null;
   if (userMayUnlockFreeCurriculumPlan(parentPlan, { store: storeOrContent, siteContent: storeOrContent })) return null;
   // Overview teaser only — no description/materials/steps/teacher language/etc.
+  const prepMinutes = premiumWeekPreview.optionalMinutes(
+    entry.setupMinutes != null ? entry.setupMinutes : entry.durationMinutes,
+  );
   return {
     id: entry.id,
     lessonPlanId: entry.lessonPlanId,
@@ -2867,6 +2876,8 @@ function publicCurriculumActivityPreviewDto(activity, parentPlan, storeOrContent
     parentTitle: parentPlan.title,
     parentAge: parentPlan.age,
     parentPlan: parentPlan.plan,
+    printableIncluded: premiumWeekPreview.activityHasPrintable(entry),
+    ...(prepMinutes != null ? { prepMinutes } : {}),
     updatedAt: entry.updatedAt,
   };
 }

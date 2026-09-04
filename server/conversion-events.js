@@ -55,6 +55,15 @@ const LEGACY_EVENT_MAP = Object.freeze({
   pro_upgrade_intent: "upgrade_cta_clicked",
   checkout_start: "checkout_started",
   checkout_success: "checkout_completed",
+  checkout_completed_returned: "checkout_completed",
+  subscription_confirmed: "paid_subscription_active",
+  free_week_started: "lesson_viewed",
+  free_activity_used: "activity_viewed",
+  premium_preview_seen: "pro_content_encountered",
+  finish_week_cta_clicked: "upgrade_cta_clicked",
+  full_week_unlock_clicked: "upgrade_cta_clicked",
+  print_week_cta_clicked: "upgrade_cta_clicked",
+  printable_unlock_clicked: "upgrade_cta_clicked",
 });
 
 /** Canonical signup personas — do not invent others. */
