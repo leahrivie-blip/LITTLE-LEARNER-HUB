@@ -4558,6 +4558,18 @@ body.user-authenticated .view.active-view {
   background: linear-gradient(180deg, rgba(255, 252, 240, 0.99), rgba(254, 249, 220, 0.95));
 }
 
+.admin-content-card.is-owner-completed {
+  border-color: #7aa37a;
+  background: linear-gradient(180deg, rgba(236, 247, 238, 0.99), rgba(226, 238, 228, 0.94));
+}
+
+.tag.owner-organization-completed {
+  background: #d7eedb;
+  color: #1f5d32;
+  border: 1px solid #8fbf96;
+  font-weight: 700;
+}
+
 /* Content status badge (used on cards and in edit forms) */
 .content-status {
   display: inline-flex;

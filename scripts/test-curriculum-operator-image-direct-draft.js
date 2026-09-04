@@ -168,19 +168,46 @@ async function main() {
     "A: dailyPlans item updated for classic/Teaching Kit editor",
   );
 
-  const stripped = imagesApi.stripSuccessfulImageFieldsFromEnrichmentDraft(
+  const mirrored = imagesApi.mirrorAppliedImagesIntoEnrichmentDraft(
     passRun.enrichmentDraft,
-    passRun.actions,
+    applied.applied.map((row) => ({ ...row, lessonId: LESSON_ID, expectedLessonId: LESSON_ID })),
   );
-  ok(!stripped.activities?.[ACT_A]?.setupImageUrl, "A: enrichmentDraft image cleared after direct save");
+  ok(mirrored.activities?.[ACT_A]?.setupImageUrl === publicUrls.mediaUrl, "A: enrichmentDraft keeps review image");
+  ok(mirrored.previewReady === true, "A: draft marked previewReady for owner review");
 
   const verified = imagesApi.verifyConnectedImageJobRecords({
     beforePlan: plan,
-    afterPlan: { ...applied.plan, enrichmentDraft: stripped },
+    afterPlan: { ...applied.plan, enrichmentDraft: mirrored },
     afterActivities: applied.activities,
     actions: passRun.actions,
   });
   ok(verified.ok, "A: connected verification passes");
+
+  console.log("\nA2. published lesson keeps images on the same lesson draft only");
+  const publishedPlan = seedPlan({ status: "published" });
+  const publishedActs = seedActivities();
+  const publishedApply = imagesApi.applySuccessfulImageActionsToLessonRecords({
+    plan: publishedPlan,
+    activities: publishedActs,
+    actions: passRun.actions,
+    enrichmentMediaApi: enrichmentMedia,
+  });
+  const publishedDraft = imagesApi.mirrorAppliedImagesIntoEnrichmentDraft(
+    { week: {}, activities: {} },
+    publishedApply.applied.map((row) => ({ ...row, lessonId: LESSON_ID, expectedLessonId: LESSON_ID })),
+  );
+  const publishedVerify = imagesApi.verifyConnectedImageJobRecords({
+    beforePlan: publishedPlan,
+    afterPlan: { ...publishedPlan, enrichmentDraft: publishedDraft },
+    afterActivities: publishedActs,
+    actions: passRun.actions.map((action) => ({
+      ...action,
+      previousUrl: publishedActs.find((a) => a.id === action.activityId)?.setupImageUrl || "",
+    })),
+  });
+  ok(publishedDraft.activities?.[ACT_A]?.setupImageUrl === publicUrls.mediaUrl, "A2: published lesson draft has new photo");
+  ok(publishedActs.find((a) => a.id === ACT_A)?.setupImageUrl !== publicUrls.mediaUrl, "A2: published live activity unchanged");
+  ok(publishedVerify.ok, "A2: published review-draft verification passes");
 
   // B — BLOCK → activity unchanged
   console.log("\nB. connectedAutoApply BLOCK → no mutation");
@@ -244,7 +271,7 @@ async function main() {
   console.log("\nJ. idempotent resume skip");
   const first = passRun.actions[0];
   const second = await imagesApi.runImagePlanForLesson({
-    plan: { ...applied.plan, enrichmentDraft: stripped },
+    plan: { ...applied.plan, enrichmentDraft: mirrored },
     activities: applied.activities,
     audit,
     limits: { maxImageGenerations: 3 },

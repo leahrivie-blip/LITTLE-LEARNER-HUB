@@ -2335,6 +2335,11 @@ function normalizedCurriculumLessonPlan(value) {
   if (entry.disposableQaFixture === true || isKnownDisposableQaFixtureId(id)) {
     normalized.disposableQaFixture = true;
   }
+  // Owner-only Admin list organization. Not a publish status and never inferred.
+  if (Object.prototype.hasOwnProperty.call(entry, "ownerOrganizationStatus")
+    && String(entry.ownerOrganizationStatus || "").trim().toLowerCase() === "completed") {
+    normalized.ownerOrganizationStatus = "completed";
+  }
   return normalized;
 }
 
@@ -7455,6 +7460,7 @@ async function applyOperatorConnectedActivityImages({
 
   const beforeStatus = existingPlan.status;
   const beforeAccess = existingPlan.plan === "Pro" ? "Pro" : "Free";
+  const publishedLesson = imagesApi.isPublishedLessonStatus(beforeStatus);
   const linked = (curriculum.activities || []).filter((a) => a.lessonPlanId === id);
   const appliedPlan = imagesApi.applySuccessfulImageActionsToLessonRecords({
     plan: existingPlan,
@@ -7481,27 +7487,39 @@ async function applyOperatorConnectedActivityImages({
     .filter((assetId) => enrichmentMedia.isEnrichmentMediaAssetId(assetId));
   await promoteEnrichmentAssetsToPublished(store, assetIds, id);
 
-  const byId = new Map(appliedPlan.activities.map((a) => [normalizedShortText(a.id, 160), a]));
-  const nextActivities = (curriculum.activities || []).map((act) => {
-    if (normalizedShortText(act.lessonPlanId, 160) !== id) return act;
-    const updated = byId.get(normalizedShortText(act.id, 160));
-    return updated || act;
-  });
-
   let nextDraft = enrichmentDraft && typeof enrichmentDraft === "object"
     ? enrichmentDraft
     : (existingPlan.enrichmentDraft && typeof existingPlan.enrichmentDraft === "object"
       ? existingPlan.enrichmentDraft
       : { week: {}, activities: {} });
-  nextDraft = imagesApi.stripSuccessfulImageFieldsFromEnrichmentDraft(nextDraft, imageActions);
+  nextDraft = imagesApi.mirrorAppliedImagesIntoEnrichmentDraft(
+    nextDraft,
+    appliedPlan.applied.map((row) => ({
+      ...row,
+      lessonId: id,
+      expectedLessonId: id,
+    })),
+  );
   if (!enrichmentDraftHasContent(nextDraft)) nextDraft = null;
 
+  // Published customer-facing activity records stay unchanged until Phase 8 Publish.
+  const nextActivities = publishedLesson
+    ? (curriculum.activities || []).slice()
+    : (curriculum.activities || []).map((act) => {
+      if (normalizedShortText(act.lessonPlanId, 160) !== id) return act;
+      const updated = appliedPlan.activities.find((row) => (
+        normalizedShortText(row.id, 160) === normalizedShortText(act.id, 160)
+      ));
+      return updated || act;
+    });
+
   const nextPlan = {
-    ...appliedPlan.plan,
+    ...(publishedLesson ? existingPlan : appliedPlan.plan),
     id,
     status: beforeStatus,
     plan: beforeAccess,
     enrichmentDraft: nextDraft,
+    pendingOwnerReview: true,
     updatedAt: new Date().toISOString(),
     lastEditedBy: normalizedShortText(adminEmail, 180) || "curriculum-operator-connected-images",
   };
@@ -7527,7 +7545,7 @@ async function applyOperatorConnectedActivityImages({
     status: nextPlan.status,
     accessPlan: nextPlan.plan,
     lessonId: id,
-    customerVisibleUnchanged: nextPlan.status !== "published",
+    customerVisibleUnchanged: publishedLesson || nextPlan.status !== "published",
   };
 }
 
@@ -24320,6 +24338,7 @@ async function handlePublishEnrichment(request, response, ctx) {
     ...mergedPlanWithCover,
     ownerWorkspace: existingPlan.ownerWorkspace,
     enrichmentDraft: null,
+    pendingOwnerReview: false,
     enrichmentPublishHistory: history,
     teachingKit: {
       ...(mergedPlan.teachingKit || existingPlan.teachingKit || {}),

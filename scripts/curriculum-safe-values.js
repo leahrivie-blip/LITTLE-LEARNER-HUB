@@ -196,6 +196,10 @@ function normalizeCurriculumLessonPlanForRender(plan = {}) {
   if (entry.teachingKit && typeof entry.teachingKit === "object") {
     out.teachingKit = entry.teachingKit;
   }
+  if (Object.prototype.hasOwnProperty.call(entry, "ownerOrganizationStatus")
+    && String(entry.ownerOrganizationStatus || "").trim().toLowerCase() === "completed") {
+    out.ownerOrganizationStatus = "completed";
+  }
   return out;
 }
 

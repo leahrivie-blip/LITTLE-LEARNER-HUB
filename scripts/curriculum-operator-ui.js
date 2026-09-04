@@ -652,11 +652,20 @@
     el.querySelectorAll("[data-co-open-lesson]").forEach((btn) => {
       btn.addEventListener("click", () => {
         const id = btn.getAttribute("data-co-open-lesson");
-        if (typeof openOwnerTeachingKitEditor === "function") {
-          openOwnerTeachingKitEditor(id);
-        } else if (typeof setAdminSectionTab === "function") {
-          setAdminSectionTab("curriculum-lesson-plans");
-        }
+        void (async () => {
+          if (typeof loadAdminSiteContent === "function") {
+            try {
+              await loadAdminSiteContent();
+            } catch (_error) {
+              // Open the original lesson even if refresh fails.
+            }
+          }
+          if (typeof openOwnerTeachingKitEditor === "function") {
+            openOwnerTeachingKitEditor(id);
+          } else if (typeof setAdminSectionTab === "function") {
+            setAdminSectionTab("curriculum-lesson-plans");
+          }
+        })();
       });
     });
     el.querySelectorAll("[data-co-review-changes]").forEach((btn) => {

@@ -6851,6 +6851,7 @@ let adminCurriculumListFilters = {
   kitType: "",
   completionBand: "",
   gap: "",
+  ownerOrganization: "active",
   sort: "updated",
 };
 let adminCurriculumSelectedIds = new Set();
@@ -10237,6 +10238,13 @@ async function openOwnerTeachingKitEditor(planId, options = {}) {
       else setTimeout(resolve, 0);
     });
 
+    if (typeof loadAdminSiteContent === "function") {
+      try {
+        await loadAdminSiteContent();
+      } catch (_error) {
+        // Keep opening the existing lesson even if refresh fails.
+      }
+    }
     captureAdminLessonListViewState();
     if (adminCurriculumLessonEditorId !== id) adminCurriculumLessonImportDraft = null;
     adminCurriculumLessonEditorId = id;
@@ -12606,6 +12614,16 @@ const ADMIN_LESSON_PREVIEW_AS_OPTIONS = Object.freeze([
   { value: "Teacher", label: "Teacher" },
 ]);
 
+function normalizedOwnerOrganizationStatus(value) {
+  return String(value == null ? "" : value).trim().toLowerCase() === "completed"
+    ? "completed"
+    : "active";
+}
+
+function isOwnerOrganizationCompleted(plan) {
+  return normalizedOwnerOrganizationStatus(plan && plan.ownerOrganizationStatus) === "completed";
+}
+
 function curriculumLessonHasTeachingKit(plan) {
   if (!plan || typeof plan !== "object") return false;
   if (plan.teachingKit && typeof plan.teachingKit === "object") {
@@ -12620,13 +12638,51 @@ function curriculumLessonHasTeachingKit(plan) {
 
 function curriculumLessonHasUnpublishedChanges(plan) {
   if (!plan) return false;
+  if (plan.pendingOwnerReview === true) return true;
   if (plan.enrichmentDraft && typeof plan.enrichmentDraft === "object") {
     const draft = plan.enrichmentDraft;
     if (draft.activities && typeof draft.activities === "object" && Object.keys(draft.activities).length) return true;
     if (draft.week && typeof draft.week === "object" && Object.keys(draft.week).length) return true;
+    if (draft.operatorCover && (draft.operatorCover.coverImageUrl || draft.operatorCover.url)) return true;
     if (draft.previewReady === true) return true;
+    if (String(draft.ownerReviewStatus || "").toUpperCase() === "READY_FOR_OWNER_REVIEW") return true;
   }
   return false;
+}
+
+function curriculumLessonActivityCoverCandidates(record) {
+  const seen = new Set();
+  const out = [];
+  const add = (url, label) => {
+    const src = typeof sanitizedImageSource === "function"
+      ? sanitizedImageSource(url || "")
+      : String(url || "").trim();
+    if (!src || seen.has(src)) return;
+    seen.add(src);
+    out.push({
+      path: src,
+      label: String(label || "Lesson photo").trim() || "Lesson photo",
+      category: "This lesson",
+    });
+  };
+  const draft = record?.enrichmentDraft && typeof record.enrichmentDraft === "object"
+    ? record.enrichmentDraft
+    : {};
+  add(draft.operatorCover?.coverImageUrl || draft.operatorCover?.url, "Draft cover");
+  const acts = typeof curriculumActivitiesForLesson === "function" && record?.id
+    ? curriculumActivitiesForLesson(record.id)
+    : [];
+  acts.forEach((activity) => {
+    const patch = draft.activities?.[activity.id] || {};
+    add(patch.setupImageUrl || activity.setupImageUrl, activity.title || "Activity photo");
+    add(patch.exampleImageUrl || activity.exampleImageUrl, `${activity.title || "Activity"} example`);
+  });
+  Object.entries(draft.activities && typeof draft.activities === "object" ? draft.activities : {}).forEach(([id, patch]) => {
+    if (!patch || typeof patch !== "object") return;
+    add(patch.setupImageUrl, patch.title || "Draft activity photo");
+    add(patch.exampleImageUrl, "Draft example photo");
+  });
+  return out;
 }
 
 function deriveAdminCoverQualityStatus(plan) {
@@ -12668,7 +12724,7 @@ function adminLessonEditorStatusSummary(record) {
   else if (status === "archived") bits.push("Archived");
   else bits.push("Draft changes");
   bits.push(kit ? "Teaching Kit" : "Legacy lesson");
-  if (unpublished) bits.push("Unpublished Changes");
+  if (unpublished) bits.push("Pending owner review");
   return bits.join(" · ");
 }
 
@@ -12763,8 +12819,15 @@ function renderAdminCurriculumLessonCoverSection(record) {
     coverImageSource: source,
     coverQualityStatus: pending?.quality || record.coverQualityStatus,
   });
-  const library = Array.isArray(coversApi?.EXISTING_COVER_LIBRARY) ? coversApi.EXISTING_COVER_LIBRARY : [];
-  const categories = [...new Set(library.map((item) => item.category).filter(Boolean))];
+  const lessonPhotos = curriculumLessonActivityCoverCandidates(record);
+  const library = [
+    ...lessonPhotos,
+    ...(Array.isArray(coversApi?.EXISTING_COVER_LIBRARY) ? coversApi.EXISTING_COVER_LIBRARY : []),
+  ];
+  const categories = [...new Set([
+    ...(lessonPhotos.length ? ["This lesson"] : []),
+    ...library.map((item) => item.category).filter(Boolean),
+  ])];
   const savedUrlField = pending?.url != null ? (pending.url || "") : currentUrl;
   return `
     <fieldset class="admin-fieldset curriculum-cover-editor" data-curriculum-cover-editor>
@@ -12831,6 +12894,7 @@ function renderAdminCurriculumLessonCoverSection(record) {
       </label>
       <details class="curriculum-cover-library" data-curriculum-cover-library>
         <summary>Choose Existing Cover</summary>
+        ${lessonPhotos.length ? `<p class="muted-copy">Photos from this lesson (including pending owner-review images) appear first. Pick one as the cover — the published cover stays unchanged until you save or Publish.</p>` : ""}
         <label class="curriculum-cover-library-search">
           Search covers
           <input type="search" data-curriculum-cover-search placeholder="Search by theme or category" />
@@ -13038,7 +13102,7 @@ function renderAdminCurriculumLessonPlanForm(plan) {
             <strong>${escapeHtml(record.title || "New Lesson Plan")}</strong>
             <small>${escapeHtml(record.age || "Age not set")} · ${escapeHtml(statusSummary)}</small>
             <span class="tag admin-access-plan-badge is-${record.plan === "Pro" ? "pro" : "free"}" data-access-plan="${escapeHtml(record.plan === "Pro" ? "Pro" : "Free")}" title="Customer access plan">Access: ${record.plan === "Pro" ? "PRO" : "FREE"}</span>
-            ${unpublished ? `<span class="tag cover-quality-needs-upgrade">Unpublished Changes</span>` : ""}
+            ${unpublished ? `<span class="tag cover-quality-needs-upgrade">Pending owner review</span>` : ""}
           </div>
         </div>
         <div class="admin-lesson-sticky-bar__actions account-actions-row">
@@ -13419,8 +13483,11 @@ function curriculumLessonPlanAdminCardHtml(plan) {
     stage = "Needs Changes";
   }
   const aiReady = summary?.aiReady !== false;
+  const ownerCompleted = isOwnerOrganizationCompleted(plan);
+  const ownerClient = typeof isTeachingKitPrintableOwnerClient === "function"
+    && isTeachingKitPrintableOwnerClient() === true;
   return `
-    <article class="admin-content-card is-${escapeHtml(plan.status || "draft")}${selected ? " is-selected" : ""}">
+    <article class="admin-content-card is-${escapeHtml(plan.status || "draft")}${selected ? " is-selected" : ""}${ownerCompleted ? " is-owner-completed" : ""}">
       <div class="admin-mobile-card-body">
         <label class="admin-content-select">
           <input type="checkbox" data-curriculum-select="${escapeHtml(plan.id)}" ${selected ? "checked" : ""} />
@@ -13443,7 +13510,8 @@ function curriculumLessonPlanAdminCardHtml(plan) {
             ${enrichEnabled ? `<span class="tag" title="Enrichment field fill (not full-week completion)">${Number(enrichment.enrichmentFillPercent || 0)}% enrichment fill</span>` : ""}
             ${enrichEnabled ? `<span class="tag" title="Premium Teaching Kit readiness (capped while blocked)">${Number(enrichment.premiumReadinessPercent || 0)}% readiness${enrichment.blocksPublish ? " · not publish-ready" : ""}</span>` : ""}
             ${enrichEnabled ? `<span class="tag ${aiReady ? "" : "tag-hidden"}" title="Enough base content for AI upgrade">${aiReady ? "AI Ready" : "Not AI Ready"}</span>` : ""}
-            ${hasDraft ? `<span class="tag cover-quality-needs-upgrade">Unpublished Changes</span>` : ""}
+            ${hasDraft ? `<span class="tag cover-quality-needs-upgrade">Pending owner review</span>` : ""}
+            ${ownerCompleted ? `<span class="tag owner-organization-completed">Completed</span>` : ""}
             ${plan.disposableQaFixture === true ? `<span class="tag cover-quality-needs-upgrade">Disposable QA fixture</span>` : ""}
           </div>
           ${enrichEnabled ? `<div class="tk-enrich-lib-bar" aria-hidden="true"><i style="width:${Number(enrichment.blocksPublish ? Math.min(Number(enrichment.premiumReadinessPercent || 0), 99) : (enrichment.premiumReadinessPercent || enrichment.contentPercent || 0))}%"></i></div>` : ""}
@@ -13454,10 +13522,15 @@ function curriculumLessonPlanAdminCardHtml(plan) {
         </div>
       </div>
       <div class="form-actions admin-lesson-card-actions">
-        ${(enrichEnabled || (typeof isTeachingKitPrintableOwnerClient === "function" && isTeachingKitPrintableOwnerClient()))
+        ${ownerClient
+          ? (ownerCompleted
+            ? `<button class="ghost-button" type="button" data-curriculum-owner-organization="active" data-curriculum-lesson-id="${escapeHtml(plan.id)}">Move Back to Active</button>`
+            : `<button class="primary-button" type="button" data-curriculum-owner-organization="completed" data-curriculum-lesson-id="${escapeHtml(plan.id)}">Mark Complete</button>`)
+          : ""}
+        ${(enrichEnabled || ownerClient)
           ? `<button class="primary-button" type="button" data-curriculum-lesson-ai-upgrade="${escapeHtml(plan.id)}" data-lesson-title="${escapeHtml(plan.title || "")}">AI Upgrade Lesson</button>`
           : ""}
-        ${(enrichEnabled || (typeof isTeachingKitPrintableOwnerClient === "function" && isTeachingKitPrintableOwnerClient()))
+        ${(enrichEnabled || ownerClient)
           ? `<button class="ghost-button" type="button" data-curriculum-lesson-enrich="${escapeHtml(plan.id)}" data-upgrade-lesson-cta="1">Upgrade Lesson</button>`
           : ""}
         <button class="ghost-button" type="button" data-curriculum-lesson-edit="${escapeHtml(plan.id)}">Edit</button>
@@ -13490,6 +13563,9 @@ function filteredAdminCurriculumLessonPlans() {
     ) {
       return false;
     }
+    const ownerOrgFilter = String(filters.ownerOrganization || "active").toLowerCase();
+    if (ownerOrgFilter === "completed" && !isOwnerOrganizationCompleted(plan)) return false;
+    if (ownerOrgFilter === "active" && isOwnerOrganizationCompleted(plan)) return false;
     if (filters.status && String(plan.status || "").toLowerCase() !== String(filters.status).toLowerCase()) return false;
     if (filters.plan && String(plan.plan || "") !== filters.plan) return false;
     if (filters.age && !agesMatchForFilter(plan.age, filters.age)) return false;
@@ -13524,7 +13600,7 @@ function filteredAdminCurriculumLessonPlans() {
       if (!enrich.matchesUpgradeGapFilter(meta.summary, filters.gap)) return false;
     }
     if (!q) return true;
-    const hay = `${plan.title || ""} ${plan.theme || ""} ${plan.age || ""} ${plan.status || ""} ${plan.plan || ""}`.toLowerCase();
+    const hay = `${plan.title || ""} ${plan.theme || ""} ${plan.age || ""} ${plan.status || ""} ${plan.plan || ""} ${isOwnerOrganizationCompleted(plan) ? "completed" : "active"}`.toLowerCase();
     return hay.includes(q);
   });
   const enrichEditorOn = isTeachingKitEnrichmentEditorEnabled();
@@ -13602,6 +13678,65 @@ async function bulkUpdateAdminCurriculumLessonStatus(status) {
   );
   renderAdminCurriculumLessonPlanManager();
   showActionFeedback(adminCurriculumLessonSaveBanner.text);
+}
+
+/**
+ * Owner-only Admin list organization. Updates ownerOrganizationStatus only.
+ * Does not publish, rewrite content, or start AI jobs.
+ */
+async function setAdminCurriculumOwnerOrganizationStatus(lessonPlanId, nextStatus) {
+  if (typeof isTeachingKitPrintableOwnerClient === "function" && isTeachingKitPrintableOwnerClient() !== true) {
+    showActionFeedback("Mark Complete is an owner-only organization tool.");
+    return;
+  }
+  const id = String(lessonPlanId || "").trim();
+  const completed = String(nextStatus || "").trim().toLowerCase() === "completed";
+  if (!id) return;
+  const token = adminSession()?.token || "";
+  if (!token || !curriculumLessonPlanConfig.endpoint) {
+    showActionFeedback("Admin unlock and backend are required to update owner organization.");
+    return;
+  }
+  const plan = curriculumLessonPlansForAdmin().find((item) => item && item.id === id);
+  if (!plan) {
+    showActionFeedback("Lesson not found.");
+    return;
+  }
+  if (isOwnerOrganizationCompleted(plan) === completed) {
+    renderAdminCurriculumLessonPlanManager();
+    return;
+  }
+  const lessonPlan = { ...plan };
+  if (completed) lessonPlan.ownerOrganizationStatus = "completed";
+  else delete lessonPlan.ownerOrganizationStatus;
+  try {
+    const response = await fetch(curriculumLessonPlanConfig.endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        expectedUpdatedAt: curriculumExpectedUpdatedAt(),
+        lessonPlan,
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data?.error || `HTTP ${response.status}`);
+    if (data.curriculum || data.lessonPlan) {
+      applyCurriculumState(data.curriculum || effectiveCurriculum(), {
+        siteContentUpdatedAt: data.siteContentUpdatedAt,
+      });
+    }
+    setAdminCurriculumLessonSaveBanner(
+      completed
+        ? `Marked “${plan.title || "lesson"}” complete. Publish status and lesson content were not changed.`
+        : `Moved “${plan.title || "lesson"}” back to Active. Publish status and lesson content were not changed.`,
+      true,
+    );
+    renderAdminCurriculumLessonPlanManager();
+    showActionFeedback(adminCurriculumLessonSaveBanner.text);
+  } catch (error) {
+    console.warn("Owner organization update failed", id, error);
+    showActionFeedback(error.message || "Could not update owner organization.");
+  }
 }
 
 /**
@@ -13856,6 +13991,13 @@ function renderAdminCurriculumLessonPlanManager() {
     ${renderCurriculumLessonImportPanel()}
     <div class="admin-content-filters">
       <label><span>Search</span><input type="search" id="adminCurriculumFilterQuery" value="${escapeHtml(adminCurriculumListFilters.query || "")}" placeholder="Title, theme…" /></label>
+      <label><span>Owner list</span>
+        <select id="adminCurriculumFilterOwnerOrganization">
+          <option value="active" ${String(adminCurriculumListFilters.ownerOrganization || "active") === "active" ? "selected" : ""}>Active Lessons</option>
+          <option value="completed" ${adminCurriculumListFilters.ownerOrganization === "completed" ? "selected" : ""}>Completed Lessons</option>
+          <option value="all" ${adminCurriculumListFilters.ownerOrganization === "all" ? "selected" : ""}>All Lessons</option>
+        </select>
+      </label>
       <label><span>Status</span>
         <select id="adminCurriculumFilterStatus">
           <option value="">All</option>
@@ -76783,6 +76925,20 @@ document.addEventListener("click", async (event) => {
   const editEventEl = event.target && event.target.nodeType === 1
     ? event.target
     : event.target?.parentElement;
+  const ownerOrganizationButton = editEventEl?.closest?.("[data-curriculum-owner-organization]");
+  if (ownerOrganizationButton) {
+    event.preventDefault();
+    event.stopPropagation();
+    await setAdminCurriculumOwnerOrganizationStatus(
+      ownerOrganizationButton.getAttribute("data-curriculum-lesson-id")
+        || ownerOrganizationButton.dataset.curriculumLessonId
+        || "",
+      ownerOrganizationButton.getAttribute("data-curriculum-owner-organization")
+        || ownerOrganizationButton.dataset.curriculumOwnerOrganization
+        || "",
+    );
+    return;
+  }
   const curriculumLessonEditButton = editEventEl?.closest?.("[data-curriculum-lesson-edit]");
   if (curriculumLessonEditButton) {
     event.preventDefault();
@@ -79700,6 +79856,7 @@ document.addEventListener("change", (event) => {
     "adminCurriculumFilterKitType",
     "adminCurriculumFilterCompletion",
     "adminCurriculumFilterGap",
+    "adminCurriculumFilterOwnerOrganization",
     "adminCurriculumFilterSort",
   ].includes(event.target.id)) return;
   adminCurriculumListFilters = {
@@ -79712,6 +79869,7 @@ document.addEventListener("change", (event) => {
     kitType: document.querySelector("#adminCurriculumFilterKitType")?.value || "",
     completionBand: document.querySelector("#adminCurriculumFilterCompletion")?.value || "",
     gap: document.querySelector("#adminCurriculumFilterGap")?.value || "",
+    ownerOrganization: document.querySelector("#adminCurriculumFilterOwnerOrganization")?.value || "active",
     sort: document.querySelector("#adminCurriculumFilterSort")?.value || "updated",
   };
   renderAdminCurriculumLessonPlanManager();
