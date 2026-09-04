@@ -342,15 +342,16 @@ async function main() {
     assert(!locked.workspace, "free user must not open full lesson workspace for Pro plan");
     assert(/Weekly Overview/i.test(locked.body), `locked preview missing weekly overview: ${locked.body.slice(0, 200)}`);
     assert(/Learning Domains|Garden Scientists/i.test(locked.body), `locked preview missing overview metadata: ${locked.body.slice(0, 200)}`);
-    assert(/Pro Lesson Plan|Unlock this premium lesson plan/i.test(locked.body), "locked preview missing upgrade card");
+    assert(/Pro Lesson Plan|Unlock the Full Week|Unlock this premium lesson plan/i.test(locked.body), "locked preview missing upgrade card");
     assert(
-      /Upgrade to Pro|Start Your 7-Day Free Trial|Claim Founding/i.test(locked.body + locked.stickyText),
+      /Unlock the Full Week|Finish My Week|Upgrade to Pro|Start Your 7-Day Free Trial|Claim Founding/i.test(locked.body + locked.stickyText),
       "locked preview missing upgrade/trial CTA",
     );
     assert(locked.stickyVisible, "mobile sticky upgrade bar should be visible");
-    assert(!/fp-locked-activity-list/.test(locked.html), "locked preview must not list activity names");
+    assert(!/fp-locked-activity-list/.test(locked.html), "locked preview must not use the old unprotected activity list");
     assert(!/<label>Weekly Objectives|<label>Materials List|<label>Vocabulary|<label>Books|<label>Songs|<label>Daily Activities/i.test(locked.html), "locked preview leaked premium section fields");
-    assert(!/Farm Animal|Sensory Bin|Invite children|Planting a Rainbow/i.test(locked.body), "locked preview leaked premium content strings");
+    assert(!/Invite children|Planting a Rainbow|Bin of potting soil|I notice the soil feels damp/i.test(locked.body), "locked preview leaked premium content strings");
+    assert(/Soil Exploration Bin|Unlock the Full Week/i.test(locked.body), "authorized week preview should show activity titles");
 
     console.log("3b) Free user sees overview-only Pro activity preview with upgrade card");
     await page.evaluate(() => {
@@ -385,7 +386,7 @@ async function main() {
     assert(/Activity Type|Sensory Play|From Lesson Plan|Learning Domains/i.test(lockedActivity.body), `activity preview missing overview metadata: ${lockedActivity.body.slice(0, 240)}`);
     assert(/Unlock this premium activity|Pro Activity/i.test(lockedActivity.body), "activity preview missing upgrade card");
     assert(
-      /Upgrade to Pro|Start Your 7-Day Free Trial|Claim Founding/i.test(lockedActivity.body + lockedActivity.stickyText),
+      /Finish My Lesson Plan|Unlock the Full Week|Upgrade to Pro|Start Your 7-Day Free Trial|Claim Founding/i.test(lockedActivity.body + lockedActivity.stickyText),
       "activity preview missing upgrade/trial CTA",
     );
     assert(lockedActivity.stickyVisible, "mobile sticky upgrade bar should be visible for activities");

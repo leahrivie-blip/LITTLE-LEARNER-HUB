@@ -73,6 +73,7 @@ async function main() {
   assertIncludes(appJs, "freeFavoriteLimit = 20", "free favorites limit");
   assertIncludes(appJs, "freeChildProfileLimit = 5", "free child profile limit");
   assertIncludes(viewerJs, "This is a Pro Lesson Plan.", "locked preview headline");
+  assertIncludes(viewerJs, "Unlock the Full Week", "finish-week locked preview headline");
   assertIncludes(viewerJs, "Complete Monday–Friday lesson plans", "locked preview unlock list");
   assertIncludes(viewerJs, "New lesson plans added every week", "locked preview weekly language");
   assertIncludes(indexHtml, "freePlanBadge", "free plan badge");
