@@ -323,6 +323,7 @@ function emptyActionsFlags() {
     connectedUpgrade: false,
     connectedAutoApply: false,
     planOnly: false,
+    composeReviewDraft: false,
   };
 }
 
@@ -407,6 +408,7 @@ function normalizeOperatorCommand(raw = {}, options = {}) {
     connectedUpgrade: actionsIn.connectedUpgrade === true,
     connectedAutoApply: actionsIn.connectedAutoApply === true,
     planOnly: actionsIn.planOnly === true,
+    composeReviewDraft: actionsIn.composeReviewDraft === true,
     weeklyFieldScope: Array.isArray(actionsIn.weeklyFieldScope) ? actionsIn.weeklyFieldScope.slice() : null,
   };
 
