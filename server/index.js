@@ -2335,6 +2335,11 @@ function normalizedCurriculumLessonPlan(value) {
   if (entry.disposableQaFixture === true || isKnownDisposableQaFixtureId(id)) {
     normalized.disposableQaFixture = true;
   }
+  // Owner-only Admin list organization. Not a publish status and never inferred.
+  if (Object.prototype.hasOwnProperty.call(entry, "ownerOrganizationStatus")
+    && String(entry.ownerOrganizationStatus || "").trim().toLowerCase() === "completed") {
+    normalized.ownerOrganizationStatus = "completed";
+  }
   return normalized;
 }
 

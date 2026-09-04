@@ -200,6 +200,11 @@ function isPathAllowed(pathKey, allowlist, context = {}) {
     return allowlist?.publishAllowed === true;
   }
 
+  // Owner-only organization flag. AI must never set, clear, or infer it.
+  if (/^ownerOrganizationStatus$|\.ownerOrganizationStatus$/.test(path)) {
+    return false;
+  }
+
   if (/^plan$|\.plan$|accessPlan/.test(path)) {
     return allowlist?.accessChangeAllowed === true;
   }
@@ -543,6 +548,14 @@ function verifyPersistedMutationDiff(beforePlan = {}, afterPlan = {}, allowlist 
     if (beforePlan?.publishedAt !== afterPlan?.publishedAt && afterPlan?.publishedAt) {
       recordViolation(violations, { code: "OUT_OF_SCOPE_MUTATION_ATTEMPT", path: "publishedAt", stage: "post_persist.publish" });
     }
+  }
+
+  if (beforePlan?.ownerOrganizationStatus !== afterPlan?.ownerOrganizationStatus) {
+    recordViolation(violations, {
+      code: "OUT_OF_SCOPE_MUTATION_ATTEMPT",
+      path: "ownerOrganizationStatus",
+      stage: "post_persist.owner_organization",
+    });
   }
 
   if (!allowlist.accessChangeAllowed) {

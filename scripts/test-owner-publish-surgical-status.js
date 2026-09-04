@@ -280,6 +280,43 @@ function main() {
     deepEq(explicit.teachingKit, { a: 2 }, "explicit teachingKit updates");
   }
 
+  console.log("OWNER ORGANIZATION STATUS IS SURGICAL AND NON-PUBLISH");
+  {
+    const published = {
+      id: "cur-lp-colors-all-around-us",
+      title: "Colors All Around Us",
+      status: "published",
+      plan: "Free",
+      publishedAt: "2026-04-01T00:00:00.000Z",
+      weeklyOverview: "Keep me",
+      enrichmentDraft: { week: { weeklyOverview: "draft" } },
+    };
+    const marked = applySurgicalLessonIdentityFields(published, {
+      ownerOrganizationStatus: "completed",
+    });
+    eq(marked.ownerOrganizationStatus, "completed", "Mark Complete sets ownerOrganizationStatus");
+    eq(marked.status, "published", "Mark Complete keeps publish status");
+    eq(marked.publishedAt, published.publishedAt, "Mark Complete keeps publishedAt");
+    eq(marked.title, published.title, "Mark Complete keeps title");
+    eq(marked.id, published.id, "Mark Complete keeps lesson id");
+    eq(marked.weeklyOverview, "Keep me", "Mark Complete keeps curriculum text");
+    deepEq(marked.enrichmentDraft, published.enrichmentDraft, "Mark Complete keeps enrichmentDraft");
+
+    const active = applySurgicalLessonIdentityFields(marked, {
+      ownerOrganizationStatus: "active",
+    });
+    eq(active.ownerOrganizationStatus, undefined, "Move Back to Active clears the flag");
+    eq(active.status, "published", "Move Back to Active keeps publish status");
+    eq(active.publishedAt, published.publishedAt, "Move Back to Active keeps publishedAt");
+
+    const laterDraft = applySurgicalLessonIdentityFields(
+      { ...marked },
+      { enrichmentDraft: { week: { weeklyOverview: "later" } } },
+    );
+    eq(laterDraft.ownerOrganizationStatus, "completed", "later surgical write that omits the flag leaves it set");
+    eq(laterDraft.status, "published", "later surgical write still keeps publish status");
+  }
+
   console.log(`\nSurgical status regression passed ${passed} assertions.`);
 }
 

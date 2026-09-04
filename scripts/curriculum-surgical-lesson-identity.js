@@ -27,6 +27,15 @@ function applySurgicalLessonIdentityFields(base, incomingPlan) {
   if (Object.prototype.hasOwnProperty.call(incomingPlan, "teachingKit")) {
     next.teachingKit = incomingPlan.teachingKit;
   }
+  // Owner-only Admin list organization. Not publish status and not an AI field.
+  if (Object.prototype.hasOwnProperty.call(incomingPlan, "ownerOrganizationStatus")) {
+    const org = String(incomingPlan.ownerOrganizationStatus || "").trim().toLowerCase();
+    if (org === "completed") {
+      next.ownerOrganizationStatus = "completed";
+    } else {
+      delete next.ownerOrganizationStatus;
+    }
+  }
   return next;
 }
 
