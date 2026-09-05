@@ -205,6 +205,8 @@ async function main() {
       assert(privacy.body.includes(heading), `privacy page missing ${heading}`);
     });
     assert(privacy.body.includes("Google account data"), "privacy page missing OAuth section");
+    assert(privacy.body.includes("Google Ads API and Google OAuth Data"), "privacy page missing Google OAuth data section");
+    assert(privacy.body.includes("Google Account permissions"), "privacy page missing Google revocation information");
     assert(privacy.body.includes(`rel="canonical" href="http://127.0.0.1:${PORT}/privacy"`), "privacy page canonical incorrect");
     assert(!privacy.body.includes("stripeCustomerId"), "privacy page must not expose account data");
 
