@@ -1,4 +1,4 @@
-const CACHE_NAME = "llh-shell-v211-finish-week-r2";
+const CACHE_NAME = "llh-shell-v212-production-safety-r1";
 const SHELL_VERSION = "20260904-staff-rolelabel-r1";
 const OFFLINE_URL = "/offline.html";
 const NETWORK_TIMEOUT_MS = 2500;
@@ -6,7 +6,7 @@ const APP_SHELL = [
   "/",
   "/index.html",
   "/offline.html",
-  "/styles.css?v=20260812-tk-manual-kit-media-r1",
+  "/styles.css?v=20260904-staff-rolelabel-r1",
   "/styles/llh-admin-workspace.css?v=20260820-overlay-z-colors-vp",
   "/styles/llh-design-tokens.css?v=20260713-ds",
   "/styles/llh-homepage.css?v=20260817-home-farm",
@@ -34,12 +34,12 @@ const APP_SHELL = [
   "/scripts/teaching-kit-printable-model.js?v=20260809-tk-binder-pdf-fix-r5",
   "/scripts/vendor/pdf-lib.min.js?v=20260809-tk-binder-pdf-fix-r5",
   "/scripts/vendor/html2canvas.min.js?v=20260809-tk-binder-pdf-fix-r5",
-  "/scripts/teaching-kit-printable-pdf-merge.js?v=20260809-tk-binder-pdf-fix-r5",
-  "/scripts/teaching-kit-binder-pdf.js?v=20260809-tk-binder-pdf-fix-r5",
+  "/scripts/teaching-kit-printable-pdf-merge.js?v=20260813-tk-binder-durable-r2",
+  "/scripts/teaching-kit-binder-pdf.js?v=20260813-tk-binder-durable-r2",
   "/scripts/teaching-kit.js?v=20260803-tk-quality-review",
   "/scripts/teaching-kit-present.js?v=20260809-tk-binder-pdf-fix-r5",
   "/scripts/teaching-kit-print.js?v=20260809-tk-binder-pdf-fix-r5",
-  "/scripts/teaching-kit-viewer.js?v=20260809-tk-binder-pdf-fix-r5",
+  "/scripts/teaching-kit-viewer.js?v=20260813-tk-binder-durable-r2",
   "/scripts/curriculum-day-field-mapping.js?v=20260809-tk-binder-pdf-fix-r5",
   "/scripts/teaching-kit-enrichment.js?v=20260810-tk-editor-open-focus-fix-r1",
   "/scripts/teaching-kit-upgrade-workspace.js?v=20260803-tk-upgrade-ws",

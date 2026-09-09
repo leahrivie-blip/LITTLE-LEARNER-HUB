@@ -1783,7 +1783,21 @@
           intent,
         };
         if (intent === "preview") {
-          Promise.resolve(ctx.onPrint(payload)).catch(() => {});
+          // Preview does not use the download lifecycle, so surface its failure
+          // here instead of leaving an empty preview area with no recovery path.
+          Promise.resolve(ctx.onPrint(payload)).then((result) => {
+            if (result?.ok) return;
+            state.downloadStatus = "error";
+            state.binderStage = "error";
+            state.downloadStatusMessage = result?.message
+              || "Preview could not be generated. Try again or select a smaller section.";
+            rerender({ preserveScroll: true });
+          }).catch(() => {
+            state.downloadStatus = "error";
+            state.binderStage = "error";
+            state.downloadStatusMessage = "Preview could not be generated. Try again or select a smaller section.";
+            rerender({ preserveScroll: true });
+          });
           return;
         }
         const requestId = job?.createBinderRequestId ? job.createBinderRequestId() : `tk-binder-${Date.now()}`;

@@ -25830,7 +25830,7 @@ function lessonThemeMaterials(theme) {
     "Bugs & Insects": "Plastic bug figures (ants, butterflies, bees, caterpillars), bug viewer containers, magnifying glasses, leaf rubbings, black and yellow paint (bees), pipe cleaners (antennae), bug picture cards",
     "Zoo Animals": "Zoo animal plastic figures, animal picture cards, binoculars prop, animal footprint stamps, sand for tracks sensory bin, animal habitat sorting cards",
     "Pets": "Stuffed animals (dog, cat, rabbit, fish, bird), pet care props (brush, bowl, leash), pet picture cards, stethoscope (vet play), pet carrier box prop",
-    "Colors": "Color sorting trays, paint samples, colored cellophane squares, colored tissue paper, rainbow ribbon streamers, color mixing materials (watercolor + water), color picture cards",
+    "Colors": "Color sorting trays, paint samples, colored cellophane squares, colored tissue paper, large colorful scarves, color mixing materials (watercolor + water), color picture cards",
     "Shapes": "Shape manipulatives (foam or wooden), shape sorting board, colored construction paper for shape art, shape stamps, geoboard with rubber bands (preschool), playdough and shape cutters",
     "Numbers": "Counting bears or cubes (20+), number cards 1–10, ten frames, number stamps, counting tray with real objects, dice (large foam), number picture cards",
     "Letters": "Foam or magnetic letters, alphabet picture cards, letter stamps and ink pads, name cards, letter-sound picture cards, tracing paper, play dough for letter forming",
