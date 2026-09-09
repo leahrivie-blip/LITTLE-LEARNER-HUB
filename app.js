@@ -2600,9 +2600,9 @@ function isCuratedFreeCurriculumPlan(planOrResource) {
 
 function isFreeAccessibleCurriculumPlan(planOrResource) {
   if (planOrResource?._userLessonCopy) return true;
-  // Free accounts receive the fixed 10-plan Starter Library. A record's plan
-  // field remains its publishing tier; it cannot expand Free entitlement alone.
-  return isCuratedFreeCurriculumPlan(planOrResource);
+  // Canonical Free unlock: lesson.plan === "Free". Starter Library IDs are not authorization.
+  const plan = planOrResource?._curriculumLessonPlan || planOrResource;
+  return String(plan?.plan || planOrResource?.plan || "").trim() === "Free";
 }
 
 function curriculumResourceLooksLikeLessonPlan(resource) {
