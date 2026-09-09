@@ -741,7 +741,7 @@ function createOnboardingWelcome(deps) {
     };
   }
 
-  async function deliverInAppWelcome(store, email, user, preview, sequenceId) {
+  async function deliverInAppWelcome(store, email, user, preview, sequenceId, options = {}) {
     const now = new Date().toISOString();
     const message = {
       id: messagingRandomId("msg"),
@@ -783,6 +783,7 @@ function createOnboardingWelcome(deps) {
       refId: `onboarding:${sequenceId}:${email}`,
       senderName: ADMIN_NAME || "Leah",
       deepLink: "/?view=messages",
+      deferPersist: Boolean(options.deferPersist),
     });
     return { sent: true, messageId: message.id };
   }
@@ -885,7 +886,9 @@ function createOnboardingWelcome(deps) {
         result.inApp.messageId = flags.inAppMessageId || "";
       } else {
         result.inApp.attempted = true;
-        const inApp = await deliverInAppWelcome(store, clean, user, previewInApp, sequenceId);
+        const inApp = await deliverInAppWelcome(store, clean, user, previewInApp, sequenceId, {
+          deferPersist: Boolean(options.deferPersist),
+        });
         result.inApp.sent = Boolean(inApp.sent);
         result.inApp.messageId = inApp.messageId || "";
         result.inApp.reason = inApp.sent ? "sent" : "failed";
@@ -997,7 +1000,8 @@ function createOnboardingWelcome(deps) {
       }
     }
 
-    // Stamp on the same store object that holds the welcome message, then persist once.
+    // Stamp on the same store object that holds the welcome message, then persist once
+    // (unless the caller batches this mutation into a later writeStore).
     store.users = store.users || {};
     store.users[clean] = {
       ...(store.users[clean] || { email: clean }),
@@ -1005,7 +1009,7 @@ function createOnboardingWelcome(deps) {
       onboardingWelcome: nextFlags,
       updatedAt: nowIso,
     };
-    writeStore(store);
+    if (!options.deferPersist) writeStore(store);
     return result;
   }
 
@@ -1019,13 +1023,13 @@ function createOnboardingWelcome(deps) {
     return deliverSequenceWelcome(email, SEQUENCE_ID, options);
   }
 
-  async function maybeDeliverOnSignup(email) {
-    const store = readStore();
+  async function maybeDeliverOnSignup(email, options = {}) {
+    const store = typeof writableStore === "function" ? writableStoreCompatible() : readStore();
     const user = store.users?.[String(email || "").trim().toLowerCase()] || { email };
     if (!isEligibleForFreeWelcome(user)) {
       return { ok: false, reason: "not_eligible" };
     }
-    return deliverFreeWelcome(email, { reason: "signup" });
+    return deliverFreeWelcome(email, { reason: "signup", ...options });
   }
 
   async function maybeDeliverOnTrialStart(email) {

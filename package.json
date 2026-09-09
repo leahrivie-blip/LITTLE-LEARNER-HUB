@@ -85,6 +85,7 @@
     "test:teaching-kit-curriculum-production": "NODE_ENV=test node scripts/test-teaching-kit-curriculum-production.js",
     "test:teaching-kit-integrated-release": "NODE_ENV=test node scripts/test-teaching-kit-integrated-release.js",
     "test:signup-transactional-emails": "NODE_ENV=test node scripts/test-signup-transactional-emails.js",
+    "test:signup-write-amplification": "NODE_ENV=test node scripts/test-signup-write-amplification.js",
     "test:pr439-production-equivalent": "NODE_ENV=test node scripts/verify-pr439-production-equivalent.js",
     "test:teaching-kit-slice-1a": "NODE_ENV=test node scripts/test-teaching-kit-slice-1a.js",
     "test:teaching-kit-slice-1b": "NODE_ENV=test node scripts/test-teaching-kit-slice-1b.js",

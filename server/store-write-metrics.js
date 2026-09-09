@@ -8,6 +8,9 @@ function createStoreWriteMetrics() {
     fullStoreWritesStarted: 0,
     fullStoreWritesSucceeded: 0,
     fullStoreWritesFailed: 0,
+    /** Count of durable persist attempts (Postgres upsert start or local-json file write). */
+    durablePersistCalls: 0,
+    lastDurablePersistSource: "",
     debouncedScheduled: 0,
     debouncedFlushed: 0,
     debouncedCoalesced: 0,
@@ -32,8 +35,14 @@ function createStoreWriteMetrics() {
   };
 }
 
+function recordDurablePersist(metrics, source = "") {
+  metrics.durablePersistCalls = (metrics.durablePersistCalls || 0) + 1;
+  metrics.lastDurablePersistSource = String(source || "").slice(0, 80);
+}
+
 function recordWriteStart(metrics, payloadBytes) {
   metrics.fullStoreWritesStarted += 1;
+  recordDurablePersist(metrics, "postgres_upsert");
   metrics.lastWriteAt = new Date().toISOString();
   metrics.lastPayloadBytes = payloadBytes;
   metrics.totalPayloadBytes += payloadBytes;
@@ -67,6 +76,7 @@ function snapshot(metrics) {
 
 module.exports = {
   createStoreWriteMetrics,
+  recordDurablePersist,
   recordWriteStart,
   recordWriteSuccess,
   recordWriteFailure,
