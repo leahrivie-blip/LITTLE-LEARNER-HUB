@@ -2600,9 +2600,9 @@ function isCuratedFreeCurriculumPlan(planOrResource) {
 
 function isFreeAccessibleCurriculumPlan(planOrResource) {
   if (planOrResource?._userLessonCopy) return true;
-  // Canonical Free unlock: lesson.plan === "Free". Starter Library IDs are not authorization.
-  const plan = planOrResource?._curriculumLessonPlan || planOrResource;
-  return String(plan?.plan || planOrResource?.plan || "").trim() === "Free";
+  // Free accounts receive the fixed 10-plan Starter Library. A record's plan
+  // field remains its publishing tier; it cannot expand Free entitlement alone.
+  return isCuratedFreeCurriculumPlan(planOrResource);
 }
 
 function curriculumResourceLooksLikeLessonPlan(resource) {
@@ -34712,10 +34712,13 @@ function renderHomePublicPreviews() {
   }
   const ageFilter = document.querySelector("[data-home-browse-age].is-active")?.getAttribute("data-home-browse-age") || "All";
   const published = homePublishedLessonPlans();
+  const libraryPending = !published.length && (curriculumLibraryLoading || siteContentLoadPromise);
   const freePlans = published.filter((plan) => isFreeAccessibleCurriculumPlan(plan) && homeMatchesAgeFilter(plan, ageFilter)).slice(0, 10);
   const lockedPlans = published.filter((plan) => !isFreeAccessibleCurriculumPlan(plan) && homeMatchesAgeFilter(plan, ageFilter)).slice(0, 6);
   if (freeGrid) {
-    freeGrid.innerHTML = freePlans.length
+    freeGrid.innerHTML = libraryPending
+      ? `<p class="muted-copy" role="status">Loading lesson plans…</p>`
+      : freePlans.length
       ? freePlans.map((plan) => homeBrowseLessonCardHtml(plan, { locked: false })).join("")
       : `<p class="muted-copy" role="status">No lesson plans are available for this age group yet.</p>`;
   }
@@ -34728,7 +34731,11 @@ function renderHomePublicPreviews() {
   const lockedNote = document.querySelector(".llh-home-locked-note");
   if (lockedHeading) lockedHeading.hidden = !lockedPlans.length;
   if (lockedNote) lockedNote.hidden = !lockedPlans.length;
-  if (ageHost) ageHost.innerHTML = homeAgeGroupCardsHtml();
+  if (ageHost) {
+    ageHost.innerHTML = libraryPending
+      ? `<p class="muted-copy" role="status">Loading lesson plans…</p>`
+      : homeAgeGroupCardsHtml();
+  }
   const lessonGrid = document.querySelector("#homeLessonPreviewGrid");
   if (lessonGrid) {
     const lessons = pickHomeLessonPreviewPlans(5);

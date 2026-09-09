@@ -2812,10 +2812,10 @@ function isStoreCuratedFreeLessonPlan(plan, storeOrContent = null) {
 function userMayUnlockFreeCurriculumPlan(plan, accessContext = {}) {
   const entry = normalizedCurriculumLessonPlan(plan);
   if (!entry) return false;
-  // Canonical Free unlock: published parent lesson.plan === "Free".
-  // Free Starter Library IDs remain inventory/marketing only — not authorization.
-  // Legacy Free bypass is permanently disabled. accessContext kept for call-site compatibility.
-  return String(entry.plan || "").trim() === "Free";
+  // Free accounts receive the fixed Starter Library. The publishing-tier field
+  // alone must not expand access beyond that selection.
+  return String(entry.plan || "").trim() === "Free"
+    && isStoreCuratedFreeLessonPlan(entry, accessContext.store || accessContext.siteContent);
 }
 
 function authorizedCurriculumLessonPlanDto(plan) {
