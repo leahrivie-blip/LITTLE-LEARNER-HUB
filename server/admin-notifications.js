@@ -129,6 +129,7 @@ async function emitAdminAlert(store, deps, opts = {}) {
     senderName: opts.senderName || "Little Learner Hub",
     url: deepLink,
     category,
+    deferPersist: Boolean(opts.deferPersist),
   });
 
   if (opts.sendEmail && typeof deps.notifyAdminEmail === "function") {

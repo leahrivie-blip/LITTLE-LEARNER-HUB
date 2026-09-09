@@ -5626,6 +5626,7 @@ function writeLocalJsonStore(store) {
   }
   ensureStore();
   fs.writeFileSync(storePath, JSON.stringify(store, null, 2));
+  storeWriteMetricsLib.recordDurablePersist(storeWriteMetrics, "local_json");
 }
 
 function clearDebouncedStoreWriteTimer() {
@@ -10240,6 +10241,15 @@ async function handleAccountProfileSync(request, response) {
   const shouldFireMetaRegistration = isSignupRequest
     && Boolean(metaEventId)
     && !existing.metaCompleteRegistrationEventId;
+  // Fold Meta CompleteRegistration stamps into the same awaited persist as the profile
+  // so signup does not trigger a second full-store write after HTTP 200.
+  if (shouldFireMetaRegistration) {
+    const liveForMeta = writableStore();
+    if (liveForMeta.users?.[email]) {
+      liveForMeta.users[email].metaCompleteRegistrationEventId = metaEventId;
+      liveForMeta.users[email].metaCompleteRegistrationAt = new Date().toISOString();
+    }
+  }
   try {
     await writeStoreAsync(writableStore());
   } catch (error) {
@@ -10270,6 +10280,7 @@ async function handleAccountProfileSync(request, response) {
   });
 
   // Authoritative CompleteRegistration via CAPI (Pixel may mirror with the same event_id).
+  // Stamp was already included in the profile write above — do not writeStore again.
   if (shouldFireMetaRegistration) {
     const hints = metaCapi.requestClientHints(request);
     fireMetaCapiSafe("CompleteRegistration", {
@@ -10290,16 +10301,6 @@ async function handleAccountProfileSync(request, response) {
         value: 0,
       },
     });
-    try {
-      const metaStore = writableStore();
-      if (metaStore.users?.[email]) {
-        metaStore.users[email].metaCompleteRegistrationEventId = metaEventId;
-        metaStore.users[email].metaCompleteRegistrationAt = new Date().toISOString();
-        writeStore(metaStore, { immediate: true });
-      }
-    } catch {
-      /* non-blocking */
-    }
   }
 
   // Side effects after the response — never delay Create Account / Log In UI.
@@ -10313,36 +10314,42 @@ async function handleAccountProfileSync(request, response) {
 /**
  * Exactly-once (per successful stamp) free welcome + admin signup alert.
  * Safe to call on signup retries; never throws to the HTTP handler.
+ *
+ * Persistence is intentionally coalesced:
+ * 1) welcome (deferPersist) + claim + in-app admin alert → one writeStore
+ * 2) after owner email result → one writeStore for sent/clear stamp
+ * Profile + Meta stamps are already durable from handleAccountProfileSync.
  */
 async function deliverSignupTransactionalSideEffects(email) {
   const clean = normalizeEmail(email);
   if (!clean) return;
+  let welcomeResult = null;
   try {
-    await onboardingWelcome.maybeDeliverOnSignup(clean);
+    welcomeResult = await onboardingWelcome.maybeDeliverOnSignup(clean, { deferPersist: true });
   } catch (err) {
     console.warn("[onboarding-welcome] free welcome failed:", err.message);
   }
   try {
-    const claimStore = writableStore();
-    const claim = signupTransactional.claimAdminSignupAlert(claimStore, clean);
+    const store = writableStore();
+    const claim = signupTransactional.claimAdminSignupAlert(store, clean);
     if (!claim.claimed) {
       // Heal a missing sent stamp when we already notified (racing store write).
       if (claim.reason === "already_sent" || claim.reason === "already_notified") {
-        const healStore = writableStore();
-        if (healStore.users?.[clean] && !healStore.users[clean].adminSignupAlertSentAt) {
-          signupTransactional.markAdminSignupAlertSent(healStore, clean, {
-            messageId: healStore.users[clean].adminSignupAlertMessageId || "recovered",
+        if (store.users?.[clean] && !store.users[clean].adminSignupAlertSentAt) {
+          signupTransactional.markAdminSignupAlertSent(store, clean, {
+            messageId: store.users[clean].adminSignupAlertMessageId || "recovered",
           });
-          writeStore(healStore, { immediate: true });
+          writeStore(store, { immediate: true });
+          return;
         }
       }
+      // Flush deferred welcome mutations only when welcome actually changed the store.
+      if (welcomeResult?.ok) writeStore(store, { immediate: true });
       return;
     }
-    writeStore(claimStore, { immediate: true });
 
-    const liveUser = writableStore().users?.[clean] || { email: clean };
-    const alertStore = writableStore();
-    await emitAdminAlertSafe(alertStore, {
+    const liveUser = store.users?.[clean] || { email: clean };
+    await emitAdminAlertSafe(store, {
       category: "signup",
       type: "admin_new_signup",
       title: "New account created",
@@ -10351,6 +10358,7 @@ async function deliverSignupTransactionalSideEffects(email) {
       name: liveUser.name || "",
       refId: `signup:${clean}`,
       sendEmail: false,
+      deferPersist: true,
       emailKind: "Signup",
       emailFields: [
         ["Account type", liveUser.accountType ? accountAccess.accountTypeLabel(liveUser.accountType) : ""],
@@ -10363,7 +10371,8 @@ async function deliverSignupTransactionalSideEffects(email) {
         signupAt: liveUser.signupAt || liveUser.createdAt || "",
       },
     });
-    writeStore(alertStore, { immediate: true });
+    // One durable persist for deferred welcome + claim + in-app admin alert.
+    writeStore(store, { immediate: true });
 
     const emailResult = await notifyAdmin({
       ownerEventType: "admin_new_signup",
@@ -10389,15 +10398,14 @@ async function deliverSignupTransactionalSideEffects(email) {
       },
     });
 
-    const stampStore = writableStore();
     if (emailResult?.sent) {
-      signupTransactional.markAdminSignupAlertSent(stampStore, clean, {
+      signupTransactional.markAdminSignupAlertSent(store, clean, {
         messageId: emailResult.messageId || "",
       });
     } else {
-      signupTransactional.clearAdminSignupAlertClaim(stampStore, clean);
+      signupTransactional.clearAdminSignupAlertClaim(store, clean);
     }
-    writeStore(stampStore, { immediate: true });
+    writeStore(store, { immediate: true });
   } catch (err) {
     console.warn("[admin-notifications] signup alert failed:", err?.message || err);
     try {
@@ -27828,6 +27836,9 @@ function handleHealth(request, response) {
     aiGuideEnabled: isAiGuideEnabled(),
     aiGuide: aiGuideStatus(),
     founding: foundingStatusPayload(store),
+    ...(String(process.env.NODE_ENV || "").toLowerCase() === "test"
+      ? { storeWrites: storeWriteMetricsLib.snapshot(storeWriteMetrics) }
+      : {}),
     domain: {
       requestHost: host || null,
       configuredSiteUrl: SITE_URL,
@@ -29962,6 +29973,7 @@ async function fanOutNotificationsAndPush(store, {
   url = "",
   category = "",
   deepLink = "",
+  deferPersist = false,
 }) {
   const uniqueRecipients = [...new Set((recipients || []).map((e) => normalizeEmail(e)).filter(Boolean))];
   const now = new Date().toISOString();
@@ -30003,7 +30015,7 @@ async function fanOutNotificationsAndPush(store, {
   };
 
   if (!pushService || !pushService.configured()) {
-    await writeStoreAsync(store);
+    if (!deferPersist) await writeStoreAsync(store);
     return summary;
   }
 
@@ -30073,7 +30085,7 @@ async function fanOutNotificationsAndPush(store, {
     });
   }
 
-  await writeStoreAsync(store);
+  if (!deferPersist) await writeStoreAsync(store);
   return summary;
 }
 
