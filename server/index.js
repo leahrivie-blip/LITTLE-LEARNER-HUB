@@ -20965,7 +20965,10 @@ async function handlePublicCurriculumResourceFile(request, response, url) {
     jsonResponse(response, 404, { error: "Resource not found." });
     return;
   }
-  const requiresProAccess = linkedLessons.some((plan) => plan.plan === "Pro");
+  const accessContext = { store, siteContent: store.siteContent || null };
+  const requiresProAccess = linkedLessons.some(
+    (plan) => !userMayUnlockFreeCurriculumPlan(plan, accessContext),
+  );
   if (requiresProAccess) {
     const access = await resolveCurriculumAccessUser(request, url);
     if (!access.authorized) {
@@ -25619,7 +25622,10 @@ async function authorizePublicCurriculumResource(store, resource, request, url) 
   if (!linkedLessons.length) {
     return { ok: false, status: 404, error: "Resource not found." };
   }
-  const requiresProAccess = linkedLessons.some((plan) => plan.plan === "Pro");
+  const accessContext = { store, siteContent: store.siteContent || null };
+  const requiresProAccess = linkedLessons.some(
+    (plan) => !userMayUnlockFreeCurriculumPlan(plan, accessContext),
+  );
   if (requiresProAccess) {
     const access = await resolveCurriculumAccessUser(request, url);
     if (!access.authorized) {
