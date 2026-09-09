@@ -340,13 +340,11 @@ async function main() {
 
     // Non-starter plans stay content-locked for Free (browse/preview OK; full body withheld)
     const locked = await request("GET", "/api/curriculum/lesson-plans/cur-lp-preschool-letters-and-sounds", null, authHeaders("free.user@test.local"));
-    assert.ok([200, 403].includes(locked.status), `unexpected status ${locked.status}`);
-    if (locked.status === 200) {
-      assert.equal(locked.json.lessonPlan.locked, true);
-      assert.equal(locked.json.lessonPlan.dailyPlans, undefined);
-      assert.equal(locked.json.lessonPlan.objectives, undefined);
-      assert.doesNotMatch(JSON.stringify(locked.json), /SECRET_OBJECTIVE_SHOULD_LOCK|SECRET_ACTIVITY_SHOULD_LOCK/);
-    }
+    assert.equal(locked.status, 200, `locked preview must not throw: ${locked.text}`);
+    assert.equal(locked.json.lessonPlan.locked, true);
+    assert.equal(locked.json.lessonPlan.dailyPlans, undefined);
+    assert.equal(locked.json.lessonPlan.objectives, undefined);
+    assert.doesNotMatch(JSON.stringify(locked.json), /SECRET_OBJECTIVE_SHOULD_LOCK|SECRET_ACTIVITY_SHOULD_LOCK/);
 
     // Trial can open Pro plan (browse)
     const trialBrowse = await request("GET", "/api/curriculum/lesson-plans/cur-lp-preschool-letters-and-sounds", null, authHeaders("trial.user@test.local"));

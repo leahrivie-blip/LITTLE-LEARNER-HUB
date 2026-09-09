@@ -2692,14 +2692,14 @@ function authorizedCurriculumDailyPlansDto(dailyPlans) {
 function publicCurriculumLessonPlanPreviewDto(plan, storeOrContent = null) {
   const entry = normalizedCurriculumLessonPlan(plan);
   if (!entry || !isCurriculumLessonPublic(entry.status)) return null;
-  // Free unlock is plan-authoritative — Free lessons use the unlocked Free DTO path.
+  // Curated Free lessons use the unlocked DTO; other lessons receive this preview.
   if (userMayUnlockFreeCurriculumPlan(entry, { store: storeOrContent, siteContent: storeOrContent })) return null;
   // Public Pro teaser: authorized metadata only. Do not ship objectives, materials,
   // vocabulary, books, songs, instructions, or asset URLs. Week titles/categories
   // come from the server projection — never the full dailyPlans object.
   const weekPreview = premiumWeekPreview.buildAuthorizedWeekPreview(entry);
   const activityCount = weekPreview?.activityCount
-    || CURRICULUM_WEEKDAYS.reduce((count, day) => {
+    || Array.from(CURRICULUM_WEEKDAYS).reduce((count, day) => {
       const items = Array.isArray(entry.dailyPlans?.[day]?.items) ? entry.dailyPlans[day].items : [];
       return count + items.filter((item) => String(item?.title || "").trim()).length;
     }, 0);
