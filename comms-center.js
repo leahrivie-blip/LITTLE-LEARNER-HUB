@@ -1380,12 +1380,21 @@
     section.innerHTML = `<div class="changelog-page"><p class="messages-loading">Loading what's new…</p></div>`;
 
     let notes = [];
+    let loadError = "";
+    const controller = typeof AbortController === "function" ? new AbortController() : null;
+    const timeout = window.setTimeout(() => controller?.abort(), 15000);
     try {
-      const res = await fetch("/api/release-notes", { cache: "no-store" });
+      const res = await fetch("/api/release-notes", { cache: "no-store", signal: controller?.signal });
       const data = res.ok ? await res.json().catch(() => ({})) : {};
+      if (!res.ok) throw new Error(data.error || "Could not load What's New.");
       notes = Array.isArray(data.releaseNotes) ? data.releaseNotes : [];
     } catch (error) {
       console.warn("Could not load release notes", error);
+      loadError = error?.name === "AbortError"
+        ? "What’s New took too long to load. Please try again."
+        : (error?.message || "Could not load What’s New. Please try again.");
+    } finally {
+      window.clearTimeout(timeout);
     }
 
     if (typeof window.whatsNewNavHasNotes !== "undefined") {
@@ -1406,9 +1415,11 @@
           <div class="page-title">
             <p class="eyebrow">Product Updates</p>
             <h2>What's New</h2>
-            <p>Published product updates will appear here when they are ready.</p>
+            <p>${loadError || "Published product updates will appear here when they are ready."}</p>
           </div>
-          ${emptyStateHtml("No published updates yet", "This page stays quiet until a release note is published.")}
+          ${loadError
+            ? `<button class="ghost-button" type="button" data-retry-changelog>Retry</button>`
+            : emptyStateHtml("No published updates yet", "This page stays quiet until a release note is published.")}
         </div>
       `;
       if (typeof window.refreshContextualViewBackButtons === "function") {
@@ -2841,6 +2852,13 @@
   // ─── Event delegation for messages center ───────────────────────────────────
 
   document.addEventListener("click", async (event) => {
+    const retryChangelog = event.target.closest("[data-retry-changelog]");
+    if (retryChangelog) {
+      event.preventDefault();
+      renderChangelogPage();
+      return;
+    }
+
     const markAllBtn = event.target.closest("[data-messages-mark-all-read]");
     if (markAllBtn) {
       event.preventDefault();

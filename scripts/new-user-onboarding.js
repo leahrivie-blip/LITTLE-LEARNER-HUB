@@ -91,6 +91,11 @@
     }
   }
 
+  function accountScopedKey(key) {
+    const email = currentAccountEmail();
+    return email ? `${key}:${encodeURIComponent(email)}` : key;
+  }
+
   function hasCompletedOnboarding(state = getState()) {
     if (state.completedAt) return true;
     if (state.step === "done" || state.step === "free-start") return true;
@@ -101,11 +106,15 @@
   }
 
   function getState() {
-    return { ...defaultState(), ...readJson(ONBOARDING_KEY, {}) };
+    const stored = readJson(accountScopedKey(ONBOARDING_KEY), null) || readJson(ONBOARDING_KEY, {});
+    const state = { ...defaultState(), ...stored };
+    const email = currentAccountEmail();
+    return state.accountEmail && email && state.accountEmail !== email ? defaultState() : state;
   }
 
   function saveState(next) {
-    writeJson(ONBOARDING_KEY, next);
+    const state = { ...next, accountEmail: next.accountEmail || currentAccountEmail() };
+    writeJson(accountScopedKey(ONBOARDING_KEY), state);
     return next;
   }
 
@@ -196,7 +205,7 @@
   }
 
   function getValueMoments() {
-    return readJson(VALUE_MOMENTS_KEY, { count: 0, kinds: [] });
+    return readJson(accountScopedKey(VALUE_MOMENTS_KEY), { count: 0, kinds: [] });
   }
 
   function markValueMoment(kind) {
@@ -204,7 +213,7 @@
     const kinds = Array.isArray(current.kinds) ? current.kinds.slice() : [];
     if (!kinds.includes(kind)) kinds.push(kind);
     const next = { count: kinds.length, kinds, lastAt: new Date().toISOString(), lastKind: kind };
-    writeJson(VALUE_MOMENTS_KEY, next);
+    writeJson(accountScopedKey(VALUE_MOMENTS_KEY), next);
     return next;
   }
 

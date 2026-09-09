@@ -2692,14 +2692,14 @@ function authorizedCurriculumDailyPlansDto(dailyPlans) {
 function publicCurriculumLessonPlanPreviewDto(plan, storeOrContent = null) {
   const entry = normalizedCurriculumLessonPlan(plan);
   if (!entry || !isCurriculumLessonPublic(entry.status)) return null;
-  // Free unlock is plan-authoritative — Free lessons use the unlocked Free DTO path.
+  // Curated Free lessons use the unlocked DTO; other lessons receive this preview.
   if (userMayUnlockFreeCurriculumPlan(entry, { store: storeOrContent, siteContent: storeOrContent })) return null;
   // Public Pro teaser: authorized metadata only. Do not ship objectives, materials,
   // vocabulary, books, songs, instructions, or asset URLs. Week titles/categories
   // come from the server projection — never the full dailyPlans object.
   const weekPreview = premiumWeekPreview.buildAuthorizedWeekPreview(entry);
   const activityCount = weekPreview?.activityCount
-    || CURRICULUM_WEEKDAYS.reduce((count, day) => {
+    || Array.from(CURRICULUM_WEEKDAYS).reduce((count, day) => {
       const items = Array.isArray(entry.dailyPlans?.[day]?.items) ? entry.dailyPlans[day].items : [];
       return count + items.filter((item) => String(item?.title || "").trim()).length;
     }, 0);
@@ -2783,7 +2783,7 @@ function freePlanAccessContextFromUser(user, siteContent = null) {
   };
 }
 
-/** Historical/merchandising starter ID defaults. Not customer entitlement. */
+/** Default configured IDs for the canonical curated Free-access allowlist. */
 function defaultFreeStarterLibrary() {
   return {
     lessonPlanIds: [...freeCurriculumSample.DEFAULT_FREE_STARTER_LESSON_IDS],
@@ -2800,7 +2800,7 @@ function freeStarterOverrideIds(storeOrContent = null) {
   return null;
 }
 
-/** Inventory helper for Free Starter Library admin/marketing — not Free/Pro authorization. */
+/** Returns whether a plan belongs to the configured curated Free-access allowlist. */
 function isStoreCuratedFreeLessonPlan(plan, storeOrContent = null) {
   return freeCurriculumSample.isCuratedFreeLessonPlan(
     plan,
@@ -2812,10 +2812,9 @@ function isStoreCuratedFreeLessonPlan(plan, storeOrContent = null) {
 function userMayUnlockFreeCurriculumPlan(plan, accessContext = {}) {
   const entry = normalizedCurriculumLessonPlan(plan);
   if (!entry) return false;
-  // Canonical Free unlock: published parent lesson.plan === "Free".
-  // Free Starter Library IDs remain inventory/marketing only — not authorization.
-  // Legacy Free bypass is permanently disabled. accessContext kept for call-site compatibility.
-  return String(entry.plan || "").trim() === "Free";
+  // The configured Starter Library is the canonical Free curriculum set.
+  return String(entry.plan || "").trim() === "Free"
+    && isStoreCuratedFreeLessonPlan(entry, accessContext.store || accessContext.siteContent);
 }
 
 function authorizedCurriculumLessonPlanDto(plan) {
@@ -20584,8 +20583,8 @@ async function handlePublicSiteContent(request, response, url) {
     : content.upgradeMessaging;
   const { featureFlags, curriculum, lessonPlans, customLessonPlans, activities, ...publicSiteContent } = content;
   // Paid users get the full unlocked library.
-  // Guests / Free users unlock published lessons where lesson.plan === "Free".
-  // Starter Library IDs are merchandising only and never grant or deny access.
+  // Guests / Free users unlock only published, plan: Free lessons in the configured
+  // Starter Library allowlist. Raw plan: Free records outside that list stay locked.
   let curriculumLibrary = {
     lessonPlans: [],
     activities: [],
@@ -20649,10 +20648,10 @@ async function handlePublicSiteContent(request, response, url) {
         lessonPlanIds: resolveFreeStarterLibrary(store).lessonPlanIds,
         count: freeCurriculumSample.REQUIRED_COUNT,
         distribution: freeCurriculumSample.REQUIRED_DISTRIBUTION,
-        purpose: "marketing-inventory",
-        notEntitlement: true,
+        purpose: "curated-free-access-allowlist",
+        authorization: "requires-starter-membership-and-plan-free",
       },
-      canonicalFreePublishedCount: freeCurriculumSample.countCanonicalPublishedFreePlans(
+      publishedFreePlanRecordCount: freeCurriculumSample.countPublishedFreePlanRecords(
         readSiteCurriculum(store).lessonPlans || [],
       ),
       membershipCopy: publicMembershipCopyPayload(store),
@@ -20974,7 +20973,10 @@ async function handlePublicCurriculumResourceFile(request, response, url) {
     jsonResponse(response, 404, { error: "Resource not found." });
     return;
   }
-  const requiresProAccess = linkedLessons.some((plan) => plan.plan === "Pro");
+  const accessContext = { store, siteContent: store.siteContent || null };
+  const requiresProAccess = linkedLessons.some(
+    (plan) => !userMayUnlockFreeCurriculumPlan(plan, accessContext),
+  );
   if (requiresProAccess) {
     const access = await resolveCurriculumAccessUser(request, url);
     if (!access.authorized) {
@@ -25628,7 +25630,10 @@ async function authorizePublicCurriculumResource(store, resource, request, url) 
   if (!linkedLessons.length) {
     return { ok: false, status: 404, error: "Resource not found." };
   }
-  const requiresProAccess = linkedLessons.some((plan) => plan.plan === "Pro");
+  const accessContext = { store, siteContent: store.siteContent || null };
+  const requiresProAccess = linkedLessons.some(
+    (plan) => !userMayUnlockFreeCurriculumPlan(plan, accessContext),
+  );
   if (requiresProAccess) {
     const access = await resolveCurriculumAccessUser(request, url);
     if (!access.authorized) {
@@ -27975,7 +27980,7 @@ function publicMembershipCopyPayload(store = peekStore()) {
   };
 }
 
-/** Merchandising inventory for homepage/admin starter set. Does not authorize lessons. */
+/** Resolve the canonical curated Free-access allowlist for homepage and admin surfaces. */
 function resolveFreeStarterLibrary(store = peekStore()) {
   const override = freeStarterOverrideIds(store);
   const ids = override || [...freeCurriculumSample.DEFAULT_FREE_STARTER_LESSON_IDS];
@@ -28377,9 +28382,9 @@ function handleAdminFreeStarterLibraryGet(request, response, url) {
   }
   jsonResponse(response, 200, {
     ok: true,
-    purpose: "marketing-inventory",
-    notEntitlement: true,
-    entitlementSource: "lesson.plan",
+    purpose: "curated-free-access-allowlist",
+    authorization: "requires-starter-membership-and-plan-free",
+    rawPlanField: "plan",
     freeStarterLibrary: resolveFreeStarterLibrary(readStore()),
     requiredCount: freeCurriculumSample.REQUIRED_COUNT,
     requiredDistribution: freeCurriculumSample.REQUIRED_DISTRIBUTION,
@@ -28388,9 +28393,9 @@ function handleAdminFreeStarterLibraryGet(request, response, url) {
 }
 
 /**
- * Save merchandising starter IDs only.
- * Never mutates lesson.plan, publication status, or curriculum content.
- * Customer access continues to follow Admin Set Free / Set Pro (lesson.plan).
+ * Save the curated Free-access allowlist.
+ * Never mutates lesson.plan, publication status, or curriculum content. A lesson
+ * needs both allowlist membership and plan: Free before Free users can open it.
  */
 async function handleAdminFreeStarterLibrarySave(request, response) {
   let body = {};
@@ -28436,7 +28441,7 @@ async function handleAdminFreeStarterLibrarySave(request, response) {
         ageCounts: validation.ageCounts,
         plans: plans.map((p) => ({ id: p.id, title: p.title, age: p.age, status: p.status })),
       },
-      message: "Preview only — set confirm:true to save. This list is merchandising inventory, not lesson entitlement.",
+      message: "Preview only — set confirm:true to save. This list controls curated Free access; it does not change any lesson's plan field.",
     });
     return;
   }

@@ -340,13 +340,11 @@ async function main() {
 
     // Non-starter plans stay content-locked for Free (browse/preview OK; full body withheld)
     const locked = await request("GET", "/api/curriculum/lesson-plans/cur-lp-preschool-letters-and-sounds", null, authHeaders("free.user@test.local"));
-    assert.ok([200, 403].includes(locked.status), `unexpected status ${locked.status}`);
-    if (locked.status === 200) {
-      assert.equal(locked.json.lessonPlan.locked, true);
-      assert.equal(locked.json.lessonPlan.dailyPlans, undefined);
-      assert.equal(locked.json.lessonPlan.objectives, undefined);
-      assert.doesNotMatch(JSON.stringify(locked.json), /SECRET_OBJECTIVE_SHOULD_LOCK|SECRET_ACTIVITY_SHOULD_LOCK/);
-    }
+    assert.equal(locked.status, 200, `locked preview must not throw: ${locked.text}`);
+    assert.equal(locked.json.lessonPlan.locked, true);
+    assert.equal(locked.json.lessonPlan.dailyPlans, undefined);
+    assert.equal(locked.json.lessonPlan.objectives, undefined);
+    assert.doesNotMatch(JSON.stringify(locked.json), /SECRET_OBJECTIVE_SHOULD_LOCK|SECRET_ACTIVITY_SHOULD_LOCK/);
 
     // Trial can open Pro plan (browse)
     const trialBrowse = await request("GET", "/api/curriculum/lesson-plans/cur-lp-preschool-letters-and-sounds", null, authHeaders("trial.user@test.local"));
@@ -467,7 +465,7 @@ async function main() {
     const afterFail = await request("GET", "/api/trial-curriculum-exports", null, wmFailHeaders);
     assert.equal(afterFail.json.used, 0, "verified server-side generation failure restores allowance");
 
-    // Existing Free unlocks published plan===Free records in this fixture (10 Free starters).
+    // This fixture's ten published plan: Free records are all configured Starter lessons.
     // Count is canonical plan, not starter-ID authorization.
     const freeLib = await request("GET", "/api/site-content", null, authHeaders("free.user@test.local"));
     const freePlans = freeLib.json?.siteContent?.curriculumLibrary?.lessonPlans || [];
@@ -522,8 +520,8 @@ async function main() {
     const site = await request("GET", "/api/site-content");
     assert.equal(site.json.siteContent.freeStarterLibrary.count, 10);
     assert.equal(site.json.siteContent.freeStarterLibrary.lessonPlanIds.length, 10);
-    assert.equal(site.json.siteContent.freeStarterLibrary.notEntitlement, true);
-    assert.equal(site.json.siteContent.canonicalFreePublishedCount, 10);
+    assert.equal(site.json.siteContent.freeStarterLibrary.authorization, "requires-starter-membership-and-plan-free");
+    assert.equal(site.json.siteContent.publishedFreePlanRecordCount, 10);
     assert.match(site.json.siteContent.membershipCopy.freeCore, /10 complete starter/);
     assert.match(site.json.siteContent.membershipCopy.trialCore, /up to 3 premium curriculum/);
 

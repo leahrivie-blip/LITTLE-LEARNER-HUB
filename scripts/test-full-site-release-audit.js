@@ -731,16 +731,28 @@ async function auditApiPermissions() {
     assert.equal(legacyCount, freeCount, `existing Free (${legacyCount}) must match curated Free unlock count (${freeCount}) — no legacy bypass`);
     assert.ok(proCount > freeCount, `Pro (${proCount}) should unlock more than Free (${freeCount})`);
     assert.ok(proCount >= 40, `Pro should unlock nearly the full published library (got ${proCount})`);
-    // Canonical Free unlock is lesson.plan === "Free" (Starter Library IDs are inventory only).
+    // Free access requires plan: Free plus Starter Library membership.
     const freeUserPlans = freeLib.json?.siteContent?.curriculumLibrary?.lessonPlans
       || freeLib.json?.curriculumLibrary?.lessonPlans
       || [];
-    const planFreePublished = freeUserPlans.filter((p) => p && String(p.plan || "").trim() === "Free");
     const unlockedForFree = freeUserPlans.filter((p) => p && p.locked !== true);
-    assert.equal(
-      unlockedForFree.length,
-      planFreePublished.length,
-      `Free unlock count (${unlockedForFree.length}) must equal published plan=Free count (${planFreePublished.length})`,
+    const starterLibrary = freeLib.json?.siteContent?.freeStarterLibrary
+      || freeLib.json?.curriculumLibrary?.freeStarterLibrary
+      || {};
+    const configuredStarterIds = Array.isArray(starterLibrary.lessonPlanIds)
+      ? starterLibrary.lessonPlanIds.map((id) => String(id || "").trim()).filter(Boolean)
+      : [];
+    assert.equal(starterLibrary.count, 10, "configured Starter Library must contain exactly 10 IDs");
+    assert.equal(configuredStarterIds.length, 10, "configured Starter Library ID list must contain exactly 10 IDs");
+    const configuredStarterSet = new Set(configuredStarterIds);
+    const fixtureEligibleIds = freeUserPlans
+      .filter((plan) => plan && String(plan.plan || "").trim() === "Free" && configuredStarterSet.has(String(plan.id || "").trim()))
+      .map((plan) => String(plan.id || "").trim())
+      .sort();
+    assert.deepEqual(
+      unlockedForFree.map((plan) => String(plan.id || "").trim()).sort(),
+      fixtureEligibleIds,
+      "Free unlocks must equal the Starter Library/plan: Free intersection present in this fixture",
     );
     assert.ok(
       unlockedForFree.every((p) => String(p.plan || "").trim() === "Free"),
