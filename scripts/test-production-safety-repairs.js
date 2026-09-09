@@ -17,6 +17,8 @@ const worker = read("service-worker.js");
 const viewer = read("scripts/teaching-kit-viewer.js");
 const app = read("app.js");
 const comms = read("comms-center.js");
+const server = read("server/index.js");
+const onboarding = read("scripts/new-user-onboarding.js");
 
 function indexedAsset(relativePath) {
   const match = index.match(new RegExp(`${relativePath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\?v=([^"']+)`));
@@ -40,8 +42,17 @@ assert.doesNotMatch(app, /"Colors": "[^"]*ribbon/i);
 assert.match(app, /const libraryPending = !published\.length/);
 assert.match(app, /Loading lesson plans…/);
 assert.match(app, /function isFreeAccessibleCurriculumPlan/);
+assert.match(app, /isCuratedFreeCurriculumPlan\(planOrResource\)/);
+assert.match(server, /isStoreCuratedFreeLessonPlan\(entry, accessContext\.store \|\| accessContext\.siteContent\)/);
 assert.match(comms, /AbortController/);
 assert.match(comms, /What’s New took too long to load\. Please try again\./);
 assert.match(comms, /data-retry-changelog/);
+assert.match(app, /"privacy-settings": "Privacy Settings \| Little Learner Hub by Leah"/);
+assert.match(app, /window\.LLHGoogleConsent\?\.open\?\.\(\)/);
+assert.match(app, /lessonLibraryMode === "saved" && !favorites\.includes\(resource\.id\)/);
+assert.match(app, /memberUpdateBannerDismissKey/);
+assert.match(app, /NewUserOnboarding\?\.maybeResumeOnBoot\?\.\(\)/);
+assert.match(onboarding, /function accountScopedKey/);
+assert.match(onboarding, /readJson\(accountScopedKey\(VALUE_MOMENTS_KEY\)/);
 
 console.log("Production-safety repair regression checks passed.");
