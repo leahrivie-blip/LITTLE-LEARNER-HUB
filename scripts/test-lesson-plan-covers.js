@@ -279,8 +279,8 @@ async function seedPlans(token) {
   });
   const freeId = `cur-lp-cover-free-${crypto.randomBytes(3).toString("hex")}`;
   const proId = `cur-lp-cover-pro-${crypto.randomBytes(3).toString("hex")}`;
-  // Title is long on purpose so card actions stay visible. Access follows plan=Free;
-  // starter IDs are merchandising only and must not be required to unlock.
+  // Title is long on purpose so card actions stay visible. This fixture is accessed
+  // through its admin session; Free customer access also requires Starter membership.
   const freeTitle = "All About Me: A Very Long Lesson Plan Title That Still Keeps Every Card Action Visible Cover Test";
   const proTitle = "Ocean Explorers Cover Test";
   const freeSave = await requestJson("POST", "/api/admin/curriculum/lesson-plans", {

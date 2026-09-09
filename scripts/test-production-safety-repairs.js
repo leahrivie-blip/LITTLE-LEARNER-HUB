@@ -44,6 +44,8 @@ assert.match(app, /Loading lesson plans…/);
 assert.match(app, /function isFreeAccessibleCurriculumPlan/);
 assert.match(app, /isCuratedFreeCurriculumPlan\(planOrResource\)/);
 assert.match(server, /isStoreCuratedFreeLessonPlan\(entry, accessContext\.store \|\| accessContext\.siteContent\)/);
+assert.match(server, /publishedFreePlanRecordCount: freeCurriculumSample\.countPublishedFreePlanRecords/);
+assert.doesNotMatch(server, /canonicalFreePublishedCount/);
 assert.match(comms, /AbortController/);
 assert.match(comms, /What’s New took too long to load\. Please try again\./);
 assert.match(comms, /data-retry-changelog/);

@@ -2783,7 +2783,7 @@ function freePlanAccessContextFromUser(user, siteContent = null) {
   };
 }
 
-/** Historical/merchandising starter ID defaults. Not customer entitlement. */
+/** Default configured IDs for the canonical curated Free-access allowlist. */
 function defaultFreeStarterLibrary() {
   return {
     lessonPlanIds: [...freeCurriculumSample.DEFAULT_FREE_STARTER_LESSON_IDS],
@@ -2800,7 +2800,7 @@ function freeStarterOverrideIds(storeOrContent = null) {
   return null;
 }
 
-/** Inventory helper for Free Starter Library admin/marketing — not Free/Pro authorization. */
+/** Returns whether a plan belongs to the configured curated Free-access allowlist. */
 function isStoreCuratedFreeLessonPlan(plan, storeOrContent = null) {
   return freeCurriculumSample.isCuratedFreeLessonPlan(
     plan,
@@ -20575,8 +20575,8 @@ async function handlePublicSiteContent(request, response, url) {
     : content.upgradeMessaging;
   const { featureFlags, curriculum, lessonPlans, customLessonPlans, activities, ...publicSiteContent } = content;
   // Paid users get the full unlocked library.
-  // Guests / Free users unlock published lessons where lesson.plan === "Free".
-  // Starter Library IDs are merchandising only and never grant or deny access.
+  // Guests / Free users unlock only published, plan: Free lessons in the configured
+  // Starter Library allowlist. Raw plan: Free records outside that list stay locked.
   let curriculumLibrary = {
     lessonPlans: [],
     activities: [],
@@ -20640,10 +20640,10 @@ async function handlePublicSiteContent(request, response, url) {
         lessonPlanIds: resolveFreeStarterLibrary(store).lessonPlanIds,
         count: freeCurriculumSample.REQUIRED_COUNT,
         distribution: freeCurriculumSample.REQUIRED_DISTRIBUTION,
-        purpose: "marketing-inventory",
-        notEntitlement: true,
+        purpose: "curated-free-access-allowlist",
+        authorization: "requires-starter-membership-and-plan-free",
       },
-      canonicalFreePublishedCount: freeCurriculumSample.countCanonicalPublishedFreePlans(
+      publishedFreePlanRecordCount: freeCurriculumSample.countPublishedFreePlanRecords(
         readSiteCurriculum(store).lessonPlans || [],
       ),
       membershipCopy: publicMembershipCopyPayload(store),
@@ -27969,7 +27969,7 @@ function publicMembershipCopyPayload(store = peekStore()) {
   };
 }
 
-/** Merchandising inventory for homepage/admin starter set. Does not authorize lessons. */
+/** Resolve the canonical curated Free-access allowlist for homepage and admin surfaces. */
 function resolveFreeStarterLibrary(store = peekStore()) {
   const override = freeStarterOverrideIds(store);
   const ids = override || [...freeCurriculumSample.DEFAULT_FREE_STARTER_LESSON_IDS];
@@ -28371,9 +28371,9 @@ function handleAdminFreeStarterLibraryGet(request, response, url) {
   }
   jsonResponse(response, 200, {
     ok: true,
-    purpose: "marketing-inventory",
-    notEntitlement: true,
-    entitlementSource: "lesson.plan",
+    purpose: "curated-free-access-allowlist",
+    authorization: "requires-starter-membership-and-plan-free",
+    rawPlanField: "plan",
     freeStarterLibrary: resolveFreeStarterLibrary(readStore()),
     requiredCount: freeCurriculumSample.REQUIRED_COUNT,
     requiredDistribution: freeCurriculumSample.REQUIRED_DISTRIBUTION,
@@ -28382,9 +28382,9 @@ function handleAdminFreeStarterLibraryGet(request, response, url) {
 }
 
 /**
- * Save merchandising starter IDs only.
- * Never mutates lesson.plan, publication status, or curriculum content.
- * Customer access continues to follow Admin Set Free / Set Pro (lesson.plan).
+ * Save the curated Free-access allowlist.
+ * Never mutates lesson.plan, publication status, or curriculum content. A lesson
+ * needs both allowlist membership and plan: Free before Free users can open it.
  */
 async function handleAdminFreeStarterLibrarySave(request, response) {
   let body = {};
@@ -28430,7 +28430,7 @@ async function handleAdminFreeStarterLibrarySave(request, response) {
         ageCounts: validation.ageCounts,
         plans: plans.map((p) => ({ id: p.id, title: p.title, age: p.age, status: p.status })),
       },
-      message: "Preview only — set confirm:true to save. This list is merchandising inventory, not lesson entitlement.",
+      message: "Preview only — set confirm:true to save. This list controls curated Free access; it does not change any lesson's plan field.",
     });
     return;
   }

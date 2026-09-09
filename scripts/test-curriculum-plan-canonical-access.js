@@ -411,7 +411,7 @@ async function main() {
     assert(!seed.starterList.includes(IDS.proNoStarter), "fixture: Pro-no-starter absent from starter");
     assert(freeSample.isCuratedFreeLessonPlan({ id: IDS.freeInStarter }, new Date(), seed.starterList), "starter helper includes configured lesson");
     assert(!freeSample.isCuratedFreeLessonPlan({ id: IDS.freeNoStarter }, new Date(), seed.starterList), "starter helper excludes Free-no-starter");
-    assert(freeSample.countCanonicalPublishedFreePlans(readStore().siteContent.curriculum.lessonPlans) === 11, "unit count of published plan=Free is 11");
+    assert(freeSample.countPublishedFreePlanRecords(readStore().siteContent.curriculum.lessonPlans) === 11, "raw published plan=Free record count is 11");
 
     console.log("1) published + plan=Free + NOT in Starter → remains locked");
     await expectLessonLocked(IDS.freeNoStarter, "free-no-starter/anon");
@@ -451,8 +451,9 @@ async function main() {
     const libraryPlans = siteFree.json?.siteContent?.curriculumLibrary?.lessonPlans || [];
     const unlockedFree = libraryPlans.filter((plan) => plan && plan.locked !== true);
     assert(unlockedFree.length === freeSample.REQUIRED_COUNT, `free user unlocked count expected 10, got ${unlockedFree.length}`);
-    assert(siteFree.json?.siteContent?.canonicalFreePublishedCount === 11, "canonicalFreePublishedCount is 11");
-    assert(siteFree.json?.siteContent?.freeStarterLibrary?.count === 10, "starter merchandising count stays 10");
+    assert(siteFree.json?.siteContent?.publishedFreePlanRecordCount === 11, "raw published plan=Free record count is 11");
+    assert(siteFree.json?.siteContent?.freeStarterLibrary?.count === 10, "curated Starter Library count stays 10");
+    assert(siteFree.json?.siteContent?.freeStarterLibrary?.authorization === "requires-starter-membership-and-plan-free", "Starter Library access semantics are explicit");
     assert(siteFree.json?.siteContent?.freeStarterLibrary?.lessonPlanIds?.length === 10, "starter ID list stays 10");
     assert(!unlockedFree.some((plan) => plan.id === IDS.freeNoStarter), "count excludes Free-not-in-starter");
     assert(!unlockedFree.some((plan) => plan.id === IDS.proInStarter), "count excludes Pro");
@@ -502,7 +503,7 @@ async function main() {
     await expectResourceDenied(seed.flipRes.id, "flip resource after", freeHeaders);
     await expectPdfDenied(IDS.flipTarget, "flip pdf after", freeHeaders);
     const siteAfterFree = await requestJson("GET", "/api/site-content", null, freeHeaders);
-    assert(siteAfterFree.json?.siteContent?.canonicalFreePublishedCount === 12, "Set Free raises canonical count to 12");
+    assert(siteAfterFree.json?.siteContent?.publishedFreePlanRecordCount === 12, "Set Free raises raw plan=Free record count to 12");
     assert(JSON.stringify(siteAfterFree.json?.siteContent?.freeStarterLibrary?.lessonPlanIds || []) === afterStarter, "starter IDs still unchanged after count refresh");
 
     console.log("8) Set Pro via access-plan immediately locks without Starter mutation");
@@ -529,7 +530,7 @@ async function main() {
     await expectPdfDenied(IDS.freeInStarter, "set-pro in-starter pdf", freeHeaders);
     await expectLessonUnlocked(IDS.freeInStarter, "set-pro in-starter still open for Pro user", proHeaders);
     const siteAfterPro = await requestJson("GET", "/api/site-content", null, freeHeaders);
-    assert(siteAfterPro.json?.siteContent?.canonicalFreePublishedCount === 11, "Set Pro on in-starter lesson drops canonical count to 11");
+    assert(siteAfterPro.json?.siteContent?.publishedFreePlanRecordCount === 11, "Set Pro on in-starter lesson drops raw plan=Free record count to 11");
 
     console.log("9) Guest/public access remains curated");
     await expectLessonLocked(IDS.freeNoStarter, "guest locks Free lesson outside starter");

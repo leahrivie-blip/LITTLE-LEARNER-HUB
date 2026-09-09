@@ -731,16 +731,19 @@ async function auditApiPermissions() {
     assert.equal(legacyCount, freeCount, `existing Free (${legacyCount}) must match curated Free unlock count (${freeCount}) — no legacy bypass`);
     assert.ok(proCount > freeCount, `Pro (${proCount}) should unlock more than Free (${freeCount})`);
     assert.ok(proCount >= 40, `Pro should unlock nearly the full published library (got ${proCount})`);
-    // Canonical Free unlock is lesson.plan === "Free" (Starter Library IDs are inventory only).
+    // Free access requires plan: Free plus Starter Library membership.
     const freeUserPlans = freeLib.json?.siteContent?.curriculumLibrary?.lessonPlans
       || freeLib.json?.curriculumLibrary?.lessonPlans
       || [];
-    const planFreePublished = freeUserPlans.filter((p) => p && String(p.plan || "").trim() === "Free");
     const unlockedForFree = freeUserPlans.filter((p) => p && p.locked !== true);
+    const configuredStarterCount = Number(
+      freeLib.json?.siteContent?.freeStarterLibrary?.count
+      || freeLib.json?.curriculumLibrary?.freeStarterLibrary?.count,
+    );
     assert.equal(
       unlockedForFree.length,
-      planFreePublished.length,
-      `Free unlock count (${unlockedForFree.length}) must equal published plan=Free count (${planFreePublished.length})`,
+      configuredStarterCount,
+      `Free unlock count (${unlockedForFree.length}) must equal Starter Library count (${configuredStarterCount})`,
     );
     assert.ok(
       unlockedForFree.every((p) => String(p.plan || "").trim() === "Free"),
