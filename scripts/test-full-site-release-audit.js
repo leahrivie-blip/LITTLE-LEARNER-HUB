@@ -736,14 +736,23 @@ async function auditApiPermissions() {
       || freeLib.json?.curriculumLibrary?.lessonPlans
       || [];
     const unlockedForFree = freeUserPlans.filter((p) => p && p.locked !== true);
-    const configuredStarterCount = Number(
-      freeLib.json?.siteContent?.freeStarterLibrary?.count
-      || freeLib.json?.curriculumLibrary?.freeStarterLibrary?.count,
-    );
-    assert.equal(
-      unlockedForFree.length,
-      configuredStarterCount,
-      `Free unlock count (${unlockedForFree.length}) must equal Starter Library count (${configuredStarterCount})`,
+    const starterLibrary = freeLib.json?.siteContent?.freeStarterLibrary
+      || freeLib.json?.curriculumLibrary?.freeStarterLibrary
+      || {};
+    const configuredStarterIds = Array.isArray(starterLibrary.lessonPlanIds)
+      ? starterLibrary.lessonPlanIds.map((id) => String(id || "").trim()).filter(Boolean)
+      : [];
+    assert.equal(starterLibrary.count, 10, "configured Starter Library must contain exactly 10 IDs");
+    assert.equal(configuredStarterIds.length, 10, "configured Starter Library ID list must contain exactly 10 IDs");
+    const configuredStarterSet = new Set(configuredStarterIds);
+    const fixtureEligibleIds = freeUserPlans
+      .filter((plan) => plan && String(plan.plan || "").trim() === "Free" && configuredStarterSet.has(String(plan.id || "").trim()))
+      .map((plan) => String(plan.id || "").trim())
+      .sort();
+    assert.deepEqual(
+      unlockedForFree.map((plan) => String(plan.id || "").trim()).sort(),
+      fixtureEligibleIds,
+      "Free unlocks must equal the Starter Library/plan: Free intersection present in this fixture",
     );
     assert.ok(
       unlockedForFree.every((p) => String(p.plan || "").trim() === "Free"),
