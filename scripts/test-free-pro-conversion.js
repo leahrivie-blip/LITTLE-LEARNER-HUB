@@ -245,7 +245,7 @@ async function browserMain() {
   try {
     await waitForBoot(child);
 
-    // Unit-level DTO helpers are covered by free-curriculum-sample + server require above.
+    // This legacy helper reports the raw lesson-record plan field, not customer access.
     assert.equal(freeSample.effectivePlanTier({
       id: "cur-lp-preschool-letters-and-sounds",
       title: "Letters & Sounds",
@@ -258,7 +258,7 @@ async function browserMain() {
       age: "Toddler",
       plan: "Pro",
     }), "Pro");
-    console.log("PASS  effectivePlanTier follows canonical plan, not starter IDs");
+    console.log("PASS  effectivePlanTier reports the raw record plan");
 
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
     await page.goto(`http://127.0.0.1:${PORT}/`, { waitUntil: "domcontentloaded", timeout: 90000 });
