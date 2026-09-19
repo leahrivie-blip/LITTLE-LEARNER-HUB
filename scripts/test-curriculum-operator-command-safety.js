@@ -178,4 +178,14 @@ console.log("\n11) contradiction blocks mutations");
   ok(parsed.command.completion.mutationsEnabled === false || parsed.needsConfirmation, "unsafe contradiction blocked");
 }
 
+console.log("\n12) draft creation language is not an existing-lesson contradiction");
+{
+  const parsed = parse("Create a Preschool Healthy Habits lesson, generate all five days, create printables and images, save it as a draft, leave it READY FOR OWNER REVIEW, and do not publish.", {
+    lessonPlans: [],
+    currentlySelectedLessonId: null,
+  });
+  ok(parsed.command.intent === "create_lesson" && parsed.command.actions.createLesson === true, "age-scoped new lesson remains a draft creation");
+  ok(parsed.command.actions.publish === false && parsed.parseSafety?.blocked !== true, "draft creation stays unblocked and never publishes");
+}
+
 console.log(`\n${passed} assertions passed.`);

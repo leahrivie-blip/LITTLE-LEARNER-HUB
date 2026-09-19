@@ -345,6 +345,9 @@ function detectNewLessonIntent(rawCommand, context = {}) {
   if (/\bdo\s+not\s+create\s+(?:a\s+)?new\s+lesson\b/i.test(raw)) return false;
   if (/\b(?:same|existing)\s+lesson\s+id\b/i.test(raw)) return false;
   if (context.existingLessonIntent) return false;
+  if (/\b(?:create|make|build)\s+(?:me\s+)?(?:a|an)\s+(?:infant|toddler|preschool|school[\s-]?age|mixed)\b[^.!?]{0,100}\blesson\b/i.test(raw)) {
+    return true;
+  }
   if (printableAgeBand.isPrintableExistingLessonCommand(raw)) return false;
   if (/\b(?:create|make|build)\s+\d{1,2}\s+new\s+lessons?\b/i.test(raw)) return true;
   if (/\b(\d{1,2})\s+new\s+lessons?\b/i.test(raw) && /\b(?:create|make|build)\b/i.test(raw)) return true;
@@ -470,7 +473,7 @@ function resolveOwnerIntent(rawCommand, options = {}) {
   const exclusions = orchestrator.parseExclusionHints(raw).flags;
   const lessonRef = detectExistingLessonReferences(raw, options);
   const newLessonIntent = detectNewLessonIntent(raw, {
-    existingLessonIntent: lessonRef.existingLessonIntent,
+    existingLessonIntent: lessonRef.resolvedLessons.length > 0 || lessonRef.lessonIds.length > 0,
   });
   const assetCategories = detectAssetCategories(raw, exclusions);
   const assetCategory = pickPrimaryAssetCategory(assetCategories);

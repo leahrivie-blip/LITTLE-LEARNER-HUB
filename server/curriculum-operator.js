@@ -2323,10 +2323,13 @@ function createCurriculumOperatorApi(deps) {
       }
 
       if (action === "run" && allowlistApi.isRunBlockedByConfirmations(parsed.confirmReasons, parsed.parseSafety)) {
+        const contradiction = schema.asArray(parsed.parseSafety?.contradictions)[0];
         jsonResponse(response, 409, {
           ok: false,
           code: parsed.parseSafety?.blocked ? "PARSED_INTENT_CONTRADICTION" : "RUN_BLOCKED",
-          error: "Dangerous interpretation — Run is blocked until scope/contradiction issues are resolved.",
+          error: contradiction?.message
+            ? `Run blocked: ${contradiction.message}`
+            : "Run blocked: resolve the requested scope before running.",
           command,
           confirmReasons: parsed.confirmReasons || [],
           parseSafety: parsed.parseSafety || null,

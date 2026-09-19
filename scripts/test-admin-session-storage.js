@@ -494,7 +494,7 @@ async function localJsonIntegrationTests() {
     await test("admin login running concurrently with a membership (user record) update does not corrupt either", async () => {
       const login0 = await adminLogin(port, admin);
       const token = login0.json.token;
-      const email = "concurrency-user@example.com";
+      const email = "session-member@littlelearnershubbyleah.com";
       const [update, ...logins] = await Promise.all([
         requestJson(port, "POST", "/api/admin/membership-update", {
           adminToken: token,
@@ -687,7 +687,7 @@ async function mockPostgresMigrationTest() {
     port,
     storePath,
     mockPg: true,
-    extraEnv: { MOCK_PG_WRITE_LOG_PATH: writeLogPath, MOCK_PG_SEED_STORE_PATH: seedStorePath },
+    extraEnv: { MOCK_PG_WRITE_LOG_PATH: writeLogPath, MOCK_PG_SEED_STORE_PATH: seedStorePath, ALLOW_TEST_ACCOUNT_EMAILS: "true" },
   });
   try {
     await waitForBoot(child, port);
@@ -744,7 +744,7 @@ async function mockPostgresMigrationTest() {
         port,
         storePath,
         mockPg: true,
-        extraEnv: { MOCK_PG_WRITE_LOG_PATH: writeLogPath, MOCK_PG_SEED_STORE_PATH: seedStorePath },
+        extraEnv: { MOCK_PG_WRITE_LOG_PATH: writeLogPath, MOCK_PG_SEED_STORE_PATH: seedStorePath, ALLOW_TEST_ACCOUNT_EMAILS: "true" },
       });
       try {
         await waitForBoot(restarted, port);
@@ -937,7 +937,7 @@ async function foundingBreakdownTests() {
     foundingMembers: ["active-founder@example.com", "historical-founder@example.com"],
   };
   fs.writeFileSync(storePath, JSON.stringify(fixture));
-  const child = startServer({ port, storePath });
+  const child = startServer({ port, storePath, extraEnv: { FOUNDING_MEMBER_LIMIT: "48" } });
   try {
     await waitForBoot(child, port);
     const admin = child.__admin;
@@ -952,7 +952,7 @@ async function foundingBreakdownTests() {
       assert.equal(body.everClaimed, 2, "everClaimed should equal the foundingMembers ledger length");
       assert.equal(body.currentlyActive, 1, "only the active-founder should count as currently active");
       assert.equal(body.canceledOrExpired, 1, "everClaimed minus currentlyActive");
-      assert.equal(body.remainingAvailable, body.totalFoundingSpots - body.everClaimed);
+      assert.equal(body.remainingAvailable, 0, "founding acquisition is closed, so no spots remain available");
       assert.ok(body.labels && body.labels.everClaimed && body.labels.currentlyActive, "each field must carry a plain-language label");
     });
 
