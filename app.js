@@ -2836,7 +2836,7 @@ function formatLessonPlanAgeBreakdown(byAge) {
 
 function refreshFreePlanFeatureLines(features) {
   // Authoritative Free offer lines — do not let stale CMS/localStorage feature lists
-  // rewrite the 10-plan starter library messaging.
+  // rewrite the 11-plan starter library messaging.
   if (!Array.isArray(features) || !features.length) {
     return HOMEPAGE_PUBLIC_FREE_PLAN_FEATURES.map((feature) => (feature.startsWith("✓") ? feature : `✓ ${feature}`));
   }
@@ -4674,9 +4674,9 @@ function showProFeatureModal(message = "This is a Pro Feature.", type = "feature
   const upgradePopupBody = offerFounding
     ? `Lock in $9.99/month while your membership remains continuously active. ${freeUpgradeSupportingText()}`
     : (offerEarlyUser
-      ? `You're on Free with 10 starter plans. ${earlyUserLimitedTimePriceCopy()} (regularly ${regularProMonthlyLabel()}). ${earlyUserLockCopy()}`
+      ? `You're on Free with 11 starter plans. ${earlyUserLimitedTimePriceCopy()} (regularly ${regularProMonthlyLabel()}). ${earlyUserLockCopy()}`
       : (offerPro
-        ? `You're on Free with 10 starter plans. Pro unlocks the full library, unlimited printing, and every planning tool — ${regularProMonthlyLabel()}.`
+        ? `You're on Free with 11 starter plans. Pro unlocks the full library, unlimited printing, and every planning tool — ${regularProMonthlyLabel()}.`
         : ((!isDraft && um.upgradePopupBody) ? um.upgradePopupBody : membershipTrialCoreCopy())));
   const proTrialBtnText = offerFounding || offerPro
     ? freeUpgradePrimaryButtonLabel({ short: true })
@@ -21947,7 +21947,7 @@ function showLessonCustomizationUpgrade(resourceId = "") {
   body.innerHTML = `
     <p>${escapeHtml(lessonCustomizationUpgradeBody).replace(/\n/g, "<br>")}</p>
     <ul class="pro-modal-benefit-list">${lockedContentUnlockLines().map((line) => `<li>${escapeHtml(line)}</li>`).join("")}</ul>
-    ${offerFounding ? `<p class="founding-upgrade-compare"><strong>$9.99/month locked while your membership remains continuously active</strong> · ${escapeHtml(foundingSpotsLeftMessage())}</p>` : `<p class="muted-copy">You're on Free with 10 starter plans. Pro unlocks customization and the full library for $19.99/month.</p>`}
+    ${offerFounding ? `<p class="founding-upgrade-compare"><strong>$9.99/month locked while your membership remains continuously active</strong> · ${escapeHtml(foundingSpotsLeftMessage())}</p>` : `<p class="muted-copy">You're on Free with 11 starter plans. Pro unlocks customization and the full library for $19.99/month.</p>`}
   `;
   if (upgradeBtn) {
     upgradeBtn.textContent = freeUpgradePrimaryButtonLabel({ short: true });
@@ -32392,7 +32392,7 @@ function openLockedResourcePreview(resource, triggerEl = null) {
   const lockedUpgradeNote = showFoundingOffer
     ? `${foundingSpotsLeftMessage()} $9.99/month locked while your membership remains continuously active. This is Founding Membership — not a Pro trial.`
     : (showProMonthlyOffer
-      ? "You're on Free with 10 starter plans. Pro unlocks this plan and the full library for $19.99/month."
+      ? "You're on Free with 11 starter plans. Pro unlocks this plan and the full library for $19.99/month."
       : (showProTrialOffer
         ? "7-day Pro trial. Card required at signup. You are charged Pro Monthly ($19.99/month) right after the trial ends unless you cancel — not Founding Member pricing."
         : ""));
