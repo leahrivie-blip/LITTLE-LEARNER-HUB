@@ -2587,8 +2587,8 @@ function freeStarterOverrideIdsFromSite() {
 }
 
 function isCuratedFreeCurriculumPlan(planOrResource) {
-  // Historical Starter Library inventory / merchandising only.
-  // Never use this for unlock. Customer access uses isFreeAccessibleCurriculumPlan (plan field).
+  // Membership in the configured curated Free-access allowlist. Customer access
+  // additionally requires plan: Free in isFreeAccessibleCurriculumPlan.
   const api = freeCurriculumSampleApi();
   const plan = planOrResource?._curriculumLessonPlan || planOrResource;
   if (api?.isCuratedFreeLessonPlan) {
@@ -2600,9 +2600,10 @@ function isCuratedFreeCurriculumPlan(planOrResource) {
 
 function isFreeAccessibleCurriculumPlan(planOrResource) {
   if (planOrResource?._userLessonCopy) return true;
-  // Canonical Free unlock: lesson.plan === "Free". Starter Library IDs are not authorization.
+  // The configured Starter Library is the canonical Free curriculum set.
   const plan = planOrResource?._curriculumLessonPlan || planOrResource;
-  return String(plan?.plan || planOrResource?.plan || "").trim() === "Free";
+  return String(plan?.plan || planOrResource?.plan || "").trim() === "Free"
+    && isCuratedFreeCurriculumPlan(planOrResource);
 }
 
 function curriculumResourceLooksLikeLessonPlan(resource) {
@@ -2998,7 +2999,7 @@ const viewMap = {
 // Views that are accessible without being logged in.
 // All other views redirect to the login modal for unauthenticated visitors.
 const guestAllowedViews = new Set([
-  "home", "plans", "upgrade", "legal", "faq", "contact", "admin",
+  "home", "plans", "upgrade", "legal", "privacy-settings", "faq", "contact", "admin",
   "reset-password", "payment-success", "payment-failed",
   // Public curriculum browsing for approved Free previews (Pro stays locked).
   "lessons", "activities",
@@ -3030,6 +3031,11 @@ const LLH_FOUNDING_ANNOUNCE_DISMISS_KEY = "llhFoundingAnnounceDismissed";
 // Versioned so members who dismissed the prior Teaching Kit rollout notice see this update once.
 const LLH_MEMBER_UPDATE_BANNER_DISMISS_KEY = "llhMemberUpdateBannerDismissedAt.teachingKits20260812";
 const MEMBER_UPDATE_BANNER_DISMISS_MS = 30 * 24 * 60 * 60 * 1000;
+
+function memberUpdateBannerDismissKey() {
+  const email = String(currentUser || "").trim().toLowerCase();
+  return email ? `${LLH_MEMBER_UPDATE_BANNER_DISMISS_KEY}:${encodeURIComponent(email)}` : LLH_MEMBER_UPDATE_BANNER_DISMISS_KEY;
+}
 
 const HOME_LESSON_PREVIEW_HINTS = [
   "Familiar Faces",
@@ -3076,6 +3082,7 @@ const proNavLabels = {
   favorites: "Saved Favorites",
 };
 const adRouteMap = {
+  "/privacy-settings": "privacy-settings",
   "/free-daycare-forms": "forms",
   "/daycare-lesson-plans": "lessons",
   "/observation-generator": "ai",
@@ -21406,6 +21413,19 @@ function enforceAdminSessionIsolationForMember() {
   }
 }
 
+/** Keep SPA document titles aligned with the active public view. */
+function syncSpaDocumentTitle(view) {
+  const titles = {
+    home: "Affordable Childcare Curriculum & Lesson Plans for Busy Teachers | Little Learner Hub",
+    faq: "FAQ | Little Learner Hub by Leah",
+    plans: "Pricing | Little Learner Hub by Leah",
+    contact: "Contact | Little Learner Hub by Leah",
+    legal: "Privacy & Terms | Little Learner Hub by Leah",
+    "privacy-settings": "Privacy Settings | Little Learner Hub by Leah",
+  };
+  if (titles[view]) document.title = titles[view];
+}
+
 function setView(view, options = {}) {
   if (
     !options.fromBoot
@@ -21498,6 +21518,7 @@ function setView(view, options = {}) {
   const requestedFutureTool = sidebarFutureToolTargets[requestedView] || "";
   const activeView = document.querySelector(".active-view")?.id.replace("view-", "");
   const resolvedView = resolvedRequested;
+  syncSpaDocumentTitle(resolvedView);
   // User-driven navigation cancels deferred boot/login landings that would yank the view back.
   if (!options.fromBoot && !options.fromAuthLanding && !options.skipAccessRedirect && !options.fromPopState) {
     suppressBootLanding = true;
@@ -23815,7 +23836,7 @@ function categoryResources(category) {
       if (lessonId !== activeActivityLessonPlanId) return false;
     }
     if (category === "Lesson Plans") {
-      if (lessonLibraryMode === "saved" && (!isProUser() || !favorites.includes(resource.id))) return false;
+      if (lessonLibraryMode === "saved" && !favorites.includes(resource.id)) return false;
       if (lessonLibraryShowAssignedOnly && !lessonPlanIsAssigned(resource.id)) return false;
       if (lessonLibraryPlanFilter === "Free" && !isFreeAccessibleCurriculumPlan(resource)) return false;
       if (lessonLibraryPlanFilter === "Pro" && isFreeAccessibleCurriculumPlan(resource)) return false;
@@ -25830,7 +25851,7 @@ function lessonThemeMaterials(theme) {
     "Bugs & Insects": "Plastic bug figures (ants, butterflies, bees, caterpillars), bug viewer containers, magnifying glasses, leaf rubbings, black and yellow paint (bees), pipe cleaners (antennae), bug picture cards",
     "Zoo Animals": "Zoo animal plastic figures, animal picture cards, binoculars prop, animal footprint stamps, sand for tracks sensory bin, animal habitat sorting cards",
     "Pets": "Stuffed animals (dog, cat, rabbit, fish, bird), pet care props (brush, bowl, leash), pet picture cards, stethoscope (vet play), pet carrier box prop",
-    "Colors": "Color sorting trays, paint samples, colored cellophane squares, colored tissue paper, rainbow ribbon streamers, color mixing materials (watercolor + water), color picture cards",
+    "Colors": "Color sorting trays, paint samples, colored cellophane squares, colored tissue paper, large colorful scarves, color mixing materials (watercolor + water), color picture cards",
     "Shapes": "Shape manipulatives (foam or wooden), shape sorting board, colored construction paper for shape art, shape stamps, geoboard with rubber bands (preschool), playdough and shape cutters",
     "Numbers": "Counting bears or cubes (20+), number cards 1–10, ten frames, number stamps, counting tray with real objects, dice (large foam), number picture cards",
     "Letters": "Foam or magnetic letters, alphabet picture cards, letter stamps and ink pads, name cards, letter-sound picture cards, tracing paper, play dough for letter forming",
@@ -33035,9 +33056,6 @@ function freeStarterLibraryBannerHtml() {
 
 function lessonLibraryEmptyStateHtml(itemsQueried) {
   if (lessonLibraryMode === "saved") {
-    if (!isProUser()) {
-      return `<div class="empty-state"><strong>Saved lesson plans are included with Pro.</strong><br />Upgrade to save plans for quick access. You can still browse Free lesson plans in the library.</div>`;
-    }
     return `<div class="empty-state">No saved lesson plans yet. Open a plan and tap Save.</div>`;
   }
   if (searchInput.value.trim() || activeFilter !== "All" || lessonLibraryPlanFilter !== "All" || lessonLibraryShowAssignedOnly) {
@@ -34712,10 +34730,13 @@ function renderHomePublicPreviews() {
   }
   const ageFilter = document.querySelector("[data-home-browse-age].is-active")?.getAttribute("data-home-browse-age") || "All";
   const published = homePublishedLessonPlans();
+  const libraryPending = !published.length && (curriculumLibraryLoading || siteContentLoadPromise);
   const freePlans = published.filter((plan) => isFreeAccessibleCurriculumPlan(plan) && homeMatchesAgeFilter(plan, ageFilter)).slice(0, 10);
   const lockedPlans = published.filter((plan) => !isFreeAccessibleCurriculumPlan(plan) && homeMatchesAgeFilter(plan, ageFilter)).slice(0, 6);
   if (freeGrid) {
-    freeGrid.innerHTML = freePlans.length
+    freeGrid.innerHTML = libraryPending
+      ? `<p class="muted-copy" role="status">Loading lesson plans…</p>`
+      : freePlans.length
       ? freePlans.map((plan) => homeBrowseLessonCardHtml(plan, { locked: false })).join("")
       : `<p class="muted-copy" role="status">No lesson plans are available for this age group yet.</p>`;
   }
@@ -34728,7 +34749,11 @@ function renderHomePublicPreviews() {
   const lockedNote = document.querySelector(".llh-home-locked-note");
   if (lockedHeading) lockedHeading.hidden = !lockedPlans.length;
   if (lockedNote) lockedNote.hidden = !lockedPlans.length;
-  if (ageHost) ageHost.innerHTML = homeAgeGroupCardsHtml();
+  if (ageHost) {
+    ageHost.innerHTML = libraryPending
+      ? `<p class="muted-copy" role="status">Loading lesson plans…</p>`
+      : homeAgeGroupCardsHtml();
+  }
   const lessonGrid = document.querySelector("#homeLessonPreviewGrid");
   if (lessonGrid) {
     const lessons = pickHomeLessonPreviewPlans(5);
@@ -60781,7 +60806,7 @@ async function renderAdminFreeStarterLibrarySection() {
       <div class="section-heading">
         <div><p class="eyebrow">Content</p><h3>Free Starter Library</h3></div>
       </div>
-      <p class="muted-copy">Merchandising / homepage inventory only — this list does <strong>not</strong> grant or deny lesson access. Customer entitlement is <code>lesson.plan</code> via Curriculum → Lesson Plans → Set Free / Set Pro. Saving here never changes Free/Pro values.</p>
+      <p class="muted-copy">This is the canonical curated Free-access allowlist. Free users can open a lesson only when it is listed here <strong>and</strong> its record has <code>plan: Free</code>. Saving this list never changes any lesson’s Free/Pro plan field.</p>
       <p class="muted-copy">Exactly 10 published lesson plans (3 Infant, 3 Toddler, 4 Preschool). Preview before saving. Unrelated lesson edits never change this list.</p>
       <p><strong>Source:</strong> ${escapeHtml(lib.source || "default")} · <strong>Distribution:</strong> Infant ${ages.Infant || 0} · Toddler ${ages.Toddler || 0} · Preschool ${ages.Preschool || 0}</p>
       ${errors.length ? `<div class="access-notice"><strong>Validation</strong><ul>${errors.map((e) => `<li>${escapeHtml(e)}</li>`).join("")}</ul></div>` : `<p class="form-note">Current set meets the required distribution.</p>`}
@@ -66027,7 +66052,7 @@ function freePlanUpgradePrimaryCta() {
 
 function isMemberUpdateBannerDismissed() {
   try {
-    const raw = localStorage.getItem(LLH_MEMBER_UPDATE_BANNER_DISMISS_KEY) || "";
+    const raw = localStorage.getItem(memberUpdateBannerDismissKey()) || "";
     const at = Number(raw);
     if (!Number.isFinite(at) || at <= 0) return false;
     return (Date.now() - at) < MEMBER_UPDATE_BANNER_DISMISS_MS;
@@ -66038,7 +66063,7 @@ function isMemberUpdateBannerDismissed() {
 
 function dismissMemberUpdateBanner() {
   try {
-    localStorage.setItem(LLH_MEMBER_UPDATE_BANNER_DISMISS_KEY, String(Date.now()));
+    localStorage.setItem(memberUpdateBannerDismissKey(), String(Date.now()));
   } catch (_error) { /* ignore */ }
   const banner = document.querySelector("#memberUpdateBanner");
   if (banner) banner.hidden = true;
@@ -68284,6 +68309,13 @@ function showSearchResults() {
 }
 
 document.addEventListener("click", async (event) => {
+  const consentButton = event.target.closest("[data-open-google-consent]");
+  if (consentButton) {
+    event.preventDefault();
+    window.LLHGoogleConsent?.open?.();
+    return;
+  }
+
   const quickToggle = event.target.closest("[data-work-quick-toggle]");
   if (quickToggle) {
     event.preventDefault();
@@ -76070,6 +76102,9 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
     } else {
       pendingAuthReturnView = "";
     }
+    // SPA login does not fire DOMContentLoaded; resume only this account's
+    // incomplete onboarding after the authenticated view has mounted.
+    window.NewUserOnboarding?.maybeResumeOnBoot?.();
     runAuthSyncWithTimeout("login profile sync", () => syncAccountProfileToBackend(result.email, {
       firstName: currentAccount()?.firstName || "",
       lastName: currentAccount()?.lastName || "",

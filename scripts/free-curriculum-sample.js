@@ -1,14 +1,14 @@
 /**
- * Free Starter Library — merchandising / historical inventory only.
+ * Free Starter Library — canonical curated Free-access allowlist.
  *
- * This list is NOT customer entitlement. Lesson access is solely:
- *   lesson.plan === "Free"  → Free users get the lesson
- *   lesson.plan === "Pro"   → Free users get the locked preview / upgrade state
+ * Free access requires both:
+ *   Starter Library membership and lesson.plan === "Free"
+ * A raw plan: Free value outside this list is a reporting/data attribute only;
+ * it does not authorize customer access.
  *
- * Admin → Curriculum → Lesson Plans → Set Free / Set Pro is the source of truth.
- * Do not grant or deny access from these IDs, card position, search order, or localStorage.
+ * Do not grant access from card position, search order, or localStorage.
  *
- * Distribution (merchandising validation only): 3 Infant · 3 Toddler · 4 Preschool
+ * Required distribution: 3 Infant · 3 Toddler · 4 Preschool
  * Server store may override IDs via freeStarterLibrary.lessonPlanIds when valid.
  */
 (function (root, factory) {
@@ -26,11 +26,10 @@
   const REQUIRED_DISTRIBUTION = Object.freeze({ Infant: 3, Toddler: 3, Preschool: 4 });
 
   /**
-   * Default historical/homepage starter ID list (used when store has no override).
-   * Merchandising inventory only — never authorization. Curriculum records unchanged.
+   * Default curated Free-access IDs (used when the store has no valid override).
    */
   const DEFAULT_FREE_STARTER_LESSON_IDS = Object.freeze([
-    // Infant (3) — historical merchandising IDs only; records unchanged
+    // Infant (3)
     "cur-lp-infant-animal-sounds-discovery",
     "cur-lp-infant-summer-colors",
     "cur-lp-infant-colors-all-around-us",
@@ -48,7 +47,7 @@
   /** @deprecated Use DEFAULT_FREE_STARTER_LESSON_IDS — kept for older tests/imports. */
   const PERMANENT_FREE_LESSON_IDS = DEFAULT_FREE_STARTER_LESSON_IDS;
 
-  /** Display/admin merchandising helpers only — never used for Free unlock. */
+  /** Display/admin title matching for the curated Free-access allowlist. */
   const PERMANENT_FREE_TITLE_MATCHERS = Object.freeze([
     { age: "Infant", pattern: /animal\s*sounds/i },
     { age: "Infant", pattern: /^summer\s*colors$/i },
@@ -62,7 +61,7 @@
     { age: "Preschool", pattern: /farm\s*(animals|friends)/i },
   ]);
 
-  // Seasonal extras are not part of the historical starter merchandising set.
+  // Seasonal extras are not part of the curated Starter Library.
   const SEASONAL_FREE_LESSON_IDS = Object.freeze({
     winter: Object.freeze([]),
     spring: Object.freeze([]),
@@ -144,8 +143,7 @@
   }
 
   /**
-   * Historical/merchandising membership: is this ID in the starter library list?
-   * NOT customer authorization. Use canonicalAccessPlan / effectivePlanTier for access.
+   * Is this ID in the configured curated Starter Library allowlist?
    */
   function isCuratedFreeLessonPlan(plan, date = new Date(), overrideIds) {
     if (!plan) return false;
@@ -158,12 +156,12 @@
     return false;
   }
 
-  /** Alias — starter IDs are historical inventory, not entitlement. */
+  /** Alias for callers that use the historical helper name. */
   function isHistoricalStarterLibraryLessonPlan(plan, date = new Date(), overrideIds) {
     return isCuratedFreeLessonPlan(plan, date, overrideIds);
   }
 
-  /** Canonical entitlement from the lesson record. Starter IDs are ignored. */
+  /** Normalizes the raw lesson-record plan field; this is not customer authorization. */
   function canonicalAccessPlan(plan) {
     if (!plan) return "Pro";
     if (plan._userLessonCopy) return "Free";
@@ -179,7 +177,8 @@
     return value === "published" || value === "featured";
   }
 
-  function countCanonicalPublishedFreePlans(plans) {
+  /** Counts published records labelled plan: Free, regardless of Starter membership. */
+  function countPublishedFreePlanRecords(plans) {
     if (!Array.isArray(plans)) return 0;
     return plans.filter((plan) => (
       isCurriculumLessonPublicStatus(plan?.status) && isCanonicalFreeAccessPlan(plan)
@@ -187,8 +186,8 @@
   }
 
   /**
-   * Canonical entitlement tier. `date` / `overrideIds` kept for call-site compatibility
-   * and are intentionally unused — starter IDs must never grant or deny access.
+   * Legacy raw-record tier helper. `date` / `overrideIds` are intentionally unused;
+   * use the application's curated entitlement predicate for customer access.
    */
   function effectivePlanTier(plan, date = new Date(), overrideIds) {
     void date;
@@ -252,7 +251,7 @@
     isHistoricalStarterLibraryLessonPlan,
     canonicalAccessPlan,
     isCanonicalFreeAccessPlan,
-    countCanonicalPublishedFreePlans,
+    countPublishedFreePlanRecords,
     effectivePlanTier,
     freeSampleMarketingCount,
     validateStarterSelection,
