@@ -6,6 +6,7 @@
 const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
+const { resolveLocalMediaAssetBase } = require("./local-media-path.js");
 
 const ENRICHMENT_MEDIA_KIND = "teaching-kit-enrichment";
 const MAX_ENRICHMENT_UPLOAD_BYTES = 5 * 1024 * 1024;
@@ -249,7 +250,7 @@ function localMediaDirFromStorePath(storePath) {
 
 function writeLocalEnrichmentAsset(dir, assetId, variant, { mimeType, buffer, meta }) {
   fs.mkdirSync(dir, { recursive: true });
-  const base = path.join(dir, `${assetId}.${variant}`);
+  const base = resolveLocalMediaAssetBase(dir, `${assetId}.${variant}`);
   const payload = {
     id: assetId,
     variant,
@@ -268,7 +269,7 @@ function writeLocalEnrichmentAsset(dir, assetId, variant, { mimeType, buffer, me
 
 function updateLocalEnrichmentAssetMeta(dir, assetId, patch) {
   for (const variant of ["full", "thumb"]) {
-    const metaPath = path.join(dir, `${assetId}.${variant}.json`);
+    const metaPath = `${resolveLocalMediaAssetBase(dir, `${assetId}.${variant}`)}.json`;
     if (!fs.existsSync(metaPath)) continue;
     const meta = JSON.parse(fs.readFileSync(metaPath, "utf8"));
     fs.writeFileSync(metaPath, JSON.stringify({ ...meta, ...patch }, null, 2));
@@ -276,7 +277,7 @@ function updateLocalEnrichmentAssetMeta(dir, assetId, patch) {
 }
 
 function readLocalEnrichmentAsset(dir, assetId, variant) {
-  const base = path.join(dir, `${assetId}.${variant}`);
+  const base = resolveLocalMediaAssetBase(dir, `${assetId}.${variant}`);
   const binPath = `${base}.bin`;
   const metaPath = `${base}.json`;
   if (!fs.existsSync(binPath) || !fs.existsSync(metaPath)) return null;
@@ -300,7 +301,7 @@ function readLocalEnrichmentAsset(dir, assetId, variant) {
 
 function deleteLocalEnrichmentAsset(dir, assetId) {
   for (const variant of ["full", "thumb"]) {
-    const base = path.join(dir, `${assetId}.${variant}`);
+    const base = resolveLocalMediaAssetBase(dir, `${assetId}.${variant}`);
     try { fs.rmSync(`${base}.bin`, { force: true }); } catch { /* ignore */ }
     try { fs.rmSync(`${base}.json`, { force: true }); } catch { /* ignore */ }
   }

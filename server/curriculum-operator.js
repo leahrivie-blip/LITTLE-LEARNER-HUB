@@ -55,6 +55,7 @@ function createCurriculumOperatorApi(deps) {
     openAiConfigured,
     generateOperatorImage,
     persistEnrichmentPhoto,
+    persistLessonCover,
     enrichmentMedia,
     createOperatorPrintableResource,
     readOperatorPrintableFile,
@@ -1744,8 +1745,20 @@ function createCurriculumOperatorApi(deps) {
         const persistCoverFn = async ({ buffer, mimeType, fileName }) => {
           const id = `lesson-cover-${crypto.randomBytes(16).toString("hex")}`;
           try {
+            if (typeof persistLessonCover === "function") {
+              const persisted = await persistLessonCover({ id, buffer, mimeType, fileName });
+              return { ok: true, id, url: persisted.url };
+            }
+            const provider = String(process.env.DATABASE_PROVIDER || "local-json").toLowerCase();
+            if (provider === "postgres" || provider === "postgresql") {
+              return {
+                ok: false,
+                code: "cover_persist_failed",
+                error: "Persistent Postgres cover storage is unavailable to this operation.",
+              };
+            }
             const storePath = process.env.LLH_STORE_PATH
-              || path.join(process.cwd(), "server/data/launch-store.json");
+              || path.join(__dirname, "data", "launch-store.json");
             const dir = lessonCoverMedia.localCoverDirFromStorePath(storePath);
             lessonCoverMedia.writeLocalLessonCover(dir, id, {
               mimeType: mimeType || "image/png",

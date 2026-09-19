@@ -207,12 +207,10 @@ function createAdminSessionStore({
           [token, session.email, session.createdAt, session.expiresAt, session.lastValidatedAt],
         );
       } catch (error) {
-        // Degrade like the rest of the app does on a Postgres blip: keep the
-        // session valid for this running process (already in the in-memory map)
-        // and fall back to the local file as a durability net, rather than
-        // failing a login outright because of a transient database write error.
-        console.warn("[admin-session-store] Postgres write failed on create — session kept in memory + local fallback:", error.message);
-        writeLocalFile();
+        // Do not represent Render's ephemeral filesystem as a persistence fallback.
+        // The session remains valid for this process, and the caller can retry after
+        // Postgres recovers; local side files are only for intentional local-json mode.
+        console.warn("[admin-session-store] Postgres write failed on create — session kept in memory only:", error.message);
       }
     } else {
       writeLocalFile();
