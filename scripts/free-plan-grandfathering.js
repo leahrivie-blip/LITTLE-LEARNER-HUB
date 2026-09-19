@@ -2,7 +2,7 @@
  * Free-plan access policy.
  *
  * Business policy (2026-07): every Free account — new and existing — receives
- * exactly the same 10-plan Free Starter Library. Legacy/grandfathered Free
+ * exactly the same 11-plan Free Starter Library. Legacy/grandfathered Free
  * unlock is permanently disabled.
  *
  * Saved favorites, calendar entries, and provider-created work are preserved,

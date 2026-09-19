@@ -117,13 +117,13 @@ test("homepage and FAQ marketing match Free starter library", () => {
 });
 
 test("cache bust versions aligned", () => {
-  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260803-nuo-onboarding-r4");
-  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260803-nuo-onboarding-r4");
-  assert.match(sw, /llh-shell-v158-nuo-onboarding-r4/);
+  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260904-staff-rolelabel-r1");
+  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260904-staff-rolelabel-r1");
+  assert.match(sw, /llh-shell-v212-free-11-r1/);
   assert.match(sw, /new-user-onboarding\.js\?v=20260803-nuo-onboarding-r4/);
-  assert.match(sw, /free-curriculum-sample\.js\?v=20260730-hdh-own-tester-kid/);
-  assert.match(sw, /trial-curriculum-exports\.js\?v=20260730-hdh-own-tester-kid/);
-  assert.match(sw, /free-plan-grandfathering\.js\?v=20260730-hdh-own-tester-kid/);
+  assert.match(sw, /free-curriculum-sample\.js\?v=20260919-free-11-r1/);
+  assert.match(sw, /trial-curriculum-exports\.js\?v=20260919-free-11-r1/);
+  assert.match(sw, /free-plan-grandfathering\.js\?v=20260919-free-11-r1/);
 });
 
 function requestJson(method, urlPath, body) {
@@ -257,7 +257,7 @@ async function browserMain() {
       title: "Construction Crew",
       age: "Toddler",
       plan: "Pro",
-    }), "Pro");
+    }), "Free");
     console.log("PASS  effectivePlanTier follows the curated Starter Library");
 
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
@@ -292,8 +292,8 @@ async function browserMain() {
         age: "Preschool",
       });
       const notCurated = api.isCuratedFreeLessonPlan({
-        id: "cur-lp-preschool-letters-and-sounds",
-        title: "Letters & Sounds",
+        id: "cur-lp-uncurated-free-regression",
+        title: "Uncurated Free Metadata",
         age: "Preschool",
       });
       const canCustomize = typeof canCustomizeLessonPlans === "function" ? canCustomizeLessonPlans() : null;

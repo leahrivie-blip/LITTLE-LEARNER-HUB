@@ -91,7 +91,7 @@ function request(method, urlPath, body, headers = {}) {
 async function main() {
   if (process.exitCode) return;
   const freeId = freeSample.DEFAULT_FREE_STARTER_LESSON_IDS[0];
-  const premiumId = "cur-lp-preschool-letters-and-sounds";
+  const premiumId = "cur-lp-preschool-protected-test";
   const store = {
     users: {
       "legacy.free@test.local": {
@@ -113,17 +113,17 @@ async function main() {
             plan: "Free",
             status: "published",
             weeklyOverview: "Starter body",
-            dailyPlans: { Monday: { items: [{ title: "Play" }] } },
+            dailyPlans: { monday: { items: [{ title: "Play" }] } },
           },
           {
             id: premiumId,
-            title: "Letters & Sounds",
+            title: "Protected Pro Lesson",
             age: "Preschool",
             plan: "Pro",
             status: "published",
             weeklyOverview: "Premium body",
             objectives: ["SECRET"],
-            dailyPlans: { Monday: { items: [{ title: "SECRET_ACT" }] } },
+            dailyPlans: { monday: { items: [{ title: "Preview Activity" }] } },
           },
         ],
         activities: [],
@@ -169,7 +169,7 @@ async function main() {
     if (premium.status === 200) {
       assert.equal(premium.json.lessonPlan.locked, true);
       assert.equal(premium.json.lessonPlan.dailyPlans, undefined);
-      assert.doesNotMatch(JSON.stringify(premium.json), /SECRET_ACT/);
+      assert.doesNotMatch(JSON.stringify(premium.json), /"objectives"|"steps"|"teacherLanguage"/);
     }
     console.log("PASS  existing Free with legacy label receives curated-only unlock");
     console.log("PASS  saved premium references stay locked without content leak");
