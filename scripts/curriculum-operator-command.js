@@ -355,7 +355,7 @@ function parseOperatorCommand(rawCommand, options = {}) {
     }
   }
 
-  if (!selection || selection === "filter") {
+  if ((!selection || selection === "filter") && !isCreateCommand) {
     if (!plan && !ageBand && !titles.length && !count && !/\baudit|find|check|list|show|upgrade|fix|fill|finish\b/i.test(lower)) {
       ambiguous = true;
       confirmReasons.push("ambiguous_scope");
