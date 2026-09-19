@@ -316,7 +316,7 @@ function escapeXml(value) {
     .replace(/'/g, "&apos;");
 }
 
-function renderPublicPage({ title, description, canonicalPath, bodyHtml, extraSchema = null, skipDefaultCta = false }) {
+function renderPublicPage({ title, description, canonicalPath, bodyHtml, extraSchema = null, skipDefaultCta = false, pageClass = "" }) {
   const url = absoluteUrl(canonicalPath);
   const graph = buildStructuredDataGraph();
   const extras = Array.isArray(extraSchema) ? extraSchema : (extraSchema ? [extraSchema] : []);
@@ -385,15 +385,59 @@ function renderPublicPage({ title, description, canonicalPath, bodyHtml, extraSc
       .feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin: 16px 0; }
       .feature-grid article { background: rgba(255,255,255,0.92); border: 1px solid #d7e5ee; border-radius: 12px; padding: 16px; }
       .feature-grid p { margin: 0; }
+      .about-page .wrap { max-width: 1180px; padding-top: 22px; }
+      .about-page .about-hero { display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(280px, 0.92fr); gap: clamp(28px, 5vw, 64px); align-items: center; padding: clamp(28px, 5vw, 64px); border-radius: 28px; background: linear-gradient(135deg, #fff8f2, #edf7fb); border: 1px solid #d7e5ee; box-shadow: 0 18px 48px rgba(31,42,68,0.12); }
+      .about-page .about-eyebrow { margin: 0 0 10px; color: #2f6f8f; font-size: 0.76rem; font-weight: 800; letter-spacing: 0.1em; }
+      .about-page .about-hero h1 { max-width: 680px; font-size: clamp(2rem, 4.6vw, 3.55rem); }
+      .about-page .about-lead { max-width: 610px; margin: 0; color: #43526b; font-size: clamp(1.05rem, 1.8vw, 1.2rem); }
+      .about-page .about-actions { margin-top: 8px; }
+      .about-page .about-portrait-wrap { position: relative; width: min(100%, 380px); justify-self: end; padding: 10px; border-radius: 26px; background: #fff; box-shadow: 0 16px 36px rgba(31,42,68,0.16); }
+      .about-page .about-portrait { display: block; width: 100%; aspect-ratio: 4 / 5; object-fit: cover; object-position: center 15%; border-radius: 18px; background: #e9f2f7; }
+      .about-page .about-founder-badge { position: absolute; right: -18px; bottom: 22px; max-width: 210px; padding: 12px 14px; border: 1px solid #d7e5ee; border-radius: 14px; background: rgba(255,255,255,0.97); box-shadow: 0 10px 24px rgba(31,42,68,0.13); }
+      .about-page .about-founder-badge strong, .about-page .about-founder-badge span { display: block; }
+      .about-page .about-founder-badge span { color: #5b6478; font-size: 0.88rem; }
+      .about-page .about-section { margin-top: clamp(48px, 8vw, 92px); }
+      .about-page .about-section h2 { margin-top: 0; font-size: clamp(1.55rem, 3vw, 2.3rem); }
+      .about-page .about-section-intro { max-width: 690px; color: #4c5b71; font-size: 1.06rem; }
+      .about-page .about-story { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 0.88fr); gap: clamp(24px, 5vw, 64px); align-items: center; }
+      .about-page .about-story-copy p { max-width: 650px; }
+      .about-page .about-pain-grid, .about-page .about-product-grid, .about-page .about-use-grid, .about-page .about-roadmap-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+      .about-page .about-pain-card, .about-page .about-use-card, .about-page .about-roadmap-card { padding: 18px; border: 1px solid #d7e5ee; border-radius: 16px; background: #fff; box-shadow: 0 8px 20px rgba(31,42,68,0.06); }
+      .about-page .about-pain-card h3, .about-page .about-use-card h3, .about-page .about-roadmap-card h3 { color: #215f7c; }
+      .about-page .about-shift { margin: 22px 0 0; font-family: Georgia, serif; font-size: 1.35rem; font-weight: 700; color: #2f6f8f; }
+      .about-page .about-product-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+      .about-page .about-product-card { overflow: hidden; border: 1px solid #d7e5ee; border-radius: 16px; background: #fff; box-shadow: 0 10px 22px rgba(31,42,68,0.07); }
+      .about-page .about-product-card img { display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; background: #eef6fb; }
+      .about-page .about-product-card div { padding: 16px; }
+      .about-page .about-product-card h3 { margin-top: 0; }
+      .about-page .about-product-card p, .about-page .about-use-card p, .about-page .about-roadmap-card p { margin-bottom: 0; color: #5b6478; font-size: 0.96rem; }
+      .about-page .about-use-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .about-page .about-use-card span { display: inline-grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; background: #e7f2f7; color: #2f6f8f; font-weight: 800; }
+      .about-page .about-link { display: inline-block; margin-top: 18px; color: #215f7c; font-weight: 700; }
+      .about-page .about-cta-band { padding: clamp(26px, 5vw, 48px); border-radius: 24px; background: #2f6f8f; color: #fff; box-shadow: 0 16px 34px rgba(33,95,124,0.2); }
+      .about-page .about-cta-band h2, .about-page .about-cta-band p { color: #fff; }
+      .about-page .about-cta-band .cta { background: #fff; color: #215f7c; }
+      .about-page .about-cta-band .cta-secondary { border-color: rgba(255,255,255,0.72); background: transparent; color: #fff; }
+      .about-page .about-roadmap { padding: clamp(24px, 4vw, 40px); border-radius: 22px; background: #f4f7fa; border: 1px solid #dbe3f2; }
+      @media (min-width: 601px) and (max-width: 900px) {
+        .about-page .about-story { grid-template-columns: 1fr; }
+        .about-page .about-product-grid, .about-page .about-use-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      }
       @media (max-width: 600px) {
         .wrap { padding: 22px 14px 48px; }
         .cta { width: 100%; text-align: center; margin-right: 0; }
         .founder-grid { grid-template-columns: 1fr; }
         .founder-photo { max-width: 280px; }
+        .about-page .wrap { padding: 16px 14px 44px; }
+        .about-page .about-hero, .about-page .about-story { grid-template-columns: 1fr; padding: 26px 20px; }
+        .about-page .about-portrait-wrap { width: min(86vw, 320px); justify-self: center; margin-top: 4px; }
+        .about-page .about-founder-badge { right: -8px; bottom: 14px; max-width: 185px; }
+        .about-page .about-pain-grid, .about-page .about-product-grid, .about-page .about-use-grid, .about-page .about-roadmap-grid { grid-template-columns: 1fr; }
+        .about-page .about-section { margin-top: 48px; }
       }
     </style>
   </head>
-  <body>
+  <body${pageClass ? ` class="${escapeHtml(pageClass)}"` : ""}>
     <div class="wrap">
       <header>
         <a class="brand" href="/">${escapeHtml(BUSINESS_NAME)}</a>
@@ -427,60 +471,84 @@ function renderCurriculumHubPage(page) {
 
 function renderAboutPage() {
   const founderImage = founderImageUrl();
+  const founderVisual = founderImage
+    ? `<div class="about-portrait-wrap"><img class="about-portrait" src="${escapeHtml(founderImage)}" alt="Leah, founder of Little Learner Hub" width="1290" height="1595" fetchpriority="high" decoding="async" /><div class="about-founder-badge"><strong>Created by Leah</strong><span>Childcare provider + mom of three</span></div></div>`
+    : `<div class="about-portrait-wrap" role="img" aria-label="Founder photo coming soon"></div>`;
   return renderPublicPage({
     title: `About | ${BUSINESS_NAME}`,
     description: "Meet Leah, the childcare provider behind Little Learner Hub — affordable childcare curriculum and ready-to-use lesson planning for busy teachers.",
     canonicalPath: "/about",
+    pageClass: "about-page",
     bodyHtml: `
-      <h1>About ${escapeHtml(BUSINESS_NAME)}</h1>
-      <p class="muted">Affordable childcare curriculum and ready-to-use lesson planning, built by a childcare provider for childcare providers.</p>
-
-      <section class="founder-grid">
-        ${founderImage ? `<img class="founder-photo" src="${escapeHtml(founderImage)}" alt="Leah, founder of Little Learner Hub" width="1290" height="1595" loading="eager" />` : ""}
+      <section class="about-hero" aria-labelledby="about-hero-title">
         <div>
-          <h2>Meet Leah</h2>
-          <p>My name is Leah. I have worked in childcare for about six years, directly in classrooms with young children. I am also a mom of three young children.</p>
-          <p>I created Little Learner Hub because I know how exhausting it is to plan lessons, gather activities, write documentation, and keep everything organized while caring for children. Providers deserve ready-to-use curriculum and planning tools that save time.</p>
-          <p>I listen to provider requests and continuously add lesson plans, activities, and platform improvements based on real classroom feedback.</p>
-          <p><a class="cta" href="/?signup=1">Start Free</a><a class="cta cta-secondary" href="/daycare-curriculum">Explore lesson plans</a></p>
+          <p class="about-eyebrow">ABOUT LITTLE LEARNER HUB</p>
+          <h1 id="about-hero-title">Built by a childcare provider who knows how busy the classroom really gets.</h1>
+          <p class="about-lead">I&rsquo;m Leah — a childcare provider and mom of three. I created Little Learner Hub because teachers shouldn&rsquo;t have to spend their nights searching for activities, piecing together lesson plans, and starting every classroom document from scratch.</p>
+          <p class="about-actions"><a class="cta" href="/daycare-curriculum">Explore Lesson Plans</a><a class="cta cta-secondary" href="/?signup=1">Start Free</a></p>
+        </div>
+        ${founderVisual}
+      </section>
+
+      <section class="about-section about-story" aria-labelledby="about-why-title">
+        <div class="about-story-copy">
+          <h2 id="about-why-title">I built what I wished I had in the classroom.</h2>
+          <p>Planning, finding activities, preparing printables, and writing documentation can take over the hours teachers need for themselves. It can also pull attention away from the children right in front of you.</p>
+          <p>Little Learner Hub brings those pieces together so you can open a week, see what you need, and get started without searching everywhere or rebuilding the same materials from scratch.</p>
+          <p class="about-shift">Little Learner Hub puts the pieces together.</p>
+        </div>
+        <div class="about-pain-grid">
+          <article class="about-pain-card"><h3>Planning after hours</h3><p>Stop spending your evenings building next week&rsquo;s lesson plan.</p></article>
+          <article class="about-pain-card"><h3>Searching everywhere</h3><p>Find classroom ideas without searching Pinterest for an hour.</p></article>
+          <article class="about-pain-card"><h3>Starting from scratch</h3><p>Keep the work you need together instead of recreating it each week.</p></article>
         </div>
       </section>
 
-      <h2>What Little Learner Hub Does Now</h2>
-      <p>These are features signed-in members can use today:</p>
-      <ul>
-        <li>Ready-to-use lesson plans for infants, toddlers, preschoolers, mixed-age groups, holidays, and seasonal themes (11 starter plans on Free; full library on Pro) — browse the live <a href="/daycare-curriculum">daycare curriculum hub</a></li>
-        <li>Thousands of classroom activities with play-based learning ideas and printable resources</li>
-        <li>Curriculum Calendar and Lesson Planner for organizing weekly plans</li>
-        <li>AI Documentation Helpers that generate observations, parent messages, daily reports, incident reports, and more in seconds</li>
-        <li>Child Profiles to organize documentation and developmental observations</li>
-        <li>Lesson plan, activity, and feature requests directly inside Little Learner Hub</li>
-        <li>Print and download tools for classroom-ready starter and Pro library plans</li>
-        <li>Pro unlocks the full libraries, saved favorites, customized lesson-plan copies, and expanded limits</li>
-      </ul>
-      <p>If you can&rsquo;t find the lesson plan, activity, or feature you need, you can request it directly from inside Little Learner Hub. New content and improvements are added regularly based on provider feedback.</p>
-      <p>See the <a href="/features">Features page</a> for a fuller breakdown of what is live today.</p>
+      <section class="about-section" aria-labelledby="about-days-title">
+        <h2 id="about-days-title">Made for real childcare days.</h2>
+        <p class="about-section-intro">Real curriculum visuals, familiar classroom tasks, and simple places to start.</p>
+        <div class="about-product-grid">
+          <article class="about-product-card"><img src="/images/lesson-covers/farm.svg" alt="Farm Animals lesson plan cover" width="640" height="360" loading="lazy" decoding="async" /><div><h3>Ready-to-use weekly lesson plans</h3><p>Choose a theme, open the week, and start planning.</p></div></article>
+          <article class="about-product-card"><img src="/images/lesson-covers/colors.svg" alt="Colors lesson plan cover" width="640" height="360" loading="lazy" decoding="async" /><div><h3>Activities + printables</h3><p>Keep classroom ideas and printable resources together.</p></div></article>
+          <article class="about-product-card"><img src="/images/lesson-covers/community-helpers.svg" alt="Community Helpers lesson plan cover" width="640" height="360" loading="lazy" decoding="async" /><div><h3>Planning tools</h3><p>Organize what you&rsquo;re teaching without rebuilding the week from scratch.</p></div></article>
+          <article class="about-product-card"><img src="/images/lesson-covers/feelings.svg" alt="Feelings lesson plan cover" width="640" height="360" loading="lazy" decoding="async" /><div><h3>Documentation help</h3><p>Turn quick classroom notes into clearer observations and family updates.</p></div></article>
+        </div>
+      </section>
 
-      <h2>What I&rsquo;m Building Next</h2>
-      <p class="muted"><strong>Future plans and works in progress — not all available yet.</strong></p>
-      <p>Little Learner Hub continues to grow with more daycare operations tools. Here is what I am working toward:</p>
-      <ul>
-        <li>Expanded daily logs</li>
-        <li>Attendance and check-in</li>
-        <li>Meals, naps, diapers, and toileting</li>
-        <li>Family Hub for parents</li>
-        <li>Family messaging</li>
-        <li>Electronic forms and signatures</li>
-        <li>Enrollment and waitlists</li>
-        <li>Tuition and billing tools</li>
-        <li>Staff and classroom management</li>
-        <li>Child portfolios and developmental goals</li>
-        <li>Licensing and staff document storage</li>
-        <li>More school-age content</li>
-        <li>Expanded AI Guide tools</li>
-        <li>Mobile and offline support</li>
-      </ul>
-      <p class="muted">Some items are in active development or limited testing. They are labeled clearly on the <a href="/features">Features page</a> and are not presented as fully live until launched.</p>
+      <section class="about-section" aria-labelledby="about-use-title">
+        <h2 id="about-use-title">What you can use today</h2>
+        <div class="about-use-grid">
+          <article class="about-use-card"><span>01</span><h3>Weekly lesson plans</h3><p>Open a ready-to-use theme for your classroom.</p></article>
+          <article class="about-use-card"><span>02</span><h3>Activity library</h3><p>Find play-based ideas connected to real lesson plans.</p></article>
+          <article class="about-use-card"><span>03</span><h3>Curriculum calendar</h3><p>Organize what you are teaching in one place.</p></article>
+          <article class="about-use-card"><span>04</span><h3>Documentation helpers</h3><p>Turn notes into clearer classroom records.</p></article>
+          <article class="about-use-card"><span>05</span><h3>Child profiles</h3><p>Keep observations organized for the children you teach.</p></article>
+          <article class="about-use-card"><span>06</span><h3>Print + download tools</h3><p>Prepare the lesson resources your classroom needs.</p></article>
+        </div>
+        <a class="about-link" href="/features">See all features →</a>
+      </section>
+
+      <section class="about-section about-cta-band" aria-labelledby="about-try-title">
+        <h2 id="about-try-title">See whether Little Learner Hub fits your classroom.</h2>
+        <p>Start with the Free plan, explore complete starter lesson plans, and see how the planning experience works before upgrading.</p>
+        <p><a class="cta" href="/?signup=1">Start Free</a><a class="cta cta-secondary" href="/daycare-curriculum">Browse Lesson Plans</a></p>
+      </section>
+
+      <section class="about-section about-roadmap" aria-labelledby="about-roadmap-title">
+        <h2 id="about-roadmap-title">Little Learner Hub is still growing.</h2>
+        <p class="about-section-intro">I&rsquo;m continuing to build tools around the parts of childcare work that take the most time.</p>
+        <div class="about-roadmap-grid">
+          <article class="about-roadmap-card"><h3>Daily classroom operations</h3><p>Coming later / in development</p></article>
+          <article class="about-roadmap-card"><h3>Family communication</h3><p>Coming later / in development</p></article>
+          <article class="about-roadmap-card"><h3>Program management tools</h3><p>Coming later / in development</p></article>
+        </div>
+        <a class="about-link" href="/features">View the full roadmap →</a>
+      </section>
+
+      <section class="about-section about-cta-band" aria-labelledby="about-final-title">
+        <h2 id="about-final-title">Spend less time building the plan. Spend more time teaching it.</h2>
+        <p><a class="cta" href="/?signup=1">Start Free</a><a class="cta cta-secondary" href="/daycare-curriculum">Explore Curriculum</a></p>
+      </section>
 
       ${renderSocialLinksHtml({ heading: `Connect with ${BUSINESS_NAME}` })}
     `,
