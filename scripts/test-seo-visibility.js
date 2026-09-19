@@ -98,6 +98,8 @@ async function main() {
   const indexHtml = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
   assert(indexHtml.includes(seo.SEO_TITLE), "homepage title missing proposed SEO title");
   assert(indexHtml.includes(seo.SEO_DESCRIPTION), "homepage description missing proposed copy");
+  assert(indexHtml.includes('alt="Leah, founder of Little Learner Hub"'), "homepage founder portrait alt text missing");
+  assert(fs.existsSync(path.join(ROOT, "images", "leah-founder.jpg")), "homepage founder portrait asset missing");
   assert(!indexHtml.includes("Little Learner Hub Founding Membership"), "homepage must not advertise Founding Membership Product schema");
   assert(!indexHtml.includes("#founding-membership"), "homepage must not include founding-membership schema id");
   assert(!/Founding Member/i.test(indexHtml), "homepage HTML must not mention Founding Member");
@@ -141,11 +143,11 @@ async function main() {
     const sitemap = await request("GET", "/sitemap.xml");
     assert(sitemap.status === 200, `sitemap.xml status ${sitemap.status}`);
     const hubPaths = seo.seoCurriculum.hubPages().map((page) => page.path);
-    for (const route of ["/", "/about", "/features", "/faq", "/pricing", "/contact", "/privacy", "/terms", ...hubPaths]) {
+    for (const route of ["/", "/about", "/features", "/faq", "/pricing", "/contact", "/how-it-works", "/privacy", "/terms", ...hubPaths]) {
       assert(sitemap.body.includes(`<loc>http://127.0.0.1:${PORT}${route === "/" ? "/" : route}</loc>`) || sitemap.body.includes(route), `sitemap missing ${route}`);
     }
 
-    for (const route of ["/about", "/features", "/faq", "/pricing", "/contact", "/privacy", "/terms", ...hubPaths]) {
+    for (const route of ["/about", "/features", "/faq", "/pricing", "/contact", "/how-it-works", "/privacy", "/terms", ...hubPaths]) {
       const page = await request("GET", route);
       assert(page.status === 200, `${route} status ${page.status}`);
       assert(page.body.includes(seo.BUSINESS_NAME), `${route} missing business name`);
@@ -188,12 +190,18 @@ async function main() {
     assert(features.body.includes("Available Now"), "features page missing Available Now");
     assert(features.body.includes("Currently Being Built or Tested"), "features page missing in-progress section");
     assert(features.body.includes("Future Plans"), "features page missing Future Plans");
+    assert(features.body.includes("/childcare-activities"), "features page missing activity destination");
 
     const pricing = await request("GET", "/pricing");
     assert(pricing.body.includes("$19.99/month"), "pricing page missing Pro Monthly price");
     assert(pricing.body.includes("$199/year"), "pricing page missing Pro Annual price");
     assert(!/Founding Member/i.test(pricing.body), "pricing page must not mention Founding Member");
     assert(pricing.body.includes("$19.99/month"), "pricing page missing Pro Monthly after founding removal");
+    assert(pricing.body.includes("10 complete starter lesson plans"), "pricing page must state the current Free entitlement");
+
+    const howItWorks = await request("GET", "/how-it-works");
+    assert(howItWorks.body.includes("What&rsquo;s inside a Little Learner Hub lesson plan"), "How It Works page missing lesson-plan structure");
+    assert(howItWorks.body.includes("Free accounts can open 10 complete starter plans"), "How It Works page must state current Free entitlement");
 
     const terms = await request("GET", "/terms");
     assert(terms.body.includes("Unauthorized copying, sharing, resale, public redistribution, or commercial reuse outside the member's program is prohibited."), "terms page missing copyright detail");
@@ -216,6 +224,7 @@ async function main() {
 
     const about = await request("GET", "/about");
     assert(about.body.includes("Meet Leah"), "about page missing Meet Leah section");
+    assert(about.body.includes('alt="Leah, founder of Little Learner Hub"'), "about page missing founder portrait");
     assert(about.body.includes("What Little Learner Hub Does Now"), "about page missing current features section");
     assert(about.body.includes("What I&rsquo;m Building Next"), "about page missing future plans section");
     assert(about.body.includes("https://www.facebook.com/profile.php?id=61590609343290"), "about page missing Facebook link");
@@ -235,7 +244,7 @@ async function main() {
     assert(!/AggregateRating|reviewCount/i.test(home.body), "served homepage must not include review schema");
     assert(!/LocalBusiness/i.test(home.body), "homepage must not include LocalBusiness schema");
 
-    for (const route of ["/about", "/features", "/faq", "/pricing", "/contact", ...hubPaths]) {
+    for (const route of ["/about", "/features", "/faq", "/pricing", "/contact", "/how-it-works", ...hubPaths]) {
       const page = await request("GET", route);
       assert(!forbiddenFacebookLabel.test(page.body), `${route} must not display Facebook page name`);
       assert(!/123 Main|LocalBusiness|AggregateRating/i.test(page.body), `${route} must not include fake address or review/local business schema`);

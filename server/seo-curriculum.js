@@ -269,17 +269,20 @@ function renderLessonCardsHtml(plans, { escapeHtml, limit = 18 } = {}) {
     return `<p class="muted">Published lesson plans for this page will appear here as soon as they are live in the library.</p>`;
   }
   return `<div class="seo-card-grid">${slice.map((plan) => {
-    const badge = plan.locked === false ? "Free starter" : "Library preview";
+    const badge = plan.locked === false ? "Free starter" : "Pro preview";
     const overview = excerpt(plan.weeklyOverview || "", 34);
     const domains = Array.isArray(plan.learningDomains) ? plan.learningDomains.slice(0, 3) : [];
+    const cover = String(plan.coverImageUrl || "").trim();
+    const coverAlt = String(plan.coverImageAlt || `${plan.title || "Lesson plan"} lesson plan cover`).trim();
     return `
       <article class="seo-card">
+        ${cover ? `<img class="seo-card-image" src="${escapeHtml(cover)}" alt="${escapeHtml(coverAlt)}" loading="lazy" decoding="async" />` : ""}
         <p class="seo-card-meta"><span class="seo-badge">${escapeHtml(badge)}</span> · ${escapeHtml(plan.age || "")}</p>
         <h3><a href="${escapeHtml(lessonHref(plan))}">${escapeHtml(plan.title || "Lesson plan")}</a></h3>
         ${plan.theme ? `<p class="seo-theme">Theme: ${escapeHtml(plan.theme)}</p>` : ""}
         ${overview ? `<p>${escapeHtml(overview)}</p>` : ""}
         ${domains.length ? `<p class="muted">${domains.map((d) => escapeHtml(d)).join(" · ")}</p>` : ""}
-        <p><a href="${escapeHtml(lessonHref(plan))}">${plan.locked === false ? "Open free lesson plan" : "Browse in lesson library"}</a></p>
+        <p><a href="${escapeHtml(lessonHref(plan))}">View Lesson</a>${plan.locked === false ? "" : ` · <a href="${escapeHtml(signupHref())}">Start Free</a>`}</p>
       </article>`;
   }).join("\n")}</div>`;
 }
@@ -294,13 +297,13 @@ function renderActivityCardsHtml(activities, { escapeHtml, limit = 24 } = {}) {
     const parentTitle = activity.parentTitle || "Lesson plan";
     const parentId = activity.lessonPlanId || "";
     const href = parentId ? `/?lesson=${encodeURIComponent(parentId)}` : libraryHref();
-    const badge = activity.locked === false ? "In free starter plan" : "From library plan";
+    const badge = activity.locked === false ? "Free activity" : "Pro preview";
     return `
       <article class="seo-card">
         <p class="seo-card-meta"><span class="seo-badge">${escapeHtml(badge)}</span>${parentAge ? ` · ${escapeHtml(parentAge)}` : ""} · ${escapeHtml(activity.activityCategory || "Activity")}</p>
         <h3>${escapeHtml(activity.title || "Activity")}</h3>
         <p class="seo-theme">From lesson: <a href="${escapeHtml(href)}">${escapeHtml(parentTitle)}</a></p>
-        <p><a href="${escapeHtml(href)}">Open related lesson plan</a></p>
+        <p><a href="${escapeHtml(href)}">View Lesson</a>${activity.locked === false ? "" : ` · <a href="${escapeHtml(signupHref())}">Start Free</a>`}</p>
       </article>`;
   }).join("\n")}</div>`;
 }

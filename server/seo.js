@@ -101,6 +101,11 @@ function ogImageUrl() {
   return logoUrl();
 }
 
+function founderImageUrl() {
+  const founderImage = path.join(__dirname, "..", "images", "leah-founder.jpg");
+  return fs.existsSync(founderImage) ? absoluteUrl("/images/leah-founder.jpg") : "";
+}
+
 function socialProfileUrls() {
   const envMap = {
     LLH_SOCIAL_TIKTOK_URL: "https://www.tiktok.com/@leahrpoole",
@@ -260,6 +265,7 @@ function publicPageRoutes() {
     { path: "/faq", changefreq: "monthly", priority: "0.8" },
     { path: "/pricing", changefreq: "weekly", priority: "0.8" },
     { path: "/contact", changefreq: "monthly", priority: "0.7" },
+    { path: "/how-it-works", changefreq: "monthly", priority: "0.8" },
     { path: "/privacy", changefreq: "yearly", priority: "0.5" },
     { path: "/terms", changefreq: "yearly", priority: "0.5" },
     ...seoCurriculum.hubPageRoutes(),
@@ -345,6 +351,9 @@ function renderPublicPage({ title, description, canonicalPath, bodyHtml, extraSc
       .wrap { max-width: 920px; margin: 0 auto; padding: 28px 18px 56px; }
       header { margin-bottom: 24px; }
       .brand { font-weight: 700; color: #2f6f8f; text-decoration: none; }
+      .public-nav { display: flex; flex-wrap: wrap; gap: 8px 14px; margin-top: 10px; }
+      .public-nav a { color: #215f7c; font-weight: 600; text-decoration: none; }
+      .public-nav a:hover { text-decoration: underline; }
       h1 { font-size: clamp(1.7rem, 4vw, 2.15rem); margin: 0.4rem 0 0.8rem; line-height: 1.2; }
       h2 { margin-top: 2rem; font-size: 1.25rem; }
       h3 { margin: 0.35rem 0 0.45rem; font-size: 1.05rem; }
@@ -365,14 +374,22 @@ function renderPublicPage({ title, description, canonicalPath, bodyHtml, extraSc
       .seo-card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin: 16px 0 8px; }
       .seo-card { background: rgba(255,255,255,0.92); border: 1px solid #d7e5ee; border-radius: 12px; padding: 14px 14px 12px; }
       .seo-card a { color: #215f7c; }
+      .seo-card-image { display: block; width: calc(100% + 28px); height: 156px; margin: -14px -14px 12px; border-radius: 12px 12px 0 0; object-fit: cover; background: #eef6fb; }
       .seo-card-meta { margin: 0; font-size: 0.88rem; color: #5b6478; }
       .seo-badge { display: inline-block; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; color: #215f7c; background: #e7f2f7; padding: 0.15rem 0.45rem; border-radius: 999px; }
       .seo-theme { margin: 0.25rem 0 0.5rem; font-size: 0.95rem; }
       .seo-related { margin-top: 2rem; }
       .seo-stat-list { display: grid; gap: 0.35rem; }
+      .founder-grid { display: grid; grid-template-columns: minmax(180px, 260px) 1fr; gap: 24px; align-items: center; margin: 20px 0; }
+      .founder-photo { display: block; width: 100%; aspect-ratio: 4 / 5; object-fit: cover; border-radius: 18px; box-shadow: 0 12px 30px rgba(31,42,68,0.16); }
+      .feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin: 16px 0; }
+      .feature-grid article { background: rgba(255,255,255,0.92); border: 1px solid #d7e5ee; border-radius: 12px; padding: 16px; }
+      .feature-grid p { margin: 0; }
       @media (max-width: 600px) {
         .wrap { padding: 22px 14px 48px; }
         .cta { width: 100%; text-align: center; margin-right: 0; }
+        .founder-grid { grid-template-columns: 1fr; }
+        .founder-photo { max-width: 280px; }
       }
     </style>
   </head>
@@ -381,6 +398,7 @@ function renderPublicPage({ title, description, canonicalPath, bodyHtml, extraSc
       <header>
         <a class="brand" href="/">${escapeHtml(BUSINESS_NAME)}</a>
         <p class="muted">Online childcare lesson-planning and program-support platform</p>
+        <nav class="public-nav" aria-label="Public pages"><a href="/daycare-curriculum">Lesson Plans</a><a href="/childcare-activities">Activities</a><a href="/how-it-works">How It Works</a><a href="/features">Features</a><a href="/pricing">Pricing</a><a href="/about">About</a></nav>
       </header>
       ${bodyHtml}
       ${skipDefaultCta ? "" : `<p><a class="cta" href="/">Open Little Learner Hub</a></p>`}
@@ -408,6 +426,7 @@ function renderCurriculumHubPage(page) {
 }
 
 function renderAboutPage() {
+  const founderImage = founderImageUrl();
   return renderPublicPage({
     title: `About | ${BUSINESS_NAME}`,
     description: "Meet Leah, the childcare provider behind Little Learner Hub — affordable childcare curriculum and ready-to-use lesson planning for busy teachers.",
@@ -416,15 +435,21 @@ function renderAboutPage() {
       <h1>About ${escapeHtml(BUSINESS_NAME)}</h1>
       <p class="muted">Affordable childcare curriculum and ready-to-use lesson planning, built by a childcare provider for childcare providers.</p>
 
-      <h2>Meet Leah</h2>
-      <p>My name is Leah. I have worked in childcare for about six years, directly in classrooms with young children. I am also a mom of three young children.</p>
-      <p>I created Little Learner Hub because I know how exhausting it is to plan lessons, gather activities, write documentation, and keep everything organized while caring for children. Providers deserve ready-to-use curriculum and planning tools that save time.</p>
-      <p>I listen to provider requests and continuously add lesson plans, activities, and platform improvements based on real classroom feedback.</p>
+      <section class="founder-grid">
+        ${founderImage ? `<img class="founder-photo" src="${escapeHtml(founderImage)}" alt="Leah, founder of Little Learner Hub" width="1290" height="1595" loading="eager" />` : ""}
+        <div>
+          <h2>Meet Leah</h2>
+          <p>My name is Leah. I have worked in childcare for about six years, directly in classrooms with young children. I am also a mom of three young children.</p>
+          <p>I created Little Learner Hub because I know how exhausting it is to plan lessons, gather activities, write documentation, and keep everything organized while caring for children. Providers deserve ready-to-use curriculum and planning tools that save time.</p>
+          <p>I listen to provider requests and continuously add lesson plans, activities, and platform improvements based on real classroom feedback.</p>
+          <p><a class="cta" href="/?signup=1">Start Free</a><a class="cta cta-secondary" href="/daycare-curriculum">Explore lesson plans</a></p>
+        </div>
+      </section>
 
       <h2>What Little Learner Hub Does Now</h2>
       <p>These are features signed-in members can use today:</p>
       <ul>
-        <li>Hundreds of ready-to-use lesson plans for infants, toddlers, preschoolers, mixed-age groups, holidays, and seasonal themes (10 starter plans on Free; full library on Pro) — browse the live <a href="/daycare-curriculum">daycare curriculum hub</a></li>
+        <li>Ready-to-use lesson plans for infants, toddlers, preschoolers, mixed-age groups, holidays, and seasonal themes (10 starter plans on Free; full library on Pro) — browse the live <a href="/daycare-curriculum">daycare curriculum hub</a></li>
         <li>Thousands of classroom activities with play-based learning ideas and printable resources</li>
         <li>Curriculum Calendar and Lesson Planner for organizing weekly plans</li>
         <li>AI Documentation Helpers that generate observations, parent messages, daily reports, incident reports, and more in seconds</li>
@@ -471,17 +496,14 @@ function renderFeaturesPage() {
       <h1>Curriculum &amp; Teacher Features</h1>
       <p>Little Learner Hub is <strong>affordable childcare curriculum and ready-to-use lesson planning</strong> for busy teachers — with lesson plans, activities, printables, planning tools, and documentation helpers. This page separates live features from testing and future roadmap work.</p>
       <h2>Available Now <span class="pill">Live</span></h2>
-      <ul>
-        <li>Hundreds of ready-to-use lesson plans for infants, toddlers, preschoolers, mixed-age groups, holidays, and seasonal themes (10 starter plans on Free; full library on Pro)</li>
-        <li>Thousands of classroom activities with play-based learning ideas and printable resources</li>
-        <li>Curriculum Calendar and Lesson Planner for organizing weekly plans</li>
-        <li>AI Documentation Helpers that generate observations, parent messages, daily reports, incident reports, and more in seconds</li>
-        <li>Child Profiles to organize documentation and developmental observations</li>
-        <li>Lesson Plan and Feature Requests — request lesson plans, activities, or platform improvements directly inside Little Learner Hub</li>
-        <li>Print and download tools for classroom-ready starter and Pro library plans</li>
-        <li>Free plan with 10 complete starter lesson plans (no credit card required)</li>
-        <li>Pro membership for full library access, saved favorites, customized lesson-plan copies, and expanded limits</li>
-      </ul>
+      <div class="feature-grid">
+        <article><h3>Lesson Plans</h3><p>Start with a weekly theme instead of a blank page. <a href="/daycare-curriculum">Browse real plans</a> by age group.</p></article>
+        <article><h3>Activity Center</h3><p>Find play-based activities connected to real lesson plans. <a href="/childcare-activities">Explore activities</a>.</p></article>
+        <article><h3>Calendar Planning</h3><p>Organize the plans you are teaching, all in one place after you sign in.</p></article>
+        <article><h3>Child Profiles &amp; Documentation</h3><p>Keep observations organized and use Documentation Helpers to turn notes into clearer records.</p></article>
+        <article><h3>Teaching Kits &amp; Printables</h3><p>Where a lesson includes them, classroom-ready resources stay connected to that lesson.</p></article>
+        <article><h3>Free and Pro Access</h3><p>Free includes 10 starter lesson plans with no credit card. Pro unlocks the broader library and additional tools.</p></article>
+      </div>
       <p>If you can&rsquo;t find the lesson plan, activity, or feature you need, you can request it directly from inside Little Learner Hub. New content and improvements are added regularly based on provider feedback.</p>
       <h2>Currently Being Built or Tested <span class="pill status-testing">In progress</span></h2>
       <ul>
@@ -510,7 +532,9 @@ function renderFaqPage() {
     ["What ages are included?", "Infants, Toddlers, and Preschoolers. Content is organized by age group and should still be adapted to each child’s development. Mixed-age, holiday, and seasonal themes are included."],
     ["Are lesson plans printable?", "Yes. Members can customize plans and print or save PDF copies for classroom use."],
     ["Are infant, toddler, and preschool plans available?", "Yes. The library includes published plans across all three age groups, plus mixed-age, holiday, and seasonal themes."],
-    ["Is there a free option?", "Yes. The Free plan includes 10 complete starter lesson plans across Infant, Toddler, and Preschool with no credit card required."],
+    ["How many Free lesson plans are included?", "The Free plan includes 10 complete starter lesson plans across Infant, Toddler, and Preschool with no credit card required."],
+    ["What is included in a lesson plan?", "Many published plans include a weekly theme, daily activities, learning objectives, materials, teacher preparation, setup guidance, activity directions, observation ideas, safety or cleanup reminders, and books, songs, family connections, printables, or Teaching Kit resources where available."],
+    ["What are Teaching Kits?", "Teaching Kits are classroom resources connected to a lesson plan where available, such as preparation support, observation ideas, and printable materials."],
     ["What comes with Pro?", "Pro unlocks the complete lesson-plan and activity libraries, unlimited curriculum printing and downloads, curriculum calendar planning, AI documentation helpers with higher limits, child profiles, saved customized copies, and new content added regularly. Pro Monthly is $19.99/month; Pro Annual is $199/year."],
     ["Can childcare centers use it?", "Yes. Centers, home daycares, preschool classrooms, and family childcare programs can use the platform for curriculum, planning, and documentation today, with additional center-management tools planned for later."],
     ["Can providers request lesson plans, activities, or features?", "Yes. If you can’t find the lesson plan, activity, or feature you need, you can request it directly from inside Little Learner Hub. New content and improvements are added regularly based on provider feedback."],
@@ -552,6 +576,7 @@ function renderPricingPage() {
         <li>AI Documentation Helper starter limits</li>
         <li>No credit card required</li>
       </ul>
+      <p><a class="cta" href="/?signup=1">Start Free</a><a class="cta cta-secondary" href="/daycare-curriculum">Explore lesson plans</a></p>
       <h2>Pro Monthly — $19.99/month</h2>
       <ul>
         <li>Hundreds of lesson plans and thousands of classroom activities</li>
@@ -566,6 +591,26 @@ function renderPricingPage() {
       <h2>Pro Annual — $199/year</h2>
       <p>Same Pro platform access as Pro Monthly, billed annually.</p>
       <p class="muted">This page describes membership pricing only. Little Learner Hub is an online platform and does not operate as a physical childcare location.</p>
+    `,
+  });
+}
+
+function renderHowItWorksPage() {
+  return renderPublicPage({
+    title: `How It Works | ${BUSINESS_NAME}`,
+    description: "See how Little Learner Hub helps busy childcare providers choose, prepare, and teach weekly lesson plans for infant, toddler, and preschool classrooms.",
+    canonicalPath: "/how-it-works",
+    bodyHtml: `
+      <h1>How Little Learner Hub Works</h1>
+      <p class="muted">A practical way to spend less time building curriculum and more time with children.</p>
+      <div class="feature-grid">
+        <article><h2>1. Browse by age and theme</h2><p>Explore published Infant, Toddler, and Preschool lesson plans. Free accounts can open 10 complete starter plans; other plans remain previews until Pro access.</p></article>
+        <article><h2>2. Prepare for the week</h2><p>Many plans bring together daily activities, materials, objectives, books, songs, and classroom resources where available.</p></article>
+        <article><h2>3. Teach, print, and document</h2><p>Use the plans and printable resources available with your access level, then keep planning and documentation organized in your account.</p></article>
+      </div>
+      <h2>What&rsquo;s inside a Little Learner Hub lesson plan</h2>
+      <p>Lesson-plan fields vary by published week. Many plans include a weekly theme, daily activities, learning objectives, materials list, teacher preparation, setup instructions, step-by-step directions, questions for children, observation ideas, safety and cleanup reminders, vocabulary, books, songs, family connection ideas, and printables or Teaching Kit resources where available.</p>
+      <p><a class="cta" href="/daycare-curriculum">Explore Lesson Plans</a><a class="cta cta-secondary" href="/?signup=1">Start Free</a></p>
     `,
   });
 }
@@ -638,6 +683,7 @@ function handleSeoRoute(request, response, pathname) {
     "/features": renderFeaturesPage,
     "/faq": renderFaqPage,
     "/pricing": renderPricingPage,
+    "/how-it-works": renderHowItWorksPage,
     "/contact": renderContactPage,
     "/privacy": renderPrivacyPage,
     "/terms": renderTermsPage,
@@ -661,6 +707,7 @@ module.exports = {
   absoluteUrl,
   logoUrl,
   ogImageUrl,
+  founderImageUrl,
   socialProfileUrls,
   OFFICIAL_SOCIAL_PROFILES,
   renderSocialLinksHtml,

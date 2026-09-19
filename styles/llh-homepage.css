@@ -1056,6 +1056,12 @@ body.llh-public-menu-open {
   align-items: center;
 }
 
+.landing-home .llh-founder-section .lp-founder-photo-img {
+  width: clamp(160px, 20vw, 220px);
+  height: clamp(160px, 20vw, 220px);
+  object-position: center 18%;
+}
+
 .llh-founder-tagline {
   margin-top: 12px;
   color: var(--llh-primary-deep, #5a4d8a);
