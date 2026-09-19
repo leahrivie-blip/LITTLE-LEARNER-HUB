@@ -216,7 +216,7 @@ function buildStructuredDataGraph(options = {}) {
         name: "Free Plan",
         price: "0",
         priceCurrency: "USD",
-        description: "Free plan with 10 complete starter lesson plans across Infant, Toddler, and Preschool.",
+        description: "Free plan with 11 complete starter lesson plans across Infant, Toddler, and Preschool.",
         url: `${url}/?view=pricing`,
       },
       {
@@ -502,7 +502,7 @@ function renderFeaturesPage() {
         <article><h3>Calendar Planning</h3><p>Organize the plans you are teaching, all in one place after you sign in.</p></article>
         <article><h3>Child Profiles &amp; Documentation</h3><p>Keep observations organized and use Documentation Helpers to turn notes into clearer records.</p></article>
         <article><h3>Teaching Kits &amp; Printables</h3><p>Where a lesson includes them, classroom-ready resources stay connected to that lesson.</p></article>
-        <article><h3>Free and Pro Access</h3><p>Free includes 10 starter lesson plans with no credit card. Pro unlocks the broader library and additional tools.</p></article>
+        <article><h3>Free and Pro Access</h3><p>Free includes 11 starter lesson plans with no credit card. Pro unlocks the broader library and additional tools.</p></article>
       </div>
       <p>If you can&rsquo;t find the lesson plan, activity, or feature you need, you can request it directly from inside Little Learner Hub. New content and improvements are added regularly based on provider feedback.</p>
       <h2>Currently Being Built or Tested <span class="pill status-testing">In progress</span></h2>
@@ -532,7 +532,7 @@ function renderFaqPage() {
     ["What ages are included?", "Infants, Toddlers, and Preschoolers. Content is organized by age group and should still be adapted to each child’s development. Mixed-age, holiday, and seasonal themes are included."],
     ["Are lesson plans printable?", "Yes. Members can customize plans and print or save PDF copies for classroom use."],
     ["Are infant, toddler, and preschool plans available?", "Yes. The library includes published plans across all three age groups, plus mixed-age, holiday, and seasonal themes."],
-    ["How many Free lesson plans are included?", "The Free plan includes 10 complete starter lesson plans across Infant, Toddler, and Preschool with no credit card required."],
+    ["How many Free lesson plans are included?", "The Free plan includes 11 complete starter lesson plans across Infant, Toddler, and Preschool with no credit card required."],
     ["What is included in a lesson plan?", "Many published plans include a weekly theme, daily activities, learning objectives, materials, teacher preparation, setup guidance, activity directions, observation ideas, safety or cleanup reminders, and books, songs, family connections, printables, or Teaching Kit resources where available."],
     ["What are Teaching Kits?", "Teaching Kits are classroom resources connected to a lesson plan where available, such as preparation support, observation ideas, and printable materials."],
     ["What comes with Pro?", "Pro unlocks the complete lesson-plan and activity libraries, unlimited curriculum printing and downloads, curriculum calendar planning, AI documentation helpers with higher limits, child profiles, saved customized copies, and new content added regularly. Pro Monthly is $19.99/month; Pro Annual is $199/year."],
@@ -570,7 +570,7 @@ function renderPricingPage() {
       <p class="muted">Simple, honest pricing for childcare providers. Start free, then upgrade when you are ready for the full curriculum library and teacher tools.</p>
       <h2>Free Plan — $0</h2>
       <ul>
-        <li>10 complete starter lesson plans across Infant, Toddler, and Preschool</li>
+        <li>11 complete starter lesson plans across Infant, Toddler, and Preschool</li>
         <li>Browse the library and preview additional themes</li>
         <li>About 30 days of calendar planning and up to 5 child profiles</li>
         <li>AI Documentation Helper starter limits</li>
@@ -604,7 +604,7 @@ function renderHowItWorksPage() {
       <h1>How Little Learner Hub Works</h1>
       <p class="muted">A practical way to spend less time building curriculum and more time with children.</p>
       <div class="feature-grid">
-        <article><h2>1. Browse by age and theme</h2><p>Explore published Infant, Toddler, and Preschool lesson plans. Free accounts can open 10 complete starter plans; other plans remain previews until Pro access.</p></article>
+        <article><h2>1. Browse by age and theme</h2><p>Explore published Infant, Toddler, and Preschool lesson plans. Free accounts can open 11 complete starter plans; other plans remain previews until Pro access.</p></article>
         <article><h2>2. Prepare for the week</h2><p>Many plans bring together daily activities, materials, objectives, books, songs, and classroom resources where available.</p></article>
         <article><h2>3. Teach, print, and document</h2><p>Use the plans and printable resources available with your access level, then keep planning and documentation organized in your account.</p></article>
       </div>

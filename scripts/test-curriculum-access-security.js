@@ -206,7 +206,7 @@ async function publishPlans(token) {
   });
   const base = parsed.data;
 
-  // Free unlock is plan-authoritative. freeId also sits on the default Starter list for dual coverage.
+  // The curated Starter Library is authoritative. freeId is in its default allowlist.
   const freeId = freeSample.PERMANENT_FREE_LESSON_IDS[0] || "cur-lp-preschool-community-helpers";
   const lockedFreeId = `cur-lp-sec-free-locked-${crypto.randomBytes(3).toString("hex")}`;
   const proId = `cur-lp-sec-pro-${crypto.randomBytes(3).toString("hex")}`;
@@ -310,24 +310,25 @@ async function main() {
     assert(proPublic.weeklyOverview, "pro preview should include weekly overview");
     assert(proPublic.theme, "pro preview should include theme");
     assertNoProtectedStrings(proPublic, "logged-out pro lesson public DTO");
-    // Browse list unlocks Free-plan lessons but omits full body (same pattern as Pro list).
-    assert(freePublic && freePublic.locked !== true, "Free-plan lesson is unlocked in browse list");
-    assert(!freePublic.dailyPlans, "Free-plan browse list must not embed dailyPlans");
+    // Browse list unlocks curated Free lessons but omits full body (same pattern as Pro list).
+    assert(freePublic && freePublic.locked !== true, "curated Free lesson is unlocked in browse list");
+    assert(!freePublic.dailyPlans, "curated Free browse list must not embed dailyPlans");
     const freeDetailPublic = await requestJson("GET", `/api/curriculum/lesson-plans/${encodeURIComponent(ids.freeId)}`);
-    assert(freeDetailPublic.status === 200, "Free-plan detail available publicly");
-    assert(freeDetailPublic.json.lessonPlan?.locked !== true, "Free-plan detail unlocked");
+    assert(freeDetailPublic.status === 200, "curated Free detail available publicly");
+    assert(freeDetailPublic.json.lessonPlan?.locked !== true, "curated Free detail unlocked");
     assert(
       freeDetailPublic.json.lessonPlan?.dailyPlans?.monday?.books?.[0]?.title === "Planting a Rainbow"
       || (freeDetailPublic.json.lessonPlan?.books || []).some((b) => /Planting a Rainbow/i.test(b?.title || "")),
       "Free-plan detail still has full public content",
     );
     const lockedFreePublic = (publicLoggedOut.json.siteContent?.curriculumLibrary?.lessonPlans || []).find((item) => item.id === ids.lockedFreeId);
-    // plan === "Free" is authoritative even when the id is outside the Starter Library list.
-    assert(lockedFreePublic && lockedFreePublic.locked !== true, "plan=Free lesson unlocks without Starter Library id");
-    assert(!lockedFreePublic?.dailyPlans, "plan=Free browse list must not leak dailyPlans");
+    // Raw plan: "Free" does not bypass the curated Starter Library allowlist.
+    assert(lockedFreePublic && lockedFreePublic.locked === true, "uncurated plan=Free lesson remains locked");
+    assert(!lockedFreePublic?.dailyPlans, "uncurated plan=Free browse list must not leak dailyPlans");
     const lockedFreeDetail = await requestJson("GET", `/api/curriculum/lesson-plans/${encodeURIComponent(ids.lockedFreeId)}`);
-    assert(lockedFreeDetail.status === 200, "plan=Free detail available without Starter id");
-    assert(lockedFreeDetail.json.lessonPlan?.locked !== true, "plan=Free detail unlocked without Starter id");
+    assert(lockedFreeDetail.status === 200, "uncurated plan=Free detail returns a safe preview");
+    assert(lockedFreeDetail.json.lessonPlan?.locked === true, "uncurated plan=Free detail remains locked");
+    assert(!lockedFreeDetail.json.lessonPlan?.dailyPlans, "uncurated plan=Free detail must not leak dailyPlans");
 
     console.log("2) Free-user request for Pro lesson cannot retrieve full content");
     const freeUserPublic = await requestJson("GET", "/api/site-content", null, { headers: authHeader("free@security.test") });

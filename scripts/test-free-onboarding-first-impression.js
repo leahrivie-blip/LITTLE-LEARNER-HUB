@@ -143,7 +143,7 @@ async function main() {
         gettingStarted: Boolean(root?.querySelector("[data-getting-started-checklist]")),
         gettingStartedText: root?.querySelector("[data-getting-started-checklist]")?.innerText || "",
         freeSampleLabel: /\bFree Sample\b/i.test(text),
-        policyDupes: (text.match(/10 complete starter lesson plans across Infant/gi) || []).length,
+        policyDupes: (text.match(/11 complete starter lesson plans across Infant/gi) || []).length,
       };
     });
     assert.equal(lessons.planFilter, "Free", "new Free user defaults Access filter to Free");

@@ -1,14 +1,10 @@
 /**
- * Free Starter Library — merchandising / historical inventory only.
+ * Free Starter Library — canonical Free curriculum entitlement.
  *
- * This list is NOT customer entitlement. Lesson access is solely:
- *   lesson.plan === "Free"  → Free users get the lesson
- *   lesson.plan === "Pro"   → Free users get the locked preview / upgrade state
+ * Free users may unlock only these curated, published lesson IDs. `plan` remains
+ * admin metadata and must not authorize an uncurated lesson.
  *
- * Admin → Curriculum → Lesson Plans → Set Free / Set Pro is the source of truth.
- * Do not grant or deny access from these IDs, card position, search order, or localStorage.
- *
- * Distribution (merchandising validation only): 3 Infant · 3 Toddler · 4 Preschool
+ * Distribution: 3 Infant · 3 Toddler · 5 Preschool.
  * Server store may override IDs via freeStarterLibrary.lessonPlanIds when valid.
  */
 (function (root, factory) {
@@ -22,12 +18,11 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const REQUIRED_COUNT = 10;
-  const REQUIRED_DISTRIBUTION = Object.freeze({ Infant: 3, Toddler: 3, Preschool: 4 });
+  const REQUIRED_COUNT = 11;
+  const REQUIRED_DISTRIBUTION = Object.freeze({ Infant: 3, Toddler: 3, Preschool: 5 });
 
   /**
-   * Default historical/homepage starter ID list (used when store has no override).
-   * Merchandising inventory only — never authorization. Curriculum records unchanged.
+   * Default canonical starter ID list (used when store has no override).
    */
   const DEFAULT_FREE_STARTER_LESSON_IDS = Object.freeze([
     // Infant (3) — historical merchandising IDs only; records unchanged
@@ -43,6 +38,7 @@
     "cur-lp-preschool-all-about-me",
     "cur-lp-preschool-weather-watchers",
     "cur-lp-preschool-farm-animals",
+    "cur-lp-preschool-letters-and-sounds",
   ]);
 
   /** @deprecated Use DEFAULT_FREE_STARTER_LESSON_IDS — kept for older tests/imports. */
@@ -60,6 +56,7 @@
     { age: "Preschool", pattern: /all\s*about\s*me/i },
     { age: "Preschool", pattern: /weather\s*watchers/i },
     { age: "Preschool", pattern: /farm\s*(animals|friends)/i },
+    { age: "Preschool", pattern: /letters?\s*(?:&|and)\s*sounds?/i },
   ]);
 
   // Seasonal extras are not part of the historical starter merchandising set.
@@ -77,15 +74,15 @@
   });
 
   const MARKETING = Object.freeze({
-    freeLessonCountLabel: "10 complete starter lesson plans",
-    freeLessonCountShort: "10 Free Starter Plans",
-    freeFallbackCount: 10,
+    freeLessonCountLabel: "11 complete starter lesson plans",
+    freeLessonCountShort: "11 Free Starter Plans",
+    freeFallbackCount: 11,
     freeCore:
-      "Free includes 10 complete starter lesson plans across Infant, Toddler and Preschool—no credit card required.",
+      "Free includes 11 complete starter lesson plans across Infant, Toddler and Preschool—no credit card required.",
     freeBrowse:
       "Browse the complete library and preview additional themes. Upgrade to Pro to unlock every lesson plan, new plans added weekly, and unlimited curriculum printing and downloads.",
     recommendationSummary:
-      "Free includes exactly 10 complete starter lesson plans (3 Infant, 3 Toddler, 4 Preschool). Providers can browse titles and previews of the full library; complete contents of other plans stay locked until Pro.",
+      "Free includes exactly 11 complete starter lesson plans (3 Infant, 3 Toddler, 5 Preschool). Providers can browse titles and previews of the full library; complete contents of other plans stay locked until Pro.",
   });
 
   function normalizeAgeGroup(age) {
@@ -144,8 +141,7 @@
   }
 
   /**
-   * Historical/merchandising membership: is this ID in the starter library list?
-   * NOT customer authorization. Use canonicalAccessPlan / effectivePlanTier for access.
+   * Canonical Free authorization: this ID is in the curated Starter Library.
    */
   function isCuratedFreeLessonPlan(plan, date = new Date(), overrideIds) {
     if (!plan) return false;
@@ -158,20 +154,20 @@
     return false;
   }
 
-  /** Alias — starter IDs are historical inventory, not entitlement. */
+  /** Alias retained for callers that use the older naming. */
   function isHistoricalStarterLibraryLessonPlan(plan, date = new Date(), overrideIds) {
     return isCuratedFreeLessonPlan(plan, date, overrideIds);
   }
 
-  /** Canonical entitlement from the lesson record. Starter IDs are ignored. */
+  /** Raw admin plan metadata; never use this to grant Free access. */
   function canonicalAccessPlan(plan) {
     if (!plan) return "Pro";
     if (plan._userLessonCopy) return "Free";
     return String(plan.plan || "").trim() === "Free" ? "Free" : "Pro";
   }
 
-  function isCanonicalFreeAccessPlan(plan) {
-    return canonicalAccessPlan(plan) === "Free";
+  function isCanonicalFreeAccessPlan(plan, date = new Date(), overrideIds) {
+    return isCuratedFreeLessonPlan(plan, date, overrideIds);
   }
 
   function isCurriculumLessonPublicStatus(status) {
@@ -179,21 +175,16 @@
     return value === "published" || value === "featured";
   }
 
-  function countCanonicalPublishedFreePlans(plans) {
+  function countCanonicalPublishedFreePlans(plans, date = new Date(), overrideIds) {
     if (!Array.isArray(plans)) return 0;
     return plans.filter((plan) => (
-      isCurriculumLessonPublicStatus(plan?.status) && isCanonicalFreeAccessPlan(plan)
+      isCurriculumLessonPublicStatus(plan?.status) && isCanonicalFreeAccessPlan(plan, date, overrideIds)
     )).length;
   }
 
-  /**
-   * Canonical entitlement tier. `date` / `overrideIds` kept for call-site compatibility
-   * and are intentionally unused — starter IDs must never grant or deny access.
-   */
+  /** Canonical entitlement tier from the curated Starter Library. */
   function effectivePlanTier(plan, date = new Date(), overrideIds) {
-    void date;
-    void overrideIds;
-    return canonicalAccessPlan(plan);
+    return isCanonicalFreeAccessPlan(plan, date, overrideIds) ? "Free" : "Pro";
   }
 
   function freeSampleMarketingCount() {

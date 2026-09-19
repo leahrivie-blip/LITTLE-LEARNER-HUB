@@ -71,7 +71,7 @@ async function main() {
   assert.doesNotMatch(defaultBlock, /meet most states/i);
   assert.match(defaultBlock, /does not replace state requirements, program policies, or educator judgment/i);
   assert.match(defaultBlock, /Complete auto-generated weeks are not the current experience/);
-  assert.match(defaultBlock, /10 complete starter lesson plans \(3 Infant, 3 Toddler, 4 Preschool\)/);
+  assert.match(defaultBlock, /11 complete starter lesson plans \(3 Infant, 3 Toddler, 5 Preschool\)/);
   assert.match(defaultBlock, /Access continues through the end of your current billing period/);
   assert.match(defaultBlock, /personal copy|Personal edits and saved copies remain private/i);
   console.log("PASS static trust FAQ markers");

@@ -34,10 +34,10 @@ const indexHtml = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
 const sw = fs.readFileSync(path.join(ROOT, "service-worker.js"), "utf8");
 const serverJs = fs.readFileSync(path.join(ROOT, "server/index.js"), "utf8");
 
-test("free starter library is exactly 10 plans (3/3/4)", () => {
-  assert.equal(freeSample.DEFAULT_FREE_STARTER_LESSON_IDS.length, 10);
-  assert.equal(freeSample.PERMANENT_FREE_LESSON_IDS.length, 10);
-  assert.deepEqual(freeSample.REQUIRED_DISTRIBUTION, { Infant: 3, Toddler: 3, Preschool: 4 });
+test("free starter library is exactly 11 plans (3/3/5)", () => {
+  assert.equal(freeSample.DEFAULT_FREE_STARTER_LESSON_IDS.length, 11);
+  assert.equal(freeSample.PERMANENT_FREE_LESSON_IDS.length, 11);
+  assert.deepEqual(freeSample.REQUIRED_DISTRIBUTION, { Infant: 3, Toddler: 3, Preschool: 5 });
   assert.equal(freeSample.activeSeasonalIds().length, 0);
   assert.ok(freeSample.isCuratedFreeLessonPlan({
     id: "cur-lp-preschool-community-helpers",
@@ -53,7 +53,7 @@ test("free starter library is exactly 10 plans (3/3/4)", () => {
     id: "cur-lp-preschool-letters-and-sounds",
     title: "Letters & Sounds",
     age: "Preschool",
-  }), false);
+  }), true);
   assert.equal(freeSample.effectivePlanTier({
     id: "cur-lp-preschool-letters-and-sounds",
     title: "Letters & Sounds",
@@ -61,13 +61,13 @@ test("free starter library is exactly 10 plans (3/3/4)", () => {
     plan: "Free",
   }), "Free");
   assert.equal(freeSample.effectivePlanTier({
-    id: "cur-lp-toddler-construction-crew",
-    title: "Construction Crew",
-    age: "Toddler",
-    plan: "Pro",
+    id: "cur-lp-uncurated-free-regression",
+    title: "Uncurated Free Metadata",
+    age: "Preschool",
+    plan: "Free",
   }), "Pro");
-  assert.match(freeSample.MARKETING.freeCore, /10 complete starter lesson plans/);
-  assert.match(freeSample.MARKETING.recommendationSummary, /exactly 10 complete starter/i);
+  assert.match(freeSample.MARKETING.freeCore, /11 complete starter lesson plans/);
+  assert.match(freeSample.MARKETING.recommendationSummary, /exactly 11 complete starter/i);
 });
 
 test("client and server gate on curated free sample", () => {
@@ -101,8 +101,8 @@ test("printing stays available; customization is locked for Free", () => {
 });
 
 test("homepage and FAQ marketing match Free starter library", () => {
-  assert.match(indexHtml, /10 complete starter lesson plans across Infant, Toddler and Preschool/i);
-  assert.match(indexHtml, /Print and download your 10 Free starter plans/i);
+  assert.match(indexHtml, /11 complete starter lesson plans across Infant, Toddler and Preschool/i);
+  assert.match(indexHtml, /Print and download your 11 Free starter plans/i);
   assert.match(indexHtml, /Customize, save, and reuse your own lesson plans/i);
   assert.match(indexHtml, /plan about 30 days ahead on the calendar|About 30 days of calendar planning/i);
   assert.match(indexHtml, /up to 20 favorites|Up to 20 favorites/i);
@@ -217,7 +217,7 @@ async function browserMain() {
       theme: "Literacy",
       plan: "Free",
       status: "published",
-      weeklyOverview: "Canonical plan=Free unlocks even when the id is outside the starter list.",
+      weeklyOverview: "Uncurated Free metadata remains a locked preview.",
       learningDomains: ["Language & Literacy"],
       dailyPlans: {},
       updatedAt: new Date().toISOString(),
@@ -258,7 +258,7 @@ async function browserMain() {
       age: "Toddler",
       plan: "Pro",
     }), "Pro");
-    console.log("PASS  effectivePlanTier follows canonical plan, not starter IDs");
+    console.log("PASS  effectivePlanTier follows the curated Starter Library");
 
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
     await page.goto(`http://127.0.0.1:${PORT}/`, { waitUntil: "domcontentloaded", timeout: 90000 });
@@ -307,7 +307,7 @@ async function browserMain() {
 
     // Homepage messaging visible
     const homeCopy = await page.evaluate(() => document.body.innerText);
-    assert.match(homeCopy, /10 complete starter lesson plans|Free Plan/i);
+    assert.match(homeCopy, /11 complete starter lesson plans|Free Plan/i);
     assert.doesNotMatch(homeCopy, /30 Total Free Lesson Plans/);
     console.log("PASS  homepage Free messaging");
 

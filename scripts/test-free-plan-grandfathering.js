@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Free-plan policy: legacy Free unlock is retired.
- * Every Free account — new and existing — uses the curated 10-plan Starter Library.
+ * Every Free account — new and existing — uses the curated 11-plan Starter Library.
  * Run: node scripts/test-free-plan-grandfathering.js
  */
 const assert = require("node:assert/strict");
@@ -45,7 +45,7 @@ test("legacy Free unlock is permanently disabled", () => {
     createdAt: "2020-01-01T00:00:00.000Z",
   }), "curated");
   assert.equal(grandfathering.modeForNewSignup({}), "curated");
-  assert.match(grandfathering.FREE_POLICY_NOTICE, /10 complete starter lesson plans/i);
+  assert.match(grandfathering.FREE_POLICY_NOTICE, /11 complete starter lesson plans/i);
   assert.match(grandfathering.freePolicyNotice(), /saved information remains available/i);
 });
 
@@ -53,11 +53,11 @@ test("client/server enforce curated-only Free unlock", () => {
   assert.match(appJs, /hasLegacyFreeLessonAccess/);
   assert.match(appJs, /return false;\n\}/);
   assert.match(appJs, /freePolicyNoticeText/);
-  assert.match(appJs, /Your Free account includes 10 complete [Ss]tarter [Ll]esson [Pp]lans/);
+  assert.match(appJs, /Your Free account includes 11 complete [Ss]tarter [Ll]esson [Pp]lans/);
   assert.match(serverJs, /Legacy Free bypass is permanently disabled/);
   assert.match(serverJs, /userMayUnlockFreeCurriculumPlan/);
   assert.match(indexHtml, /free-plan-grandfathering\.js/);
-  assert.equal(freeSample.DEFAULT_FREE_STARTER_LESSON_IDS.length, 10);
+  assert.equal(freeSample.DEFAULT_FREE_STARTER_LESSON_IDS.length, 11);
 });
 
 function request(method, urlPath, body, headers = {}) {
