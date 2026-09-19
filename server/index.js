@@ -2784,7 +2784,7 @@ function freePlanAccessContextFromUser(user, siteContent = null) {
   };
 }
 
-/** Historical/merchandising starter ID defaults. Not customer entitlement. */
+/** Canonical curated starter ID defaults used for Free authorization. */
 function defaultFreeStarterLibrary() {
   return {
     lessonPlanIds: [...freeCurriculumSample.DEFAULT_FREE_STARTER_LESSON_IDS],
@@ -2801,7 +2801,7 @@ function freeStarterOverrideIds(storeOrContent = null) {
   return null;
 }
 
-/** Inventory helper for Free Starter Library admin/marketing — not Free/Pro authorization. */
+/** Canonical Free Starter Library membership helper. */
 function isStoreCuratedFreeLessonPlan(plan, storeOrContent = null) {
   return freeCurriculumSample.isCuratedFreeLessonPlan(
     plan,
@@ -2813,10 +2813,10 @@ function isStoreCuratedFreeLessonPlan(plan, storeOrContent = null) {
 function userMayUnlockFreeCurriculumPlan(plan, accessContext = {}) {
   const entry = normalizedCurriculumLessonPlan(plan);
   if (!entry) return false;
-  // Canonical Free unlock: published parent lesson.plan === "Free".
-  // Free Starter Library IDs remain inventory/marketing only — not authorization.
-  // Legacy Free bypass is permanently disabled. accessContext kept for call-site compatibility.
-  return String(entry.plan || "").trim() === "Free";
+  // Only the curated allowlist unlocks Free curriculum. Raw plan metadata never bypasses it.
+  // Legacy Free bypass is permanently disabled.
+  const source = accessContext.store || accessContext.siteContent || null;
+  return isStoreCuratedFreeLessonPlan(entry, source);
 }
 
 function authorizedCurriculumLessonPlanDto(plan) {
@@ -20624,8 +20624,7 @@ async function handlePublicSiteContent(request, response, url) {
     : content.upgradeMessaging;
   const { featureFlags, curriculum, lessonPlans, customLessonPlans, activities, ...publicSiteContent } = content;
   // Paid users get the full unlocked library.
-  // Guests / Free users unlock published lessons where lesson.plan === "Free".
-  // Starter Library IDs are merchandising only and never grant or deny access.
+  // Guests / Free users unlock only the published curated Starter Library.
   let curriculumLibrary = {
     lessonPlans: [],
     activities: [],
@@ -20689,11 +20688,13 @@ async function handlePublicSiteContent(request, response, url) {
         lessonPlanIds: resolveFreeStarterLibrary(store).lessonPlanIds,
         count: freeCurriculumSample.REQUIRED_COUNT,
         distribution: freeCurriculumSample.REQUIRED_DISTRIBUTION,
-        purpose: "marketing-inventory",
-        notEntitlement: true,
+        purpose: "curated-free-entitlement",
+        notEntitlement: false,
       },
       canonicalFreePublishedCount: freeCurriculumSample.countCanonicalPublishedFreePlans(
         readSiteCurriculum(store).lessonPlans || [],
+        new Date(),
+        resolveFreeStarterLibrary(store).lessonPlanIds,
       ),
       membershipCopy: publicMembershipCopyPayload(store),
       curriculumLibrary,
@@ -28043,7 +28044,7 @@ function publicMembershipCopyPayload(store = peekStore()) {
   };
 }
 
-/** Merchandising inventory for homepage/admin starter set. Does not authorize lessons. */
+/** Canonical curated starter set for homepage, admin, and Free authorization. */
 function resolveFreeStarterLibrary(store = peekStore()) {
   const override = freeStarterOverrideIds(store);
   const ids = override || [...freeCurriculumSample.DEFAULT_FREE_STARTER_LESSON_IDS];
@@ -28445,9 +28446,9 @@ function handleAdminFreeStarterLibraryGet(request, response, url) {
   }
   jsonResponse(response, 200, {
     ok: true,
-    purpose: "marketing-inventory",
-    notEntitlement: true,
-    entitlementSource: "lesson.plan",
+    purpose: "curated-free-entitlement",
+    notEntitlement: false,
+    entitlementSource: "freeStarterLibrary.lessonPlanIds",
     freeStarterLibrary: resolveFreeStarterLibrary(readStore()),
     requiredCount: freeCurriculumSample.REQUIRED_COUNT,
     requiredDistribution: freeCurriculumSample.REQUIRED_DISTRIBUTION,
@@ -28456,9 +28457,8 @@ function handleAdminFreeStarterLibraryGet(request, response, url) {
 }
 
 /**
- * Save merchandising starter IDs only.
+ * Save the canonical curated Starter Library IDs.
  * Never mutates lesson.plan, publication status, or curriculum content.
- * Customer access continues to follow Admin Set Free / Set Pro (lesson.plan).
  */
 async function handleAdminFreeStarterLibrarySave(request, response) {
   let body = {};
@@ -28489,7 +28489,7 @@ async function handleAdminFreeStarterLibrarySave(request, response) {
   if (!validation.ok) {
     jsonResponse(response, 400, {
       ok: false,
-      error: "Free Starter Library must be exactly 10 published plans (3 Infant, 3 Toddler, 4 Preschool).",
+      error: "Free Starter Library must be exactly 11 published plans (3 Infant, 3 Toddler, 5 Preschool).",
       errors: validation.errors,
       ageCounts: validation.ageCounts,
     });
@@ -28504,7 +28504,7 @@ async function handleAdminFreeStarterLibrarySave(request, response) {
         ageCounts: validation.ageCounts,
         plans: plans.map((p) => ({ id: p.id, title: p.title, age: p.age, status: p.status })),
       },
-      message: "Preview only — set confirm:true to save. This list is merchandising inventory, not lesson entitlement.",
+      message: "Preview only — set confirm:true to save the curated Free lesson entitlement.",
     });
     return;
   }

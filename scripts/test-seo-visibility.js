@@ -197,11 +197,11 @@ async function main() {
     assert(pricing.body.includes("$199/year"), "pricing page missing Pro Annual price");
     assert(!/Founding Member/i.test(pricing.body), "pricing page must not mention Founding Member");
     assert(pricing.body.includes("$19.99/month"), "pricing page missing Pro Monthly after founding removal");
-    assert(pricing.body.includes("10 complete starter lesson plans"), "pricing page must state the current Free entitlement");
+    assert(pricing.body.includes("11 complete starter lesson plans"), "pricing page must state the current Free entitlement");
 
     const howItWorks = await request("GET", "/how-it-works");
     assert(howItWorks.body.includes("What&rsquo;s inside a Little Learner Hub lesson plan"), "How It Works page missing lesson-plan structure");
-    assert(howItWorks.body.includes("Free accounts can open 10 complete starter plans"), "How It Works page must state current Free entitlement");
+    assert(howItWorks.body.includes("Free accounts can open 11 complete starter plans"), "How It Works page must state current Free entitlement");
 
     const terms = await request("GET", "/terms");
     assert(terms.body.includes("Unauthorized copying, sharing, resale, public redistribution, or commercial reuse outside the member's program is prohibited."), "terms page missing copyright detail");

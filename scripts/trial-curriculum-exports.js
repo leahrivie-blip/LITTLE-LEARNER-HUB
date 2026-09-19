@@ -39,7 +39,7 @@
     clientReleaseDenied:
       "Export allowance can only be restored after a verified server-side generation failure.",
     freeCore:
-      "Free includes 10 complete starter lesson plans across Infant, Toddler and Preschool—no credit card required.",
+      "Free includes 11 complete starter lesson plans across Infant, Toddler and Preschool—no credit card required.",
     freeBrowse:
       "Browse the complete library and preview additional themes. Upgrade to Pro to unlock every lesson plan, new plans added weekly, and unlimited curriculum printing and downloads.",
     foundingCard:

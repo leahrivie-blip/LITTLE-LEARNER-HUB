@@ -384,7 +384,7 @@
         <h2 id="newUserOnboardingTitle">Here's what's included with Free</h2>
         <p class="nuo-lead">Explore at your own pace — no credit card needed.</p>
         <ul class="nuo-includes">
-          <li>10 complete starter lesson plans (Infant, Toddler, Preschool)</li>
+          <li>11 complete starter lesson plans (Infant, Toddler, Preschool)</li>
           <li>Free activities you can use today</li>
           <li>Calendar planning for about 30 days</li>
           <li>Favorites, child profiles, and starter documentation helpers</li>

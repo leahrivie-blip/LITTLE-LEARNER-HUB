@@ -2172,9 +2172,9 @@ const billingPlans = {
     interval: "",
     stripePriceKey: "",
     features: [
-      "Free includes 10 complete starter lesson plans across Infant, Toddler and Preschool—no credit card required.",
+      "Free includes 11 complete starter lesson plans across Infant, Toddler and Preschool—no credit card required.",
       "Browse the complete library and preview additional themes",
-      "Print and download your 10 Free starter plans",
+      "Print and download your 11 Free starter plans",
       "About 30 days of calendar planning",
       "Up to 20 favorites",
       "10 Observations",
@@ -2480,7 +2480,7 @@ const freeAccessLimits = {
   "Activity Center": 8,
 };
 const freePlanBaseFeatures = [
-  "10 complete starter lesson plans (3 Infant, 3 Toddler, 4 Preschool)",
+  "11 complete starter lesson plans (3 Infant, 3 Toddler, 5 Preschool)",
   "Print and download your Free starter plans",
   "Browse titles and previews across the complete library",
   "About 30 days of calendar planning",
@@ -2493,7 +2493,7 @@ const freePlanBaseFeatures = [
   "Weekly Observation Tracker",
 ];
 const MEMBERSHIP_COPY = Object.freeze({
-  freeCore: "Free includes 10 complete starter lesson plans across Infant, Toddler and Preschool—no credit card required.",
+  freeCore: "Free includes 11 complete starter lesson plans across Infant, Toddler and Preschool—no credit card required.",
   freeBrowse: "Browse the complete library and preview additional themes. Upgrade to Pro to unlock every lesson plan, new plans added weekly, and unlimited curriculum printing and downloads.",
   trialCore: "Your 7-day Pro trial includes full browsing of the Pro curriculum library and up to 3 premium curriculum prints or downloads. A credit card is required to start. You will not be charged during the trial — after 7 days you are charged Pro Monthly ($19.99/month) unless you cancel first.",
   foundingWhileOpen: "",
@@ -2504,10 +2504,10 @@ const MEMBERSHIP_COPY = Object.freeze({
   trialBeforeExport: "This will use 1 of your 3 trial curriculum exports.",
   unlimitedLabel: "Unlimited curriculum printing and downloads",
   freeStarterSection: "Your Included Free Plans",
-  freeStarterProgress: "10 complete plans included with your Free account.",
+  freeStarterProgress: "11 complete plans included with your Free account.",
   unlockLibrary: "Want more plans later?",
   lockedFreePlan: "This plan is not included in your Free plans. Upgrade to Pro to unlock the complete plan.",
-  freePolicyNotice: "Your Free account includes 10 complete starter lesson plans across Infant, Toddler and Preschool. Your saved information remains available; additional plans require Pro access.",
+  freePolicyNotice: "Your Free account includes 11 complete starter lesson plans across Infant, Toddler and Preschool. Your saved information remains available; additional plans require Pro access.",
   watermarkTryAgain: "We couldn’t finish this premium curriculum export safely. Please try again.",
 });
 const freePlanAgeGroups = Object.freeze(["Infant", "Toddler", "Preschool"]);
@@ -2562,7 +2562,7 @@ function resolveCurrentFreeLessonAccessMode() {
   return api.resolveFreeLessonAccessMode(account, freePlanAccessExtra());
 }
 
-/** Legacy Free unlock is retired — every Free account uses the 10-plan Starter Library. */
+/** Legacy Free unlock is retired — every Free account uses the 11-plan Starter Library. */
 function hasLegacyFreeLessonAccess() {
   return false;
 }
@@ -2581,14 +2581,13 @@ function freeStarterOverrideIdsFromSite() {
   const api = freeCurriculumSampleApi();
   if (api?.sanitizeIdList) {
     const cleaned = api.sanitizeIdList(ids || []);
-    return cleaned.length === (api.REQUIRED_COUNT || 10) ? cleaned : null;
+    return cleaned.length === (api.REQUIRED_COUNT || 11) ? cleaned : null;
   }
-  return Array.isArray(ids) && ids.length === 10 ? ids : null;
+  return Array.isArray(ids) && ids.length === 11 ? ids : null;
 }
 
 function isCuratedFreeCurriculumPlan(planOrResource) {
-  // Historical Starter Library inventory / merchandising only.
-  // Never use this for unlock. Customer access uses isFreeAccessibleCurriculumPlan (plan field).
+  // The Starter Library is the canonical Free entitlement allowlist.
   const api = freeCurriculumSampleApi();
   const plan = planOrResource?._curriculumLessonPlan || planOrResource;
   if (api?.isCuratedFreeLessonPlan) {
@@ -2600,9 +2599,7 @@ function isCuratedFreeCurriculumPlan(planOrResource) {
 
 function isFreeAccessibleCurriculumPlan(planOrResource) {
   if (planOrResource?._userLessonCopy) return true;
-  // Canonical Free unlock: lesson.plan === "Free". Starter Library IDs are not authorization.
-  const plan = planOrResource?._curriculumLessonPlan || planOrResource;
-  return String(plan?.plan || planOrResource?.plan || "").trim() === "Free";
+  return isCuratedFreeCurriculumPlan(planOrResource);
 }
 
 function curriculumResourceLooksLikeLessonPlan(resource) {
@@ -2645,7 +2642,7 @@ function freePlanFeatureList() {
     MEMBERSHIP_COPY.freeCore,
     MEMBERSHIP_COPY.freeBrowse,
     ...freePlanBaseFeatures
-      .filter((line) => !/10 complete starter|browse titles/i.test(line))
+      .filter((line) => !/11 complete starter|browse titles/i.test(line))
       .map((line) => String(line || "")
         .replace(/Up to \d+ Child Profiles/i, `Up to ${childLimit} Child Profiles`)
         .replace(/^\d+ Child Profiles/i, `${childLimit} Child Profiles`)),
@@ -2843,7 +2840,7 @@ function refreshFreePlanFeatureLines(features) {
   if (!Array.isArray(features) || !features.length) {
     return HOMEPAGE_PUBLIC_FREE_PLAN_FEATURES.map((feature) => (feature.startsWith("✓") ? feature : `✓ ${feature}`));
   }
-  const hasExactFreeCore = features.some((line) => /10 complete starter lesson plans across Infant/i.test(String(line || "")));
+  const hasExactFreeCore = features.some((line) => /11 complete starter lesson plans across Infant/i.test(String(line || "")));
   if (hasExactFreeCore) {
     return features.map((feature) => {
       const line = String(feature || "").trim();
@@ -2859,7 +2856,7 @@ function refreshFreePlanFaqAnswer(answer, question = "") {
   }
   if (/what is included in the free plan/i.test(question)) {
     return [
-      "10 complete starter lesson plans (3 Infant, 3 Toddler, 4 Preschool)",
+      "11 complete starter lesson plans (3 Infant, 3 Toddler, 5 Preschool)",
       "Print and download your Free starter plans",
       "Browse titles and previews across the complete library",
       "About 30 days of calendar planning",
@@ -2875,7 +2872,7 @@ function refreshFreePlanFaqAnswer(answer, question = "") {
     return [
       "5 Child Profiles",
       "10 Observations Per Month",
-      "10 complete starter lesson plans (3 Infant, 3 Toddler, 4 Preschool)",
+      "11 complete starter lesson plans (3 Infant, 3 Toddler, 5 Preschool)",
       "About 30 days of calendar planning",
       "Up to 20 favorites",
       "6 Forms",
@@ -3018,9 +3015,9 @@ const HOME_NAV_SECTION_IDS = {
 };
 
 const HOMEPAGE_PUBLIC_FREE_PLAN_FEATURES = Object.freeze([
-  "Free includes 10 complete starter lesson plans across Infant, Toddler and Preschool—no credit card required.",
+  "Free includes 11 complete starter lesson plans across Infant, Toddler and Preschool—no credit card required.",
   "Browse the complete library and preview additional themes.",
-  "Print and download your 10 Free starter plans",
+  "Print and download your 11 Free starter plans",
   "Explore selected planning tools",
   "Upgrade anytime for unlimited curriculum printing and downloads",
 ]);
@@ -3948,17 +3945,17 @@ const DEFAULT_SIGNUP_PLAN_COPY = Object.freeze({
   proCta: "Continue with Pro",
   proRationale: "Regular monthly price after Founding availability ends.",
   freeTitle: "Free Plan",
-  freeSubtitle: "10 complete starter lesson plans — no credit card required",
+  freeSubtitle: "11 complete starter lesson plans — no credit card required",
   freeIncludes: Object.freeze([
-    "Free includes 10 complete starter lesson plans across Infant, Toddler and Preschool—no credit card required.",
+    "Free includes 11 complete starter lesson plans across Infant, Toddler and Preschool—no credit card required.",
     "Browse the complete library and preview additional themes.",
-    "Print and download your 10 Free starter plans",
+    "Print and download your 11 Free starter plans",
     "Limited calendar planning, favorites, and Documentation Helpers",
     "Upgrade anytime for unlimited curriculum printing and downloads",
   ]),
   freeCta: "Create Free Account",
   freeConfirmTitle: "You’re choosing the Free Plan.",
-  freeConfirmBody: "Free includes 10 complete starter lesson plans across Infant, Toddler and Preschool—no credit card required.\n\nBrowse the complete library and preview additional themes. Upgrade to Pro to unlock every lesson plan, new plans added weekly, and unlimited curriculum printing and downloads.",
+  freeConfirmBody: "Free includes 11 complete starter lesson plans across Infant, Toddler and Preschool—no credit card required.\n\nBrowse the complete library and preview additional themes. Upgrade to Pro to unlock every lesson plan, new plans added weekly, and unlimited curriculum printing and downloads.",
   freeConfirmContinue: "Continue with Free",
   freeConfirmUpgrade: "Upgrade Instead",
   preferredFoundingNote: "You’re upgrading to Pro — here’s everything included:",
@@ -16647,7 +16644,7 @@ function captureDefaultSiteContent() {
       upgradeLimitHeadline: "Ready to save hours every week?",
       upgradePopupBody: "Your 7-day Pro trial includes full browsing of the Pro curriculum library and up to 3 premium curriculum prints or downloads. A credit card is required. You will not be charged during the trial — after 7 days you are charged Pro Monthly ($19.99/month) unless you cancel first.",
       proTrialButtonText: "Start Your 7-Day Free Trial",
-      freeLimitMessage: "Free includes 10 complete starter lesson plans across Infant, Toddler and Preschool—no credit card required. Browse the complete library and preview additional themes. Upgrade to Pro to unlock every lesson plan, new plans added weekly, and unlimited curriculum printing and downloads.",
+      freeLimitMessage: "Free includes 11 complete starter lesson plans across Infant, Toddler and Preschool—no credit card required. Browse the complete library and preview additional themes. Upgrade to Pro to unlock every lesson plan, new plans added weekly, and unlimited curriculum printing and downloads.",
       trialUpgradeSummary: "7-Day Pro Trial · Browse the full Pro library · Up to 3 premium curriculum prints or downloads · Card required · Charged $19.99/month after 7 days · Cancel anytime.",
       _draft: false,
     },
@@ -34712,7 +34709,7 @@ function renderHomePublicPreviews() {
   }
   const ageFilter = document.querySelector("[data-home-browse-age].is-active")?.getAttribute("data-home-browse-age") || "All";
   const published = homePublishedLessonPlans();
-  const freePlans = published.filter((plan) => isFreeAccessibleCurriculumPlan(plan) && homeMatchesAgeFilter(plan, ageFilter)).slice(0, 10);
+  const freePlans = published.filter((plan) => isFreeAccessibleCurriculumPlan(plan) && homeMatchesAgeFilter(plan, ageFilter)).slice(0, freeCurriculumSampleApi()?.REQUIRED_COUNT || 11);
   const lockedPlans = published.filter((plan) => !isFreeAccessibleCurriculumPlan(plan) && homeMatchesAgeFilter(plan, ageFilter)).slice(0, 6);
   if (freeGrid) {
     freeGrid.innerHTML = freePlans.length
@@ -60782,7 +60779,7 @@ async function renderAdminFreeStarterLibrarySection() {
         <div><p class="eyebrow">Content</p><h3>Free Starter Library</h3></div>
       </div>
       <p class="muted-copy">Merchandising / homepage inventory only — this list does <strong>not</strong> grant or deny lesson access. Customer entitlement is <code>lesson.plan</code> via Curriculum → Lesson Plans → Set Free / Set Pro. Saving here never changes Free/Pro values.</p>
-      <p class="muted-copy">Exactly 10 published lesson plans (3 Infant, 3 Toddler, 4 Preschool). Preview before saving. Unrelated lesson edits never change this list.</p>
+      <p class="muted-copy">Exactly 11 published lesson plans (3 Infant, 3 Toddler, 5 Preschool). Preview before saving. Unrelated lesson edits never change this list.</p>
       <p><strong>Source:</strong> ${escapeHtml(lib.source || "default")} · <strong>Distribution:</strong> Infant ${ages.Infant || 0} · Toddler ${ages.Toddler || 0} · Preschool ${ages.Preschool || 0}</p>
       ${errors.length ? `<div class="access-notice"><strong>Validation</strong><ul>${errors.map((e) => `<li>${escapeHtml(e)}</li>`).join("")}</ul></div>` : `<p class="form-note">Current set meets the required distribution.</p>`}
       <div class="admin-summary" style="margin:12px 0;">

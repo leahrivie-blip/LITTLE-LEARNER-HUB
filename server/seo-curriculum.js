@@ -114,7 +114,7 @@ const HUB_PAGES = Object.freeze([
       "This curriculum hub is generated from the current Little Learner Hub library: published lesson plans by age, featured themes, and free starter weeks. Counts and cards update automatically when new plans are published.",
     related: ["/infant-lesson-plans", "/toddler-lesson-plans", "/preschool-lesson-plans", "/childcare-activities", "/pricing"],
     faq: [
-      ["What is included in the daycare curriculum?", "Little Learner Hub includes Infant, Toddler, and Preschool lesson plans with activities, weekly overviews, and learning domains. Free unlocks 10 complete starter plans; Pro unlocks the full library."],
+      ["What is included in the daycare curriculum?", "Little Learner Hub includes Infant, Toddler, and Preschool lesson plans with activities, weekly overviews, and learning domains. Free unlocks 11 complete starter plans; Pro unlocks the full library."],
       ["Is this curriculum for home daycare or centers?", "Both. Home daycares, family childcare, preschool classrooms, and centers use the same online library and planning tools."],
       ["How often is new curriculum added?", "New lesson plans and activities are published into the library over time. This page reads the live catalog, so new published themes appear here after they go live."],
     ],
@@ -396,7 +396,7 @@ function renderHubPageBody(page, snapshot, { escapeHtml } = {}) {
       <p class="muted">${updatedLabel} Each activity links to its parent lesson plan.</p>
       ${renderActivityCardsHtml(featuredActivities, { escapeHtml })}
       <p><a class="cta" href="${escapeHtml(libraryHref())}">Open the lesson plan library</a>
-      <a class="cta cta-secondary" href="${escapeHtml(signupHref())}">Start free with 10 starter plans</a></p>`;
+      <a class="cta cta-secondary" href="${escapeHtml(signupHref())}">Start free with 11 starter plans</a></p>`;
   } else {
     const byAge = {
       Infant: sortFreeFirst(helpers.lessonPlans.filter((p) => p.age === "Infant"), helpers.freeIds).slice(0, 4),
@@ -408,7 +408,7 @@ function renderHubPageBody(page, snapshot, { escapeHtml } = {}) {
       <p class="muted">${updatedLabel}</p>
       ${renderAgeBreakdownHtml(helpers, { escapeHtml })}
       <h2>Free starter lesson plans</h2>
-      ${renderLessonCardsHtml(sortFreeFirst(helpers.lessonPlans.filter((p) => helpers.freeIds.has(p.id) || p.locked === false), helpers.freeIds), { escapeHtml, limit: 10 })}
+      ${renderLessonCardsHtml(sortFreeFirst(helpers.lessonPlans.filter((p) => helpers.freeIds.has(p.id) || p.locked === false), helpers.freeIds), { escapeHtml, limit: 11 })}
       <h2>Infant themes in the library</h2>
       ${renderLessonCardsHtml(byAge.Infant, { escapeHtml, limit: 4 })}
       <h2>Toddler themes in the library</h2>
@@ -442,7 +442,7 @@ function renderHubPageBody(page, snapshot, { escapeHtml } = {}) {
       ${renderFaqHtml(dynamicFaq, { escapeHtml })}
       <section>
         <h2>Start with free starter lesson plans</h2>
-        <p>Create a free account to open ${helpers.counts.free || 10} complete starter lesson plans across Infant, Toddler, and Preschool — no credit card required. Upgrade anytime for the full library, unlimited printing, and new plans as they publish.</p>
+        <p>Create a free account to open ${helpers.counts.free || 11} complete starter lesson plans across Infant, Toddler, and Preschool — no credit card required. Upgrade anytime for the full library, unlimited printing, and new plans as they publish.</p>
         <p><a class="cta" href="${escapeHtml(signupHref())}">Create your free account</a></p>
       </section>
     `,
