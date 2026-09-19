@@ -227,6 +227,7 @@ const DATABASE_PROVIDER = process.env.DATABASE_PROVIDER || "local-json";
 const PRODUCTION_DATABASE_URL = process.env.PRODUCTION_DATABASE_URL || "";
 const PRODUCTION_DATABASE_SERVICE_KEY = process.env.PRODUCTION_DATABASE_SERVICE_KEY || "";
 const DATABASE_SSL = process.env.DATABASE_SSL || "";
+const IS_PRODUCTION_RUNTIME = String(process.env.NODE_ENV || "").trim().toLowerCase() === "production";
 const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || "";
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || "";
 const VAPID_SUBJECT = process.env.VAPID_SUBJECT || `mailto:${SUPPORT_EMAIL_TO || "support@littlelearnershubbyleah.com"}`;
@@ -4835,9 +4836,10 @@ function loadLocalJsonStoreFallback() {
   ensureStore();
   try {
     storeCache = JSON.parse(fs.readFileSync(storePath, "utf8"));
-  } catch {
-    storeCache = defaultStore();
-    fs.writeFileSync(storePath, JSON.stringify(storeCache, null, 2));
+  } catch (error) {
+    // A malformed, unreadable, or unavailable store is not an empty store. Replacing it
+    // here could convert a transient filesystem failure into permanent data loss.
+    throw error;
   }
 }
 
@@ -4990,15 +4992,26 @@ async function ensureCurriculumOperatorJobStoreReady(reason = "boot") {
 }
 
 async function initializeStorage() {
+  if (IS_PRODUCTION_RUNTIME && !usePostgresStore()) {
+    throw new Error(
+      "Production storage requires DATABASE_PROVIDER=postgres and a configured PRODUCTION_DATABASE_URL. "
+      + "Refusing local JSON or Render ephemeral filesystem storage.",
+    );
+  }
   if (usePostgresStore()) {
     try {
       await initializePostgresStore();
     } catch (error) {
-      // Do not crash the web service when Postgres is briefly unreachable — that left
-      // production stuck on an old deploy and broke urgent auth recovery.
       databaseReady = false;
       lastPostgresError = error.message || "Postgres initialization failed.";
-      console.error("[store] Postgres unavailable at boot — using local JSON fallback until reconnect:", lastPostgresError);
+      console.error("[store] Postgres unavailable at boot:", lastPostgresError);
+      if (IS_PRODUCTION_RUNTIME) {
+        throw new Error(
+          "Production persistent storage initialization failed. "
+          + "Refusing ephemeral local JSON fallback: "
+          + lastPostgresError,
+        );
+      }
       ensurePostgresPool();
       loadLocalJsonStoreFallback();
     }
@@ -5275,7 +5288,7 @@ async function initializeStorage() {
 function ensureStore() {
   if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
   if (!fs.existsSync(storePath)) {
-    fs.writeFileSync(storePath, JSON.stringify(defaultStore(), null, 2));
+    writeLocalJsonFileAtomic(storePath, defaultStore());
   }
 }
 
@@ -5625,8 +5638,35 @@ function writeLocalJsonStore(store) {
     return;
   }
   ensureStore();
-  fs.writeFileSync(storePath, JSON.stringify(store, null, 2));
+  writeLocalJsonFileAtomic(storePath, store);
   storeWriteMetricsLib.recordDurablePersist(storeWriteMetrics, "local_json");
+}
+
+function writeLocalJsonFileAtomic(filePath, value) {
+  const target = path.resolve(filePath);
+  const directory = path.dirname(target);
+  const tempPath = path.join(
+    directory,
+    `.${path.basename(target)}.${process.pid}.${crypto.randomBytes(8).toString("hex")}.tmp`,
+  );
+  const payload = JSON.stringify(value, null, 2);
+  let fd;
+  try {
+    fs.mkdirSync(directory, { recursive: true });
+    fd = fs.openSync(tempPath, "w");
+    fs.writeFileSync(fd, payload, "utf8");
+    fs.fsyncSync(fd);
+    fs.closeSync(fd);
+    fd = undefined;
+    // Temp and target share a directory, so rename is atomic on the same filesystem.
+    fs.renameSync(tempPath, target);
+  } catch (error) {
+    if (fd !== undefined) {
+      try { fs.closeSync(fd); } catch { /* ignore close failure */ }
+    }
+    try { fs.rmSync(tempPath, { force: true }); } catch { /* preserve original error */ }
+    throw error;
+  }
 }
 
 function clearDebouncedStoreWriteTimer() {
@@ -25847,6 +25887,22 @@ async function handleAdminLessonCoverAssign(request, response) {
   });
 }
 
+async function persistLessonCoverToPostgres({ id, buffer, mimeType, fileName }) {
+  if (!usePostgresStore() || !postgresPool || !databaseReady) {
+    const error = new Error("Persistent Postgres cover storage is unavailable.");
+    error.code = "media_storage_unavailable";
+    throw error;
+  }
+  await curriculumMedia.insertMediaAsset(postgresPool, {
+    id,
+    kind: lessonCoverMedia.LESSON_COVER_MEDIA_KIND,
+    mimeType: mimeType || "image/png",
+    fileName: fileName || "lesson-cover",
+    buffer,
+  });
+  return { id, url: lessonCoverMedia.lessonCoverMediaUrl(id) };
+}
+
 async function handleAdminLessonCoverUpload(request, response) {
   const body = await readJson(request);
   if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
@@ -25958,7 +26014,12 @@ async function persistEnrichmentPhotoVariants({
   };
   const writtenVariants = [];
   try {
-    if (usePostgresStore() && postgresPool && databaseReady) {
+    if (usePostgresStore()) {
+      if (!postgresPool || !databaseReady) {
+        const error = new Error("Persistent Postgres media storage is unavailable.");
+        error.code = "media_storage_unavailable";
+        throw error;
+      }
       for (const variant of ["full", "thumb"]) {
         const row = variants[variant];
         const rowId = enrichmentMedia.enrichmentVariantAssetId(assetId, variant);
@@ -26014,7 +26075,8 @@ async function persistEnrichmentPhotoVariants({
 
 async function readEnrichmentPhotoVariant(assetId, variant) {
   const v = variant === "thumb" ? "thumb" : "full";
-  if (usePostgresStore() && postgresPool && databaseReady) {
+  if (usePostgresStore()) {
+    if (!postgresPool || !databaseReady) return null;
     const rowId = enrichmentMedia.enrichmentVariantAssetId(assetId, v);
     const asset = await curriculumMedia.readMediaAsset(
       postgresPool,
@@ -26040,7 +26102,13 @@ async function readEnrichmentPhotoVariant(assetId, variant) {
 }
 
 async function deleteEnrichmentPhotoAsset(assetId, { force = false } = {}) {
-  if (usePostgresStore() && postgresPool && databaseReady) {
+  if (usePostgresStore()) {
+    if (!postgresPool || !databaseReady) {
+      if (force) return;
+      const error = new Error("Persistent Postgres media storage is unavailable.");
+      error.code = "media_storage_unavailable";
+      throw error;
+    }
     for (const variant of ["full", "thumb"]) {
       const rowId = enrichmentMedia.enrichmentVariantAssetId(assetId, variant);
       try {
@@ -32901,6 +32969,7 @@ const server = http.createServer(async (request, response) => {
           saveOperatorEnrichmentDraft,
           createOperatorLessonPlan,
           openAiConfigured: Boolean(isConfiguredValue(OPENAI_API_KEY)),
+          persistLessonCover: usePostgresStore() ? persistLessonCoverToPostgres : null,
           operatorJobStore: curriculumOperatorJobStore,
           callOperatorAi: async (systemPrompt, userPrompt, aiOptions = {}) => {
             const forceFixture = process.env.NODE_ENV === "test"

@@ -6,7 +6,7 @@
 
 const crypto = require("node:crypto");
 const fs = require("node:fs");
-const path = require("node:path");
+const { resolveLocalMediaAssetBase } = require("./local-media-path.js");
 
 const VISUAL_PRODUCTION_PREVIEW_KIND = "visual-production-preview";
 
@@ -30,7 +30,7 @@ function localPreviewDirFromStorePath(storePath) {
 
 function writeLocalVisualProductionPreview(dir, assetId, { mimeType, buffer, fileName, meta }) {
   fs.mkdirSync(dir, { recursive: true });
-  const base = path.join(dir, assetId);
+  const base = resolveLocalMediaAssetBase(dir, assetId);
   const payload = {
     id: assetId,
     kind: VISUAL_PRODUCTION_PREVIEW_KIND,
@@ -51,7 +51,7 @@ function writeLocalVisualProductionPreview(dir, assetId, { mimeType, buffer, fil
 }
 
 function readLocalVisualProductionPreview(dir, assetId) {
-  const base = path.join(dir, String(assetId || "").trim());
+  const base = resolveLocalMediaAssetBase(dir, assetId);
   const binPath = `${base}.bin`;
   const metaPath = `${base}.json`;
   if (!fs.existsSync(binPath) || !fs.existsSync(metaPath)) return null;
@@ -100,6 +100,11 @@ async function persistVisualProductionPreview(input) {
     };
   }
 
+  if (source.usePostgresStore?.()) {
+    const error = new Error("Persistent Postgres media storage is unavailable.");
+    error.code = "media_storage_unavailable";
+    throw error;
+  }
   writeLocalVisualProductionPreview(
     localPreviewDirFromStorePath(source.storePath),
     assetId,
@@ -130,6 +135,7 @@ async function readVisualProductionPreview(input) {
     if (!asset?.buffer?.length) return null;
     return { mimeType: asset.mimeType || "image/png", buffer: asset.buffer };
   }
+  if (source.usePostgresStore?.()) return null;
 
   const local = readLocalVisualProductionPreview(
     localPreviewDirFromStorePath(source.storePath),

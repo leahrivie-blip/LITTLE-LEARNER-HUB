@@ -438,6 +438,7 @@
     "test:curriculum-operator-job-store-offload": "NODE_ENV=test node scripts/test-curriculum-operator-job-store-offload.js",
     "test:postgres-reliability-repair": "NODE_ENV=test node scripts/test-postgres-reliability-repair.js",
     "test:postgres-final-safety-gate": "NODE_ENV=test node scripts/test-postgres-final-safety-gate.js",
+    "test:production-storage-failclosed": "NODE_ENV=test node scripts/test-production-storage-failclosed.js",
     "test:store-write-race": "NODE_ENV=test node scripts/test-store-write-race.js",
     "test:store-write-debounce": "NODE_ENV=test node scripts/test-store-write-debounce.js",
     "test:store-write-degraded": "NODE_ENV=test node scripts/test-store-write-degraded.js",

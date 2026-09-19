@@ -4,7 +4,7 @@
  * Never stores cover bytes inside curriculum JSON.
  */
 const fs = require("node:fs");
-const path = require("node:path");
+const { resolveLocalMediaAssetBase } = require("./local-media-path.js");
 
 const LESSON_COVER_MEDIA_KIND = "lesson-plan-cover";
 
@@ -14,7 +14,7 @@ function localCoverDirFromStorePath(storePath) {
 
 function writeLocalLessonCover(dir, assetId, { mimeType, buffer, fileName }) {
   fs.mkdirSync(dir, { recursive: true });
-  const base = path.join(dir, assetId);
+  const base = resolveLocalMediaAssetBase(dir, assetId);
   const meta = {
     id: assetId,
     kind: LESSON_COVER_MEDIA_KIND,
@@ -33,7 +33,7 @@ function writeLocalLessonCover(dir, assetId, { mimeType, buffer, fileName }) {
 }
 
 function readLocalLessonCover(dir, assetId) {
-  const base = path.join(dir, String(assetId || "").trim());
+  const base = resolveLocalMediaAssetBase(dir, assetId);
   const binPath = `${base}.bin`;
   const metaPath = `${base}.json`;
   if (!fs.existsSync(binPath) || !fs.existsSync(metaPath)) return null;
