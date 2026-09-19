@@ -21015,10 +21015,16 @@ async function handlePublicCurriculumResourceFile(request, response, url) {
     jsonResponse(response, 404, { error: "Resource not found." });
     return;
   }
-  const requiresProAccess = linkedLessons.some((plan) => plan.plan === "Pro");
-  if (requiresProAccess) {
-    const access = await resolveCurriculumAccessUser(request, url);
-    if (!access.authorized) {
+  const access = await resolveCurriculumAccessUser(request, url);
+  if (!access.authorized) {
+    const siteContent = normalizedSiteContent(store.siteContent || defaultSiteContentStore());
+    const accessContext = {
+      ...freePlanAccessContextFromUser(access.user, siteContent),
+      store,
+    };
+    // A Free resource must belong exclusively to curated Free lessons. A raw
+    // plan: "Free" link or a mixed Free/Pro link must not expose the file.
+    if (!linkedLessons.every((plan) => userMayUnlockFreeCurriculumPlan(plan, accessContext))) {
       jsonResponse(response, 403, { error: "Pro access is required for this resource." });
       return;
     }
