@@ -449,7 +449,7 @@ function renderAboutPage() {
       <h2>What Little Learner Hub Does Now</h2>
       <p>These are features signed-in members can use today:</p>
       <ul>
-        <li>Ready-to-use lesson plans for infants, toddlers, preschoolers, mixed-age groups, holidays, and seasonal themes (10 starter plans on Free; full library on Pro) — browse the live <a href="/daycare-curriculum">daycare curriculum hub</a></li>
+        <li>Ready-to-use lesson plans for infants, toddlers, preschoolers, mixed-age groups, holidays, and seasonal themes (11 starter plans on Free; full library on Pro) — browse the live <a href="/daycare-curriculum">daycare curriculum hub</a></li>
         <li>Thousands of classroom activities with play-based learning ideas and printable resources</li>
         <li>Curriculum Calendar and Lesson Planner for organizing weekly plans</li>
         <li>AI Documentation Helpers that generate observations, parent messages, daily reports, incident reports, and more in seconds</li>
