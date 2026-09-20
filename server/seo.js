@@ -392,7 +392,7 @@ function renderPublicPage({ title, description, canonicalPath, bodyHtml, extraSc
       .about-page .about-lead { max-width: 610px; margin: 0; color: #43526b; font-size: clamp(1.05rem, 1.8vw, 1.2rem); }
       .about-page .about-actions { margin-top: 8px; }
       .about-page .about-portrait-wrap { position: relative; width: min(100%, 380px); justify-self: end; padding: 10px; border-radius: 26px; background: #fff; box-shadow: 0 16px 36px rgba(31,42,68,0.16); }
-      .about-page .about-portrait { display: block; width: 100%; aspect-ratio: 4 / 5; object-fit: cover; object-position: center 15%; border-radius: 18px; background: #e9f2f7; }
+      .about-page .about-portrait { display: block; width: 100%; height: auto; aspect-ratio: 4 / 5; object-fit: cover; object-position: center 15%; border-radius: 18px; background: #e9f2f7; }
       .about-page .about-founder-badge { position: absolute; right: -18px; bottom: 22px; max-width: 210px; padding: 12px 14px; border: 1px solid #d7e5ee; border-radius: 14px; background: rgba(255,255,255,0.97); box-shadow: 0 10px 24px rgba(31,42,68,0.13); }
       .about-page .about-founder-badge strong, .about-page .about-founder-badge span { display: block; }
       .about-page .about-founder-badge span { color: #5b6478; font-size: 0.88rem; }
