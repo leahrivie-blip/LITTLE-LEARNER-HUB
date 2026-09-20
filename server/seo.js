@@ -103,7 +103,7 @@ function ogImageUrl() {
 
 function founderImageUrl() {
   const founderImage = path.join(__dirname, "..", "images", "leah-founder.jpg");
-  return fs.existsSync(founderImage) ? absoluteUrl("/images/leah-founder.jpg") : "";
+  return fs.existsSync(founderImage) ? "/images/leah-founder.jpg" : "";
 }
 
 function socialProfileUrls() {
