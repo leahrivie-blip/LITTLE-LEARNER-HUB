@@ -430,6 +430,7 @@ function renderPublicPage({ title, description, canonicalPath, bodyHtml, extraSc
       @media (max-width: 600px) {
         .wrap { padding: 22px 14px 48px; }
         .cta { width: 100%; text-align: center; margin-right: 0; }
+        .about-page .cta { box-sizing: border-box; }
         .founder-grid { grid-template-columns: 1fr; }
         .founder-photo { max-width: 280px; }
         .about-page .wrap { padding: 16px 14px 44px; }
