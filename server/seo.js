@@ -392,7 +392,7 @@ function renderPublicPage({ title, description, canonicalPath, bodyHtml, extraSc
       .about-page .about-lead { max-width: 610px; margin: 0; color: #43526b; font-size: clamp(1.05rem, 1.8vw, 1.2rem); }
       .about-page .about-actions { margin-top: 8px; }
       .about-page .about-portrait-wrap { position: relative; width: min(100%, 380px); justify-self: end; padding: 10px; border-radius: 26px; background: #fff; box-shadow: 0 16px 36px rgba(31,42,68,0.16); }
-      .about-page .about-portrait { display: block; width: 100%; height: auto; aspect-ratio: 4 / 5; object-fit: cover; object-position: center 15%; border-radius: 18px; background: #e9f2f7; }
+      .about-page .about-portrait { display: block; width: 100%; height: auto; aspect-ratio: 1290 / 1595; object-fit: contain; object-position: center top; border-radius: 18px; background: #e9f2f7; }
       .about-page .about-founder-badge { position: absolute; right: -18px; bottom: 22px; max-width: 210px; padding: 12px 14px; border: 1px solid #d7e5ee; border-radius: 14px; background: rgba(255,255,255,0.97); box-shadow: 0 10px 24px rgba(31,42,68,0.13); }
       .about-page .about-founder-badge strong, .about-page .about-founder-badge span { display: block; }
       .about-page .about-founder-badge span { color: #5b6478; font-size: 0.88rem; }
@@ -422,6 +422,8 @@ function renderPublicPage({ title, description, canonicalPath, bodyHtml, extraSc
       .about-page .about-cta-band .cta-secondary { border-color: rgba(255,255,255,0.72); background: transparent; color: #fff; }
       .about-page .about-roadmap { padding: clamp(24px, 4vw, 40px); border-radius: 22px; background: #f4f7fa; border: 1px solid #dbe3f2; }
       @media (min-width: 601px) and (max-width: 900px) {
+        .about-page .about-hero { grid-template-columns: 1fr; padding: clamp(32px, 6vw, 48px); }
+        .about-page .about-portrait-wrap { width: min(100%, 360px); justify-self: center; }
         .about-page .about-story { grid-template-columns: 1fr; }
         .about-page .about-product-grid, .about-page .about-use-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       }
@@ -432,7 +434,10 @@ function renderPublicPage({ title, description, canonicalPath, bodyHtml, extraSc
         .founder-photo { max-width: 280px; }
         .about-page .wrap { padding: 16px 14px 44px; }
         .about-page .about-hero, .about-page .about-story { grid-template-columns: 1fr; padding: 26px 20px; }
-        .about-page .about-portrait-wrap { width: min(86vw, 320px); justify-self: center; margin-top: 4px; }
+        .about-page .about-hero { gap: 24px; }
+        .about-page .about-hero h1 { max-width: 100%; font-size: clamp(1.75rem, 7.4vw, 2.1rem); }
+        .about-page .about-portrait-wrap { width: min(86vw, 320px); justify-self: center; margin-top: 0; }
+        .about-page .about-actions .cta { display: flex; box-sizing: border-box; align-items: center; justify-content: center; min-height: 48px; }
         .about-page .about-founder-badge { right: -8px; bottom: 14px; max-width: 185px; }
         .about-page .about-pain-grid, .about-page .about-product-grid, .about-page .about-use-grid, .about-page .about-roadmap-grid { grid-template-columns: 1fr; }
         .about-page .about-section { margin-top: 48px; }
@@ -517,7 +522,6 @@ function renderAboutPage() {
         </div>
       </section>
 
-      <section class="about-section" aria-labelledby="about-use-title">
       <section class="about-section about-founder-note" aria-labelledby="about-founder-title">
         <h2 id="about-founder-title">Made by someone who still thinks like a teacher.</h2>
         <p>I listen to childcare-provider requests and keep improving Little Learner Hub around the work that happens before, during, and after a real classroom day.</p>
