@@ -411,6 +411,8 @@ function renderPublicPage({ title, description, canonicalPath, bodyHtml, extraSc
       .about-page .about-product-card div { padding: 16px; }
       .about-page .about-product-card h3 { margin-top: 0; }
       .about-page .about-product-card p, .about-page .about-use-card p, .about-page .about-roadmap-card p { margin-bottom: 0; color: #5b6478; font-size: 0.96rem; }
+      .about-page .about-founder-note { max-width: 820px; margin-right: auto; margin-left: auto; padding: clamp(24px, 4vw, 40px); border-left: 5px solid #7ba8c9; border-radius: 18px; background: #fff; box-shadow: 0 10px 24px rgba(31,42,68,0.07); }
+      .about-page .about-founder-note p { max-width: 680px; margin-bottom: 0; color: #4c5b71; font-size: 1.06rem; }
       .about-page .about-use-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
       .about-page .about-use-card span { display: inline-grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; background: #e7f2f7; color: #2f6f8f; font-weight: 800; }
       .about-page .about-link { display: inline-block; margin-top: 18px; color: #215f7c; font-weight: 700; }
@@ -513,6 +515,12 @@ function renderAboutPage() {
           <article class="about-product-card"><img src="/images/lesson-covers/community-helpers.svg" alt="Community Helpers lesson plan cover" width="640" height="360" loading="lazy" decoding="async" /><div><h3>Planning tools</h3><p>Organize what you&rsquo;re teaching without rebuilding the week from scratch.</p></div></article>
           <article class="about-product-card"><img src="/images/lesson-covers/feelings.svg" alt="Feelings lesson plan cover" width="640" height="360" loading="lazy" decoding="async" /><div><h3>Documentation help</h3><p>Turn quick classroom notes into clearer observations and family updates.</p></div></article>
         </div>
+      </section>
+
+      <section class="about-section" aria-labelledby="about-use-title">
+      <section class="about-section about-founder-note" aria-labelledby="about-founder-title">
+        <h2 id="about-founder-title">Made by someone who still thinks like a teacher.</h2>
+        <p>I listen to childcare-provider requests and keep improving Little Learner Hub around the work that happens before, during, and after a real classroom day.</p>
       </section>
 
       <section class="about-section" aria-labelledby="about-use-title">
