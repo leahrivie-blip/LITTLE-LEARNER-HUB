@@ -223,10 +223,10 @@ async function main() {
     assert(!contact.body.includes("youtube.com"), "contact page must not include YouTube");
 
     const about = await request("GET", "/about");
-    assert(about.body.includes("Meet Leah"), "about page missing Meet Leah section");
+    assert(about.body.includes("Built by a childcare provider who knows how busy the classroom really gets."), "about page missing founder-led hero");
     assert(about.body.includes('alt="Leah, founder of Little Learner Hub"'), "about page missing founder portrait");
-    assert(about.body.includes("What Little Learner Hub Does Now"), "about page missing current features section");
-    assert(about.body.includes("What I&rsquo;m Building Next"), "about page missing future plans section");
+    assert(about.body.includes("What you can use today"), "about page missing current features section");
+    assert(about.body.includes("Little Learner Hub is still growing."), "about page missing roadmap section");
     assert(about.body.includes("https://www.facebook.com/profile.php?id=61590609343290"), "about page missing Facebook link");
     assert(about.body.includes(`aria-label="${seo.BUSINESS_NAME} on Facebook"`), "about Facebook link missing official business aria-label");
 
