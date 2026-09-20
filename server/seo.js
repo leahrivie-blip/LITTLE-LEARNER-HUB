@@ -391,7 +391,7 @@ function renderPublicPage({ title, description, canonicalPath, bodyHtml, extraSc
       .about-page .about-hero h1 { max-width: 680px; font-size: clamp(2rem, 4.6vw, 3.55rem); }
       .about-page .about-lead { max-width: 610px; margin: 0; color: #43526b; font-size: clamp(1.05rem, 1.8vw, 1.2rem); }
       .about-page .about-actions { margin-top: 8px; }
-      .about-page .about-portrait-wrap { position: relative; width: min(100%, 380px); justify-self: end; padding: 10px; border-radius: 26px; background: #fff; box-shadow: 0 16px 36px rgba(31,42,68,0.16); }
+      .about-page .about-portrait-wrap { position: relative; box-sizing: border-box; width: min(100%, 380px); justify-self: end; padding: 10px; border-radius: 26px; background: #fff; box-shadow: 0 16px 36px rgba(31,42,68,0.16); }
       .about-page .about-portrait { display: block; width: 100%; height: auto; aspect-ratio: 1290 / 1595; object-fit: contain; object-position: center top; border-radius: 18px; background: #e9f2f7; }
       .about-page .about-founder-badge { position: absolute; right: -18px; bottom: 22px; max-width: 210px; padding: 12px 14px; border: 1px solid #d7e5ee; border-radius: 14px; background: rgba(255,255,255,0.97); box-shadow: 0 10px 24px rgba(31,42,68,0.13); }
       .about-page .about-founder-badge strong, .about-page .about-founder-badge span { display: block; }
@@ -438,7 +438,7 @@ function renderPublicPage({ title, description, canonicalPath, bodyHtml, extraSc
         .about-page .about-hero h1 { max-width: 100%; font-size: clamp(1.75rem, 7.4vw, 2.1rem); }
         .about-page .about-portrait-wrap { width: min(86vw, 320px); justify-self: center; margin-top: 0; }
         .about-page .about-actions .cta { display: flex; box-sizing: border-box; align-items: center; justify-content: center; min-height: 48px; }
-        .about-page .about-founder-badge { right: -8px; bottom: 14px; max-width: 185px; }
+        .about-page .about-founder-badge { position: static; max-width: none; margin: 12px 0 0; }
         .about-page .about-pain-grid, .about-page .about-product-grid, .about-page .about-use-grid, .about-page .about-roadmap-grid { grid-template-columns: 1fr; }
         .about-page .about-section { margin-top: 48px; }
       }
