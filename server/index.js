@@ -28686,6 +28686,23 @@ function maybeCanonicalHostRedirect(request, response, url) {
   return true;
 }
 
+const LEGACY_AD_ROUTE_REDIRECTS = Object.freeze({
+  "/daycare-lesson-plans": "/daycare-curriculum",
+  "/free-daycare-forms": "/features",
+  "/observation-generator": "/features",
+  "/home-daycare-provider-tools": "/features",
+});
+
+function maybeLegacyAdRouteRedirect(request, response, url) {
+  if (request.method !== "GET" && request.method !== "HEAD") return false;
+  const destination = LEGACY_AD_ROUTE_REDIRECTS[url.pathname];
+  if (!destination) return false;
+  // Retain Google Ads click identifiers and campaign parameters through consolidation.
+  response.writeHead(301, { Location: `${destination}${url.search}`, "Cache-Control": "public, max-age=3600" });
+  response.end();
+  return true;
+}
+
 function shouldServeSpaShell(routePath = "") {
   const normalized = String(routePath || "/").trim() || "/";
   if (normalized === "/index.html") return false;
@@ -32614,6 +32631,7 @@ const server = http.createServer(async (request, response) => {
       // Static shell assets (HTML/CSS/JS) are served during boot so the client can load and retry APIs.
     }
     if (maybeCanonicalHostRedirect(request, response, url)) return;
+    if (maybeLegacyAdRouteRedirect(request, response, url)) return;
     if (request.method === "POST" && url.pathname === "/api/admin/login") return await handleAdminLogin(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/logout") return await handleAdminLogout(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/session") return handleAdminSession(request, response, url);

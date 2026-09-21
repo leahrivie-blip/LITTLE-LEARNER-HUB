@@ -701,7 +701,7 @@ function renderContactPage() {
       <h1>Contact Support</h1>
       <p>Need help with your account, billing, lesson plans, documentation tools, or a technical issue?</p>
       <p><strong>Email:</strong> <a href="mailto:${escapeHtml(SUPPORT_EMAIL)}">${escapeHtml(SUPPORT_EMAIL)}</a></p>
-      <p>Members can also use in-app messaging and the Contact form after signing in at <a href="/?view=contact">littlelearnershubbyleah.com</a>.</p>
+      <p>Members can also use in-app messaging and the Contact form after signing in at <a href="/contact">littlelearnershubbyleah.com</a>.</p>
       ${renderSocialLinksHtml({ heading: `Follow ${BUSINESS_NAME}` })}
       <p class="muted">${escapeHtml(BUSINESS_NAME)} is an online platform. Support is provided remotely; there is no public in-person office or customer walk-in location.</p>
     `,
