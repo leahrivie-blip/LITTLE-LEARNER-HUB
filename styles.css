@@ -184,10 +184,12 @@ body.user-authenticated.sidebar-collapsed .sidebar {
   border-radius: 10px;
 }
 
-.brand h1 {
+.brand h1,
+.brand-name {
   margin: 0;
   font-size: 18px;
   line-height: 1.15;
+  font-weight: 700;
 }
 
 .brand p,

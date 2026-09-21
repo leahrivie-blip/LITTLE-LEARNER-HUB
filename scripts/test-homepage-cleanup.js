@@ -176,14 +176,14 @@ async function main() {
 
   assert.match(indexHtml, /data-founding-spots-copy/);
   assert.doesNotMatch(indexHtml, /Only 2 Founding Member spots remaining/);
-  assert.match(indexHtml, /Request a Lesson Plan/);
+  assert.match(indexHtml, /Have a lesson idea\? Send Leah a request\./);
   assert.match(indexHtml, /AI Documentation Helpers/);
   assert.match(indexHtml, /Family Hub/);
   assert.match(indexHtml, /Daily operations/);
   assert.match(indexHtml, /See what we&rsquo;re building|See what we’re building/);
   assert.match(indexHtml, /llh-founder-brand-fallback/);
-  assert.match(indexHtml, /Create your account to continue with Pro membership/);
-  assert.match(indexHtml, /Affordable Childcare Curriculum & Lesson Plans for Busy Teachers \| Little Learner Hub/);
+  assert.match(indexHtml, /data-action="start-free"/);
+  assert.match(indexHtml, /Ready-to-Use Childcare Curriculum & Lesson Plans \| Little Learner Hub/);
   assert.doesNotMatch(indexHtml, /Founding Member/);
   assert.match(appJs, /function foundingSpotsLeftMessageFromCount/);
   assert.match(appJs, /FOUNDING_CLOSED_FOR_ACQUISITION\s*=\s*true/);
@@ -256,7 +256,7 @@ async function main() {
           lessonNote: document.querySelector(".llh-lesson-request-note")?.innerText || "",
           foundingCtas: Array.from(document.querySelectorAll("#view-home [data-checkout-plan='founding']")).filter((el) => el.offsetParent !== null).length,
           proCtas: Array.from(document.querySelectorAll("#view-home [data-checkout-plan='monthly']")).filter((el) => el.offsetParent !== null).length,
-          announceVisible: !document.querySelector("#llhFoundingAnnounceBanner")?.hidden,
+          announceVisible: Boolean(document.querySelector("#llhFoundingAnnounceBanner") && !document.querySelector("#llhFoundingAnnounceBanner")?.hidden),
           openForAcquisition: typeof foundingOpenForAcquisition === "function" ? foundingOpenForAcquisition() : null,
           scrollWidth: document.documentElement.scrollWidth,
           clientWidth: document.documentElement.clientWidth,
@@ -278,16 +278,18 @@ async function main() {
       results.push(await shot(page, `guest-${viewport.name}`));
 
       // Pro signup path preserves preferred monthly plan
-      await page.click('#homeHero [data-checkout-plan="monthly"]');
+      await page.click('#homePricing [data-checkout-plan="monthly"]');
       await page.waitForSelector("#authModal.open");
       const signupUi = await page.evaluate(() => ({
         noteHidden: document.querySelector("#authFoundingContinueNote")?.hidden,
+        note: document.querySelector("#authFoundingContinueNote")?.innerText || "",
         preferred: sessionStorage.getItem("llhSignupPreferredPlan") || "",
         title: document.querySelector("#authTitle")?.innerText || "",
       }));
       assert.equal(signupUi.preferred, "monthly");
-      assert.equal(signupUi.noteHidden, true);
-      assert.match(signupUi.title, /Create Your Free|Little Learner Hub/i);
+      assert.equal(signupUi.noteHidden, false);
+      assert.match(signupUi.note, /Pro membership/i);
+      assert.match(signupUi.title, /Continue with Pro/i);
       await page.click("#closeModal");
       await page.close();
       console.log(`PASS guest ${viewport.name}`);

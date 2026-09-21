@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Trial curriculum export allowance + Free Starter Library (exactly 10).
+ * Trial curriculum export allowance + Free Starter Library (exactly 11).
  * Run: node scripts/test-trial-protection-free-starter.js
  */
 const assert = require("node:assert/strict");
@@ -59,7 +59,7 @@ function seedStore() {
       plan: "Pro",
       status: "published",
       weeklyOverview: "Overview",
-      dailyPlans: { Monday: { items: [{ title: "Play" }] } },
+      dailyPlans: { monday: { items: [{ title: "Play" }] } },
     });
     toddler.push({
       id: `cur-lp-toddler-seed-${i}`,
@@ -69,7 +69,7 @@ function seedStore() {
       plan: "Pro",
       status: "published",
       weeklyOverview: "Overview",
-      dailyPlans: { Monday: { items: [{ title: "Play" }] } },
+      dailyPlans: { monday: { items: [{ title: "Play" }] } },
     });
     preschool.push({
       id: `cur-lp-preschool-seed-${i}`,
@@ -79,7 +79,7 @@ function seedStore() {
       plan: "Pro",
       status: "published",
       weeklyOverview: "Overview",
-      dailyPlans: { Monday: { items: [{ title: "Play" }] } },
+      dailyPlans: { monday: { items: [{ title: "Play" }] } },
     });
   }
   // Map default Free starter IDs onto published plans with correct ages.
@@ -96,13 +96,13 @@ function seedStore() {
       weeklyOverview: "Free starter overview with full content.",
       objectives: ["Explore"],
       dailyPlans: {
-        Monday: { theme: "Day 1", items: [{ title: "Starter activity", activityCategory: "Sensory" }] },
+        monday: { theme: "Day 1", items: [{ title: "Starter activity", activityCategory: "Sensory" }] },
       },
     };
   });
   const lockedPro = {
-    id: "cur-lp-preschool-letters-and-sounds",
-    title: "Letters & Sounds",
+    id: "cur-lp-preschool-protected-test",
+    title: "Protected Pro Lesson",
     age: "Preschool",
     theme: "Literacy",
     plan: "Pro",
@@ -110,8 +110,31 @@ function seedStore() {
     weeklyOverview: "Premium overview teaser only for Free.",
     objectives: ["SECRET_OBJECTIVE_SHOULD_LOCK"],
     dailyPlans: {
-      Monday: { items: [{ title: "SECRET_ACTIVITY_SHOULD_LOCK" }] },
+      monday: { items: [{ title: "Preview Activity" }] },
     },
+  };
+  const uncuratedFree = {
+    id: "cur-lp-preschool-uncurated-free-test",
+    title: "Uncurated Free Metadata Lesson",
+    age: "Preschool",
+    theme: "Regression",
+    plan: "Free",
+    status: "published",
+    weeklyOverview: "This raw Free metadata record must remain locked.",
+    objectives: ["SECRET_UNCURATED_FREE_OBJECTIVE"],
+    dailyPlans: {
+      monday: { items: [{ title: "SECRET_UNCURATED_FREE_ACTIVITY" }] },
+    },
+  };
+  const starterResource = {
+    id: "cur-res-free-starter-test",
+    title: "Free Starter Printable",
+    status: "published",
+    category: "Printables",
+    lessonPlanIds: [defaults[0]],
+    fileName: "free-starter-printable.pdf",
+    fileMimeType: "application/pdf",
+    fileData: `data:application/pdf;base64,${Buffer.from("%PDF-1.4 free starter").toString("base64")}`,
   };
   const now = new Date();
   const trialEnd = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
@@ -199,7 +222,7 @@ function seedStore() {
     },
     siteContent: {
       curriculum: {
-        lessonPlans: [...freePlans, lockedPro, ...infant, ...toddler, ...preschool],
+        lessonPlans: [...freePlans, lockedPro, uncuratedFree, ...infant, ...toddler, ...preschool],
         activities: [
           {
             id: "cur-act-pro-1",
@@ -211,7 +234,7 @@ function seedStore() {
             steps: ["Do the secret thing"],
           },
         ],
-        resources: [],
+        resources: [starterResource],
         updatedAt: now.toISOString(),
       },
       freePlanAccess: {
@@ -276,11 +299,11 @@ function authHeaders(email) {
 
 async function main() {
   // Unit: Free starter list
-  assert.equal(freeSample.DEFAULT_FREE_STARTER_LESSON_IDS.length, 10);
-  assert.equal(freeSample.REQUIRED_COUNT, 10);
-  assert.deepEqual(freeSample.REQUIRED_DISTRIBUTION, { Infant: 3, Toddler: 3, Preschool: 4 });
+  assert.equal(freeSample.DEFAULT_FREE_STARTER_LESSON_IDS.length, 11);
+  assert.equal(freeSample.REQUIRED_COUNT, 11);
+  assert.deepEqual(freeSample.REQUIRED_DISTRIBUTION, { Infant: 3, Toddler: 3, Preschool: 5 });
   assert.equal(freeSample.activeSeasonalIds().length, 0);
-  assert.match(freeSample.MARKETING.freeCore, /10 complete starter lesson plans/);
+  assert.match(freeSample.MARKETING.freeCore, /11 complete starter lesson plans/);
 
   // Unit: trial export authorize / idempotency / release
   let state = trialExports.emptyState();
@@ -322,8 +345,8 @@ async function main() {
   assert.match(appJs, /MEMBERSHIP_COPY/);
   assert.match(appJs, /confirmTrialCurriculumExport/);
   assert.match(appJs, /trial-curriculum-watermark/);
-  assert.match(appJs, /Your Included Free Plans|Your 10 Free Starter Plans/);
-  assert.match(indexHtml, /10 complete starter lesson plans across Infant, Toddler and Preschool/);
+  assert.match(appJs, /Your Included Free Plans|Your 11 Free Starter Plans/);
+  assert.match(indexHtml, /11 complete starter lesson plans across Infant, Toddler and Preschool/);
   assert.match(indexHtml, /trial-curriculum-exports\.js/);
   assert.doesNotMatch(indexHtml, /Selected free lesson plans across age groups/);
 
@@ -337,32 +360,38 @@ async function main() {
     assert.equal(freeDetail.status, 200, freeDetail.text);
     assert.equal(freeDetail.json.lessonPlan.locked, false);
     assert.ok(freeDetail.json.lessonPlan.dailyPlans);
+    const freeResource = await request("GET", "/api/curriculum/resources/file?id=cur-res-free-starter-test", null, authHeaders("free.user@test.local"));
+    assert.equal(freeResource.status, 200, freeResource.text);
 
     // Non-starter plans stay content-locked for Free (browse/preview OK; full body withheld)
-    const locked = await request("GET", "/api/curriculum/lesson-plans/cur-lp-preschool-letters-and-sounds", null, authHeaders("free.user@test.local"));
-    assert.ok([200, 403].includes(locked.status), `unexpected status ${locked.status}`);
+    const locked = await request("GET", "/api/curriculum/lesson-plans/cur-lp-preschool-protected-test", null, authHeaders("free.user@test.local"));
+    assert.ok([200, 403].includes(locked.status), `unexpected status ${locked.status}: ${locked.text}`);
     if (locked.status === 200) {
       assert.equal(locked.json.lessonPlan.locked, true);
       assert.equal(locked.json.lessonPlan.dailyPlans, undefined);
       assert.equal(locked.json.lessonPlan.objectives, undefined);
-      assert.doesNotMatch(JSON.stringify(locked.json), /SECRET_OBJECTIVE_SHOULD_LOCK|SECRET_ACTIVITY_SHOULD_LOCK/);
+      assert.doesNotMatch(JSON.stringify(locked.json), /SECRET_OBJECTIVE_SHOULD_LOCK/);
     }
+    const rawFreeLocked = await request("GET", "/api/curriculum/lesson-plans/cur-lp-preschool-uncurated-free-test", null, authHeaders("free.user@test.local"));
+    assert.equal(rawFreeLocked.status, 200);
+    assert.equal(rawFreeLocked.json.lessonPlan.locked, true);
+    assert.equal(rawFreeLocked.json.lessonPlan.dailyPlans, undefined);
 
     // Trial can open Pro plan (browse)
-    const trialBrowse = await request("GET", "/api/curriculum/lesson-plans/cur-lp-preschool-letters-and-sounds", null, authHeaders("trial.user@test.local"));
+    const trialBrowse = await request("GET", "/api/curriculum/lesson-plans/cur-lp-preschool-protected-test", null, authHeaders("trial.user@test.local"));
     assert.equal(trialBrowse.status, 200);
     assert.equal(trialBrowse.json.lessonPlan.locked, false);
 
     // Trial exports: 3 succeed, 4th blocked; idempotent retry
     const headers = authHeaders("trial.user@test.local");
     const e1 = await request("POST", "/api/trial-curriculum-exports/authorize", {
-      idempotencyKey: "exp-1", resourceType: "lesson-plan", resourceId: "cur-lp-preschool-letters-and-sounds", action: "print",
+      idempotencyKey: "exp-1", resourceType: "lesson-plan", resourceId: "cur-lp-preschool-protected-test", action: "print",
     }, headers);
     assert.equal(e1.status, 200);
     assert.equal(e1.json.allowed, true);
     assert.equal(e1.json.used, 1);
     const e1r = await request("POST", "/api/trial-curriculum-exports/authorize", {
-      idempotencyKey: "exp-1", resourceType: "lesson-plan", resourceId: "cur-lp-preschool-letters-and-sounds", action: "print",
+      idempotencyKey: "exp-1", resourceType: "lesson-plan", resourceId: "cur-lp-preschool-protected-test", action: "print",
     }, headers);
     assert.equal(e1r.json.reused, true);
     assert.equal(e1r.json.used, 1);
@@ -440,14 +469,14 @@ async function main() {
 
     // Exhausted trial generate must block
     const genBlocked = await request("POST", "/api/trial-curriculum-exports/generate-pdf", {
-      resourceId: "cur-lp-preschool-letters-and-sounds",
+      resourceId: "cur-lp-preschool-protected-test",
       idempotencyKey: "gen-watermark-blocked",
     }, authHeaders("trial.user@test.local"));
     assert.ok(genBlocked.status === 403 || genBlocked.json?.allowed === false);
 
     // Fresh trial: watermarked PDF bytes must contain Trial watermark
     const genOk = await request("POST", "/api/trial-curriculum-exports/generate-pdf", {
-      resourceId: "cur-lp-preschool-letters-and-sounds",
+      resourceId: "cur-lp-preschool-protected-test",
       idempotencyKey: "gen-watermark-ok",
     }, authHeaders("trial.fresh@test.local"));
     assert.equal(genOk.status, 200, genOk.text?.slice?.(0, 200) || genOk.text);
@@ -457,7 +486,7 @@ async function main() {
     // Watermark-generation failure blocks export (fail closed) and restores allowance server-side only
     const wmFailHeaders = authHeaders("trial.wmfail@test.local");
     const genFail = await request("POST", "/api/trial-curriculum-exports/generate-pdf", {
-      resourceId: "cur-lp-preschool-letters-and-sounds",
+      resourceId: "cur-lp-preschool-protected-test",
       idempotencyKey: "gen-watermark-fail",
       forceWatermarkFailure: true,
     }, wmFailHeaders);
@@ -467,16 +496,15 @@ async function main() {
     const afterFail = await request("GET", "/api/trial-curriculum-exports", null, wmFailHeaders);
     assert.equal(afterFail.json.used, 0, "verified server-side generation failure restores allowance");
 
-    // Existing Free unlocks published plan===Free records in this fixture (10 Free starters).
-    // Count is canonical plan, not starter-ID authorization.
+    // Existing Free unlocks exactly the curated Starter Library records.
     const freeLib = await request("GET", "/api/site-content", null, authHeaders("free.user@test.local"));
     const freePlans = freeLib.json?.siteContent?.curriculumLibrary?.lessonPlans || [];
     const freeUnlocked = freePlans.filter((p) => p && p.locked !== true);
-    assert.equal(freeUnlocked.length, 10, `existing Free must unlock published plan===Free records (got ${freeUnlocked.length})`);
+    assert.equal(freeUnlocked.length, 11, `existing Free must unlock exactly 11 curated starters (status=${freeLib.status}; error=${freeLib.text}; got ${freeUnlocked.length}; library=${freePlans.map((plan) => `${plan.id}:${plan.locked}`).join(",")})`);
     const legacyLib = await request("GET", "/api/site-content", null, authHeaders("free.legacy.labeled@test.local"));
     const legacyUnlocked = (legacyLib.json?.siteContent?.curriculumLibrary?.lessonPlans || [])
       .filter((p) => p && p.locked !== true);
-    assert.equal(legacyUnlocked.length, 10, "legacy-labeled Free must also unlock exactly 10 (no bypass)");
+    assert.equal(legacyUnlocked.length, 11, "legacy-labeled Free must also unlock exactly 11 curated starters (no bypass)");
 
     // Free starter generate has no trial watermark requirement
     const freeGen = await request("POST", "/api/trial-curriculum-exports/generate-pdf", {
@@ -504,27 +532,27 @@ async function main() {
     const legacyStarter = await request("GET", `/api/curriculum/lesson-plans/${encodeURIComponent(freeId)}`, null, authHeaders("free.legacy.labeled@test.local"));
     assert.equal(legacyStarter.status, 200);
     assert.equal(legacyStarter.json.lessonPlan.locked, false);
-    const legacyPremium = await request("GET", "/api/curriculum/lesson-plans/cur-lp-preschool-letters-and-sounds", null, authHeaders("free.legacy.labeled@test.local"));
+    const legacyPremium = await request("GET", "/api/curriculum/lesson-plans/cur-lp-preschool-protected-test", null, authHeaders("free.legacy.labeled@test.local"));
     assert.ok(legacyPremium.status === 200 || legacyPremium.status === 403);
     if (legacyPremium.status === 200) {
       assert.equal(legacyPremium.json.lessonPlan.locked, true);
       assert.equal(legacyPremium.json.lessonPlan.dailyPlans, undefined);
     }
-    // Distribution 3/3/4
+    // Distribution 3/3/5
     const ages = freeSample.DEFAULT_FREE_STARTER_LESSON_IDS.map((id, idx) => (
       idx < 3 ? "Infant" : idx < 6 ? "Toddler" : "Preschool"
     ));
     assert.equal(ages.filter((a) => a === "Infant").length, 3);
     assert.equal(ages.filter((a) => a === "Toddler").length, 3);
-    assert.equal(ages.filter((a) => a === "Preschool").length, 4);
+    assert.equal(ages.filter((a) => a === "Preschool").length, 5);
 
     // Site content exposes free starter + membership copy
     const site = await request("GET", "/api/site-content");
-    assert.equal(site.json.siteContent.freeStarterLibrary.count, 10);
-    assert.equal(site.json.siteContent.freeStarterLibrary.lessonPlanIds.length, 10);
-    assert.equal(site.json.siteContent.freeStarterLibrary.notEntitlement, true);
-    assert.equal(site.json.siteContent.canonicalFreePublishedCount, 10);
-    assert.match(site.json.siteContent.membershipCopy.freeCore, /10 complete starter/);
+    assert.equal(site.json.siteContent.freeStarterLibrary.count, 11);
+    assert.equal(site.json.siteContent.freeStarterLibrary.lessonPlanIds.length, 11);
+    assert.equal(site.json.siteContent.freeStarterLibrary.notEntitlement, false);
+    assert.equal(site.json.siteContent.canonicalFreePublishedCount, 11);
+    assert.match(site.json.siteContent.membershipCopy.freeCore, /11 complete starter/);
     assert.match(site.json.siteContent.membershipCopy.trialCore, /up to 3 premium curriculum/);
 
     // Admin free starter get
@@ -535,7 +563,7 @@ async function main() {
     const adminToken = login.json.token;
     const starter = await request("GET", `/api/admin/free-starter-library?adminToken=${encodeURIComponent(adminToken)}`);
     assert.equal(starter.status, 200);
-    assert.equal(starter.json.freeStarterLibrary.lessonPlanIds.length, 10);
+    assert.equal(starter.json.freeStarterLibrary.lessonPlanIds.length, 11);
 
     // Refuse invalid save (wrong distribution)
     const badSave = await request("POST", "/api/admin/free-starter-library", {

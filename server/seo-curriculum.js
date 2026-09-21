@@ -5,6 +5,9 @@
  */
 "use strict";
 
+const freeCurriculumSample = require("../scripts/free-curriculum-sample.js");
+const FREE_STARTER_COUNT = freeCurriculumSample.REQUIRED_COUNT;
+
 const HUB_PAGES = Object.freeze([
   {
     path: "/infant-lesson-plans",
@@ -17,7 +20,7 @@ const HUB_PAGES = Object.freeze([
       "Browse real infant lesson plans used in Little Learner Hub — themes, weekly overviews, and free starter plans for babies in home daycare and centers.",
     h1: "Infant Lesson Plans for Childcare Providers",
     intro:
-      "These are published Infant lesson plans from the Little Learner Hub library. Each card below comes from a real plan in the curriculum — not placeholder copy — so the list grows as new infant themes are published.",
+      "These are published Infant lesson plans from the Little Learner Hub library. Each real plan gives providers a practical starting point for an Infant classroom week, with the theme, activities, and weekly overview shown on the card.",
     related: ["/toddler-lesson-plans", "/preschool-lesson-plans", "/daycare-curriculum", "/sensory-activities", "/circle-time-ideas"],
     faq: [
       ["What ages do infant lesson plans cover?", "Infant plans in Little Learner Hub are written for babies in childcare settings and are organized separately from Toddler and Preschool content."],
@@ -36,7 +39,7 @@ const HUB_PAGES = Object.freeze([
       "Explore real toddler lesson plans from Little Learner Hub — classroom themes, weekly overviews, and free starter plans for mixed-age home daycares and centers.",
     h1: "Toddler Lesson Plans for Childcare Providers",
     intro:
-      "These Toddler lesson plans are pulled live from the Little Learner Hub curriculum library. Providers can preview themes and weekly overviews, then open free starter plans or upgrade for the full toddler catalog.",
+      "These Toddler lesson plans are pulled live from the Little Learner Hub curriculum library. Start with a theme and move to a usable classroom week without rebuilding the plan from scratch; open Free starter plans or upgrade for the full Toddler catalog.",
     related: ["/infant-lesson-plans", "/preschool-lesson-plans", "/daycare-curriculum", "/childcare-activities", "/process-art-activities"],
     faq: [
       ["Do toddler lesson plans work for mixed ages?", "Toddler plans are written for toddler classrooms and home daycares. Providers can adapt activities for nearby ages, and the library also includes Infant and Preschool plans."],
@@ -55,7 +58,7 @@ const HUB_PAGES = Object.freeze([
       "Browse real preschool lesson plans from Little Learner Hub — themes, learning domains, weekly overviews, and free starter plans for preschool classrooms.",
     h1: "Preschool Lesson Plans for Teachers & Providers",
     intro:
-      "Preschool lesson plans below are live library entries from Little Learner Hub. Use free starter plans right away, or browse additional preschool themes and unlock the full library with Pro.",
+      "These live Preschool lesson plans give teachers a practical weekly starting point, with themes, activities, learning domains, and classroom support where included. Open Free starter plans right away, or unlock the broader library with Pro.",
     related: ["/infant-lesson-plans", "/toddler-lesson-plans", "/daycare-curriculum", "/circle-time-ideas", "/process-art-activities"],
     faq: [
       ["Are preschool lesson plans ready for classroom use?", "Yes. Plans are built for real preschool days with themes, weekly overviews, and activities. Free starter plans open completely; Pro unlocks every published preschool plan."],
@@ -74,7 +77,7 @@ const HUB_PAGES = Object.freeze([
       "Browse real childcare activities from the Little Learner Hub library — circle time, sensory play, art, literacy, and more tied to published lesson plans.",
     h1: "Childcare Activities from the Lesson Plan Library",
     intro:
-      "Activity cards on this page are pulled from published Little Learner Hub lesson plans. Filter ideas by age or jump into related hubs for Circle Time, Sensory, and Process Art.",
+      "These activity cards come from published Little Learner Hub lesson plans. Browse useful ideas by age and topic, then explore the related week to see how activities fit into a cohesive classroom plan.",
     related: ["/circle-time-ideas", "/sensory-activities", "/process-art-activities", "/daycare-curriculum", "/toddler-lesson-plans"],
     faq: [
       ["Where do these childcare activities come from?", "Each activity is part of a published Infant, Toddler, or Preschool lesson plan in the Little Learner Hub curriculum library."],
@@ -93,7 +96,7 @@ const HUB_PAGES = Object.freeze([
       "Real circle time ideas from Little Learner Hub lesson plans — songs, group gathering activities, and classroom openers for infants, toddlers, and preschoolers.",
     h1: "Circle Time Ideas for Childcare Classrooms",
     intro:
-      "These Circle Time and Music & Movement activities are taken directly from published lesson plans in Little Learner Hub. Open a free starter plan to see full steps, or browse more ideas in the library.",
+      "These Circle Time and Music & Movement ideas come from published lesson plans in Little Learner Hub. Use them to explore activities in context, then open a related Free starter plan for full classroom steps.",
     related: ["/childcare-activities", "/infant-lesson-plans", "/toddler-lesson-plans", "/preschool-lesson-plans", "/daycare-curriculum"],
     faq: [
       ["What counts as a circle time idea here?", "This page lists published activities tagged Circle Time or Music & Movement inside Little Learner Hub lesson plans."],
@@ -111,10 +114,10 @@ const HUB_PAGES = Object.freeze([
       "See the live daycare curriculum inside Little Learner Hub — Infant, Toddler, and Preschool lesson plans, themes, and free starter weeks providers can open today.",
     h1: "Daycare Curriculum Built from Real Weekly Lesson Plans",
     intro:
-      "This curriculum hub is generated from the current Little Learner Hub library: published lesson plans by age, featured themes, and free starter weeks. Counts and cards update automatically when new plans are published.",
+      "Explore ready-to-use weekly daycare curriculum from the current Little Learner Hub library. Published Infant, Toddler, and Preschool plans show real themes and activities, with practical preparation and teacher guidance where included.",
     related: ["/infant-lesson-plans", "/toddler-lesson-plans", "/preschool-lesson-plans", "/childcare-activities", "/pricing"],
     faq: [
-      ["What is included in the daycare curriculum?", "Little Learner Hub includes Infant, Toddler, and Preschool lesson plans with activities, weekly overviews, and learning domains. Free unlocks 10 complete starter plans; Pro unlocks the full library."],
+      ["What is included in the daycare curriculum?", `Little Learner Hub includes Infant, Toddler, and Preschool lesson plans with activities, weekly overviews, and learning domains. Free unlocks ${FREE_STARTER_COUNT} complete starter plans; Pro unlocks the full library.`],
       ["Is this curriculum for home daycare or centers?", "Both. Home daycares, family childcare, preschool classrooms, and centers use the same online library and planning tools."],
       ["How often is new curriculum added?", "New lesson plans and activities are published into the library over time. This page reads the live catalog, so new published themes appear here after they go live."],
     ],
@@ -130,7 +133,7 @@ const HUB_PAGES = Object.freeze([
       "Browse real sensory activities from Little Learner Hub lesson plans — sensory play ideas tied to infant, toddler, and preschool weekly themes.",
     h1: "Sensory Activities from Real Lesson Plans",
     intro:
-      "Sensory Play activities below come from published Little Learner Hub lesson plans. Each card shows the activity title, age, and parent lesson theme so you can jump into a related week.",
+      "These Sensory Play activities come from published Little Learner Hub lesson plans. Each card shows the activity title, age, and parent theme so providers can explore the related week instead of collecting disconnected ideas.",
     related: ["/childcare-activities", "/process-art-activities", "/toddler-lesson-plans", "/infant-lesson-plans", "/daycare-curriculum"],
     faq: [
       ["Are these sensory activities age-labeled?", "Yes. Each activity shows the parent lesson age (Infant, Toddler, or Preschool) from the published plan it belongs to."],
@@ -150,7 +153,7 @@ const HUB_PAGES = Object.freeze([
       "Process-focused art activities from Little Learner Hub lesson plans — open-ended art ideas for toddlers and preschoolers inside real weekly themes.",
     h1: "Process Art Activities for Early Childhood Classrooms",
     intro:
-      "Art activities on this page come from published Little Learner Hub lesson plans. We highlight open-ended / process-style art ideas when titles match, and always include the parent lesson theme so providers can open the related week.",
+      "These process-art activities come from published Little Learner Hub lesson plans. The page highlights open-ended making when titles match and keeps each activity connected to its parent weekly theme.",
     related: ["/childcare-activities", "/sensory-activities", "/preschool-lesson-plans", "/toddler-lesson-plans", "/daycare-curriculum"],
     faq: [
       ["What is process art in this library?", "These are Art-category activities from published lesson plans, with preference for open-ended making over rigid crafts. Full steps unlock inside free starter plans or with Pro."],
@@ -227,7 +230,7 @@ function buildSnapshotHelpers(snapshot = {}) {
     infant: lessonPlans.filter((p) => p.age === "Infant").length,
     toddler: lessonPlans.filter((p) => p.age === "Toddler").length,
     preschool: lessonPlans.filter((p) => p.age === "Preschool").length,
-    free: lessonPlans.filter((p) => freeIds.has(p.id) || p.locked === false).length,
+    free: freeIds.size || FREE_STARTER_COUNT,
   };
   return { lessonPlans, activities, series, freeIds, counts, updatedAt: snapshot.updatedAt || "" };
 }
@@ -269,17 +272,20 @@ function renderLessonCardsHtml(plans, { escapeHtml, limit = 18 } = {}) {
     return `<p class="muted">Published lesson plans for this page will appear here as soon as they are live in the library.</p>`;
   }
   return `<div class="seo-card-grid">${slice.map((plan) => {
-    const badge = plan.locked === false ? "Free starter" : "Library preview";
+    const badge = plan.locked === false ? "Free starter" : "Pro preview";
     const overview = excerpt(plan.weeklyOverview || "", 34);
     const domains = Array.isArray(plan.learningDomains) ? plan.learningDomains.slice(0, 3) : [];
+    const cover = String(plan.coverImageUrl || "").trim();
+    const coverAlt = String(plan.coverImageAlt || `${plan.title || "Lesson plan"} lesson plan cover`).trim();
     return `
       <article class="seo-card">
+        ${cover ? `<img class="seo-card-image" src="${escapeHtml(cover)}" alt="${escapeHtml(coverAlt)}" loading="lazy" decoding="async" />` : ""}
         <p class="seo-card-meta"><span class="seo-badge">${escapeHtml(badge)}</span> · ${escapeHtml(plan.age || "")}</p>
         <h3><a href="${escapeHtml(lessonHref(plan))}">${escapeHtml(plan.title || "Lesson plan")}</a></h3>
         ${plan.theme ? `<p class="seo-theme">Theme: ${escapeHtml(plan.theme)}</p>` : ""}
         ${overview ? `<p>${escapeHtml(overview)}</p>` : ""}
         ${domains.length ? `<p class="muted">${domains.map((d) => escapeHtml(d)).join(" · ")}</p>` : ""}
-        <p><a href="${escapeHtml(lessonHref(plan))}">${plan.locked === false ? "Open free lesson plan" : "Browse in lesson library"}</a></p>
+        <p><a href="${escapeHtml(lessonHref(plan))}">View Lesson</a>${plan.locked === false ? "" : ` · <a href="${escapeHtml(signupHref())}">Start Free</a>`}</p>
       </article>`;
   }).join("\n")}</div>`;
 }
@@ -294,13 +300,13 @@ function renderActivityCardsHtml(activities, { escapeHtml, limit = 24 } = {}) {
     const parentTitle = activity.parentTitle || "Lesson plan";
     const parentId = activity.lessonPlanId || "";
     const href = parentId ? `/?lesson=${encodeURIComponent(parentId)}` : libraryHref();
-    const badge = activity.locked === false ? "In free starter plan" : "From library plan";
+    const badge = activity.locked === false ? "Free activity" : "Pro preview";
     return `
       <article class="seo-card">
         <p class="seo-card-meta"><span class="seo-badge">${escapeHtml(badge)}</span>${parentAge ? ` · ${escapeHtml(parentAge)}` : ""} · ${escapeHtml(activity.activityCategory || "Activity")}</p>
         <h3>${escapeHtml(activity.title || "Activity")}</h3>
         <p class="seo-theme">From lesson: <a href="${escapeHtml(href)}">${escapeHtml(parentTitle)}</a></p>
-        <p><a href="${escapeHtml(href)}">Open related lesson plan</a></p>
+        <p><a href="${escapeHtml(href)}">View Lesson</a>${activity.locked === false ? "" : ` · <a href="${escapeHtml(signupHref())}">Start Free</a>`}</p>
       </article>`;
   }).join("\n")}</div>`;
 }
@@ -393,7 +399,7 @@ function renderHubPageBody(page, snapshot, { escapeHtml } = {}) {
       <p class="muted">${updatedLabel} Each activity links to its parent lesson plan.</p>
       ${renderActivityCardsHtml(featuredActivities, { escapeHtml })}
       <p><a class="cta" href="${escapeHtml(libraryHref())}">Open the lesson plan library</a>
-      <a class="cta cta-secondary" href="${escapeHtml(signupHref())}">Start free with 10 starter plans</a></p>`;
+      <a class="cta cta-secondary" href="${escapeHtml(signupHref())}">Start free with ${FREE_STARTER_COUNT} starter plans</a></p>`;
   } else {
     const byAge = {
       Infant: sortFreeFirst(helpers.lessonPlans.filter((p) => p.age === "Infant"), helpers.freeIds).slice(0, 4),
@@ -405,7 +411,7 @@ function renderHubPageBody(page, snapshot, { escapeHtml } = {}) {
       <p class="muted">${updatedLabel}</p>
       ${renderAgeBreakdownHtml(helpers, { escapeHtml })}
       <h2>Free starter lesson plans</h2>
-      ${renderLessonCardsHtml(sortFreeFirst(helpers.lessonPlans.filter((p) => helpers.freeIds.has(p.id) || p.locked === false), helpers.freeIds), { escapeHtml, limit: 10 })}
+      ${renderLessonCardsHtml(sortFreeFirst(helpers.lessonPlans.filter((p) => helpers.freeIds.has(p.id)), helpers.freeIds), { escapeHtml, limit: FREE_STARTER_COUNT })}
       <h2>Infant themes in the library</h2>
       ${renderLessonCardsHtml(byAge.Infant, { escapeHtml, limit: 4 })}
       <h2>Toddler themes in the library</h2>
@@ -439,7 +445,7 @@ function renderHubPageBody(page, snapshot, { escapeHtml } = {}) {
       ${renderFaqHtml(dynamicFaq, { escapeHtml })}
       <section>
         <h2>Start with free starter lesson plans</h2>
-        <p>Create a free account to open ${helpers.counts.free || 10} complete starter lesson plans across Infant, Toddler, and Preschool — no credit card required. Upgrade anytime for the full library, unlimited printing, and new plans as they publish.</p>
+        <p>Create a free account to open ${helpers.counts.free} complete starter lesson plans across Infant, Toddler, and Preschool — no credit card required. Upgrade anytime for the broader library, unlimited curriculum printing and downloads, and the planning and teacher-support tools available with Pro.</p>
         <p><a class="cta" href="${escapeHtml(signupHref())}">Create your free account</a></p>
       </section>
     `,
