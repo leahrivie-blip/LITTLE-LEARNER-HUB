@@ -638,7 +638,7 @@ function planKeyFromStripeSubscription(subscription, user = {}) {
   return "monthly";
 }
 
-function stripeSubscriptionToMembershipUpdates(subscription, user = {}, eventType = "updated") {
+function stripeSubscriptionToMembershipUpdates(subscription, user = {}, eventType = "updated", nowMs = Date.now()) {
   const stripeStatus = String(subscription?.status || "").toLowerCase();
   const periodEndIso = subscription?.current_period_end
     ? new Date(subscription.current_period_end * 1000).toISOString()
@@ -648,7 +648,6 @@ function stripeSubscriptionToMembershipUpdates(subscription, user = {}, eventTyp
     : "";
   const accessEndsAt = stripeStatus === "trialing" && trialEndIso ? trialEndIso : periodEndIso;
   const cancelAtPeriodEnd = Boolean(subscription?.cancel_at_period_end);
-  const nowMs = Date.now();
   const previousStripeStatus = String(user?.stripeSubscriptionStatus || "").toLowerCase();
   const previousTrialStatus = String(user?.trialStatus || "").toLowerCase();
   const previousStatus = String(user?.subscriptionStatus || "").toLowerCase();

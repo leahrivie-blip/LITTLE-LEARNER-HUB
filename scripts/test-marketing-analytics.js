@@ -15,7 +15,6 @@ const ROOT = path.join(__dirname, "..");
 const serverJs = fs.readFileSync(path.join(ROOT, "server/index.js"), "utf8");
 const appJs = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
 const indexHtml = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
-const adminWs = fs.readFileSync(path.join(ROOT, "admin-workspace.js"), "utf8");
 
 function request(port, method, urlPath, { body, headers } = {}) {
   return new Promise((resolve, reject) => {
@@ -105,7 +104,7 @@ async function main() {
   assert.match(appJs, /utm_campaign/);
   assert.match(indexHtml, /admin-marketing-analytics-panel/);
   assert.match(indexHtml, /adminMarketingAnalyticsApp/);
-  assert.match(adminWs, /data-admin-landing-tab="marketing-analytics"/);
+  assert.match(appJs, /"marketing-analytics": "Marketing Analytics"/);
   console.log("PASS admin Marketing Analytics UI wiring");
 
   const storePath = path.join(os.tmpdir(), `llh-marketing-${crypto.randomBytes(4).toString("hex")}.json`);
