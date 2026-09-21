@@ -12442,7 +12442,8 @@ async function handleCheckoutStatus(request, response, url) {
     const promoCode = normalizePromoCode(session.metadata?.promoCode || userEntry?.[1]?.pendingPromoCode || "");
     const promoTrialDays = Number(session.metadata?.promoTrialDays || userEntry?.[1]?.pendingTrialDays || 0);
     const promoLabel = session.metadata?.promoLabel || userEntry?.[1]?.pendingPromoLabel || "";
-    const paid = session.payment_status === "paid" || session.status === "complete";
+    const paymentConfirmed = session.payment_status === "paid";
+    const paid = paymentConfirmed || session.status === "complete";
     let upgradedUser = null;
     if (paid && email) {
       upgradedUser = applyCheckoutMembershipUpgrade(email, {
@@ -12485,8 +12486,12 @@ async function handleCheckoutStatus(request, response, url) {
     }
     jsonResponse(response, 200, {
       paid,
+      paymentConfirmed,
       status: session.status,
       paymentStatus: session.payment_status,
+      sessionId: session.id,
+      amountTotal: Number.isFinite(Number(session.amount_total)) ? Number(session.amount_total) : null,
+      currency: String(session.currency || "").toUpperCase(),
       email,
       plan: planKey,
       subscriptionId: session.subscription,

@@ -16,6 +16,7 @@ const { spawn } = require("node:child_process");
 const { parseCurriculumLessonPlanImport } = require("./curriculum-lesson-import-parser.js");
 const premiumWeekPreview = require("../server/premium-week-preview.js");
 const conversionEvents = require("../server/conversion-events.js");
+const freeCurriculumSample = require("./free-curriculum-sample.js");
 const {
   lockedCurriculumLessonPreviewHtml,
 } = require("./curriculum-lesson-viewer-render.js");
@@ -143,7 +144,8 @@ async function publishLessons(token) {
   const parsed = parseCurriculumLessonPlanImport(fs.readFileSync(SAMPLE, "utf8"));
   assert.equal(parsed.ok, true, parsed.errors?.join(" ") || "parse failed");
   const proId = `cur-lp-finish-pro-${crypto.randomBytes(3).toString("hex")}`;
-  const freeId = `cur-lp-finish-free-${crypto.randomBytes(3).toString("hex")}`;
+  const uncuratedFreeId = `cur-lp-finish-free-${crypto.randomBytes(3).toString("hex")}`;
+  const canonicalFreeId = freeCurriculumSample.DEFAULT_FREE_STARTER_LESSON_IDS[0];
   const proSave = await requestJson("POST", "/api/admin/curriculum/lesson-plans", {
     adminToken: token,
     expectedUpdatedAt: touch.json.siteContent.updatedAt,
@@ -163,8 +165,8 @@ async function publishLessons(token) {
     expectedUpdatedAt: proSave.json.siteContentUpdatedAt,
     lessonPlan: {
       ...parsed.data,
-      id: freeId,
-      title: "Finish Week Free Starter",
+      id: canonicalFreeId,
+      title: "Canonical Free Starter",
       plan: "Free",
       status: "published",
       age: "Preschool",
@@ -172,7 +174,21 @@ async function publishLessons(token) {
     },
   });
   assert.equal(freeSave.status, 200, `free save failed: ${freeSave.status} ${freeSave.text}`);
-  return { proId, freeId };
+  const uncuratedFreeSave = await requestJson("POST", "/api/admin/curriculum/lesson-plans", {
+    adminToken: token,
+    expectedUpdatedAt: freeSave.json.siteContentUpdatedAt,
+    lessonPlan: {
+      ...parsed.data,
+      id: uncuratedFreeId,
+      title: "Uncurated Free Metadata",
+      plan: "Free",
+      status: "published",
+      age: "Preschool",
+      theme: "Garden Scientists",
+    },
+  });
+  assert.equal(uncuratedFreeSave.status, 200, `uncurated Free save failed: ${uncuratedFreeSave.status} ${uncuratedFreeSave.text}`);
+  return { proId, canonicalFreeId, uncuratedFreeId };
 }
 
 function sourceChecks() {
@@ -323,7 +339,8 @@ async function main() {
     console.log("1) Public / free API returns authorized week preview only");
     const publicContent = await requestJson("GET", "/api/site-content");
     const proPublic = (publicContent.json.siteContent?.curriculumLibrary?.lessonPlans || []).find((item) => item.id === ids.proId);
-    const freePublic = (publicContent.json.siteContent?.curriculumLibrary?.lessonPlans || []).find((item) => item.id === ids.freeId);
+    const freePublic = (publicContent.json.siteContent?.curriculumLibrary?.lessonPlans || []).find((item) => item.id === ids.canonicalFreeId);
+    const uncuratedFreePublic = (publicContent.json.siteContent?.curriculumLibrary?.lessonPlans || []).find((item) => item.id === ids.uncuratedFreeId);
     assert.equal(proPublic?.locked, true);
     assert.ok(!proPublic.dailyPlans, "pro public must not include dailyPlans");
     assert.ok(proPublic.weekPreview, "pro public should include authorized weekPreview");
@@ -331,6 +348,7 @@ async function main() {
     assertNoProtected(proPublic, "public pro DTO");
     assert.equal(premiumWeekPreview.forbiddenPreviewLeaks(proPublic.weekPreview).length, 0);
     assert.ok(freePublic && freePublic.locked !== true, "free lesson stays unlocked");
+    assert.equal(uncuratedFreePublic?.locked, true, "raw Free metadata must not bypass the curated starter allowlist");
 
     const freeDetail = await requestJson("GET", `/api/curriculum/lesson-plans/${encodeURIComponent(ids.proId)}`, null, {
       headers: authHeader("free@finish.test"),
@@ -360,7 +378,7 @@ async function main() {
     assert.ok(proDetail.json.lessonPlan?.dailyPlans);
     assert.match(JSON.stringify(proDetail.json.lessonPlan), /Invite children to scoop/);
 
-    const anonFree = await requestJson("GET", `/api/curriculum/lesson-plans/${encodeURIComponent(ids.freeId)}`);
+    const anonFree = await requestJson("GET", `/api/curriculum/lesson-plans/${encodeURIComponent(ids.canonicalFreeId)}`);
     assert.equal(anonFree.status, 200);
     assert.ok(anonFree.json.lessonPlan?.dailyPlans, "logged-out users keep existing free-plan access");
 

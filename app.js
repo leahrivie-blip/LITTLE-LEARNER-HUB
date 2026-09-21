@@ -67916,6 +67916,14 @@ async function completeCheckoutFromStripeSession(session) {
   saveCurrentAccountState();
   updateAuthButtons();
   updatePlanLabel();
+  if (session.paymentConfirmed === true) {
+    window.LLHGoogleAdsPaidSubscriptionConversion?.emitAfterPaidSubscriptionConfirmed({
+      sessionId: session.sessionId,
+      amountTotal: session.amountTotal,
+      currency: session.currency,
+      trialDays,
+    });
+  }
   console.info(
     `[membership] checkout_complete email=${currentUser || session.email} plan=${currentAccount()?.plan || "n/a"} foundingActive=${Boolean(currentAccount()?.foundingMemberActive)} isPro=${typeof isProUser === "function" ? isProUser() : "n/a"}`,
   );

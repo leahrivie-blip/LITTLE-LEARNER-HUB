@@ -114,9 +114,9 @@ function isCriticalPaidButFree(stripeSnapshot, stored) {
  * else on the account record is touched. Returns `null` proposedUpdates when there is no
  * live subscription to reconcile against (e.g. genuinely not found).
  */
-function computeProposedUpdates(user, subscriptionRaw) {
+function computeProposedUpdates(user, subscriptionRaw, nowMs = Date.now()) {
   if (!subscriptionRaw) return { fields: [], before: {}, after: {} };
-  const rawUpdates = membership.stripeSubscriptionToMembershipUpdates(subscriptionRaw, user || {}, "updated");
+  const rawUpdates = membership.stripeSubscriptionToMembershipUpdates(subscriptionRaw, user || {}, "updated", nowMs);
   const fields = [];
   const before = {};
   const after = {};
@@ -196,7 +196,7 @@ function compareStoredWithStripe(user, stripeLookup = {}, nowMs = Date.now()) {
   // require guessing which customer's subscription is authoritative.
   const proposed = hasAmbiguousCustomers
     ? { fields: [], before: {}, after: {} }
-    : computeProposedUpdates(user, subscription);
+    : computeProposedUpdates(user, subscription, nowMs);
 
   return {
     email: user?.email || "",
