@@ -205,14 +205,14 @@ async function runAudit(playwright, baseUrl, seeded) {
   results.multiReviews = reviewCardCount;
 
   const pricingText = await page.locator("#homePricing").innerText();
-  assert(/\$13\.99/.test(pricingText), "Early User price missing on pricing section");
-  assert(/Regularly \$19\.99\/month/.test(pricingText), "Regular price compare missing");
+  assert(/\$19\.99/.test(pricingText), "Pro Monthly price missing on pricing section");
+  assert(!/\$13\.99|Early User/i.test(pricingText), "retired Early User price must not appear on pricing section");
   assert(/\$0/.test(pricingText), "Free $0 missing");
   const metaDescription = await page.locator('meta[name="description"]').getAttribute("content");
   const ogDescription = await page.locator('meta[property="og:description"]').getAttribute("content");
   const structuredData = await page.locator('script[type="application/ld+json"]').textContent();
-  assert(/ready-to-use lesson plans/i.test(metaDescription || ""), "Meta description missing curriculum SEO copy");
-  assert(/ready-to-use lesson plans/i.test(ogDescription || ""), "OG description missing curriculum SEO copy");
+  assert(/ready-to-use Infant, Toddler, and Preschool lesson plans/i.test(metaDescription || ""), "Meta description missing curriculum SEO copy");
+  assert(/Start with a planned week/i.test(ogDescription || ""), "OG description missing curriculum SEO copy");
   assert(/WebApplication/i.test(structuredData || "") && /Organization/i.test(structuredData || ""), "Structured data missing Organization/WebApplication");
   results.foundingPrice = true;
 
@@ -241,7 +241,7 @@ async function runAudit(playwright, baseUrl, seeded) {
   results.signupButtons.push("desktop-public-nav-start-free");
   await closeAuth();
 
-  await page.locator('#homePricing [data-checkout-plan="early_user"]').click();
+  await page.locator('#homePricing [data-checkout-plan="monthly"]').click();
   await page.waitForSelector("#authModal.open");
   results.signupButtons.push("pricing-pro-monthly");
   await closeAuth();
@@ -332,16 +332,21 @@ async function runAudit(playwright, baseUrl, seeded) {
   await page.locator("#emailInput").fill(email);
   await page.locator("#passwordInput").fill("TestPass123!");
   await page.locator("#authSubmitButton").click();
-  // Program persona step
-  await page.waitForSelector("[data-signup-persona]", { timeout: 8000 });
-  await page.locator("[data-signup-persona='home_daycare']").click();
-  await page.locator("#authSubmitButton").click();
-  // Plan chooser
-  await page.waitForSelector("[data-signup-choose-plan='free']", { timeout: 8000 });
-  await page.locator("[data-signup-choose-plan='free']").click();
-  const freeConfirm = page.locator("[data-signup-confirm-free]");
-  if (await freeConfirm.count()) {
-    await freeConfirm.click();
+  const directSignupCompleted = await page.waitForFunction(
+    () => document.body.classList.contains("user-authenticated"),
+    null,
+    { timeout: 8000 },
+  ).then(() => true).catch(() => false);
+  if (!directSignupCompleted) {
+    await page.waitForSelector("#signupStepProgram:not(.hidden-field)", { timeout: 8000 });
+    await page.locator("#signupStepProgram [data-signup-persona='home_daycare']").click();
+    await page.locator("#authSubmitButton").click();
+    await page.waitForSelector("[data-signup-choose-plan='free']", { timeout: 8000 });
+    await page.locator("[data-signup-choose-plan='free']").click();
+    const freeConfirm = page.locator("[data-signup-confirm-free]");
+    if (await freeConfirm.count()) {
+      await freeConfirm.click();
+    }
   }
   await page.waitForSelector("body.app-boot-ready", { timeout: 20000 });
   await page.waitForFunction(() => Boolean(

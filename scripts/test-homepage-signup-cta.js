@@ -31,21 +31,21 @@ test("hero prioritizes Start Free for TikTok conversion (no pricing in hero)", (
   assert.match(actionsHtml, /data-action="start-free"/);
   assert.match(actionsHtml, />Start Free</);
   assert.match(actionsHtml, /data-home-open-farm/);
-  assert.match(actionsHtml, /Preview a Real Lesson/);
+  assert.match(actionsHtml, /Explore Lesson Plans/);
   assert.doesNotMatch(actionsHtml, /data-checkout-plan="monthly"/);
   assert.doesNotMatch(actionsHtml, /\$19\.99/);
   assert.doesNotMatch(actionsHtml, /Founding/);
   assert.doesNotMatch(actionsHtml, /llh-hero-login-link/);
-  assert.match(html, /Affordable Childcare Curriculum for Busy Teachers/);
-  assert.match(html, /Ready-to-use lesson plans, activities, printables/);
+  assert.match(html, /Your childcare lesson plans are already done\./);
+  assert.match(html, /Ready-to-use Infant, Toddler, and Preschool curriculum/);
   assert.doesNotMatch(html, /127 lesson plans/);
   assert.doesNotMatch(html, /2,110 activities/);
   assert.doesNotMatch(html, /id="homeHeroInventory"/);
   assert.doesNotMatch(html, /Founding Member/);
 });
 
-test("Pro, free, and final CTAs exist; sticky CTA is Start Free; Early User announce visible", () => {
-  assert.match(html, /Choose Early User/);
+test("Pro, free, and final CTAs exist; sticky CTA is Start Free; public pricing is current", () => {
+  assert.match(html, /Choose Pro Monthly/);
   assert.match(html, /Create Free Account/);
   assert.match(html, /llh-final-cta|lp-final-cta/);
   assert.match(html, /lp-mobile-sticky-cta/);
@@ -55,9 +55,9 @@ test("Pro, free, and final CTAs exist; sticky CTA is Start Free; Early User anno
   assert.match(stickyHtml, /data-action="start-free"/);
   assert.match(stickyHtml, />Start Free</);
   assert.doesNotMatch(stickyHtml, /Preview Free Lesson Plans/);
-  assert.match(html, /data-checkout-plan="early_user"/);
-  assert.match(html, /id="llhFoundingAnnounceBanner"/);
-  assert.match(html, /Early User access is \$13\.99\/month/);
+  assert.match(html, /data-checkout-plan="monthly"/);
+  assert.match(html, /\$19\.99/);
+  assert.doesNotMatch(html, /Early User|\$13\.99/);
   assert.match(appJs, /FOUNDING_CLOSED_FOR_ACQUISITION\s*=\s*true/);
 });
 

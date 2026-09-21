@@ -142,8 +142,8 @@ async function waitForActiveView(page, viewId) {
   );
 }
 
-async function clickEarlyUserCta(page) {
-  const earlyUserBtn = page.locator('#homePricing [data-checkout-plan="early_user"]');
+async function clickProMonthlyCta(page) {
+  const proMonthlyBtn = page.locator('#homePricing [data-checkout-plan="monthly"]');
   for (let attempt = 0; attempt < 2; attempt += 1) {
     if (attempt > 0) {
       await page.evaluate(() => {
@@ -151,9 +151,9 @@ async function clickEarlyUserCta(page) {
       });
       await page.waitForTimeout(200);
     }
-    await earlyUserBtn.scrollIntoViewIfNeeded();
-    const handle = await earlyUserBtn.elementHandle();
-    assert(handle, "early_user CTA missing");
+    await proMonthlyBtn.scrollIntoViewIfNeeded();
+    const handle = await proMonthlyBtn.elementHandle();
+    assert(handle, "Pro Monthly CTA missing");
     await page.evaluate((button) => button?.click?.(), handle);
     try {
       await page.waitForSelector("#authModal.open", { timeout: 5000 });
@@ -260,8 +260,8 @@ async function runViewportSmoke(playwright, baseUrl, viewport, label, proLesson)
     await page.waitForSelector("#authModal.open", { state: "hidden", timeout: 5000 });
   });
 
-  await step("early user pricing button", async () => {
-    await clickEarlyUserCta(page);
+  await step("Pro Monthly pricing button", async () => {
+    await clickProMonthlyCta(page);
     await closeAuthModalUi(page);
     await page.waitForSelector("#authModal.open", { state: "hidden", timeout: 5000 });
   });
@@ -323,17 +323,17 @@ async function runViewportSmoke(playwright, baseUrl, viewport, label, proLesson)
     await page.waitForSelector("#upgradeApp .pricing-grid, #upgradeApp .section-block", { timeout: 10000 });
   });
 
-  await step("early user member button", async () => {
+  await step("Pro Monthly button", async () => {
     await ensureAppReady(page);
     await page.evaluate(() => {
       if (typeof closeAuthModal === "function") closeAuthModal();
       if (typeof setView === "function") setView("home");
     });
     await waitForActiveView(page, "home");
-    await page.waitForSelector('#homePricing [data-checkout-plan="early_user"]', { timeout: 10000 });
-    const checkoutPlan = await page.locator('#homePricing [data-checkout-plan="early_user"]').getAttribute("data-checkout-plan");
-    assert(checkoutPlan === "early_user", `${label}: homepage paid CTA uses early_user checkout plan`);
-    await clickEarlyUserCta(page);
+    await page.waitForSelector('#homePricing [data-checkout-plan="monthly"]', { timeout: 10000 });
+    const checkoutPlan = await page.locator('#homePricing [data-checkout-plan="monthly"]').getAttribute("data-checkout-plan");
+    assert(checkoutPlan === "monthly", `${label}: homepage paid CTA uses monthly checkout plan`);
+    await clickProMonthlyCta(page);
     await closeAuthModalUi(page);
     await page.waitForSelector("#authModal.open", { state: "hidden", timeout: 5000 });
   });
@@ -416,7 +416,7 @@ async function runViewportSmoke(playwright, baseUrl, viewport, label, proLesson)
       const previewLabel = await card.locator('[data-view-resource]').first().getAttribute("aria-label");
       assert(/preview/i.test(previewLabel || ""), `${label}: pro lesson should show Preview`);
       assert(await card.locator(".lesson-plan-card-hint").count(), `${label}: locked preview hint missing`);
-      await card.click({ force: true });
+      await card.locator(".lesson-plan-card__cover-wrap").click();
       await page.waitForSelector("#featurePreviewModal.open", { timeout: 10000 });
       // Free owners see Pro Monthly checkout (Founding closed for acquisition); guests may see trial.
       const proMonthlyBtn = page.locator("#featurePreviewModal [data-checkout-plan='monthly']");
