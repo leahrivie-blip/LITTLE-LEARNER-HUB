@@ -382,6 +382,8 @@ function renderPublicPage({ title, description, canonicalPath, bodyHtml, extraSc
       .seo-theme { margin: 0.25rem 0 0.5rem; font-size: 0.95rem; }
       .seo-related { margin-top: 2rem; }
       .seo-stat-list { display: grid; gap: 0.35rem; }
+      .seo-creator { margin: 24px 0; padding: clamp(20px, 4vw, 28px); border: 1px solid #d7e5ee; border-left: 5px solid #7ba8c9; border-radius: 16px; background: rgba(255,255,255,0.92); box-shadow: 0 8px 20px rgba(31,42,68,0.06); }
+      .seo-creator p { max-width: 720px; }
       .founder-grid { display: grid; grid-template-columns: minmax(180px, 260px) 1fr; gap: 24px; align-items: center; margin: 20px 0; }
       .founder-photo { display: block; width: 100%; aspect-ratio: 4 / 5; object-fit: cover; border-radius: 18px; box-shadow: 0 12px 30px rgba(31,42,68,0.16); }
       .feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin: 16px 0; }
