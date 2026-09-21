@@ -208,11 +208,11 @@ function sortFreeFirst(items, freeIds) {
 function lessonHref(plan) {
   const id = encodeURIComponent(plan.id);
   if (plan.locked === false) return `/?lesson=${id}`;
-  return `/daycare-lesson-plans`;
+  return "/daycare-curriculum";
 }
 
 function libraryHref() {
-  return "/daycare-lesson-plans";
+  return "/daycare-curriculum";
 }
 
 function signupHref() {
@@ -370,7 +370,7 @@ function itemListSchemaForPage(page, items, absoluteUrl) {
       name: item.title,
       url: absoluteUrl(page.kind === "activities" && item.lessonPlanId
         ? `/?lesson=${encodeURIComponent(item.lessonPlanId)}`
-        : (item.locked === false ? `/?lesson=${encodeURIComponent(item.id)}` : "/daycare-lesson-plans")),
+        : (item.locked === false ? `/?lesson=${encodeURIComponent(item.id)}` : "/daycare-curriculum")),
     })),
   };
 }

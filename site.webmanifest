@@ -67,7 +67,7 @@
       "name": "Lesson Plans",
       "short_name": "Lessons",
       "description": "Browse the Lesson Plan Library",
-      "url": "/?view=lessons",
+      "url": "/daycare-curriculum",
       "icons": [{ "src": "images/icons/icon-192.png", "sizes": "192x192" }]
     }
   ]

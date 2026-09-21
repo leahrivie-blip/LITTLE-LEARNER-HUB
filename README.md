@@ -39,16 +39,17 @@ Curriculum resources reuse the same durable storage pattern as Forms, Printables
 
 Resources link to lesson plans only. Approved categories: Classroom Resources, Behavior & Social Emotional, Printables.
 
-## Ad-Ready Routes
+## Google Ads Landing Pages
 
-These routes are mapped inside the app for ad traffic and analytics:
+Use canonical public pages for paid acquisition:
 
-- `/free-daycare-forms`
-- `/daycare-lesson-plans`
-- `/observation-generator`
-- `/home-daycare-provider-tools`
+- `/daycare-curriculum` for daycare curriculum and daycare lesson plans
+- `/features` for current teacher tools and documentation support
+- `/pricing` for pricing intent
 
-For a hosted static site, configure the host to serve `index.html` for those routes.
+Legacy routes `/free-daycare-forms`, `/daycare-lesson-plans`, `/observation-generator`, and
+`/home-daycare-provider-tools` permanently redirect to the matched public page. Do not use
+them as new Ads final URLs.
 
 ## Before Real Ads
 

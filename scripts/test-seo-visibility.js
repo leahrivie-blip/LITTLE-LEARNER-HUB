@@ -96,6 +96,7 @@ async function stopServer(child) {
 
 async function main() {
   const indexHtml = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
+  const webManifest = fs.readFileSync(path.join(ROOT, "site.webmanifest"), "utf8");
   assert(indexHtml.includes(seo.SEO_TITLE), "homepage title missing proposed SEO title");
   assert(indexHtml.includes(seo.SEO_DESCRIPTION), "homepage description missing proposed copy");
   assert(indexHtml.includes('alt="Leah, founder of Little Learner Hub"'), "homepage founder portrait alt text missing");
@@ -130,6 +131,8 @@ async function main() {
   assert(/homeReviews/i.test(indexHtml) && /lp-review-card/i.test(indexHtml), "homepage HTML must keep provider review quotes");
   assert(!/AggregateRating|reviewCount/i.test(indexHtml), "homepage must not include review schema markup");
   assert(!/\(555\)\s*123-4567|555-123-4567/i.test(indexHtml), "homepage HTML must not include fake 555 phone placeholders");
+  assert(webManifest.includes('"url": "/daycare-curriculum"'), "Lesson Plans PWA shortcut must use the canonical curriculum route");
+  assert(!webManifest.includes('"url": "/?view=lessons"'), "PWA shortcut must not use obsolete lessons query route");
 
   const child = startServer();
   try {
@@ -145,6 +148,25 @@ async function main() {
     const hubPaths = seo.seoCurriculum.hubPages().map((page) => page.path);
     for (const route of ["/", "/about", "/features", "/faq", "/pricing", "/contact", "/how-it-works", "/privacy", "/terms", ...hubPaths]) {
       assert(sitemap.body.includes(`<loc>http://127.0.0.1:${PORT}${route === "/" ? "/" : route}</loc>`) || sitemap.body.includes(route), `sitemap missing ${route}`);
+    }
+    for (const route of ["/daycare-lesson-plans", "/free-daycare-forms", "/observation-generator", "/home-daycare-provider-tools"]) {
+      assert(!sitemap.body.includes(route), `sitemap must not include legacy Ads route ${route}`);
+    }
+
+    const legacyAdsRoutes = {
+      "/daycare-lesson-plans": "/daycare-curriculum",
+      "/free-daycare-forms": "/features",
+      "/observation-generator": "/features",
+      "/home-daycare-provider-tools": "/features",
+    };
+    for (const [legacyPath, canonicalPath] of Object.entries(legacyAdsRoutes)) {
+      const redirect = await request("GET", `${legacyPath}?gclid=test-click`);
+      assert(redirect.status === 301, `${legacyPath} must permanently redirect`);
+      assert(redirect.headers.location === `${canonicalPath}?gclid=test-click`, `${legacyPath} must preserve Ads parameters`);
+      const destination = await request("GET", canonicalPath);
+      assert(destination.status === 200, `${canonicalPath} destination status ${destination.status}`);
+      assert(destination.body.includes(`rel="canonical" href="http://127.0.0.1:${PORT}${canonicalPath}"`), `${canonicalPath} destination canonical incorrect`);
+      assert(destination.body.includes("<h1>"), `${canonicalPath} destination missing H1`);
     }
 
     for (const route of ["/about", "/features", "/faq", "/pricing", "/contact", "/how-it-works", "/privacy", "/terms", ...hubPaths]) {
