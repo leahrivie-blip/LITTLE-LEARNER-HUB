@@ -409,7 +409,6 @@ function renderHubPageBody(page, snapshot, { escapeHtml } = {}) {
     primarySection = `
       <h2>Live curriculum snapshot</h2>
       <p class="muted">${updatedLabel}</p>
-      ${renderAgeBreakdownHtml(helpers, { escapeHtml })}
       <h2>Free starter lesson plans</h2>
       ${renderLessonCardsHtml(sortFreeFirst(helpers.lessonPlans.filter((p) => helpers.freeIds.has(p.id)), helpers.freeIds), { escapeHtml, limit: FREE_STARTER_COUNT })}
       <h2>Infant themes in the library</h2>
@@ -429,17 +428,23 @@ function renderHubPageBody(page, snapshot, { escapeHtml } = {}) {
     if (page.kind === "activities" && /where do these|what counts/i.test(q)) {
       return [q, `${a} This page currently features ${activities.length} matching activit${activities.length === 1 ? "y" : "ies"}.`];
     }
-    if (page.kind === "curriculum-hub" && /what is included/i.test(q)) {
-      return [q, `${a} Current published totals: ${helpers.counts.lessonPlans} lesson plans and ${helpers.counts.activities} activities.`];
-    }
     return [q, a];
   });
+
+  const curriculumCreatorSection = page.kind === "curriculum-hub"
+    ? `<section class="seo-creator" aria-labelledby="curriculum-creator-title">
+        <h2 id="curriculum-creator-title">About the Creator</h2>
+        <p>Created by Leah, a childcare provider who understands how much time and energy lesson planning takes. Little Learner Hub was created to give busy childcare providers practical, ready-to-use lesson plans that make the week easier.</p>
+        <p><a class="cta cta-secondary" href="/about">Meet the Creator</a></p>
+      </section>`
+    : "";
 
   return {
     bodyHtml: `
       <h1>${escapeHtml(page.h1)}</h1>
-      <p class="muted">Live from the Little Learner Hub curriculum library · ${escapeHtml(String(helpers.counts.lessonPlans))} lesson plans · ${escapeHtml(String(helpers.counts.activities))} activities</p>
+      <p class="muted">${page.kind === "curriculum-hub" ? "Updated daily with practical plans for infants, toddlers, and preschoolers." : "Live from the Little Learner Hub curriculum library."}</p>
       <p>${escapeHtml(page.intro)}</p>
+      ${curriculumCreatorSection}
       ${primarySection}
       ${renderRelatedNavHtml(page, { escapeHtml })}
       ${renderFaqHtml(dynamicFaq, { escapeHtml })}

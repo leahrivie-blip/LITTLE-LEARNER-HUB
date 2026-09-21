@@ -144,7 +144,7 @@ test("process art prefers process-style titles but keeps other Art activities", 
   assert.ok(activities.some((item) => item.title === "Sticker Sorting"));
 });
 
-test("renderHubPageBody includes live titles and related links", () => {
+test("curriculum hub keeps cards and access labels without live plan totals", () => {
   const page = hub.getHubPage("/daycare-curriculum");
   const escapeHtml = (value) => String(value)
     .replace(/&/g, "&amp;")
@@ -157,6 +157,14 @@ test("renderHubPageBody includes live titles and related links", () => {
   assert.match(rendered.bodyHtml, /Community Helpers/);
   assert.match(rendered.bodyHtml, /\/infant-lesson-plans/);
   assert.match(rendered.bodyHtml, /signup=1/);
+  assert.match(rendered.bodyHtml, /Updated daily with practical plans for infants, toddlers, and preschoolers\./);
+  assert.match(rendered.bodyHtml, /About the Creator/);
+  assert.match(rendered.bodyHtml, /Meet the Creator/);
+  assert.match(rendered.bodyHtml, /href="\/about"/);
+  assert.match(rendered.bodyHtml, /Free starter/);
+  assert.match(rendered.bodyHtml, /Pro preview/);
+  assert.doesNotMatch(rendered.bodyHtml, /4 lesson plans/);
+  assert.doesNotMatch(rendered.bodyHtml, /Current published totals:/);
   assert.ok(rendered.listItems.length >= 4);
   assert.ok(rendered.faqItems.length >= 3);
 });
