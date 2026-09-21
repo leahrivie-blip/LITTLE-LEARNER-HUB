@@ -188,8 +188,8 @@ async function main() {
 
     const features = await request("GET", "/features");
     assert(features.body.includes("Available Now"), "features page missing Available Now");
-    assert(features.body.includes("Currently Being Built or Tested"), "features page missing in-progress section");
-    assert(features.body.includes("Future Plans"), "features page missing Future Plans");
+    assert(features.body.includes("Still in development"), "features page missing in-progress section");
+    assert(features.body.includes("Future work is not presented as included"), "features page must separate future work from current features");
     assert(features.body.includes("/childcare-activities"), "features page missing activity destination");
 
     const pricing = await request("GET", "/pricing");

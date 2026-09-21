@@ -316,9 +316,9 @@ async function apiTests() {
       }).catch(() => {});
       await page.waitForTimeout(800);
       const desktopText = await page.locator("body").innerText();
-      record("UI enabled: shows $13.99", /\$13\.99/.test(desktopText));
-      record("UI enabled: shows Limited-Time Early User Price", /Limited-Time Early User Price/i.test(desktopText));
-      record("UI enabled: still mentions regular $19.99", /\$19\.99/.test(desktopText));
+      record("UI enabled: does not advertise $13.99", !/\$13\.99/.test(desktopText));
+      record("UI enabled: does not advertise Early User", !/Limited-Time Early User Price|Choose Early User|Upgrade to Early User/i.test(desktopText));
+      record("UI enabled: shows public $19.99", /\$19\.99/.test(desktopText));
       await page.screenshot({ path: path.join(OUT_DIR, "desktop-pricing-early-user.png"), fullPage: true });
 
       await page.setViewportSize({ width: 390, height: 844 });
