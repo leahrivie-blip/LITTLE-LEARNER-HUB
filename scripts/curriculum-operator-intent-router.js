@@ -22,6 +22,21 @@ const ROUTES = Object.freeze({
   AMBIGUOUS: "ambiguous",
 });
 
+const NATURAL_INTENTS = Object.freeze({
+  CREATE_LESSON: "create_lesson",
+  UPDATE_ONE_LESSON: "update_one_lesson",
+  UPDATE_MULTIPLE_LESSONS: "update_multiple_lessons",
+  ACTIVITY_ONLY_UPDATE: "activity_only_update",
+  IMAGE_ONLY_UPDATE: "image_only_update",
+  PRINTABLE_ONLY_UPDATE: "printable_only_update",
+  AUDIT_LESSON: "audit_lesson",
+  RESEARCH_AND_CREATE: "research_and_create",
+  RESEARCH_AND_UPDATE: "research_and_update",
+  PUBLISH: "publish",
+  UNDO_DRAFT_CHANGE: "undo_draft_change",
+  AMBIGUOUS: "ambiguous",
+});
+
 const ASSET_CATEGORIES = Object.freeze([
   "cover",
   "printable",
@@ -283,7 +298,12 @@ function detectExistingLessonReferences(rawCommand, options = {}) {
       if (row) pushUnique(row);
     });
   } else {
-    catalogMatches.forEach(pushUnique);
+    // A named title is always narrower than an age label. Age only
+    // disambiguates same-titled lessons; it never selects every age-band lesson.
+    const titleMatches = ageScopedHint && catalogMatches.length
+      ? catalogMatches.filter((row) => ageScopedMatches.some((ageRow) => ageRow.id === row.id))
+      : catalogMatches;
+    titleMatches.forEach(pushUnique);
   }
 
   // Selected-lesson inheritance for short mutation commands (no "this lesson" required).
@@ -298,7 +318,7 @@ function detectExistingLessonReferences(rawCommand, options = {}) {
     pushUnique(selectedLesson);
   }
 
-  if (ageScopedMatches.length === 1) pushUnique(ageScopedMatches[0]);
+  if (!catalogMatches.length && ageScopedMatches.length === 1) pushUnique(ageScopedMatches[0]);
 
   const titles = commandSafety.sanitizeLessonTitles([
     ...hints,
@@ -418,6 +438,32 @@ function detectAssetCategories(rawCommand, exclusions = {}) {
   return found;
 }
 
+/**
+ * Pure, deliberately narrow natural-language classifier. Target resolution remains
+ * separate so a scope word cannot turn a named lesson into a batch.
+ */
+function classifyNaturalLanguageIntent(rawCommand, lessonRef = {}) {
+  const raw = text(rawCommand);
+  const research = /\b(?:research|search(?:\s+(?:google|current|trends?|ideas?))?)\b/i.test(raw);
+  const onlyImages = /\b(?:only\s+(?:update|change|fix|replace|regenerate|generate)\s+(?:the\s+)?(?:activity\s+)?(?:images?|pictures?|photos?|visuals?)|(?:images?|pictures?|photos?|visuals?)\s+only)\b/i.test(raw);
+  const onlyPrintables = /\b(?:only\s+(?:update|change|fix|replace|generate|create)\s+(?:the\s+)?printables?|printables?\s+only)\b/i.test(raw);
+  const onlyActivities = /\b(?:only\s+(?:update|change|fix|add)\s+(?:the\s+)?activities?|activities?\s+only)\b/i.test(raw);
+  const create = detectNewLessonIntent(raw, { existingLessonIntent: lessonRef.existingLessonIntent });
+  const batch = /\b(?:all|every|the\s+weakest|\d+\s+)\b[^.!?]{0,48}\b(?:lessons?|plans?)\b/i.test(raw);
+  if (/\bundo\s+(?:the\s+)?last\s+(?:change|draft\s+change)\b/i.test(raw)) return NATURAL_INTENTS.UNDO_DRAFT_CHANGE;
+  if (/\bpublish\b/i.test(raw)) return NATURAL_INTENTS.PUBLISH;
+  if (research && create) return NATURAL_INTENTS.RESEARCH_AND_CREATE;
+  if (research && (lessonRef.existingLessonIntent || lessonRef.resolvedLessons?.length)) return NATURAL_INTENTS.RESEARCH_AND_UPDATE;
+  if (create) return NATURAL_INTENTS.CREATE_LESSON;
+  if (onlyImages) return NATURAL_INTENTS.IMAGE_ONLY_UPDATE;
+  if (onlyPrintables) return NATURAL_INTENTS.PRINTABLE_ONLY_UPDATE;
+  if (onlyActivities) return NATURAL_INTENTS.ACTIVITY_ONLY_UPDATE;
+  if (batch) return NATURAL_INTENTS.UPDATE_MULTIPLE_LESSONS;
+  if (lessonRef.existingLessonIntent || lessonRef.resolvedLessons?.length) return NATURAL_INTENTS.UPDATE_ONE_LESSON;
+  if (/\b(?:audit|review|check|inspect)\b/i.test(raw)) return NATURAL_INTENTS.AUDIT_LESSON;
+  return NATURAL_INTENTS.AMBIGUOUS;
+}
+
 function pickPrimaryAssetCategory(categories) {
   const set = new Set(schema.asArray(categories));
   if (set.has("full_upgrade") || set.size > 1) return "full_upgrade";
@@ -474,6 +520,7 @@ function resolveOwnerIntent(rawCommand, options = {}) {
   });
   const assetCategories = detectAssetCategories(raw, exclusions);
   const assetCategory = pickPrimaryAssetCategory(assetCategories);
+  const naturalIntent = classifyNaturalLanguageIntent(raw, lessonRef);
   const inherited = buildInheritedContext(lessonRef.resolvedLessons);
   const notes = [];
 
@@ -484,7 +531,11 @@ function resolveOwnerIntent(rawCommand, options = {}) {
   const hasMutationVerb = ACTION_VERBS.test(raw)
     || /\b(audit|find|check|list|show)\b/i.test(raw);
 
-  if (lessonRef.existingLessonIntent && newLessonIntent) {
+  if (naturalIntent === NATURAL_INTENTS.IMAGE_ONLY_UPDATE && lessonRef.existingLessonIntent) {
+    route = ROUTES.EXISTING_IMAGE;
+  } else if (naturalIntent === NATURAL_INTENTS.PRINTABLE_ONLY_UPDATE && lessonRef.existingLessonIntent) {
+    route = ROUTES.EXISTING_PRINTABLE;
+  } else if (lessonRef.existingLessonIntent && newLessonIntent) {
     needsClarification = true;
     clarificationReasons.push("conflicting_create_and_existing");
     route = ROUTES.AMBIGUOUS;
@@ -561,6 +612,7 @@ function resolveOwnerIntent(rawCommand, options = {}) {
 
   return {
     route,
+    naturalIntent,
     existingLessonIntent: lessonRef.existingLessonIntent,
     newLessonIntent,
     needsClarification,
@@ -686,6 +738,17 @@ function applyIntentRouting(state, intent) {
     state.actions.checkPrintables = true;
     state.actions.saveDraft = state.actions.generatePrintables || state.actions.saveDraft;
     state.intent = phase === 4 ? "finish_printables" : (state.titles?.length === 1 ? "fix_lesson" : "finish_printables");
+    if (intent.naturalIntent === NATURAL_INTENTS.PRINTABLE_ONLY_UPDATE) {
+      state.actions.upgradeLesson = false;
+      state.actions.upgradeActivities = false;
+      state.actions.generateImages = false;
+      state.actions.generateSongsBooks = false;
+      state.actions.touchImages = false;
+      state.actions.touchSongs = false;
+      state.actions.touchBooks = false;
+      state.actions.touchCover = false;
+      state.notes.push("Printable-only request — content, images, songs, books, and cover are locked.");
+    }
     state.notes.push("Printable workflow — parent lesson age/access inherited from lesson record.");
   } else if (route === ROUTES.EXISTING_IMAGE) {
     state.isCreateCommand = false;
@@ -695,6 +758,17 @@ function applyIntentRouting(state, intent) {
     state.actions.saveDraft = state.actions.generateImages || state.actions.saveDraft;
     if (/\b(bad|replace|weak)\b/i.test(state.raw || "")) state.actions.replaceBadImages = true;
     state.intent = state.titles?.length === 1 ? "fix_lesson" : "finish_images";
+    if (intent.naturalIntent === NATURAL_INTENTS.IMAGE_ONLY_UPDATE) {
+      state.actions.upgradeLesson = false;
+      state.actions.upgradeActivities = false;
+      state.actions.generatePrintables = false;
+      state.actions.generateSongsBooks = false;
+      state.actions.touchPrintables = false;
+      state.actions.touchSongs = false;
+      state.actions.touchBooks = false;
+      state.actions.touchCover = false;
+      state.notes.push("Image-only request — content, printables, songs, books, and cover are locked.");
+    }
   } else if (route === ROUTES.EXISTING_COVER) {
     state.isCreateCommand = false;
     state.actions.createLesson = false;
@@ -722,8 +796,37 @@ function applyIntentRouting(state, intent) {
   state.inheritFromLesson = intent.inheritFromLesson;
 }
 
+/** Re-apply explicit narrow owner scope after optional semantic enrichment. */
+function applyPostSemanticSafety(parsed, intent) {
+  const actions = parsed?.command?.actions;
+  if (!actions) return parsed;
+  if (intent?.naturalIntent === NATURAL_INTENTS.IMAGE_ONLY_UPDATE) {
+    actions.upgradeLesson = false;
+    actions.upgradeActivities = false;
+    actions.generatePrintables = false;
+    actions.generateSongsBooks = false;
+    actions.touchPrintables = false;
+    actions.touchSongs = false;
+    actions.touchBooks = false;
+    actions.touchCover = false;
+    parsed.command.intent = "finish_images";
+  } else if (intent?.naturalIntent === NATURAL_INTENTS.PRINTABLE_ONLY_UPDATE) {
+    actions.upgradeLesson = false;
+    actions.upgradeActivities = false;
+    actions.generateImages = false;
+    actions.generateSongsBooks = false;
+    actions.touchImages = false;
+    actions.touchSongs = false;
+    actions.touchBooks = false;
+    actions.touchCover = false;
+    parsed.command.intent = "finish_printables";
+  }
+  return parsed;
+}
+
 module.exports = {
   ROUTES,
+  NATURAL_INTENTS,
   ASSET_CATEGORIES,
   extractLessonTitleHints,
   matchLessonsFromCatalog,
@@ -735,10 +838,12 @@ module.exports = {
   detectExistingLessonReferences,
   detectNewLessonIntent,
   detectAssetCategories,
+  classifyNaturalLanguageIntent,
   isShortSelectedLessonMutation,
   pickPrimaryAssetCategory,
   isPlanOnlyOperatorCommand,
   resolveOwnerIntent,
   applyIntentRouting,
+  applyPostSemanticSafety,
   isExistingLessonOperationCommand: printableAgeBand.isPrintableExistingLessonCommand,
 };

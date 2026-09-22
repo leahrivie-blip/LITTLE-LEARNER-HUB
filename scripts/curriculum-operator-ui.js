@@ -73,7 +73,7 @@
       ...(planSummary?.confirmReasons || []),
     ].filter((reason) => DANGEROUS_CONFIRM_REASONS.includes(reason));
     if (reasons.includes("unexpected_scope_expansion") || reasons.includes("multiple_lessons_matched")) {
-      return "Run blocked — lesson scope expanded unexpectedly. Narrow to one explicit lesson ID.";
+      return "I found more than one matching lesson, so I stopped before changing anything. Select one lesson or tell me its exact title and age group.";
     }
     if (reasons.includes("parsed_intent_contradiction")) {
       return "Run blocked — parsed actions contradict explicit exclusions/constraints.";
@@ -82,7 +82,9 @@
       return "Run blocked — execution plan contradicts parsed weekly scope. Interpret again.";
     }
     if (reasons.includes("ambiguous_scope") || reasons.includes("missing_selected_lesson")) {
-      return "Run blocked — command scope is ambiguous. Interpret again with an explicit lesson ID.";
+      return reasons.includes("missing_selected_lesson")
+        ? "Which lesson should I update? Please select one lesson or tell me its exact title."
+        : "Which lesson should I use? Please select one lesson or tell me its exact title and age group.";
     }
     if (reasons.includes("meta_instruction")) {
       return "This appears to be a system-development instruction rather than a curriculum job. No curriculum mutation planned.";
@@ -564,7 +566,7 @@
             <p>${esc(plan.selectionNote || "")}</p>
             <p class="muted-copy">${esc(plan.lessons?.length || 0)} lesson(s) · candidates considered ${esc(plan.candidatesConsidered || 0)}</p>
             <ol>${(plan.lessons || []).map((l) => `
-              <li><strong>${esc(l.title)}</strong> — readiness ${esc(l.readinessPercent)}% · ${esc(l.plan)} · ${esc(l.ageBand)}</li>`).join("")}</ol>
+              <li><strong>${esc(l.title)}</strong> (<code>${esc(l.id)}</code>) — readiness ${esc(l.readinessPercent)}% · ${esc(l.plan)} · ${esc(l.ageBand)}</li>`).join("")}</ol>
             <p class="muted-copy">${esc(plan.phaseNote || plan.phase1?.note || "")}</p>
           </section>` : ""}
         ${job ? `
