@@ -2324,7 +2324,7 @@ function createCurriculumOperatorApi(deps) {
 
     if (action === "parse") {
       const storedConversation = operatorSessionId
-        ? conversationStore.read(store, session.email, operatorSessionId)
+        ? conversationStore.loadConversationContext(store, session.email, operatorSessionId)
         : null;
       const operatorContext = body.operatorContext && typeof body.operatorContext === "object"
         ? body.operatorContext
@@ -2342,12 +2342,14 @@ function createCurriculumOperatorApi(deps) {
         operatorContext,
         ownerProfile: instructionProfile.read(store, session.email),
       });
+      const rawText = schema.text(body.command || body.rawCommand || "", 4000);
       const target = parsed.command.scope?.lessonIds?.length === 1
         ? schema.asArray(curriculum?.lessonPlans).find((lesson) => lesson.id === parsed.command.scope.lessonIds[0])
         : null;
       const nextContext = parsed.interpretation?.nextContext || {};
       const context = operatorSessionId
         ? conversationStore.save(store, {
+          ...conversationStore.applyConversationCorrections(storedConversation || {}, rawText),
           ownerId: session.email,
           sessionId: operatorSessionId,
           currentLessonId: target?.id || nextContext.previousResolvedTargets?.[0] || null,
@@ -2361,6 +2363,30 @@ function createCurriculumOperatorApi(deps) {
           researchRequested: createApi.parseCreationBrief(parsed.command.rawCommand || "").brief.researchRequested,
           unresolvedQuestion: parsed.needsConfirmation ? (parsed.confirmReasons || [])[0] || null : null,
           latestDraftJobId: body.latestDraftJobId || null,
+          messages: [
+            ...schema.asArray(storedConversation?.messages),
+            {
+              role: "owner",
+              rawText,
+              parsedIntent: parsed.ownerIntent?.naturalIntent || null,
+              operation: parsed.command.intent,
+              resolvedLessonIds: parsed.command.scope?.lessonIds || [],
+              requestedActivities: parsed.command.scope?.requestedActivities || [],
+              exclusions: nextContext.previousExclusions || [],
+            },
+            {
+              role: "operator",
+              parsedIntent: parsed.ownerIntent?.naturalIntent || null,
+              operation: parsed.command.intent,
+              resolvedLessonIds: parsed.command.scope?.lessonIds || [],
+              requestedActivities: parsed.command.scope?.requestedActivities || [],
+              exclusions: nextContext.previousExclusions || [],
+              effectiveInstructionSummary: parsed.effectiveInstructions?.summary || null,
+              responseText: parsed.needsConfirmation
+                ? "I need one detail before I continue: please tell me which lesson you mean."
+                : `I understand. ${target ? `You want me to update ${target.title}` : "I have your request"}${parsed.command.actions?.publish === true ? "." : ", and publishing will stay off."}`,
+            },
+          ],
         }) : null;
       if (context) await writeStoreAsync(store);
       jsonResponse(response, 200, {

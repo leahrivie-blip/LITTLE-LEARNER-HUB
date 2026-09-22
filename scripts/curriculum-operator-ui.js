@@ -99,12 +99,16 @@
     const interp = parsed?.interpretation || parsed?.command?.interpretation;
     if (!interp?.ownerSummary) return "";
     const flags = interp.ownerFacingFlags || {};
+    const effective = parsed?.effectiveInstructions || {};
     return `
           <section class="co-panel">
             <h4>Understood request</h4>
             <pre class="co-summary">${esc(interp.ownerSummary)}</pre>
             <p class="muted-copy">${esc(flags.connectedAutoApply || "Successful approved AI changes will be saved directly into the lesson draft for your review.")}</p>
             <p class="muted-copy">${esc(flags.publish || "Nothing will publish automatically.")}</p>
+            ${effective.profileLoaded ? `<p class="muted-copy">Permanent profile v${esc(effective.profileVersion)} applied: ${esc((effective.permanentInstructions || []).slice(0, 3).join(" · "))}</p>` : ""}
+            ${effective.oneTimeOverrides?.length ? `<p class="muted-copy">One-time instructions: ${esc(effective.oneTimeOverrides.join(" · "))}</p>` : ""}
+            ${effective.exclusions?.cover ? "<p class=\"muted-copy\">Cover: unchanged</p>" : ""}
             <p class="muted-copy">${esc(flags.touchPrintables || "")}</p>
             ${parsed.aiHealth ? `<p class="muted-copy">AI configured: ${parsed.aiHealth.configured ? "yes" : "no"}${parsed.aiHealth.lastErrorCategory ? ` · last error: ${esc(parsed.aiHealth.lastErrorCategory)}` : ""}</p>` : ""}
             <details>
@@ -112,6 +116,12 @@
               <pre class="co-json">${esc(JSON.stringify(parsed.command, null, 2))}</pre>
             </details>
           </section>`;
+  }
+
+  function profileSummary(profile) {
+    const instructions = Array.isArray(profile?.instructions) ? profile.instructions.filter(Boolean) : [];
+    if (!instructions.length) return "No permanent curriculum instructions are saved.";
+    return instructions.slice(0, 8).map((instruction) => `• ${instruction}`).join("\n");
   }
 
   const state = {
@@ -129,6 +139,9 @@
     planSummary: null,
     commandParsed: null,
     operatorContext: null,
+    conversation: null,
+    profile: null,
+    profileError: "",
     job: null,
     jobs: [],
     flagEnabled: false,
@@ -567,18 +580,36 @@
         </div>
         ${state.message ? `<p class="access-notice ${state.isError ? "error" : ""}" role="status">${esc(state.message)}</p>` : ""}
         ${renderRunStatusBlock()}
+        <section class="co-panel">
+          <h4>Conversation</h4>
+          <p class="muted-copy">Current lesson: ${esc(state.conversation?.currentLessonTitle || "None")} · Operation: ${esc(state.conversation?.currentOperation || "None")} · Publishing: disabled</p>
+          ${state.conversation?.unresolvedQuestion ? `<p class="access-notice">${esc(state.conversation.unresolvedQuestion)}</p>` : ""}
+          <div class="co-log">${(state.conversation?.messages || []).slice(-10).map((message) => `<p><strong>${message.role === "owner" ? "Leah" : "Operator"}:</strong> ${esc(message.responseText || message.rawText)}</p>`).join("") || "<p class=\"muted-copy\">Send a message to begin.</p>"}</div>
+          ${(state.conversation?.corrections || []).length ? `<p class="muted-copy">Applied corrections: ${esc(state.conversation.corrections.join(" · "))}</p>` : ""}
+        </section>
         <label class="co-command-label">
           <span>Command</span>
           <textarea id="coCommandInput" rows="3" placeholder="Example: Create a Preschool Bakery lesson with 15 activities and leave it ready for review.">${esc(state.command)}</textarea>
         </label>
         ${runBlockNotice ? `<p class="access-notice error" role="alert">${esc(runBlockNotice)}</p>` : ""}
         <div class="account-actions-row co-run-actions">
-          <button type="button" class="ghost-button" id="coParseBtn" ${state.busy ? "disabled" : ""}>Interpret</button>
+          <button type="button" class="ghost-button" id="coParseBtn" ${state.busy ? "disabled" : ""}>Send</button>
           <button type="button" class="primary-button" id="coRunBtn" ${state.busy || state.runInFlight || runBlocked ? "disabled" : ""} title="${esc(runBlocked ? runBlockNotice : "")}">${esc(runButtonLabel(state.runPhase))}</button>
           <button type="button" class="ghost-button" id="coStartOverBtn" ${state.busy ? "disabled" : ""}>Start over</button>
           <button type="button" class="ghost-button" id="coRefreshJobsBtn" ${state.busy ? "disabled" : ""}>Refresh jobs</button>
         </div>
         ${state.commandParsed ? renderUnderstoodRequest(state.commandParsed) : ""}
+        <section class="co-panel">
+          <h4>Remembered instructions</h4>
+          ${state.profileError ? `<p class="access-notice error">${esc(state.profileError)}</p>` : ""}
+          <pre class="co-summary">${esc(profileSummary(state.profile))}</pre>
+          ${state.profile?.version ? `<p class="muted-copy">Saved profile version ${esc(state.profile.version)}</p>` : ""}
+          <div class="account-actions-row">
+            <button type="button" class="ghost-button" id="coRememberProfileBtn">What instructions do you remember?</button>
+            <button type="button" class="ghost-button" id="coSaveProfileBtn">Save these as my permanent curriculum instructions</button>
+            <button type="button" class="ghost-button" id="coCleanConversationBtn">Start over but keep my permanent preferences</button>
+          </div>
+        </section>
         ${state.commandParsed && !state.commandParsed.interpretation?.ownerSummary ? `
           <section class="co-panel">
             <h4>Interpreted command</h4>
@@ -671,6 +702,9 @@
     el.querySelector("#coParseBtn")?.addEventListener("click", () => void onParse());
     el.querySelector("#coRunBtn")?.addEventListener("click", () => void onRun());
     el.querySelector("#coStartOverBtn")?.addEventListener("click", () => void onStartOver());
+    el.querySelector("#coRememberProfileBtn")?.addEventListener("click", () => void onRememberProfile());
+    el.querySelector("#coSaveProfileBtn")?.addEventListener("click", () => void onSaveProfile());
+    el.querySelector("#coCleanConversationBtn")?.addEventListener("click", () => void onStartOver());
     el.querySelector("#coRefreshJobsBtn")?.addEventListener("click", () => void refreshJobs());
     el.querySelector("#coConfirmResumeBtn")?.addEventListener("click", () => void onConfirmResume());
     el.querySelector("#coPublishCancelBtn")?.addEventListener("click", () => {
@@ -806,13 +840,59 @@
     state.command = "";
     state.commandParsed = null;
     state.planSummary = null;
-    state.message = "Started a new conversation.";
+    state.message = "Started a clean conversation. Your permanent preferences are still remembered.";
     try {
       await api("context_clear");
     } catch (_error) {
       state.message = "Started a new conversation locally. Server context could not be cleared.";
     }
     render();
+  }
+
+  async function onRememberProfile() {
+    state.busy = true;
+    state.profileError = "";
+    render();
+    try {
+      const result = await api("profile_get");
+      state.profile = result.profile || null;
+      state.message = `Here are your saved permanent instructions${result.profile?.version ? ` (version ${result.profile.version})` : ""}.`;
+    } catch (error) {
+      state.profileError = "Saved preferences could not be loaded. The operator will not invent remembered instructions.";
+      state.message = error.message || "Could not load saved instructions.";
+      state.isError = true;
+    } finally {
+      state.busy = false;
+      render();
+    }
+  }
+
+  async function onSaveProfile() {
+    const instructions = String(state.command || "").split(/\n+/).map((line) => line.trim()).filter(Boolean);
+    if (!instructions.length) {
+      state.isError = true;
+      state.message = "Paste the instruction list into the command box first. It will be reviewed before saving.";
+      render();
+      return;
+    }
+    const summary = instructions.slice(0, 8).map((line) => `• ${line}`).join("\n");
+    if (!global.confirm(`Save these as permanent curriculum instructions?\n\n${summary}`)) return;
+    state.busy = true;
+    state.isError = false;
+    state.profileError = "";
+    render();
+    try {
+      const result = await api("profile_save", { instructions, ownerAuthorization: true });
+      state.profile = result.profile || null;
+      state.message = `Permanent instructions saved${result.profile?.version ? ` as version ${result.profile.version}` : ""}.`;
+    } catch (error) {
+      state.isError = true;
+      state.message = "I understood the instructions, but could not save them permanently. They remain only in this conversation.";
+      state.profileError = error.message || "Profile save failed.";
+    } finally {
+      state.busy = false;
+      render();
+    }
   }
 
   async function onRetryFailedAssets(lessonId, card) {
@@ -860,6 +940,7 @@
         operatorContext: state.operatorContext || undefined,
       });
       state.commandParsed = result;
+      state.conversation = result.conversationContext || state.conversation;
       if (result.conversationContext) {
         state.operatorContext = {
           previousIntent: result.conversationContext.currentOperation,
@@ -1034,6 +1115,7 @@
     if (state.flagEnabled && isOwner()) {
       try {
         const restored = await api("context_get");
+        state.conversation = restored.context || null;
         if (restored.context?.currentLessonId) {
           state.operatorContext = {
             previousIntent: restored.context.currentOperation || "",
@@ -1043,6 +1125,12 @@
         }
       } catch (_error) {
         // Context restoration is optional; the existing in-memory flow remains usable.
+      }
+      try {
+        const profileResult = await api("profile_get");
+        state.profile = profileResult.profile || null;
+      } catch (_error) {
+        state.profileError = "Saved preferences could not be loaded.";
       }
       await refreshJobs();
     }
@@ -1054,6 +1142,7 @@
       mapCurrentActionToLabel,
       formatRunStatusFromJob,
       runButtonLabel,
+      profileSummary,
     },
   };
 })(typeof window !== "undefined" ? window : globalThis);
