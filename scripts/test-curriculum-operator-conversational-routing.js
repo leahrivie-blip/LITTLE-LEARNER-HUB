@@ -8,6 +8,7 @@ const scopeApi = require("./curriculum-operator-execution-scope.js");
 const createApi = require("./curriculum-operator-create.js");
 const architect = require("./curriculum-operator-create-architect.js");
 const connected = require("./curriculum-operator-connected-upgrade.js");
+const conversationStore = require("./curriculum-operator-conversation-store.js");
 
 const TODDLER_ID = "cur-lp-1111111111111111";
 const PRESCHOOL_ID = "cur-lp-2222222222222222";
@@ -128,6 +129,14 @@ function parseUnique(raw) {
   assert.deepEqual(prompt.brief.requestedActivities, brief.brief.requestedActivities, "architect receives exact activity requirements");
   assert.match(prompt.rules.join("\n"), /Include every requestedActivities item/, "architect is instructed not to replace requested activities");
   assert.match(brief.brief.idempotencyKey, /^create:/, "new lesson has stable retry idempotency key");
+  assert.equal(architect.validateRequestedActivities(
+    brief.brief.requestedActivities,
+    ["Pretend Bakery Shop", "Measuring Ingredients", "Decorating Paper Cupcakes", "Sorting Baked Goods"],
+  ).ok, true, "requested activities validate against generated activity titles");
+  assert.deepEqual(architect.validateRequestedActivities(
+    ["pretend bakery shop", "measuring ingredients"],
+    ["Pretend Bakery Shop", "Painting Dough"],
+  ).missing, ["measuring ingredients"], "missing requested activity is surfaced");
 }
 {
   const research = createApi.parseCreationBrief(
@@ -168,6 +177,26 @@ function parseUnique(raw) {
     printablesComplete: false,
   }, { command: { actions: { connectedAutoApply: true } } });
   assert.equal(failedAssets.ok, false, "failed asset work cannot auto-apply a draft");
+}
+{
+  const store = {};
+  const now = Date.UTC(2026, 0, 1);
+  conversationStore.save(store, {
+    ownerId: "leah@example.test",
+    sessionId: "session-a",
+    currentLessonId: TODDLER_ID,
+    currentLessonTitle: "Big Feelings, Little Bodies",
+    currentOperation: "finish_full_kit",
+  }, now);
+  assert.equal(conversationStore.read(store, "leah@example.test", "session-a", now + 1).currentLessonId, TODDLER_ID,
+    "refresh restores same-owner conversation context");
+  assert.equal(conversationStore.read(store, "other@example.test", "session-a", now + 1), null,
+    "conversation context is isolated by owner");
+  assert.equal(conversationStore.read(store, "leah@example.test", "session-a", now + conversationStore.TTL_MS + 1), null,
+    "stale conversation context expires");
+  conversationStore.clear(store, "leah@example.test", "session-a");
+  assert.equal(conversationStore.read(store, "leah@example.test", "session-a", now + 1), null,
+    "start over clears current conversation");
 }
 
 console.log("Curriculum operator conversational routing checks passed.");

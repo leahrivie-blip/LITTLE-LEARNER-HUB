@@ -180,6 +180,20 @@
     }
   }
 
+  function operatorSessionId() {
+    try {
+      const key = "llh-curriculum-operator-session";
+      let id = sessionStorage.getItem(key);
+      if (!id) {
+        id = `cos_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+        sessionStorage.setItem(key, id);
+      }
+      return id;
+    } catch {
+      return "";
+    }
+  }
+
   async function api(action, extra = {}) {
     const token = adminToken();
     if (!token) throw new Error("Admin session required.");
@@ -201,6 +215,7 @@
       body: JSON.stringify({
         action,
         currentlySelectedLessonId: currentlySelectedLessonId || undefined,
+        operatorSessionId: operatorSessionId() || undefined,
         ...extra,
       }),
     });
@@ -547,6 +562,7 @@
         <div class="account-actions-row co-run-actions">
           <button type="button" class="ghost-button" id="coParseBtn" ${state.busy ? "disabled" : ""}>Interpret</button>
           <button type="button" class="primary-button" id="coRunBtn" ${state.busy || state.runInFlight || runBlocked ? "disabled" : ""} title="${esc(runBlocked ? runBlockNotice : "")}">${esc(runButtonLabel(state.runPhase))}</button>
+          <button type="button" class="ghost-button" id="coStartOverBtn" ${state.busy ? "disabled" : ""}>Start over</button>
           <button type="button" class="ghost-button" id="coRefreshJobsBtn" ${state.busy ? "disabled" : ""}>Refresh jobs</button>
         </div>
         ${state.commandParsed ? renderUnderstoodRequest(state.commandParsed) : ""}
@@ -641,6 +657,7 @@
     });
     el.querySelector("#coParseBtn")?.addEventListener("click", () => void onParse());
     el.querySelector("#coRunBtn")?.addEventListener("click", () => void onRun());
+    el.querySelector("#coStartOverBtn")?.addEventListener("click", () => void onStartOver());
     el.querySelector("#coRefreshJobsBtn")?.addEventListener("click", () => void refreshJobs());
     el.querySelector("#coConfirmResumeBtn")?.addEventListener("click", () => void onConfirmResume());
     el.querySelector("#coPublishCancelBtn")?.addEventListener("click", () => {
@@ -755,6 +772,20 @@
     }
   }
 
+  async function onStartOver() {
+    state.operatorContext = null;
+    state.command = "";
+    state.commandParsed = null;
+    state.planSummary = null;
+    state.message = "Started a new conversation.";
+    try {
+      await api("context_clear");
+    } catch (_error) {
+      state.message = "Started a new conversation locally. Server context could not be cleared.";
+    }
+    render();
+  }
+
   async function onParse() {
     state.busy = true;
     state.message = "";
@@ -767,7 +798,13 @@
         operatorContext: state.operatorContext || undefined,
       });
       state.commandParsed = result;
-      if (result.interpretation?.nextContext) state.operatorContext = result.interpretation.nextContext;
+      if (result.conversationContext) {
+        state.operatorContext = {
+          previousIntent: result.conversationContext.currentOperation,
+          previousResolvedTargets: result.conversationContext.currentLessonId ? [result.conversationContext.currentLessonId] : [],
+          previousExclusions: result.conversationContext.requestedExclusions || [],
+        };
+      } else if (result.interpretation?.nextContext) state.operatorContext = result.interpretation.nextContext;
       const planned = await api("plan", {
         command: state.command,
         phase: 7,
@@ -933,6 +970,18 @@
     state.flagEnabled = flagOn();
     render();
     if (state.flagEnabled && isOwner()) {
+      try {
+        const restored = await api("context_get");
+        if (restored.context?.currentLessonId) {
+          state.operatorContext = {
+            previousIntent: restored.context.currentOperation || "",
+            previousResolvedTargets: [restored.context.currentLessonId],
+            previousExclusions: restored.context.requestedExclusions || [],
+          };
+        }
+      } catch (_error) {
+        // Context restoration is optional; the existing in-memory flow remains usable.
+      }
       await refreshJobs();
     }
   }

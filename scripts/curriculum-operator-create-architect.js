@@ -216,6 +216,18 @@ function buildArchitectUserPrompt(brief, { revisionIssues, previousContent, prev
   ].join("\n");
 }
 
+function validateRequestedActivities(requestedActivities = [], generatedTitles = []) {
+  const titles = schema.asArray(generatedTitles).map((title) => structurePaste.normalizeTitleKey(title));
+  const missing = [];
+  schema.asArray(requestedActivities).forEach((requested) => {
+    const terms = structurePaste.normalizeTitleKey(requested).split(" ").filter((term) => term.length > 2);
+    if (!terms.length) return;
+    const matched = titles.some((title) => terms.every((term) => title.includes(term)));
+    if (!matched) missing.push(text(requested, 180));
+  });
+  return { ok: missing.length === 0, missing };
+}
+
 function flattenActivityTitles(content) {
   const titles = [];
   const plans = content?.dailyPlans || {};
@@ -517,6 +529,10 @@ function validateArchitectOutput(rawText, brief) {
   if (domains.size < Math.min(4, Math.max(2, Math.floor(target / 4)))) {
     issues.push("weak_domain_variety");
   }
+  const requestedActivityValidation = validateRequestedActivities(brief.requestedActivities, titles);
+  if (!requestedActivityValidation.ok) {
+    requestedActivityValidation.missing.forEach((activity) => issues.push(`requested_activity_missing:${activity}`));
+  }
 
   const content = {
     lesson,
@@ -735,6 +751,7 @@ module.exports = {
   buildArchitectSystemPrompt,
   buildArchitectUserPrompt,
   validateArchitectOutput,
+  validateRequestedActivities,
   buildOperatorCreateArchitectFixtureResponse,
   composeNewLessonContent,
   conceptKey,
