@@ -101,6 +101,7 @@ function buildArchitectUserPrompt(brief, { revisionIssues, previousContent, prev
       activityTarget,
       exclusions: brief.exclusions || {},
       requestedFeatures: brief.requestedFeatures || {},
+      requestedActivities: schema.asArray(brief.requestedActivities).slice(0, 24),
       researchRequested: brief.researchRequested === true,
       coverRequested: brief.coverRequested === true,
     },
@@ -182,6 +183,9 @@ function buildArchitectUserPrompt(brief, { revisionIssues, previousContent, prev
       "Every activity must include dayOfWeek from requiredWeekdays (lowercase in JSON: monday…friday).",
       "All five weekdays must be represented when activityTarget >= 5.",
       "No near-duplicate activity concepts.",
+      ...(schema.asArray(brief.requestedActivities).length
+        ? ["Include every requestedActivities item as a complete activity; do not replace it with an unrelated activity."]
+        : []),
       "researchRequested is informational only; do not claim web research occurred.",
     ],
   };

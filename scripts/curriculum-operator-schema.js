@@ -615,6 +615,8 @@ function normalizeOperatorCommand(raw = {}, options = {}) {
       requestedTargetCount: Number.isInteger(scopeIn.requestedTargetCount)
         ? clampInt(scopeIn.requestedTargetCount, 1, limits.hardMaxLessons, null)
         : null,
+      requestedActivities: asArray(scopeIn.requestedActivities)
+        .map((item) => text(item, 180)).filter(Boolean).slice(0, 24),
     },
     actions,
     completion: {
