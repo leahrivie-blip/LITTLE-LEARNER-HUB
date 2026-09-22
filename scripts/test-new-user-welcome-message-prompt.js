@@ -105,6 +105,8 @@ assert.equal(sandbox.lastView.view, "messages");
 assert.equal(sandbox.lastView.options.conversation, true, "Read My Message opens the existing Leah conversation");
 
 assert.match(source, /state\.step !== "welcome-message"/, "welcome-message is excluded from boot resume");
+assert.match(appSource, /const signupProfileSync = syncAccountProfileToBackend\(/);
+assert.match(appSource, /signupProfileSync[\s\S]{0,500}showWelcomeMessagePrompt/);
 assert.match(appSource, /deferWelcomeMessagePrompt: true/);
 assert.doesNotMatch(
   appSource.slice(appSource.indexOf("finishSignupWithPlan")),

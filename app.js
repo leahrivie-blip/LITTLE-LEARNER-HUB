@@ -75962,14 +75962,15 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
           renderSignupWizardStep();
           submitButton.disabled = false;
         }
-        runAuthSyncWithTimeout("signup profile sync", () => syncAccountProfileToBackend(result.email, {
+        const signupProfileSync = syncAccountProfileToBackend(result.email, {
           firstName,
           lastName,
           businessName: "",
           accountType: "",
           role: "",
           phone,
-        }, { signup: true, lastLogin: true, metaEventId: registrationEventId })).then((syncedUser) => {
+        }, { signup: true, lastLogin: true, metaEventId: registrationEventId });
+        runAuthSyncWithTimeout("signup profile sync", () => signupProfileSync).then((syncedUser) => {
           if (syncedUser) {
             trackMetaPixel("CompleteRegistration", {
               content_name: "account_signup",
@@ -75977,13 +75978,6 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
               currency: "USD",
               value: 0,
             }, registrationEventId);
-            if (finishFree) {
-              try {
-                window.NewUserOnboarding?.showWelcomeMessagePrompt?.();
-              } catch (error) {
-                console.warn("Welcome message prompt failed", error);
-              }
-            }
           }
           return Promise.all([
             runAuthSyncWithTimeout("signup membership sync", () => syncSubscriptionFromBackend(result.email)),
@@ -75994,6 +75988,21 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
           if (finishFree) window.NewUserOnboarding?.cancelWelcomeMessagePrompt?.();
         });
         if (finishFree) {
+          signupProfileSync
+            .then((syncedUser) => {
+              if (!syncedUser) {
+                window.NewUserOnboarding?.cancelWelcomeMessagePrompt?.();
+                return;
+              }
+              try {
+                window.NewUserOnboarding?.showWelcomeMessagePrompt?.();
+              } catch (error) {
+                console.warn("Welcome message prompt failed", error);
+              }
+            })
+            .catch(() => {
+              window.NewUserOnboarding?.cancelWelcomeMessagePrompt?.();
+            });
           await finishSignupWithPlan("free", { deferWelcomeMessagePrompt: true });
           trackEvent("signup_landed_free", { email: result.email, destination: "lessons" });
         }
