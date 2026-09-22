@@ -112,9 +112,9 @@ const HUB_PAGES = Object.freeze([
     title: "Daycare Curriculum & Weekly Lesson Plans | Little Learner Hub by Leah",
     description:
       "See the live daycare curriculum inside Little Learner Hub — Infant, Toddler, and Preschool lesson plans, themes, and free starter weeks providers can open today.",
-    h1: "Daycare Curriculum Built from Real Weekly Lesson Plans",
+    h1: "Your Next Week of Lesson Plans Is Already Done.",
     intro:
-      "Explore ready-to-use weekly daycare curriculum from the current Little Learner Hub library. Published Infant, Toddler, and Preschool plans show real themes and activities, with practical preparation and teacher guidance where included.",
+      "Ready-to-use curriculum for infant, toddler, and preschool classrooms — with activities, teacher guidance, and everything organized in one place.",
     related: ["/infant-lesson-plans", "/toddler-lesson-plans", "/preschool-lesson-plans", "/childcare-activities", "/pricing"],
     faq: [
       ["What is included in the daycare curriculum?", `Little Learner Hub includes Infant, Toddler, and Preschool lesson plans with activities, weekly overviews, and learning domains. Free unlocks ${FREE_STARTER_COUNT} complete starter plans; Pro unlocks the full library.`],
@@ -375,6 +375,29 @@ function itemListSchemaForPage(page, items, absoluteUrl) {
   };
 }
 
+function renderCurriculumHubHeroHtml(page, previewPlans, { escapeHtml } = {}) {
+  const previewHtml = previewPlans.length
+    ? `<aside class="curriculum-hero-preview" aria-label="Sample lesson plans from the library">${renderLessonCardsHtml(previewPlans, { escapeHtml, limit: 2 })}</aside>`
+    : "";
+  return `
+    <section class="curriculum-hero" aria-labelledby="curriculum-hero-title">
+      <div class="curriculum-hero-copy">
+        <h1 id="curriculum-hero-title">${escapeHtml(page.h1)}</h1>
+        <p class="curriculum-hero-lead">${escapeHtml(page.intro)}</p>
+        <p class="curriculum-hero-actions">
+          <a class="cta" href="#curriculum-browse">Browse Lesson Plans</a>
+          <a class="cta cta-secondary" href="${escapeHtml(signupHref())}">Start Free</a>
+        </p>
+        <ul class="curriculum-benefit-chips">
+          <li>Infant · Toddler · Preschool</li>
+          <li>Ready-to-Use Weekly Plans</li>
+          <li>Growing Curriculum Library</li>
+        </ul>
+      </div>
+      ${previewHtml}
+    </section>`;
+}
+
 function renderHubPageBody(page, snapshot, { escapeHtml } = {}) {
   const helpers = buildSnapshotHelpers(snapshot);
   const lessons = selectLessonsForPage(page, helpers);
@@ -401,24 +424,39 @@ function renderHubPageBody(page, snapshot, { escapeHtml } = {}) {
       <p><a class="cta" href="${escapeHtml(libraryHref())}">Open the lesson plan library</a>
       <a class="cta cta-secondary" href="${escapeHtml(signupHref())}">Start free with ${FREE_STARTER_COUNT} starter plans</a></p>`;
   } else {
+    const previewPlans = sortFreeFirst(helpers.lessonPlans, helpers.freeIds).slice(0, 2);
     const byAge = {
       Infant: sortFreeFirst(helpers.lessonPlans.filter((p) => p.age === "Infant"), helpers.freeIds).slice(0, 4),
       Toddler: sortFreeFirst(helpers.lessonPlans.filter((p) => p.age === "Toddler"), helpers.freeIds).slice(0, 4),
       Preschool: sortFreeFirst(helpers.lessonPlans.filter((p) => p.age === "Preschool"), helpers.freeIds).slice(0, 4),
     };
+    const freeStarterPlans = sortFreeFirst(
+      helpers.lessonPlans.filter((p) => helpers.freeIds.has(p.id) || p.locked === false),
+      helpers.freeIds,
+    );
     primarySection = `
-      <h2>Live curriculum snapshot</h2>
-      <p class="muted">${updatedLabel}</p>
-      <h2>Free starter lesson plans</h2>
-      ${renderLessonCardsHtml(sortFreeFirst(helpers.lessonPlans.filter((p) => helpers.freeIds.has(p.id)), helpers.freeIds), { escapeHtml, limit: FREE_STARTER_COUNT })}
-      <h2>Infant themes in the library</h2>
-      ${renderLessonCardsHtml(byAge.Infant, { escapeHtml, limit: 4 })}
-      <h2>Toddler themes in the library</h2>
-      ${renderLessonCardsHtml(byAge.Toddler, { escapeHtml, limit: 4 })}
-      <h2>Preschool themes in the library</h2>
-      ${renderLessonCardsHtml(byAge.Preschool, { escapeHtml, limit: 4 })}
-      <p><a class="cta" href="${escapeHtml(signupHref())}">Create free account</a>
-      <a class="cta cta-secondary" href="${escapeHtml(libraryHref())}">Browse daycare lesson plans</a></p>`;
+      ${renderCurriculumHubHeroHtml(page, previewPlans, { escapeHtml })}
+      <section id="curriculum-browse" class="curriculum-browse" aria-labelledby="curriculum-browse-title">
+        <h2 id="curriculum-browse-title">Find a Lesson Plan for Your Classroom</h2>
+        <nav class="curriculum-age-nav" aria-label="Browse by age group">
+          <a href="#age-infant">Infant</a>
+          <a href="#age-toddler">Toddler</a>
+          <a href="#age-preschool">Preschool</a>
+        </nav>
+        <h2 id="age-free">Free starter lesson plans</h2>
+        ${renderLessonCardsHtml(freeStarterPlans, { escapeHtml, limit: FREE_STARTER_COUNT })}
+        <h2 id="age-infant">Infant themes in the library</h2>
+        ${renderLessonCardsHtml(byAge.Infant, { escapeHtml, limit: 4 })}
+        <h2 id="age-toddler">Toddler themes in the library</h2>
+        ${renderLessonCardsHtml(byAge.Toddler, { escapeHtml, limit: 4 })}
+        <h2 id="age-preschool">Preschool themes in the library</h2>
+        ${renderLessonCardsHtml(byAge.Preschool, { escapeHtml, limit: 4 })}
+        <p><a class="cta" href="${escapeHtml(signupHref())}">Create free account</a>
+        <a class="cta cta-secondary" href="/infant-lesson-plans">Browse by age</a></p>
+      </section>
+      <section class="curriculum-seo-note" aria-label="About this curriculum library">
+        <p>Browse published Infant, Toddler, and Preschool weekly plans with real themes, activities, and practical teacher guidance from the Little Learner Hub library.</p>
+      </section>`;
   }
 
   const dynamicFaq = (page.faq || []).map(([q, a]) => {
@@ -439,12 +477,29 @@ function renderHubPageBody(page, snapshot, { escapeHtml } = {}) {
       </section>`
     : "";
 
+  if (page.kind === "curriculum-hub") {
+    return {
+      bodyHtml: `
+      ${primarySection}
+      ${curriculumCreatorSection}
+      ${renderRelatedNavHtml(page, { escapeHtml })}
+      ${renderFaqHtml(dynamicFaq, { escapeHtml })}
+      <section>
+        <h2>Start with free starter lesson plans</h2>
+        <p>Create a free account to open ${helpers.counts.free} complete starter lesson plans across Infant, Toddler, and Preschool — no credit card required. Upgrade anytime for the broader library, unlimited curriculum printing and downloads, and the planning and teacher-support tools available with Pro.</p>
+        <p><a class="cta" href="${escapeHtml(signupHref())}">Create your free account</a></p>
+      </section>
+    `,
+      listItems: featuredLessons,
+      faqItems: dynamicFaq,
+    };
+  }
+
   return {
     bodyHtml: `
       <h1>${escapeHtml(page.h1)}</h1>
-      <p class="muted">${page.kind === "curriculum-hub" ? "Updated daily with practical plans for infants, toddlers, and preschoolers." : "Live from the Little Learner Hub curriculum library."}</p>
+      <p class="muted">Live from the Little Learner Hub curriculum library.</p>
       <p>${escapeHtml(page.intro)}</p>
-      ${curriculumCreatorSection}
       ${primarySection}
       ${renderRelatedNavHtml(page, { escapeHtml })}
       ${renderFaqHtml(dynamicFaq, { escapeHtml })}
