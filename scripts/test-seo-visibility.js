@@ -166,7 +166,7 @@ async function main() {
       const destination = await request("GET", canonicalPath);
       assert(destination.status === 200, `${canonicalPath} destination status ${destination.status}`);
       assert(destination.body.includes(`rel="canonical" href="http://127.0.0.1:${PORT}${canonicalPath}"`), `${canonicalPath} destination canonical incorrect`);
-      assert(destination.body.includes("<h1>"), `${canonicalPath} destination missing H1`);
+      assert(/<h1[\s>]/i.test(destination.body), `${canonicalPath} destination missing H1`);
     }
 
     for (const route of ["/about", "/features", "/faq", "/pricing", "/contact", "/how-it-works", "/privacy", "/terms", ...hubPaths]) {

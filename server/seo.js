@@ -324,6 +324,24 @@ function renderPublicPage({ title, description, canonicalPath, bodyHtml, extraSc
   const extras = Array.isArray(extraSchema) ? extraSchema : (extraSchema ? [extraSchema] : []);
   extras.filter(Boolean).forEach((node) => graph["@graph"].push(node));
   const verification = verificationMetaTags();
+  const isCurriculumLanding = /\bcurriculum-landing\b/.test(String(pageClass || ""));
+  const publicNavLinks = `<a href="/daycare-curriculum">Lesson Plans</a><a href="/childcare-activities">Activities</a><a href="/how-it-works">How It Works</a><a href="/features">Features</a><a href="/pricing">Pricing</a><a href="/about">About</a>`;
+  const siteHeaderHtml = isCurriculumLanding
+    ? `<header class="curriculum-site-header">
+        <div class="curriculum-header-bar">
+          <a class="brand" href="/">${escapeHtml(BUSINESS_NAME)}</a>
+          <details class="public-nav-menu">
+            <summary>Menu</summary>
+            <nav class="public-nav" aria-label="Public pages">${publicNavLinks}</nav>
+          </details>
+          <nav class="public-nav public-nav-desktop" aria-label="Public pages">${publicNavLinks}</nav>
+        </div>
+      </header>`
+    : `<header>
+        <a class="brand" href="/">${escapeHtml(BUSINESS_NAME)}</a>
+        <p class="muted">Online childcare lesson-planning and program-support platform</p>
+        <nav class="public-nav" aria-label="Public pages">${publicNavLinks}</nav>
+      </header>`;
   return `<!doctype html>
 <html lang="en">
   <head>
@@ -425,6 +443,38 @@ function renderPublicPage({ title, description, canonicalPath, bodyHtml, extraSc
       .about-page .about-cta-band .cta { background: #fff; color: #215f7c; }
       .about-page .about-cta-band .cta-secondary { border-color: rgba(255,255,255,0.72); background: transparent; color: #fff; }
       .about-page .about-roadmap { padding: clamp(24px, 4vw, 40px); border-radius: 22px; background: #f4f7fa; border: 1px solid #dbe3f2; }
+      .curriculum-landing .wrap { max-width: 1080px; }
+      .curriculum-landing .curriculum-site-header { margin-bottom: 16px; }
+      .curriculum-landing .curriculum-header-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+      .curriculum-landing .public-nav-menu { position: relative; }
+      .curriculum-landing .public-nav-menu > summary { list-style: none; cursor: pointer; user-select: none; padding: 8px 14px; border: 1px solid #9fc3d4; border-radius: 10px; background: #fff; color: #215f7c; font-weight: 700; }
+      .curriculum-landing .public-nav-menu > summary::-webkit-details-marker { display: none; }
+      .curriculum-landing .public-nav-menu .public-nav { position: absolute; right: 0; z-index: 5; display: grid; gap: 4px; min-width: 180px; margin-top: 8px; padding: 10px; border: 1px solid #d7e5ee; border-radius: 12px; background: #fff; box-shadow: 0 12px 28px rgba(31,42,68,0.12); }
+      .curriculum-landing .public-nav-desktop { display: none; margin-top: 0; }
+      .curriculum-landing .curriculum-hero { margin: 0 0 28px; padding: clamp(22px, 4vw, 36px); border: 1px solid #d7e5ee; border-radius: 22px; background: linear-gradient(145deg, #fff9f4 0%, #eef7fb 55%, #ffffff 100%); box-shadow: 0 14px 34px rgba(31,42,68,0.08); }
+      .curriculum-landing .curriculum-hero-copy { max-width: 640px; }
+      .curriculum-landing .curriculum-hero h1 { margin: 0 0 12px; font-size: clamp(1.85rem, 6.4vw, 2.85rem); line-height: 1.12; letter-spacing: -0.02em; color: #1a3348; }
+      .curriculum-landing .curriculum-hero-lead { margin: 0; max-width: 34rem; color: #43526b; font-size: clamp(1rem, 2.6vw, 1.12rem); }
+      .curriculum-landing .curriculum-hero-actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 18px 0 0; }
+      .curriculum-landing .curriculum-hero-actions .cta { margin: 0; min-height: 48px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; }
+      .curriculum-landing .curriculum-benefit-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0 0; padding: 0; list-style: none; }
+      .curriculum-landing .curriculum-benefit-chips li { display: inline-flex; align-items: center; padding: 8px 12px; border: 1px solid #d7e5ee; border-radius: 999px; background: rgba(255,255,255,0.92); color: #215f7c; font-size: 0.86rem; font-weight: 700; }
+      .curriculum-landing .curriculum-hero-preview { display: none; }
+      .curriculum-landing .curriculum-browse { scroll-margin-top: 18px; }
+      .curriculum-landing .curriculum-browse > h2:first-of-type { margin-top: 0.4rem; font-size: clamp(1.35rem, 3vw, 1.7rem); }
+      .curriculum-landing .curriculum-age-nav { display: flex; flex-wrap: wrap; gap: 10px; margin: 14px 0 8px; }
+      .curriculum-landing .curriculum-age-nav a { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 10px 16px; border-radius: 12px; border: 1px solid #9fc3d4; background: #fff; color: #215f7c; font-weight: 700; text-decoration: none; }
+      .curriculum-landing .curriculum-age-nav a:hover { background: #e7f2f7; }
+      .curriculum-landing #age-infant, .curriculum-landing #age-toddler, .curriculum-landing #age-preschool, .curriculum-landing #age-free { scroll-margin-top: 16px; }
+      .curriculum-landing .curriculum-seo-note { margin: 28px 0 8px; padding: 16px 18px; border-left: 4px solid #7ba8c9; border-radius: 12px; background: rgba(255,255,255,0.88); color: #4c5b71; }
+      .curriculum-landing .curriculum-seo-note p { margin: 0; }
+      @media (min-width: 900px) {
+        .curriculum-landing .curriculum-hero { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(260px, 0.85fr); gap: 28px; align-items: start; }
+        .curriculum-landing .curriculum-hero-preview { display: block; }
+        .curriculum-landing .curriculum-hero-preview .seo-card-grid { grid-template-columns: 1fr; }
+        .curriculum-landing .public-nav-menu { display: none; }
+        .curriculum-landing .public-nav-desktop { display: flex; flex-wrap: wrap; gap: 8px 14px; justify-content: flex-end; }
+      }
       @media (min-width: 601px) and (max-width: 960px) {
         .about-page .about-hero { grid-template-columns: 1fr; padding: clamp(32px, 6vw, 48px); }
         .about-page .about-portrait-wrap { width: min(100%, 320px); justify-self: center; }
@@ -446,16 +496,17 @@ function renderPublicPage({ title, description, canonicalPath, bodyHtml, extraSc
         .about-page .about-founder-badge { position: static; max-width: none; margin: 12px 0 0; }
         .about-page .about-pain-grid, .about-page .about-product-grid, .about-page .about-use-grid, .about-page .about-roadmap-grid { grid-template-columns: 1fr; }
         .about-page .about-section { margin-top: 48px; }
+        .curriculum-landing .wrap { padding: 14px 14px 48px; }
+        .curriculum-landing .curriculum-hero { padding: 22px 16px; margin-bottom: 22px; }
+        .curriculum-landing .curriculum-hero-actions { flex-direction: column; }
+        .curriculum-landing .curriculum-hero-actions .cta { width: 100%; }
+        .curriculum-landing .curriculum-benefit-chips li { font-size: 0.8rem; }
       }
     </style>
   </head>
   <body${pageClass ? ` class="${escapeHtml(pageClass)}"` : ""}>
     <div class="wrap">
-      <header>
-        <a class="brand" href="/">${escapeHtml(BUSINESS_NAME)}</a>
-        <p class="muted">Online childcare lesson-planning and program-support platform</p>
-        <nav class="public-nav" aria-label="Public pages"><a href="/daycare-curriculum">Lesson Plans</a><a href="/childcare-activities">Activities</a><a href="/how-it-works">How It Works</a><a href="/features">Features</a><a href="/pricing">Pricing</a><a href="/about">About</a></nav>
-      </header>
+      ${siteHeaderHtml}
       ${bodyHtml}
       ${skipDefaultCta ? "" : `<p><a class="cta" href="/">Open Little Learner Hub</a></p>`}
       ${renderPublicFooterHtml()}
@@ -478,6 +529,7 @@ function renderCurriculumHubPage(page) {
     bodyHtml: rendered.bodyHtml,
     extraSchema: schemas,
     skipDefaultCta: true,
+    pageClass: page.kind === "curriculum-hub" ? "curriculum-landing" : "",
   });
 }
 
