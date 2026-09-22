@@ -22,6 +22,8 @@ function sanitize(context = {}, now = Date.now()) {
     requestedExclusions: schema.asArray(context.requestedExclusions).map((v) => schema.text(v, 80)).filter(Boolean).slice(0, 20),
     imageRequirements: schema.text(context.imageRequirements, 400) || null,
     printableRequirements: schema.text(context.printableRequirements, 400) || null,
+    weeklyFieldScope: schema.asArray(context.weeklyFieldScope).map((v) => schema.text(v, 80)).filter(Boolean).slice(0, 7),
+    materialCostMode: schema.text(context.materialCostMode, 80) || null,
     researchRequested: context.researchRequested === true,
     unresolvedQuestion: schema.text(context.unresolvedQuestion, 400) || null,
     latestDraftJobId: schema.text(context.latestDraftJobId, 100) || null,
