@@ -305,6 +305,7 @@ async function buildUpgradeDraft(plan, curriculum, audit, options = {}) {
     touchSongs: options.touchSongs !== false,
     touchBooks: options.touchBooks !== false,
     command: options.command || null,
+    effectiveInstructions: options.effectiveInstructions || options.command?.effectiveInstructions || null,
     weeklyFieldScope: options.weeklyFieldScope || options.command?.actions?.weeklyFieldScope || null,
   });
 
@@ -411,6 +412,7 @@ function verifyUpgradeResult({
   intended,
   changed,
   keepSnapshots,
+  validationInput = null,
 }) {
   const checks = [];
   const pass = (ok, code, message) => checks.push({ ok: Boolean(ok), code, message });
@@ -509,6 +511,7 @@ function verifyUpgradeResult({
     checks,
     failed,
     changedCount: schema.asArray(changed).length,
+    validationInput,
   };
 }
 

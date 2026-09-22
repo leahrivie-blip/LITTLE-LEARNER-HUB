@@ -1290,6 +1290,7 @@ function createCurriculumOperatorApi(deps) {
           editedBy: sessionEmail || (phaseNum >= 6 ? "curriculum-operator-phase6" : "curriculum-operator-phase25"),
           callAi: callOperatorAi,
           command: job.command,
+          effectiveInstructions: job.command.effectiveInstructions || null,
           weeklyFieldScope: job.command?.actions?.weeklyFieldScope,
           mutationAllowlist,
         });
@@ -1390,6 +1391,21 @@ function createCurriculumOperatorApi(deps) {
             intended: built.intended,
             changed: built.changed,
             keepSnapshots: built.keepSnapshots,
+            validationInput: {
+              lessonId: plan.id,
+              lessonTitle: plan.title,
+              ageGroup: plan.age || null,
+              requestedActivities: schema.asArray(job.command?.scope?.requestedActivities),
+              operation: job.command?.intent || "upgrade",
+              weeklyFieldScope: schema.asArray(job.command?.actions?.weeklyFieldScope),
+              effectiveInstructions: job.command?.effectiveInstructions || null,
+              profileVersion: job.command?.effectiveInstructions?.profileVersion || null,
+              imageRequirements: job.command?.actions?.generateImages === true,
+              printableRequirements: job.command?.actions?.generatePrintables === true,
+              exclusions: job.command?.effectiveInstructions?.exclusions || {},
+              draftOnly: true,
+              publishDisabled: job.command?.actions?.publish !== true,
+            },
           });
           ownerReviewStatus = upgradeApi.classifyOwnerReviewStatus({
             beforeScores: before.audit.scores,
@@ -2335,6 +2351,7 @@ function createCurriculumOperatorApi(deps) {
         phase,
         lessonPlans: schema.asArray(curriculum?.lessonPlans),
         operatorContext,
+        ownerProfile: instructionProfile.read(store, session.email),
       });
       const target = parsed.command.scope?.lessonIds?.length === 1
         ? schema.asArray(curriculum?.lessonPlans).find((lesson) => lesson.id === parsed.command.scope.lessonIds[0])
@@ -2385,9 +2402,11 @@ function createCurriculumOperatorApi(deps) {
           phase,
           lessonPlans: schema.asArray(curriculum?.lessonPlans),
           operatorContext: body.operatorContext,
+          ownerProfile: instructionProfile.read(store, session.email),
         });
 
       let command = parsed.command;
+      if (parsed.effectiveInstructions) command.effectiveInstructions = parsed.effectiveInstructions;
       if (!command.rawCommand && !(command.scope.lessonIds?.length || command.scope.titles?.length)
         && !wantsCreate(command)) {
         jsonResponse(response, 400, {
@@ -2451,6 +2470,8 @@ function createCurriculumOperatorApi(deps) {
           defaultAccessPlan: inheritParent?.plan === "Pro" ? "Pro" : (parsed.ownerIntent?.inheritFromLesson?.accessPlan || "Free"),
           parentLesson: inheritParent || undefined,
           ageBand: parsed.ownerIntent?.inheritFromLesson?.ageBand || undefined,
+          lessonInstructions: parsed.effectiveInstructions?.permanentInstructions || [],
+          effectiveInstructions: parsed.effectiveInstructions || null,
         });
         if (!briefResult.ok) {
           const ageOnly = (briefResult.needsOwnerInput || []).length === 1
@@ -2779,6 +2800,10 @@ function createCurriculumOperatorApi(deps) {
         id: retry.id,
         command: {
           ...sourceJob.command,
+          effectiveInstructions: require("../scripts/curriculum-operator-effective-instructions.js").buildEffectiveInstructions({
+            rawCommand: sourceJob.command?.rawCommand || "",
+            profile: instructionProfile.read(store, session.email),
+          }),
           actions: {
             ...sourceJob.command.actions,
             upgradeLesson: false,

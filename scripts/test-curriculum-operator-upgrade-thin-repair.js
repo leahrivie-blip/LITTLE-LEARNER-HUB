@@ -146,9 +146,38 @@ async function main() {
     intended: upgrade.intended,
     changed: upgrade.changed,
     keepSnapshots: upgrade.keepSnapshots,
+    validationInput: {
+      lessonId: LESSON_ID,
+      lessonTitle: plan.title,
+      ageGroup: plan.age,
+      requestedActivities: ["Mirror faces", "Movement game"],
+      operation: "update_one_lesson",
+      weeklyFieldScope: ["monday"],
+      effectiveInstructions: { materials: { mode: "standard_with_alternatives" } },
+      profileVersion: 3,
+      imageRequirements: true,
+      printableRequirements: true,
+      exclusions: { cover: true },
+      draftOnly: true,
+      publishDisabled: true,
+    },
   });
   ok(verify.ok, "verifyUpgradeResult passes");
   ok(verify.checks.every((c) => c.code !== "lesson_id" || c.ok), "lesson ID stable");
+  ok(verify.validationInput.lessonId === LESSON_ID, "validation input retains lesson ID");
+  ok(verify.validationInput.weeklyFieldScope.includes("monday"), "validation input retains Monday scope");
+  ok(verify.validationInput.effectiveInstructions.materials.mode === "standard_with_alternatives", "validation input retains effective instructions");
+
+  const failedVerification = upgradeApi.verifyUpgradeResult({
+    beforePlan: plan,
+    afterPlan: { ...afterPlan, id: "wrong-lesson" },
+    intended: upgrade.intended,
+    changed: upgrade.changed,
+    keepSnapshots: upgrade.keepSnapshots,
+    validationInput: verify.validationInput,
+  });
+  ok(!failedVerification.ok, "validation failure is reported");
+  ok(failedVerification.validationInput === verify.validationInput, "validation failure retains typed validation input");
 
   aiCalls = 0;
   const failRepairAi = async (system, user) => {
