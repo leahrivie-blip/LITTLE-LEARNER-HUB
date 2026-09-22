@@ -46,6 +46,19 @@ assert.ok(restored.requestedActivities.includes("movement activities"), "movemen
 assert.equal(restored.currentOperation, "update_one_lesson", "operation restores");
 assert.equal(conversation.summarizeConversationContext(restored).messageCount, 14, "context summary counts history");
 
+const materialCorrection = conversation.parseSemanticCorrection(
+  "No, keep the normal materials and add cheaper alternatives.",
+);
+assert.equal(materialCorrection.type, "materials", "semantic material correction is classified");
+assert.equal(materialCorrection.replacementValue, "standard_with_alternatives", "material correction retains normal materials");
+const corrected = conversation.applySemanticCorrection(restored, materialCorrection);
+assert.equal(corrected.materialCostMode, "standard_with_alternatives", "material correction updates temporary context");
+const mondayCorrection = conversation.parseSemanticCorrection("Keep the cover and only update Monday.");
+const monday = conversation.applySemanticCorrection(corrected, mondayCorrection);
+assert.ok(monday.requestedExclusions.includes("cover") || restored.requestedExclusions.includes("cover"), "cover correction remains excluded");
+const undo = conversation.parseSemanticCorrection("Undo the last interpretation.");
+assert.match(undo.responseText, /cannot undo saved lesson data/i, "undo never pretends to mutate saved data");
+
 const merged = conversation.mergeFollowUpCommand(restored, { scope: { lessonIds: [] }, actions: { publish: false } });
 assert.deepEqual(merged.scope.lessonIds, [lessonId], "follow-up inherits one trusted lesson");
 assert.equal(merged.actions.publish, false, "follow-up remains unpublished");

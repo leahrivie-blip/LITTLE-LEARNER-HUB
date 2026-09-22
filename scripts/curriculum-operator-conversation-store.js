@@ -121,6 +121,64 @@ function applyConversationCorrections(context = {}, rawText = "") {
   return { ...context, corrections: [...schema.asArray(context.corrections), correction].slice(-12) };
 }
 
+function parseSemanticCorrection(rawText = "") {
+  const raw = schema.text(rawText, 1000);
+  const lower = raw.toLowerCase();
+  const base = {
+    type: "none", affectedTarget: null, affectedOperation: null, replacementValue: null,
+    scope: "current_conversation", confidence: 0, clarificationRequired: false, responseText: null,
+  };
+  if (/undo (the )?last/i.test(raw)) return {
+    ...base, type: "undo", confidence: 1,
+    responseText: "I can remember that correction, but I cannot undo saved lesson data yet. Nothing has been changed.",
+  };
+  if (/start over.*new lesson/i.test(raw)) return {
+    ...base, type: "start_over", scope: "one_time", confidence: 1,
+    responseText: "Got it. I cleared this temporary conversation and will start with the new lesson request.",
+  };
+  if (/\bremember\b|save (that|this) (permanently|for future)/i.test(raw)) return {
+    ...base, type: "profile_request", scope: "permanent_profile", confidence: 1,
+    responseText: "I’ll use that for this lesson only. If you want it saved for future lessons, confirm that you want to update your permanent instructions.",
+  };
+  if (/toddler lesson|the toddler one/i.test(lower)) return {
+    ...base, type: "target", affectedTarget: "toddler", replacementValue: "toddler", confidence: 0.9,
+    responseText: "Got it. You meant the Toddler lesson. I corrected the target and kept the rest of your instructions.",
+  };
+  if (/other big feelings/i.test(lower)) return {
+    ...base, type: "target", affectedTarget: "other_big_feelings", replacementValue: "other_big_feelings", confidence: 0.7,
+    clarificationRequired: true,
+    responseText: "I found two lessons that could match your request. Which one should I use?",
+  };
+  if (/cheaper alternatives|normal materials too/i.test(lower)) return {
+    ...base, type: "materials", affectedOperation: "materials", replacementValue: "standard_with_alternatives", confidence: 1,
+    responseText: "Got it. I’ll keep the normal materials and add cheaper alternatives instead of replacing them.",
+  };
+  if (/only update monday|only do monday/i.test(lower)) return {
+    ...base, type: "weekly_scope", replacementValue: "monday", confidence: 1,
+    responseText: "Got it. I’ll update Monday only. The cover and the rest of the week will remain unchanged.",
+  };
+  if (/cover/i.test(lower) && /keep|do not change|leave/i.test(lower)) return {
+    ...base, type: "exclusion", replacementValue: "cover", confidence: 1,
+    responseText: "Got it. I’ll leave the cover unchanged.",
+  };
+  if (/failed picture/i.test(lower)) return {
+    ...base, type: "asset_retry", affectedOperation: "images", replacementValue: "failed_only", confidence: 1,
+    responseText: "Got it. I’ll only retry the failed picture; successful assets will remain unchanged.",
+  };
+  return base;
+}
+
+function applySemanticCorrection(context = {}, correction = {}) {
+  const next = { ...context, corrections: [...schema.asArray(context.corrections)] };
+  if (correction.type === "exclusion" && correction.replacementValue) {
+    next.requestedExclusions = [...new Set([...schema.asArray(context.requestedExclusions), correction.replacementValue])];
+  }
+  if (correction.type === "weekly_scope") next.weeklyFieldScope = [correction.replacementValue];
+  if (correction.type === "materials") next.materialCostMode = correction.replacementValue;
+  if (correction.type !== "none") next.corrections.push(correction.responseText || correction.type);
+  return next;
+}
+
 function clearTemporaryConversation(store, ownerId, sessionId) {
   clear(store, ownerId, sessionId);
 }
@@ -140,5 +198,6 @@ module.exports = {
   TTL_MS, key, sanitize, read, save, clear, sanitizeMessage,
   loadConversationContext, appendConversationMessage, mergeFollowUpCommand,
   resolveConversationReferences, applyConversationCorrections,
+  parseSemanticCorrection, applySemanticCorrection,
   clearTemporaryConversation, summarizeConversationContext,
 };
