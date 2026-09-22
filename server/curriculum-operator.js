@@ -1391,21 +1391,10 @@ function createCurriculumOperatorApi(deps) {
             intended: built.intended,
             changed: built.changed,
             keepSnapshots: built.keepSnapshots,
-            validationInput: {
-              lessonId: plan.id,
-              lessonTitle: plan.title,
-              ageGroup: plan.age || null,
-              requestedActivities: schema.asArray(job.command?.scope?.requestedActivities),
-              operation: job.command?.intent || "upgrade",
-              weeklyFieldScope: schema.asArray(job.command?.actions?.weeklyFieldScope),
-              effectiveInstructions: job.command?.effectiveInstructions || null,
-              profileVersion: job.command?.effectiveInstructions?.profileVersion || null,
-              imageRequirements: job.command?.actions?.generateImages === true,
-              printableRequirements: job.command?.actions?.generatePrintables === true,
-              exclusions: job.command?.effectiveInstructions?.exclusions || {},
-              draftOnly: true,
-              publishDisabled: job.command?.actions?.publish !== true,
-            },
+            validationInput: upgradeApi.buildExistingLessonValidationInput({
+              plan,
+              command: job.command,
+            }),
           });
           ownerReviewStatus = upgradeApi.classifyOwnerReviewStatus({
             beforeScores: before.audit.scores,

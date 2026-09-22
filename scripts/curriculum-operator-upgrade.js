@@ -515,6 +515,26 @@ function verifyUpgradeResult({
   };
 }
 
+function buildExistingLessonValidationInput({ plan = {}, command = {} } = {}) {
+  const actions = command.actions || {};
+  const effectiveInstructions = command.effectiveInstructions || null;
+  return {
+    lessonId: plan.id || null,
+    lessonTitle: plan.title || null,
+    ageGroup: plan.age || null,
+    requestedActivities: schema.asArray(command.scope?.requestedActivities),
+    operation: command.intent || "upgrade",
+    weeklyFieldScope: schema.asArray(actions.weeklyFieldScope),
+    effectiveInstructions,
+    profileVersion: effectiveInstructions?.profileVersion || null,
+    imageRequirements: actions.generateImages === true,
+    printableRequirements: actions.generatePrintables === true,
+    exclusions: effectiveInstructions?.exclusions || {},
+    draftOnly: true,
+    publishDisabled: actions.publish !== true,
+  };
+}
+
 function classifyOwnerReviewStatus({ beforeScores, afterScores, verification, blockers }) {
   if (!verification?.ok) return "BLOCKED";
   const blocking = schema.asArray(blockers).length > 0 || afterScores?.blocksPublish === true;
@@ -533,6 +553,7 @@ function classifyOwnerReviewStatus({ beforeScores, afterScores, verification, bl
 module.exports = {
   buildUpgradeDraft,
   verifyUpgradeResult,
+  buildExistingLessonValidationInput,
   classifyOwnerReviewStatus,
   shouldWriteField,
   snapshotKeepFields,

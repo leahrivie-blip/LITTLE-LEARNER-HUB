@@ -140,33 +140,39 @@ async function main() {
     ...plan,
     enrichmentDraft: upgrade.enrichmentDraft,
   };
+  const validationInput = upgradeApi.buildExistingLessonValidationInput({
+    plan,
+    command: {
+      intent: "update_one_lesson",
+      scope: { requestedActivities: ["Mirror faces", "Movement game"] },
+      actions: { weeklyFieldScope: ["monday"], generateImages: true, generatePrintables: true, publish: false },
+      effectiveInstructions: {
+        profileVersion: 3,
+        materials: { mode: "standard_with_alternatives" },
+        exclusions: { cover: true },
+      },
+    },
+  });
   const verify = upgradeApi.verifyUpgradeResult({
     beforePlan: plan,
     afterPlan,
     intended: upgrade.intended,
     changed: upgrade.changed,
     keepSnapshots: upgrade.keepSnapshots,
-    validationInput: {
-      lessonId: LESSON_ID,
-      lessonTitle: plan.title,
-      ageGroup: plan.age,
-      requestedActivities: ["Mirror faces", "Movement game"],
-      operation: "update_one_lesson",
-      weeklyFieldScope: ["monday"],
-      effectiveInstructions: { materials: { mode: "standard_with_alternatives" } },
-      profileVersion: 3,
-      imageRequirements: true,
-      printableRequirements: true,
-      exclusions: { cover: true },
-      draftOnly: true,
-      publishDisabled: true,
-    },
+    validationInput,
   });
   ok(verify.ok, "verifyUpgradeResult passes");
   ok(verify.checks.every((c) => c.code !== "lesson_id" || c.ok), "lesson ID stable");
   ok(verify.validationInput.lessonId === LESSON_ID, "validation input retains lesson ID");
+  ok(verify.validationInput.ageGroup === plan.age, "validation input retains age group");
+  ok(verify.validationInput.requestedActivities.includes("Mirror faces"), "validation input retains requested activities");
+  ok(verify.validationInput.operation === "update_one_lesson", "validation input retains operation");
   ok(verify.validationInput.weeklyFieldScope.includes("monday"), "validation input retains Monday scope");
   ok(verify.validationInput.effectiveInstructions.materials.mode === "standard_with_alternatives", "validation input retains effective instructions");
+  ok(verify.validationInput.profileVersion === 3, "validation input retains profile version");
+  ok(verify.validationInput.imageRequirements && verify.validationInput.printableRequirements, "validation input retains asset requirements");
+  ok(verify.validationInput.exclusions.cover, "validation input retains exclusions");
+  ok(verify.validationInput.draftOnly && verify.validationInput.publishDisabled, "validation input retains safety status");
 
   const failedVerification = upgradeApi.verifyUpgradeResult({
     beforePlan: plan,
