@@ -343,6 +343,10 @@
     const review = lr.ownerReviewStatus || "AUDIT_ONLY";
     const changed = Array.isArray(lr.updated) ? lr.updated : [];
     const kept = Array.isArray(lr.kept) ? lr.kept : [];
+    const failedAssets = [
+      ...(Array.isArray(lr.imageActions) ? lr.imageActions.map((a) => ({ ...a, assetType: "image" })) : []),
+      ...(Array.isArray(lr.printableActions) ? lr.printableActions.map((a) => ({ ...a, assetType: "printable" })) : []),
+    ].filter((asset) => asset.status === "failed" && asset.retryable !== false && asset.approved !== true);
     return `<article class="co-lesson-card">
       <header class="co-lesson-card-head">
         <div>
@@ -442,6 +446,13 @@
           : "<p class=\"muted-copy\">None listed</p>"}
       </section>
       ${renderOwnerReviewPanel(lr)}
+      ${failedAssets.length ? `
+      <section>
+        <h5>Failed assets</h5>
+        <ul>${failedAssets.map((asset) => `<li>${esc(asset.assetType)} · ${esc(asset.activityTitle || asset.activityId || asset.idempotencyKey)}
+          — ${esc(asset.error || "Failed")} · retry ${esc(asset.retryCount || 0)}</li>`).join("")}</ul>
+        <button type="button" class="ghost-button" data-co-retry-assets="${esc((lr.audit || a)?.lessonId || lr.lessonId)}">Retry failed assets only</button>
+      </section>` : ""}
       ${review === "READY_FOR_OWNER_REVIEW" ? "" : `
       <div class="account-actions-row">
         <button type="button" class="ghost-button" data-co-open-lesson="${esc((lr.audit || a)?.lessonId || lr.lessonId)}">Open in Enrichment Editor</button>
@@ -695,6 +706,9 @@
         details?.scrollIntoView({ behavior: "smooth", block: "nearest" });
       });
     });
+    el.querySelectorAll("[data-co-retry-assets]").forEach((btn) => {
+      btn.addEventListener("click", () => void onRetryFailedAssets(btn.getAttribute("data-co-retry-assets")));
+    });
     el.querySelectorAll("[data-co-publish-lesson]").forEach((btn) => {
       btn.addEventListener("click", () => void onOpenPublishConfirm(btn.getAttribute("data-co-publish-lesson")));
     });
@@ -784,6 +798,42 @@
       state.message = "Started a new conversation locally. Server context could not be cleared.";
     }
     render();
+  }
+
+  async function onRetryFailedAssets(lessonId) {
+    const lr = (state.job?.lessonResults || []).find((row) => row.lessonId === lessonId || row.audit?.lessonId === lessonId);
+    const selected = [
+      ...(lr?.imageActions || []).filter((asset) => asset.status === "failed" && asset.retryable !== false)
+        .map((asset) => ({ type: "image", id: asset.idempotencyKey })),
+      ...(lr?.printableActions || []).filter((asset) => asset.status === "failed" && asset.retryable !== false)
+        .map((asset) => ({ type: "printable", id: asset.idempotencyKey })),
+    ];
+    if (!selected.length || !state.job?.id) return;
+    if (!global.confirm(`Retry ${selected.length} failed asset(s) only? Lesson text, cover, and successful assets will not change.`)) return;
+    state.busy = true;
+    render();
+    try {
+      const ownerId = String(typeof adminSession === "function" ? adminSession()?.email : "").toLowerCase();
+      const result = await api("retry_failed_assets", {
+        ownerId,
+        sourceJobId: state.job.id,
+        lessonId,
+        selectedAssetIds: selected.map((asset) => asset.id),
+        selectedAssetTypes: [...new Set(selected.map((asset) => asset.type))],
+        retryKey: `retry_${state.job.id}_${lessonId}_${Date.now()}`,
+        retryReason: "Owner requested failed assets only",
+        ownerAuthorization: true,
+      });
+      state.message = result.retry?.status === "completed"
+        ? "Selected failed assets retried. Review the draft; nothing was published."
+        : "Asset retry completed with remaining failures. Review the failed-assets list.";
+    } catch (error) {
+      state.isError = true;
+      state.message = error.message || "Failed-asset retry was not started.";
+    } finally {
+      state.busy = false;
+      render();
+    }
   }
 
   async function onParse() {
