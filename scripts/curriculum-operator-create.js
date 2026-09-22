@@ -11,6 +11,7 @@ const schema = require("./curriculum-operator-schema.js");
 const structurePaste = require("./curriculum-lesson-structure-paste.js");
 const orchestrator = require("./curriculum-operator-orchestrator.js");
 const printableAgeBand = require("./curriculum-operator-printable-age-band.js");
+const instructionProfile = require("./curriculum-operator-instruction-profile.js");
 const intentRouter = require("./curriculum-operator-intent-router.js");
 
 const WEEKDAYS = Object.freeze(["monday", "tuesday", "wednesday", "thursday", "friday"]);
@@ -102,6 +103,7 @@ function parseCreationBrief(rawCommand, options = {}) {
     ? schema.clampInt(countMatch[1], 4, 24, null)
     : (ageBand ? defaultActivityTarget(ageBand) : null);
   const requestedActivities = extractRequestedActivities(raw);
+  const materialCostMode = instructionProfile.resolveMaterialCostMode(raw, options.lessonInstructions || []);
 
   let title = "";
   const quoted = raw.match(/[“"]([^”"]{2,120})[”"]/);
@@ -142,6 +144,7 @@ function parseCreationBrief(rawCommand, options = {}) {
     accessPlan,
     activityTarget: activityTarget || (ageBand ? defaultActivityTarget(ageBand) : 12),
     requestedActivities,
+    materialCostMode,
     teachingGoals: [],
     requestedFeatures: {
       songs: exclusions.flags.touchSongs !== false && !exclusions.flags.textOnly,
