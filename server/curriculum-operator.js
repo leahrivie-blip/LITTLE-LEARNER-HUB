@@ -28,6 +28,7 @@ const executionScopeApi = require("../scripts/curriculum-operator-execution-scop
 const vocabSurgicalApi = require("../scripts/curriculum-operator-vocab-surgical-apply.js");
 const conversationStore = require("../scripts/curriculum-operator-conversation-store.js");
 const assetRetryApi = require("../scripts/curriculum-operator-asset-retry.js");
+const instructionProfile = require("../scripts/curriculum-operator-instruction-profile.js");
 
 const ACTIONS = Object.freeze([
   "parse",
@@ -42,6 +43,8 @@ const ACTIONS = Object.freeze([
   "context_get",
   "context_clear",
   "retry_failed_assets",
+  "profile_get",
+  "profile_save",
 ]);
 
 function createCurriculumOperatorApi(deps) {
@@ -2197,6 +2200,20 @@ function createCurriculumOperatorApi(deps) {
         await writeStoreAsync(store);
       }
       jsonResponse(response, 200, { ok: true, action, context: null });
+      return;
+    }
+    if (action === "profile_get") {
+      jsonResponse(response, 200, { ok: true, action, profile: instructionProfile.read(store, session.email) });
+      return;
+    }
+    if (action === "profile_save") {
+      if (body.ownerAuthorization !== true) {
+        jsonResponse(response, 409, { ok: false, code: "profile_owner_confirmation_required" });
+        return;
+      }
+      const profile = instructionProfile.save(store, session.email, body.instructions, body.corrections);
+      await writeStoreAsync(store);
+      jsonResponse(response, 200, { ok: true, action, profile });
       return;
     }
 
