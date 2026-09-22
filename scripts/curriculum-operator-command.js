@@ -75,6 +75,15 @@ function parseOperatorCommand(rawCommand, options = {}) {
     currentlySelectedLessonId: options.currentlySelectedLessonId,
     lessonPlans: options.lessonPlans || [],
   });
+  const requestedTargetCount = [
+    intentRouter.NATURAL_INTENTS.UPDATE_ONE_LESSON,
+    intentRouter.NATURAL_INTENTS.ACTIVITY_ONLY_UPDATE,
+    intentRouter.NATURAL_INTENTS.IMAGE_ONLY_UPDATE,
+    intentRouter.NATURAL_INTENTS.PRINTABLE_ONLY_UPDATE,
+    intentRouter.NATURAL_INTENTS.RESEARCH_AND_UPDATE,
+    intentRouter.NATURAL_INTENTS.CREATE_LESSON,
+    intentRouter.NATURAL_INTENTS.RESEARCH_AND_CREATE,
+  ].includes(ownerIntent.naturalIntent) ? 1 : null;
   if (ownerIntent.lessonReference.titles.length) {
     titles = commandSafety.sanitizeLessonTitles(
       [...new Set([...titles, ...ownerIntent.lessonReference.titles])],
@@ -489,6 +498,7 @@ function parseOperatorCommand(rawCommand, options = {}) {
     command: { actions, scope: { lessonIds, titles } },
     explicitLessonIds,
     resolvedLessonIds: lessonIds,
+    requestedTargetCount,
     confirmReasons,
   });
   safety.reasons.forEach((reason) => confirmReasons.push(reason));
@@ -516,6 +526,7 @@ function parseOperatorCommand(rawCommand, options = {}) {
       updatedSince,
       currentlySelectedLessonId: options.currentlySelectedLessonId || null,
       requireExplicitIdsIfAmbiguous: true,
+      requestedTargetCount,
     },
     actions,
     limits: {
@@ -539,6 +550,7 @@ function parseOperatorCommand(rawCommand, options = {}) {
     command,
     ownerIntent: {
       route: ownerIntent.route,
+      naturalIntent: ownerIntent.naturalIntent,
       assetCategory: ownerIntent.assetCategory,
       existingLessonIntent: ownerIntent.existingLessonIntent,
       newLessonIntent: ownerIntent.newLessonIntent,
@@ -559,13 +571,13 @@ function parseOperatorCommand(rawCommand, options = {}) {
     phase2Executable: phase >= 2,
     mutationsStripped: !command.completion.mutationsEnabled,
   };
-  return semanticInterpret.applyToParsedResult(parsed, {
+  return intentRouter.applyPostSemanticSafety(semanticInterpret.applyToParsedResult(parsed, {
     phase,
     lessonPlans: options.lessonPlans || [],
     currentlySelectedLessonId: options.currentlySelectedLessonId || null,
     operatorContext: options.operatorContext || null,
     rawCommand: raw,
-  });
+  }), ownerIntent);
 }
 
 module.exports = {

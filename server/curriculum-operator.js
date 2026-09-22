@@ -2478,6 +2478,21 @@ function createCurriculumOperatorApi(deps) {
         }
       }
 
+      const targetCountValidation = executionScopeApi.validateResolvedTargetCount(command, selection.selected);
+      if (!targetCountValidation.ok) {
+        jsonResponse(response, 409, {
+          ok: false,
+          code: targetCountValidation.code,
+          error: `${targetCountValidation.message} No job was created.`,
+          targetCountValidation,
+          command,
+          selection,
+          needsConfirmation: false,
+          runBlocked: true,
+        });
+        return;
+      }
+
       if (selection.selected.length > command.limits.hardMaxLessons) {
         jsonResponse(response, 409, {
           ok: false,
