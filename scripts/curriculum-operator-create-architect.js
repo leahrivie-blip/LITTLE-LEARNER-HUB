@@ -102,6 +102,7 @@ function buildArchitectUserPrompt(brief, { revisionIssues, previousContent, prev
       exclusions: brief.exclusions || {},
       requestedFeatures: brief.requestedFeatures || {},
       requestedActivities: schema.asArray(brief.requestedActivities).slice(0, 24),
+      materialCostMode: brief.materialCostMode || { requested: false, source: "default", preserveStandardMaterials: false },
       researchRequested: brief.researchRequested === true,
       coverRequested: brief.coverRequested === true,
     },
@@ -183,6 +184,9 @@ function buildArchitectUserPrompt(brief, { revisionIssues, previousContent, prev
       "Every activity must include dayOfWeek from requiredWeekdays (lowercase in JSON: monday…friday).",
       "All five weekdays must be represented when activityTarget >= 5.",
       "No near-duplicate activity concepts.",
+      brief.materialCostMode?.requested
+        ? "Use normal activity-appropriate materials first when useful, then add clearly labeled low-cost alternatives without reducing safety or developmental quality."
+        : "Choose activity-appropriate materials; do not describe the lesson as budget-friendly or add cheaper substitutions unless requested.",
       ...(schema.asArray(brief.requestedActivities).length
         ? ["Include every requestedActivities item as a complete activity; do not replace it with an unrelated activity."]
         : []),

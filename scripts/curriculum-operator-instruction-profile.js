@@ -5,7 +5,7 @@ const schema = require("./curriculum-operator-schema.js");
 const DEFAULT_INSTRUCTIONS = Object.freeze([
   "Use realistic exact-activity photos, never cartoons.",
   "Complete Teaching Kits include objectives, materials, prep, setup, steps, questions, observations, safety, cleanup, indoor/outdoor alternatives, tips, substitutions, support, challenge, mixed-age adaptations, and vocabulary.",
-  "Use low-cost practical materials and matching printables.",
+  "Budget-friendly materials are used only when requested. Normal lessons use the materials that best fit the activity.",
   "Preserve strong existing content; do not rewrite everything unnecessarily.",
   "Do not change covers unless explicitly requested.",
   "Keep all AI work as a draft for owner review. Never auto-publish.",
@@ -50,4 +50,15 @@ function parseInstructionCommand(raw) {
   return { type: "none" };
 }
 
-module.exports = { DEFAULT_INSTRUCTIONS, read, save, parseInstructionCommand };
+function resolveMaterialCostMode(raw, lessonInstructions = []) {
+  const command = schema.text(raw, 4000);
+  const explicitLowCost = /\b(?:cheap|low[\s-]?cost|affordable|budget[\s-]?friendly|dollar\s+tree|inexpensive|common household|limited supplies|cheaper alternatives?|substitutions?)\b/i.test(command);
+  const rememberedLowCost = schema.asArray(lessonInstructions).some((instruction) => /\b(?:always\s+)?(?:cheap|low[\s-]?cost|affordable|budget[\s-]?friendly|dollar\s+tree|limited supplies)\b/i.test(String(instruction)));
+  return {
+    requested: explicitLowCost || rememberedLowCost,
+    source: explicitLowCost ? "current_request" : (rememberedLowCost ? "lesson_instruction" : "default"),
+    preserveStandardMaterials: /\b(?:substitutions?|alternatives?)\b/i.test(command),
+  };
+}
+
+module.exports = { DEFAULT_INSTRUCTIONS, read, save, parseInstructionCommand, resolveMaterialCostMode };
