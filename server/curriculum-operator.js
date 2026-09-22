@@ -26,6 +26,7 @@ const printableAgeBand = require("../scripts/curriculum-operator-printable-age-b
 const allowlistApi = require("../scripts/curriculum-operator-mutation-allowlist.js");
 const executionScopeApi = require("../scripts/curriculum-operator-execution-scope.js");
 const vocabSurgicalApi = require("../scripts/curriculum-operator-vocab-surgical-apply.js");
+const conversationStore = require("../scripts/curriculum-operator-conversation-store.js");
 
 const ACTIONS = Object.freeze([
   "parse",
@@ -37,6 +38,8 @@ const ACTIONS = Object.freeze([
   "get",
   "resume",
   "cancel",
+  "context_get",
+  "context_clear",
 ]);
 
 function createCurriculumOperatorApi(deps) {
@@ -2175,6 +2178,23 @@ function createCurriculumOperatorApi(deps) {
       jsonResponse(response, 400, { error: "Unknown operator action.", code: "unknown_action", actions: ACTIONS });
       return;
     }
+    const operatorSessionId = schema.text(body.operatorSessionId, 100);
+    if (action === "context_get") {
+      jsonResponse(response, 200, {
+        ok: true,
+        action,
+        context: operatorSessionId ? conversationStore.read(store, session.email, operatorSessionId) : null,
+      });
+      return;
+    }
+    if (action === "context_clear") {
+      if (operatorSessionId) {
+        conversationStore.clear(store, session.email, operatorSessionId);
+        await writeStoreAsync(store);
+      }
+      jsonResponse(response, 200, { ok: true, action, context: null });
+      return;
+    }
 
     const phase = schema.clampInt(body.phase, 1, 8, 7);
     const curriculum = typeof readSiteCurriculum === "function"
@@ -2283,10 +2303,32 @@ function createCurriculumOperatorApi(deps) {
         lessonPlans: schema.asArray(curriculum?.lessonPlans),
         operatorContext: body.operatorContext,
       });
+      const target = parsed.command.scope?.lessonIds?.length === 1
+        ? schema.asArray(curriculum?.lessonPlans).find((lesson) => lesson.id === parsed.command.scope.lessonIds[0])
+        : null;
+      const nextContext = parsed.interpretation?.nextContext || {};
+      const context = operatorSessionId
+        ? conversationStore.save(store, {
+          ownerId: session.email,
+          sessionId: operatorSessionId,
+          currentLessonId: target?.id || nextContext.previousResolvedTargets?.[0] || null,
+          currentLessonTitle: target?.title || null,
+          ageGroup: target?.age || parsed.command.scope?.ageBand || null,
+          currentOperation: parsed.command.intent,
+          requestedActivities: parsed.command.scope?.requestedActivities || [],
+          requestedExclusions: nextContext.previousExclusions || [],
+          imageRequirements: parsed.command.actions?.generateImages ? "requested" : null,
+          printableRequirements: parsed.command.actions?.generatePrintables ? "requested" : null,
+          researchRequested: createApi.parseCreationBrief(parsed.command.rawCommand || "").brief.researchRequested,
+          unresolvedQuestion: parsed.needsConfirmation ? (parsed.confirmReasons || [])[0] || null : null,
+          latestDraftJobId: body.latestDraftJobId || null,
+        }) : null;
+      if (context) await writeStoreAsync(store);
       jsonResponse(response, 200, {
         ok: true,
         action,
         ...parsed,
+        conversationContext: context,
         publishEnabled: false,
         aiHealth: require("../scripts/curriculum-operator-ai-transport.js").summarizeAiHealth({
           configured: openAiConfigured === true,
