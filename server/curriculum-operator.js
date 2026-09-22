@@ -2297,11 +2297,23 @@ function createCurriculumOperatorApi(deps) {
     }
 
     if (action === "parse") {
+      const storedConversation = operatorSessionId
+        ? conversationStore.read(store, session.email, operatorSessionId)
+        : null;
+      const operatorContext = body.operatorContext && typeof body.operatorContext === "object"
+        ? body.operatorContext
+        : (storedConversation?.currentLessonId
+          ? {
+            previousIntent: storedConversation.currentOperation || "",
+            previousResolvedTargets: [storedConversation.currentLessonId],
+            previousExclusions: storedConversation.requestedExclusions || [],
+          }
+          : null);
       const parsed = commandApi.parseOperatorCommand(body.command || body.rawCommand || "", {
         currentlySelectedLessonId: body.currentlySelectedLessonId,
         phase,
         lessonPlans: schema.asArray(curriculum?.lessonPlans),
-        operatorContext: body.operatorContext,
+        operatorContext,
       });
       const target = parsed.command.scope?.lessonIds?.length === 1
         ? schema.asArray(curriculum?.lessonPlans).find((lesson) => lesson.id === parsed.command.scope.lessonIds[0])

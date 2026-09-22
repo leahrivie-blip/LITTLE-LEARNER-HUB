@@ -192,6 +192,16 @@ function parseUnique(raw) {
     "refresh restores same-owner conversation context");
   assert.equal(conversationStore.read(store, "other@example.test", "session-a", now + 1), null,
     "conversation context is isolated by owner");
+  const explicitTarget = commandApi.parseOperatorCommand("Update Healthy Me.", {
+    phase: 7,
+    lessonPlans: plans,
+    operatorContext: {
+      previousResolvedTargets: [TODDLER_ID],
+      previousIntent: "finish_full_kit",
+    },
+  });
+  assert.deepEqual(explicitTarget.command.scope.lessonIds, [OTHER_TODDLER_ID],
+    "new explicit target overrides restored conversation context");
   assert.equal(conversationStore.read(store, "leah@example.test", "session-a", now + conversationStore.TTL_MS + 1), null,
     "stale conversation context expires");
   conversationStore.clear(store, "leah@example.test", "session-a");
