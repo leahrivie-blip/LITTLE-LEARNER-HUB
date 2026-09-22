@@ -68,7 +68,7 @@ async function main() {
   assert.doesNotMatch(nuoJs, /Most Popular/);
   assert.doesNotMatch(gfJs, /Founding or Pro access/);
   assert.match(gfJs, /require Pro access/);
-  assert.match(indexHtml, /new-user-onboarding\.js\?v=20260804-free-ux-phase2-r1/);
+  assert.match(indexHtml, /new-user-onboarding\.js\?v=20260922-welcome-message-r1/);
   assert.match(indexHtml, /id="demoAccountButton"[^>]*hidden/);
   assert.match(indexHtml, /id="familyHubSettingsCard"[^>]*hidden/);
   // Curriculum Planner may show a Legacy tag in testing nav; Free onboarding itself must not.

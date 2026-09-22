@@ -52,6 +52,13 @@ function request(method, urlPath, { body = null, headers = {} } = {}) {
   });
 }
 
+function memberHeaders(email) {
+  return {
+    Authorization: `Bearer test:${email}`,
+    "X-LLH-User-Email": email,
+  };
+}
+
 async function waitForHealth() {
   for (let i = 0; i < 50; i += 1) {
     try {
@@ -101,7 +108,8 @@ async function main() {
 
   await test("module exports createOnboardingWelcome", () => {
     assert.match(moduleJs, /createOnboardingWelcome/);
-    assert.match(moduleJs, /Welcome to Little Learner Hub 💛 Here’s where to start/);
+    assert.match(moduleJs, /Welcome to Little Learner Hub!/);
+    assert.match(moduleJs, /If you have any questions at all, please ask\. I’m here to help\./);
     assert.match(moduleJs, /You’re officially a Little Learner Hub member 💛/);
     assert.match(moduleJs, /Welcome to Your Pro Trial!/);
     assert.match(moduleJs, /How’s Your Trial Going\?|How.s Your Trial Going\?/);
@@ -113,6 +121,7 @@ async function main() {
 
   await test("server wires signup + admin APIs", () => {
     assert.match(serverJs, /onboardingWelcome\.maybeDeliverOnSignup/);
+    assert.match(serverJs, /try\s*\{\s*welcomeResult = await onboardingWelcome\.maybeDeliverOnSignup/);
     assert.match(serverJs, /maybeDeliverOnTrialStart/);
     assert.match(serverJs, /maybeDeliverOnProPurchase/);
     assert.match(serverJs, /startTrialCheckinScheduler/);
@@ -153,8 +162,8 @@ async function main() {
     await test("GET admin onboarding welcome config", async () => {
       const res = await request("GET", `/api/admin/onboarding-welcome?adminToken=${adminToken}`);
       assert.equal(res.status, 200);
-      assert.equal(res.json.sequence?.inApp?.title, "Welcome to Little Learner Hub 💛 Here’s where to start");
-      assert.match(res.json.sequence?.inApp?.body || "", /Start with the lesson plans/);
+      assert.equal(res.json.sequence?.inApp?.title, "Welcome to Little Learner Hub!");
+      assert.match(res.json.sequence?.inApp?.body || "", /I can also help you come up with and plan lesson plans/);
       assert.equal(res.json.sequences?.["trial-welcome"]?.inApp?.title, "Welcome to Your Pro Trial! 🎉");
       assert.equal(res.json.sequences?.["pro-welcome"]?.inApp?.title, "You’re officially a Little Learner Hub member 💛");
       assert.ok(Array.isArray(res.json.variables));
@@ -193,8 +202,9 @@ async function main() {
     const freeEmail = `free-welcome-${Date.now()}@example.com`;
     const proEmail = `pro-welcome-${Date.now()}@example.com`;
 
-    await test("free signup triggers welcome once", async () => {
+    await test("free signup remains successful when email delivery is unavailable and creates one welcome", async () => {
       const signup = await request("POST", "/api/account/profile", {
+        headers: memberHeaders(freeEmail),
         body: {
           email: freeEmail,
           firstName: "Sam",
@@ -203,6 +213,16 @@ async function main() {
         },
       });
       assert.equal(signup.status, 200);
+
+      const conversation = await request("GET", "/api/messages/conversation", {
+        headers: memberHeaders(freeEmail),
+      });
+      assert.equal(conversation.status, 200, "new member can open the existing Messages conversation immediately");
+      assert.equal(
+        (conversation.json.messages || []).filter((message) => message.channel === "onboarding_welcome").length,
+        1,
+        "the first welcome message is available immediately after profile sync",
+      );
 
       let store = null;
       let user = null;
@@ -217,10 +237,11 @@ async function main() {
         (m) => m.toEmail === freeEmail && m.channel === "onboarding_welcome",
       );
       assert.ok(welcomeMessage, "in-app welcome message missing");
-      assert.match(welcomeMessage.body, /Start with the lesson plans|Welcome to Little Learner Hub! 💛/);
+      assert.match(welcomeMessage.body, /If you have any questions at all, please ask\. I’m here to help\./);
       assert.equal(welcomeMessage.onboardingSequenceId || "free-welcome", "free-welcome");
 
       const duplicate = await request("POST", "/api/account/profile", {
+        headers: memberHeaders(freeEmail),
         body: { email: freeEmail, firstName: "Sam", signup: true },
       });
       assert.equal(duplicate.status, 200);
@@ -244,6 +265,7 @@ async function main() {
       fs.writeFileSync(STORE, JSON.stringify(store));
 
       const signup = await request("POST", "/api/account/profile", {
+        headers: memberHeaders(proEmail),
         body: {
           email: proEmail,
           firstName: "Pro",
@@ -266,6 +288,7 @@ async function main() {
         const email = `backfill-free-${Date.now()}-${i}@example.com`;
         seeded.push(email);
         const created = await request("POST", "/api/account/profile", {
+          headers: memberHeaders(email),
           body: {
             email,
             firstName: `User${i}`,

@@ -39,14 +39,13 @@ const beforeCutoff = "2026-07-30T12:00:00.000Z";
 const afterCutoff = "2026-08-01T12:00:00.000Z";
 
 async function main() {
-await test("free welcome copy matches Teaching Kits start email", () => {
+await test("free welcome copy matches the founder welcome message", () => {
   const seq = defaultFreeWelcomeSequence();
   assert.equal(seq.contentRevision, CONTENT_REVISION);
-  assert.equal(seq.inApp.title, "Welcome to Little Learner Hub 💛 Here’s where to start");
-  assert.equal(seq.email.subject, "Welcome to Little Learner Hub 💛 Here’s where to start");
-  assert.match(seq.inApp.body, /Welcome to Little Learner Hub! 💛/);
-  assert.match(seq.inApp.body, /Start with the lesson plans/);
-  assert.match(seq.email.body, /\{\{PrimaryCta\}\}/);
+  assert.equal(seq.inApp.title, "Welcome to Little Learner Hub!");
+  assert.equal(seq.email.subject, "Welcome to Little Learner Hub!");
+  assert.match(seq.inApp.body, /Hey! Thank you so much for joining Little Learner Hub!/);
+  assert.match(seq.inApp.body, /I can also help you come up with and plan lesson plans/);
   assert.equal(seq.email.primaryCtaLabel, "Explore Lesson Plans");
   assert.equal(seq.email.primaryCtaUrl, "{{LessonsUrl}}");
   assert.equal(seq.email.secondaryCtaLabel, "");
@@ -155,8 +154,9 @@ await test("trial welcome only for new trials after cutoff", () => {
     trialEnd: "2026-08-20T12:00:00.000Z",
     subscriptionStartedAt: afterCutoff,
   };
-  assert.equal(isEligibleForTrialWelcome(oldTrial, store), false);
-  assert.equal(isEligibleForTrialWelcome(newTrial, store), true);
+  const trialNow = new Date("2026-08-05T12:00:00.000Z").getTime();
+  assert.equal(isEligibleForTrialWelcome(oldTrial, store, trialNow), false);
+  assert.equal(isEligibleForTrialWelcome(newTrial, store, trialNow), true);
 });
 
 await test("trial check-in waits a couple days and skips old trials", () => {
@@ -211,10 +211,10 @@ await test("free welcome CTA uses canonical LessonsUrl route", () => {
     { SITE_URL: "https://littlelearnershubbyleah.com", htmlEscape: (v) => String(v ?? "") },
     "email",
   );
-  assert.equal(preview.subject, "Welcome to Little Learner Hub 💛 Here’s where to start");
+  assert.equal(preview.subject, "Welcome to Little Learner Hub!");
   assert.match(preview.html, /Explore Lesson Plans/);
   assert.match(preview.html, /https:\/\/littlelearnershubbyleah\.com\/#lessons/);
-  assert.match(preview.text, /Explore Lesson Plans: https:\/\/littlelearnershubbyleah\.com\/#lessons/);
+  assert.doesNotMatch(preview.text, /Explore Lesson Plans/);
   assert.doesNotMatch(preview.html, /Upgrade to Pro/);
 });
 
@@ -259,8 +259,8 @@ await test("content revision refreshes stale stored free + paid copy", () => {
   };
   const root = ensureOnboardingWelcome(store);
   assert.equal(root.sequences["free-welcome"].contentRevision, CONTENT_REVISION);
-  assert.equal(root.sequences["free-welcome"].inApp.title, "Welcome to Little Learner Hub 💛 Here’s where to start");
-  assert.match(root.sequences["free-welcome"].inApp.body, /Start with the lesson plans/);
+  assert.equal(root.sequences["free-welcome"].inApp.title, "Welcome to Little Learner Hub!");
+  assert.match(root.sequences["free-welcome"].inApp.body, /I can also help you come up with and plan lesson plans/);
   assert.equal(root.sequences["pro-welcome"].contentRevision, CONTENT_REVISION);
   assert.equal(root.sequences["pro-welcome"].inApp.title, "You’re officially a Little Learner Hub member 💛");
   assert.match(root.sequences["pro-welcome"].inApp.body, /reply to this email/i);
@@ -395,7 +395,7 @@ await test("1) new free signup → free welcome eligible once", async () => {
   const first = await api.maybeDeliverOnSignup("newfree@example.com");
   assert.equal(first.ok, true);
   assert.equal(sends.length, 1);
-  assert.equal(sends[0].subject, "Welcome to Little Learner Hub 💛 Here’s where to start");
+  assert.equal(sends[0].subject, "Welcome to Little Learner Hub!");
   assert.equal(sends[0].replyTo, "leahrivie@gmail.com");
   assert.ok(storeRef.store.users["newfree@example.com"].onboardingWelcome.freeWelcomeSentAt);
   const again = await api.maybeDeliverOnSignup("newfree@example.com");

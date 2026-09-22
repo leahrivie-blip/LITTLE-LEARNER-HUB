@@ -4159,7 +4159,7 @@ function renderSignupPlanChooser() {
   `;
 }
 
-async function finishSignupWithPlan(planChoice) {
+async function finishSignupWithPlan(planChoice, options = {}) {
   const email = currentUser || document.querySelector("#emailInput")?.value || "";
   if (!email) {
     setFormMessage("#authMessage", "Please finish creating your account first.");
@@ -4208,7 +4208,9 @@ async function finishSignupWithPlan(planChoice) {
     window.LLHGoogleAdsFreeSignupConversion?.emitAfterFreeSignupCompletion();
     // Phase 1: onboarding welcome (experience-first) instead of Calendar upgrade card.
     if (typeof beginNewUserOnboardingAfterFreeSignup === "function") {
-      beginNewUserOnboardingAfterFreeSignup();
+      beginNewUserOnboardingAfterFreeSignup({
+        deferWelcomeMessagePrompt: Boolean(options.deferWelcomeMessagePrompt),
+      });
     } else {
       setView("calendar", { fromAuthLanding: true });
     }
@@ -75975,15 +75977,24 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
               currency: "USD",
               value: 0,
             }, registrationEventId);
+            if (finishFree) {
+              try {
+                window.NewUserOnboarding?.showWelcomeMessagePrompt?.();
+              } catch (error) {
+                console.warn("Welcome message prompt failed", error);
+              }
+            }
           }
           return Promise.all([
             runAuthSyncWithTimeout("signup membership sync", () => syncSubscriptionFromBackend(result.email)),
             runAuthSyncWithTimeout("signup child sync", () => syncChildDataFromBackend()),
             loadUserAiUsage(result.email).catch(() => {}),
           ]);
-        }).catch(() => {});
+        }).catch(() => {
+          if (finishFree) window.NewUserOnboarding?.cancelWelcomeMessagePrompt?.();
+        });
         if (finishFree) {
-          await finishSignupWithPlan("free");
+          await finishSignupWithPlan("free", { deferWelcomeMessagePrompt: true });
           trackEvent("signup_landed_free", { email: result.email, destination: "lessons" });
         }
         return;

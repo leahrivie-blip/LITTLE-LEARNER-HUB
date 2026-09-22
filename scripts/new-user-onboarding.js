@@ -227,7 +227,7 @@
   }
 
   function isOnboardingModalStep(step) {
-    return ["welcome", "free-ready", "explore", "trial-explain", "trial-cancel", "trial-success"].includes(step);
+    return ["welcome-message", "welcome", "free-ready", "explore", "trial-explain", "trial-cancel", "trial-success"].includes(step);
   }
 
   function isNewUserOnboardingActive() {
@@ -377,6 +377,20 @@
     `;
   }
 
+  function renderWelcomeMessagePrompt() {
+    return `
+      <div class="nuo-screen nuo-welcome-message">
+        <p class="nuo-emoji" aria-hidden="true">💌</p>
+        <h2 id="newUserOnboardingTitle">Welcome to Little Learner Hub!</h2>
+        <p class="nuo-lead">Thanks for joining! I sent you a welcome message with information about how I can help with lesson planning, classroom ideas, and center planning.</p>
+        <div class="nuo-actions">
+          <button type="button" class="primary-button" data-nuo-action="read-welcome-message" aria-label="Read Leah's welcome message">Read My Message</button>
+          <button type="button" class="ghost-button" data-nuo-action="maybe-later" aria-label="Close welcome message prompt">Maybe Later</button>
+        </div>
+      </div>
+    `;
+  }
+
   /** Helpful Free landing after signup already chose Free — no second Free vs Trial chooser. */
   function renderFreeReady() {
     return `
@@ -518,8 +532,12 @@
     const body = document.querySelector("#newUserOnboardingBody");
     if (!modal || !body) return;
     const state = getState();
+    modal.classList.toggle("nuo-modal--welcome-message", state.step === "welcome-message");
     let html = "";
     switch (state.step) {
+      case "welcome-message":
+        html = renderWelcomeMessagePrompt();
+        break;
       case "welcome":
         html = renderWelcome();
         break;
@@ -648,13 +666,15 @@
     return parts.join("");
   }
 
-  function beginAfterFreeSignup() {
+  function beginAfterFreeSignup({ deferWelcomeMessagePrompt = false } = {}) {
     const now = new Date().toISOString();
     const email = currentAccountEmail();
+    const prior = getState();
+    if (deferWelcomeMessagePrompt && prior.accountEmail === email && prior.welcomeMessagePromptShownAt) return;
     saveState({
       ...defaultState(),
       active: true,
-      step: "welcome",
+      step: deferWelcomeMessagePrompt ? "welcome-message" : "welcome",
       accountCreatedAt: now,
       accountEmail: email,
       completedAt: "",
@@ -676,7 +696,24 @@
     }
     track("welcome_screen_viewed", { step: "welcome" });
     goToLessonPlans({ fromAuthLanding: true, applyFreeLibraryDefaults: true });
-    window.setTimeout(() => openModal(), 40);
+    if (!deferWelcomeMessagePrompt) window.setTimeout(() => openModal(), 40);
+  }
+
+  function showWelcomeMessagePrompt() {
+    const state = getState();
+    if (!state.active || state.step !== "welcome-message" || state.welcomeMessagePromptShownAt || !currentAccountEmail()) return false;
+    updateState({ welcomeMessagePromptShownAt: new Date().toISOString() });
+    openModal();
+    window.setTimeout(() => {
+      document.querySelector('[data-nuo-action="read-welcome-message"]')?.focus?.();
+    }, 0);
+    return true;
+  }
+
+  function cancelWelcomeMessagePrompt() {
+    const state = getState();
+    if (state.step !== "welcome-message") return;
+    updateState({ step: "welcome" });
   }
 
   function finishFreePath() {
@@ -861,6 +898,17 @@
   }
 
   async function onAction(action) {
+    if (action === "read-welcome-message" || action === "maybe-later") {
+      updateState({
+        step: "welcome",
+        welcomeMessagePromptShownAt: new Date().toISOString(),
+      });
+      closeModal();
+      if (action === "read-welcome-message" && typeof global.setView === "function") {
+        global.setView("messages", { conversation: true });
+      }
+      return;
+    }
     if (action === "continue") {
       track("welcome_continue_pressed");
       const state = getState();
@@ -956,6 +1004,14 @@
     }
   }
 
+  function onDocumentKeydown(event) {
+    if (event.key !== "Escape") return;
+    const modal = modalEl();
+    if (getState().step !== "welcome-message" || !modal?.classList.contains("open")) return;
+    event.preventDefault();
+    onAction("maybe-later");
+  }
+
   function maybeResumeOnBoot() {
     const state = getState();
     if (state.fromOnboardingCheckout) return;
@@ -967,7 +1023,7 @@
     if (!email) return;
     // Only resume for the same signed-in account that started onboarding.
     if (state.accountEmail && state.accountEmail !== email) return;
-    if (state.active && isOnboardingModalStep(state.step)) {
+    if (state.active && isOnboardingModalStep(state.step) && state.step !== "welcome-message") {
       window.setTimeout(() => openModal(), 80);
     }
   }
@@ -978,6 +1034,8 @@
     DEFAULT_FEATURED_IDS,
     getState,
     beginAfterFreeSignup,
+    showWelcomeMessagePrompt,
+    cancelWelcomeMessagePrompt,
     finishFreePath,
     clearOnLogout,
     hasCompletedOnboarding,
@@ -1016,6 +1074,7 @@
   global.getOnboardingContentRecommendations = getContentRecommendations;
 
   document.addEventListener("click", onDocumentClick);
+  document.addEventListener("keydown", onDocumentKeydown);
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", maybeResumeOnBoot);
   } else {

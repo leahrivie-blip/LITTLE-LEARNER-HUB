@@ -17,7 +17,7 @@ const PRO_SEQUENCE_ID = "pro-welcome";
 const BACKFILL_CONFIRM_PHRASE = "SEND_FREE_WELCOME_BACKFILL";
 /** Only memberships started on/after this UTC time auto-receive Trial/Pro welcomes. */
 const AUTO_DELIVER_ELIGIBLE_AFTER = "2026-08-01T02:30:00.000Z";
-const CONTENT_REVISION = "20260812-teaching-kits-welcome-v1";
+const CONTENT_REVISION = "20260922-founder-welcome-v1";
 
 const TEMPLATE_VARIABLES = Object.freeze([
   { key: "FirstName", description: "User's first name (falls back to there)" },
@@ -32,50 +32,22 @@ const TEMPLATE_VARIABLES = Object.freeze([
 
 const DEFAULT_FOUNDING_SECTION_TEXT = "";
 
-const FREE_WELCOME_SUBJECT = "Welcome to Little Learner Hub 💛 Here’s where to start";
+const FREE_WELCOME_SUBJECT = "Welcome to Little Learner Hub!";
 
 const FREE_WELCOME_BODY = [
-  "Hi!",
+  "Hey! Thank you so much for joining Little Learner Hub!",
   "",
-  "Welcome to Little Learner Hub! 💛 I’m Leah, the creator behind LLH, and I’m so glad you’re here.",
+  "If you have any questions at all, please ask. I’m here to help.",
   "",
-  "I built Little Learner Hub because childcare teachers already have enough on their plates. Planning activities, finding printables, documenting learning, communicating with families, and keeping everything organized shouldn’t mean spending hours searching Pinterest or taking work home.",
+  "I can also help you come up with and plan lesson plans, create lesson ideas for your classroom, and help with planning for center use.",
   "",
-  "So, where should you start?",
+  "If there’s something you need or something you’d like to see added, feel free to message me anytime!",
   "",
-  "Start with the lesson plans. Pick an age group and find a theme your children will actually enjoy.",
-  "",
-  "We’re also upgrading lesson plans into full Teaching Kits that can include ready-to-use activities, classroom visuals, printables, materials lists, teacher guidance, and more—all organized together.",
-  "",
-  "And Little Learner Hub goes beyond curriculum.",
-  "",
-  "With the curriculum library and teacher tools, we're helping with everyday classroom work—from planning and child documentation to other time-consuming teacher tasks—and continuing to add more resources based on provider feedback.",
-  "",
-  "Your free account gives you a chance to explore Little Learner Hub and see how it fits into your day. If you find yourself wanting access to more of the plans, resources, and tools, you can upgrade whenever you're ready.",
-  "",
-  "One more thing: I actually want your feedback.",
-  "",
-  "Reply to this email and tell me the ONE thing that takes up too much of your time as a childcare teacher or provider.",
-  "",
-  "Lesson planning? Documentation? Finding activities? Parent communication? Something completely different?",
-  "",
-  "Your answers help me decide what Little Learner Hub needs next. 💛",
-  "",
-  "Welcome to LLH!",
-  "",
-  "Leah",
+  "— Leah",
   "Little Learner Hub",
 ].join("\n");
 
-/** Email body inserts {{PrimaryCta}} after the lesson-plans start tip; in-app omits the marker. */
-const FREE_WELCOME_EMAIL_BODY = FREE_WELCOME_BODY.replace(
-  "Start with the lesson plans. Pick an age group and find a theme your children will actually enjoy.",
-  [
-    "Start with the lesson plans. Pick an age group and find a theme your children will actually enjoy.",
-    "",
-    "{{PrimaryCta}}",
-  ].join("\n"),
-);
+const FREE_WELCOME_EMAIL_BODY = FREE_WELCOME_BODY;
 
 const TRIAL_WELCOME_BODY = [
   "Thanks for starting your Pro trial!",

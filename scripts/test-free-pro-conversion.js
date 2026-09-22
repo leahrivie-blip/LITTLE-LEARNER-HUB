@@ -120,7 +120,7 @@ test("cache bust versions aligned", () => {
   assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260904-staff-rolelabel-r1");
   assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260904-staff-rolelabel-r1");
   assert.match(sw, /llh-shell-v212-free-11-r1/);
-  assert.match(sw, /new-user-onboarding\.js\?v=20260803-nuo-onboarding-r4/);
+  assert.match(sw, /new-user-onboarding\.js\?v=20260922-welcome-message-r1/);
   assert.match(sw, /free-curriculum-sample\.js\?v=20260919-free-11-r1/);
   assert.match(sw, /trial-curriculum-exports\.js\?v=20260919-free-11-r1/);
   assert.match(sw, /free-plan-grandfathering\.js\?v=20260919-free-11-r1/);

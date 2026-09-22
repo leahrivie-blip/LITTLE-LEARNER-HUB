@@ -24183,6 +24183,10 @@ body.tk-enrich-open #llhMetaCookieNotice {
     linear-gradient(180deg, #fff, #f7f8fc);
 }
 
+.nuo-modal.nuo-modal--welcome-message .nuo-modal-card {
+  width: min(480px, 92vw);
+}
+
 .nuo-screen h2 {
   margin: 0 0 8px;
   font-size: clamp(1.45rem, 2.4vw, 1.9rem);
