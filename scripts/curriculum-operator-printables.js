@@ -1310,6 +1310,7 @@ async function runPrintablePlanForLesson({
   useContentPlanner = true,
   generatePrintableVisual = null,
   visualCache = null,
+  actionsOverride = null,
 } = {}) {
   if (touchPrintables === false) {
     return {
@@ -1324,7 +1325,7 @@ async function runPrintablePlanForLesson({
     };
   }
 
-  const rawActions = buildPrintableActionsFromAudit(plan, activities, audit, curriculum, {
+  const rawActions = schema.asArray(actionsOverride).length ? schema.asArray(actionsOverride) : buildPrintableActionsFromAudit(plan, activities, audit, curriculum, {
     replaceWeakPrintables,
   });
   const softPackMax = softPrintablePackBudget(lessonCount);
