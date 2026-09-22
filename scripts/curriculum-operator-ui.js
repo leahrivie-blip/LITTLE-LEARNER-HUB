@@ -449,9 +449,11 @@
       ${failedAssets.length ? `
       <section>
         <h5>Failed assets</h5>
-        <ul>${failedAssets.map((asset) => `<li>${esc(asset.assetType)} · ${esc(asset.activityTitle || asset.activityId || asset.idempotencyKey)}
-          — ${esc(asset.error || "Failed")} · retry ${esc(asset.retryCount || 0)}</li>`).join("")}</ul>
-        <button type="button" class="ghost-button" data-co-retry-assets="${esc((lr.audit || a)?.lessonId || lr.lessonId)}">Retry failed assets only</button>
+        <div><button type="button" class="linkish" data-co-select-failed>Select all retryable</button> · <button type="button" class="linkish" data-co-clear-failed>Clear selection</button></div>
+        <ul>${failedAssets.map((asset) => `<li><label><input type="checkbox" data-co-failed-asset
+          data-co-asset-type="${esc(asset.assetType)}" value="${esc(asset.idempotencyKey)}"> ${esc(asset.assetType)} · ${esc(asset.activityTitle || asset.activityId || asset.idempotencyKey)}
+          — ${esc(asset.error || "Failed")} · retry ${esc(asset.retryCount || 0)} · failed</label></li>`).join("")}</ul>
+        <button type="button" class="ghost-button" disabled data-co-retry-assets="${esc((lr.audit || a)?.lessonId || lr.lessonId)}">Retry selected failed assets only</button>
       </section>` : ""}
       ${review === "READY_FOR_OWNER_REVIEW" ? "" : `
       <div class="account-actions-row">
@@ -707,8 +709,21 @@
       });
     });
     el.querySelectorAll("[data-co-retry-assets]").forEach((btn) => {
-      btn.addEventListener("click", () => void onRetryFailedAssets(btn.getAttribute("data-co-retry-assets")));
+      const card = btn.closest(".co-lesson-card");
+      const sync = () => { btn.disabled = !card?.querySelector("[data-co-failed-asset]:checked"); };
+      card?.querySelectorAll("[data-co-failed-asset]").forEach((input) => input.addEventListener("change", sync));
+      btn.addEventListener("click", () => void onRetryFailedAssets(btn.getAttribute("data-co-retry-assets"), card));
     });
+    el.querySelectorAll("[data-co-select-failed]").forEach((btn) => btn.addEventListener("click", () => {
+      const card = btn.closest(".co-lesson-card");
+      card?.querySelectorAll("[data-co-failed-asset]").forEach((input) => { input.checked = true; });
+      card?.querySelector("[data-co-retry-assets]")?.removeAttribute("disabled");
+    }));
+    el.querySelectorAll("[data-co-clear-failed]").forEach((btn) => btn.addEventListener("click", () => {
+      const card = btn.closest(".co-lesson-card");
+      card?.querySelectorAll("[data-co-failed-asset]").forEach((input) => { input.checked = false; });
+      card?.querySelector("[data-co-retry-assets]")?.setAttribute("disabled", "disabled");
+    }));
     el.querySelectorAll("[data-co-publish-lesson]").forEach((btn) => {
       btn.addEventListener("click", () => void onOpenPublishConfirm(btn.getAttribute("data-co-publish-lesson")));
     });
@@ -800,14 +815,11 @@
     render();
   }
 
-  async function onRetryFailedAssets(lessonId) {
+  async function onRetryFailedAssets(lessonId, card) {
     const lr = (state.job?.lessonResults || []).find((row) => row.lessonId === lessonId || row.audit?.lessonId === lessonId);
-    const selected = [
-      ...(lr?.imageActions || []).filter((asset) => asset.status === "failed" && asset.retryable !== false)
-        .map((asset) => ({ type: "image", id: asset.idempotencyKey })),
-      ...(lr?.printableActions || []).filter((asset) => asset.status === "failed" && asset.retryable !== false)
-        .map((asset) => ({ type: "printable", id: asset.idempotencyKey })),
-    ];
+    const selected = Array.from(card?.querySelectorAll("[data-co-failed-asset]:checked") || [])
+      .map((input) => ({ type: input.dataset.coAssetType, id: input.value }))
+      .filter((asset) => asset.id && (asset.type === "image" || asset.type === "printable"));
     if (!selected.length || !state.job?.id) return;
     if (!global.confirm(`Retry ${selected.length} failed asset(s) only? Lesson text, cover, and successful assets will not change.`)) return;
     state.busy = true;
