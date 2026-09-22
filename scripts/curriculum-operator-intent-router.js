@@ -221,6 +221,10 @@ function isPrintablesExcludedCommand(rawCommand) {
 function isExplicitCoverRequestCommand(rawCommand) {
   const raw = text(rawCommand);
   if (!raw) return false;
+  if (/\b(?:do\s+not|don['’]?t|never|keep)\s+(?:change|touch|replace|update)?\s*(?:the\s+)?cover\b/i.test(raw)
+    || /\bleave\s+(?:the\s+)?cover\s+(?:unchanged|alone|the\s+same)\b/i.test(raw)) {
+    return false;
+  }
   return (
     /\bREALISTIC_LESSON_COVER\b/i.test(raw)
     || /\brealistic\s+lesson\s+cover\b/i.test(raw)
@@ -365,7 +369,10 @@ function detectNewLessonIntent(rawCommand, context = {}) {
   if (/\bdo\s+not\s+create\s+(?:a\s+)?new\s+lesson\b/i.test(raw)) return false;
   if (/\b(?:same|existing)\s+lesson\s+id\b/i.test(raw)) return false;
   if (context.existingLessonIntent) return false;
-  if (printableAgeBand.isPrintableExistingLessonCommand(raw)) return false;
+  // A new lesson may explicitly request matching printables. The printable
+  // shortcut only suppresses create intent when a lesson target is already
+  // present, not merely because the word appears in the request.
+  if (context.existingLessonIntent && printableAgeBand.isPrintableExistingLessonCommand(raw)) return false;
   if (/\b(?:create|make|build)\s+\d{1,2}\s+new\s+lessons?\b/i.test(raw)) return true;
   if (/\b(\d{1,2})\s+new\s+lessons?\b/i.test(raw) && /\b(?:create|make|build)\b/i.test(raw)) return true;
   if (/\b(?:create|make|build)\s+(?:me\s+)?(?:a\s+|an\s+)?new\b/i.test(raw) && /\blesson\b/i.test(raw)) {
@@ -445,13 +452,17 @@ function detectAssetCategories(rawCommand, exclusions = {}) {
 function classifyNaturalLanguageIntent(rawCommand, lessonRef = {}) {
   const raw = text(rawCommand);
   const research = /\b(?:research|search(?:\s+(?:google|current|trends?|ideas?))?)\b/i.test(raw);
-  const onlyImages = /\b(?:only\s+(?:update|change|fix|replace|regenerate|generate)\s+(?:the\s+)?(?:activity\s+)?(?:images?|pictures?|photos?|visuals?)|(?:images?|pictures?|photos?|visuals?)\s+only)\b/i.test(raw);
-  const onlyPrintables = /\b(?:only\s+(?:update|change|fix|replace|generate|create)\s+(?:the\s+)?printables?|printables?\s+only)\b/i.test(raw);
+  const hasBroaderWork = /\b(?:full\s+teaching\s+kit|upgrade\s+(?:the\s+)?existing|fill\s+empty|missing\s+(?:teacher\s+tips|book)|books?\s+discussion|vocabulary)\b/i.test(raw);
+  const onlyImages = !hasBroaderWork
+    && /\b(?:only\s+(?:update|change|fix|replace|regenerate|generate)\s+(?:the\s+)?(?:activity\s+)?(?:images?|pictures?|photos?|visuals?)|(?:images?|pictures?|photos?|visuals?)\s+only)\b/i.test(raw);
+  const onlyPrintables = /\b(?:only\s+(?:update|change|fix|replace|generate|create)\s+(?:the\s+)?(?:missing\s+)?printables?|printables?\s+only)\b/i.test(raw);
   const onlyActivities = /\b(?:only\s+(?:update|change|fix|add)\s+(?:the\s+)?activities?|activities?\s+only)\b/i.test(raw);
   const create = detectNewLessonIntent(raw, { existingLessonIntent: lessonRef.existingLessonIntent });
   const batch = /\b(?:all|every|the\s+weakest|\d+\s+)\b[^.!?]{0,48}\b(?:lessons?|plans?)\b/i.test(raw);
   if (/\bundo\s+(?:the\s+)?last\s+(?:change|draft\s+change)\b/i.test(raw)) return NATURAL_INTENTS.UNDO_DRAFT_CHANGE;
-  if (/\bpublish\b/i.test(raw)) return NATURAL_INTENTS.PUBLISH;
+  if (/\bpublish\b/i.test(raw) && !/\b(?:do\s+not|don['’]?t|never)\b[^.!?]{0,120}\bpublish\b/i.test(raw)) {
+    return NATURAL_INTENTS.PUBLISH;
+  }
   if (research && create) return NATURAL_INTENTS.RESEARCH_AND_CREATE;
   if (research && (lessonRef.existingLessonIntent || lessonRef.resolvedLessons?.length)) return NATURAL_INTENTS.RESEARCH_AND_UPDATE;
   if (create) return NATURAL_INTENTS.CREATE_LESSON;
@@ -515,9 +526,15 @@ function resolveOwnerIntent(rawCommand, options = {}) {
   const phase = schema.clampInt(options.phase, 1, 8, 7);
   const exclusions = orchestrator.parseExclusionHints(raw).flags;
   const lessonRef = detectExistingLessonReferences(raw, options);
-  const newLessonIntent = detectNewLessonIntent(raw, {
-    existingLessonIntent: lessonRef.existingLessonIntent,
-  });
+  // An explicit “create a/new … lesson” is not retargeted to an unrelated
+  // catalog item merely because its age band happens to have one match.
+  const newLessonIntent = detectNewLessonIntent(raw, { existingLessonIntent: false });
+  if (newLessonIntent) {
+    lessonRef.lessonIds = [];
+    lessonRef.resolvedLessons = [];
+    lessonRef.titles = [];
+    lessonRef.existingLessonIntent = false;
+  }
   const assetCategories = detectAssetCategories(raw, exclusions);
   const assetCategory = pickPrimaryAssetCategory(assetCategories);
   const naturalIntent = classifyNaturalLanguageIntent(raw, lessonRef);

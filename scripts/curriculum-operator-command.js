@@ -84,6 +84,7 @@ function parseOperatorCommand(rawCommand, options = {}) {
     intentRouter.NATURAL_INTENTS.CREATE_LESSON,
     intentRouter.NATURAL_INTENTS.RESEARCH_AND_CREATE,
   ].includes(ownerIntent.naturalIntent) ? 1 : null;
+  const requestedActivities = createApi.extractRequestedActivities(raw);
   if (ownerIntent.lessonReference.titles.length) {
     titles = commandSafety.sanitizeLessonTitles(
       [...new Set([...titles, ...ownerIntent.lessonReference.titles])],
@@ -527,6 +528,7 @@ function parseOperatorCommand(rawCommand, options = {}) {
       currentlySelectedLessonId: options.currentlySelectedLessonId || null,
       requireExplicitIdsIfAmbiguous: true,
       requestedTargetCount,
+      requestedActivities,
     },
     actions,
     limits: {

@@ -61,6 +61,22 @@ function creationIdempotencyKey(brief) {
   return `create:${title}:${age}:${plan}`;
 }
 
+function extractRequestedActivities(rawCommand) {
+  const raw = text(rawCommand, 4000);
+  const match = raw.match(/\busing\s+([^.!?]{3,700})/i)
+    || raw.match(/\bwith\s+(?:these\s+)?activities?\s*:?\s*([^.!?]{3,700})/i)
+    || raw.match(/\badd\s+(?:these\s+)?activities?\s+to\s+[^:]{2,180}:\s*([^.!?]{3,700})/i);
+  if (!match) return [];
+  return match[1]
+    .split(/\s*,\s*|\s+(?:and|&)\s+/i)
+    .map((item) => text(item, 180)
+      .replace(/^(?:and|&)\s+/i, "")
+      .replace(/\b(?:make|build|create)\b.*$/i, "").trim())
+    .filter((item) => item.length >= 3)
+    .slice(0, 24)
+    .filter((item, index, all) => !all.slice(0, index).some((seen) => seen.toLowerCase() === item.toLowerCase()));
+}
+
 /**
  * Parse owner create command into a typed brief.
  */
@@ -85,6 +101,7 @@ function parseCreationBrief(rawCommand, options = {}) {
   const activityTarget = countMatch
     ? schema.clampInt(countMatch[1], 4, 24, null)
     : (ageBand ? defaultActivityTarget(ageBand) : null);
+  const requestedActivities = extractRequestedActivities(raw);
 
   let title = "";
   const quoted = raw.match(/[“"]([^”"]{2,120})[”"]/);
@@ -124,6 +141,7 @@ function parseCreationBrief(rawCommand, options = {}) {
     ageLabel: ageBand ? ageLabel(ageBand) : "",
     accessPlan,
     activityTarget: activityTarget || (ageBand ? defaultActivityTarget(ageBand) : 12),
+    requestedActivities,
     teachingGoals: [],
     requestedFeatures: {
       songs: exclusions.flags.touchSongs !== false && !exclusions.flags.textOnly,
@@ -533,6 +551,7 @@ module.exports = {
   WEEKDAYS,
   DEFAULT_ACTIVITY_TARGETS,
   parseCreationBrief,
+  extractRequestedActivities,
   creationIdempotencyKey,
   findCreationDuplicates,
   similarityScore,
