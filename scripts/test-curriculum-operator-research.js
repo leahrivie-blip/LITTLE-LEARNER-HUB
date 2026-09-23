@@ -7,13 +7,12 @@ const boundary = require("./curriculum-operator-http-boundary.js");
 const conversation = require("./curriculum-operator-conversation-store.js");
 const command = require("./curriculum-operator-command.js");
 
-const unavailable = research.requestResearch({ query: "current daycare trends", provider: null });
-assert.equal(unavailable.ok, false, "disabled provider is unavailable");
-assert.equal(unavailable.sources.length, 0, "unavailable research never fabricates sources");
-assert.match(unavailable.message, /not connected yet/i, "unavailable response explains approved provider requirement");
-assert.equal(research.requestResearch({ query: "x", provider: async () => ({}) }).code, "research_provider_unavailable", "unapproved injected provider cannot enable live research");
-
 (async () => {
+  const unavailable = await research.requestResearch({ query: "current daycare trends" });
+  assert.equal(unavailable.ok, false, "disabled provider is unavailable");
+  assert.equal(unavailable.sources.length, 0, "unavailable research never fabricates sources");
+  assert.match(unavailable.message, /not connected yet/i, "unavailable response explains approved provider requirement");
+  assert.equal((await research.requestResearch({ query: "x" })).code, "research_provider_unavailable", "no unapproved provider fallback exists");
   const store = {};
   const result = await boundary.handleParseRequest({
     body: { command: "Search Google for current trending daycare healthy-habits ideas and tell me the sources.", operatorSessionId: "research", requestId: "research-1" },

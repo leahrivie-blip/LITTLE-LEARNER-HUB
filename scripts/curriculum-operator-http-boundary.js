@@ -27,7 +27,7 @@ async function handleParseRequest({
   }
   const correction = conversation.parseSemanticCorrection(rawText);
   const research = createApi.parseCreationBrief(rawText).brief.researchRequested
-    ? researchApi.requestResearch({ query: rawText })
+    ? await researchApi.requestResearch({ query: rawText, ...(dependencies.researchConfig || {}) })
     : null;
   if (correction.type === "start_over" && sessionId) {
     conversation.clearTemporaryConversation(store, ownerId, sessionId);
@@ -69,7 +69,8 @@ async function handleParseRequest({
         requestedExclusions: [...new Set([...(stored?.requestedExclusions || []), ...(parsed.interpretation?.nextContext?.previousExclusions || [])])],
         imageRequirements: parsed.command?.actions?.generateImages ? "requested" : stored?.imageRequirements || null,
         printableRequirements: parsed.command?.actions?.generatePrintables ? "requested" : stored?.printableRequirements || null,
-        researchRequested: research?.ok !== true && research !== null,
+        researchRequested: research !== null,
+        researchSources: research?.ok === true ? research.sources : [],
         unresolvedQuestion: correction.clarificationRequired
           ? correction.responseText
           : (parsed.needsConfirmation ? "I need one detail before I continue: please tell me which lesson you mean." : null),

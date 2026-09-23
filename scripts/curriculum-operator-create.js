@@ -147,6 +147,7 @@ function parseCreationBrief(rawCommand, options = {}) {
     requestedActivities,
     materialCostMode,
     effectiveInstructions: options.effectiveInstructions || null,
+    researchContext: schema.asArray(options.researchSources).filter((source) => source && typeof source === "object").slice(0, 5),
     teachingGoals: [],
     requestedFeatures: {
       songs: exclusions.flags.touchSongs !== false && !exclusions.flags.textOnly,

@@ -2335,6 +2335,10 @@ function createCurriculumOperatorApi(deps) {
           profileStore: instructionProfile,
           parseCommand: commandApi.parseOperatorCommand,
           now: Date.now,
+          researchConfig: {
+            enabled: process.env.CURRICULUM_OPERATOR_LIVE_RESEARCH_ENABLED === "true",
+            apiKey: process.env.OPENAI_API_KEY || "",
+          },
         },
       });
       if (result.statusCode === 200 && result.body.conversationContext && !result.body.idempotent) await writeStoreAsync(store);
@@ -2432,6 +2436,9 @@ function createCurriculumOperatorApi(deps) {
           ageBand: parsed.ownerIntent?.inheritFromLesson?.ageBand || undefined,
           lessonInstructions: parsed.effectiveInstructions?.permanentInstructions || [],
           effectiveInstructions: parsed.effectiveInstructions || null,
+          researchSources: operatorSessionId
+            ? conversationStore.read(store, session.email, operatorSessionId)?.researchSources || []
+            : [],
         });
         if (!briefResult.ok) {
           const ageOnly = (briefResult.needsOwnerInput || []).length === 1
