@@ -29,6 +29,7 @@ const vocabSurgicalApi = require("../scripts/curriculum-operator-vocab-surgical-
 const conversationStore = require("../scripts/curriculum-operator-conversation-store.js");
 const assetRetryApi = require("../scripts/curriculum-operator-asset-retry.js");
 const instructionProfile = require("../scripts/curriculum-operator-instruction-profile.js");
+const operatorHttpBoundary = require("../scripts/curriculum-operator-http-boundary.js");
 
 const ACTIONS = Object.freeze([
   "parse",
@@ -2323,97 +2324,22 @@ function createCurriculumOperatorApi(deps) {
     }
 
     if (action === "parse") {
-      let storedConversation = operatorSessionId
-        ? conversationStore.loadConversationContext(store, session.email, operatorSessionId)
-        : null;
-      const rawText = schema.text(body.command || body.rawCommand || "", 4000);
-      const semanticCorrection = conversationStore.parseSemanticCorrection(rawText);
-      if (semanticCorrection.type === "start_over" && operatorSessionId) {
-        conversationStore.clearTemporaryConversation(store, session.email, operatorSessionId);
-        storedConversation = null;
-      }
-      const correctionTarget = semanticCorrection.affectedTarget === "toddler"
-        ? schema.asArray(curriculum?.lessonPlans).find((lesson) => /toddler/i.test(lesson.age || ""))
-        : null;
-      const operatorContext = body.operatorContext && typeof body.operatorContext === "object"
-        ? body.operatorContext
-        : (storedConversation?.currentLessonId
-          ? {
-            previousIntent: storedConversation.currentOperation || "",
-            previousResolvedTargets: [storedConversation.currentLessonId],
-            previousExclusions: storedConversation.requestedExclusions || [],
-          }
-          : null);
-      const parsed = commandApi.parseOperatorCommand(rawText, {
-        currentlySelectedLessonId: correctionTarget?.id || body.currentlySelectedLessonId,
+      const result = await operatorHttpBoundary.handleParseRequest({
+        body,
+        session,
+        store,
+        curriculum,
         phase,
-        lessonPlans: schema.asArray(curriculum?.lessonPlans),
-        operatorContext,
-        ownerProfile: instructionProfile.read(store, session.email),
+        dependencies: {
+          conversationStore,
+          profileStore: instructionProfile,
+          parseCommand: commandApi.parseOperatorCommand,
+          now: Date.now,
+        },
       });
-      const target = parsed.command.scope?.lessonIds?.length === 1
-        ? schema.asArray(curriculum?.lessonPlans).find((lesson) => lesson.id === parsed.command.scope.lessonIds[0])
-        : null;
-      const nextContext = parsed.interpretation?.nextContext || {};
-      const context = operatorSessionId
-        ? conversationStore.save(store, {
-          ...conversationStore.applySemanticCorrection(
-            conversationStore.applyConversationCorrections(storedConversation || {}, rawText),
-            semanticCorrection,
-          ),
-          ownerId: session.email,
-          sessionId: operatorSessionId,
-          currentLessonId: target?.id || nextContext.previousResolvedTargets?.[0] || null,
-          currentLessonTitle: target?.title || null,
-          ageGroup: target?.age || parsed.command.scope?.ageBand || null,
-          currentOperation: parsed.command.intent,
-          requestedActivities: [...new Set([
-            ...schema.asArray(storedConversation?.requestedActivities),
-            ...schema.asArray(parsed.command.scope?.requestedActivities),
-          ])].slice(0, 24),
-          requestedExclusions: [...new Set([
-            ...schema.asArray(storedConversation?.requestedExclusions),
-            ...schema.asArray(nextContext.previousExclusions),
-          ])].slice(0, 20),
-          imageRequirements: parsed.command.actions?.generateImages ? "requested" : storedConversation?.imageRequirements || null,
-          printableRequirements: parsed.command.actions?.generatePrintables ? "requested" : storedConversation?.printableRequirements || null,
-          researchRequested: createApi.parseCreationBrief(parsed.command.rawCommand || "").brief.researchRequested,
-          unresolvedQuestion: semanticCorrection.clarificationRequired
-            ? semanticCorrection.responseText
-            : (parsed.needsConfirmation ? (parsed.confirmReasons || [])[0] || null : null),
-          latestDraftJobId: body.latestDraftJobId || null,
-          messages: [
-            ...schema.asArray(storedConversation?.messages),
-            {
-              role: "owner",
-              rawText,
-              parsedIntent: parsed.ownerIntent?.naturalIntent || null,
-              operation: parsed.command.intent,
-              resolvedLessonIds: parsed.command.scope?.lessonIds || [],
-              requestedActivities: parsed.command.scope?.requestedActivities || [],
-              exclusions: nextContext.previousExclusions || [],
-            },
-            {
-              role: "operator",
-              parsedIntent: parsed.ownerIntent?.naturalIntent || null,
-              operation: parsed.command.intent,
-              resolvedLessonIds: parsed.command.scope?.lessonIds || [],
-              requestedActivities: parsed.command.scope?.requestedActivities || [],
-              exclusions: nextContext.previousExclusions || [],
-              effectiveInstructionSummary: parsed.effectiveInstructions?.summary || null,
-              responseText: semanticCorrection.responseText || (parsed.needsConfirmation
-                ? "I need one detail before I continue: please tell me which lesson you mean."
-                : `I understand. ${target ? `You want me to update ${target.title}` : "I have your request"}${parsed.command.actions?.publish === true ? "." : ", and publishing will stay off."}`),
-            },
-          ],
-        }) : null;
-      if (context) await writeStoreAsync(store);
-      jsonResponse(response, 200, {
-        ok: true,
-        action,
-        ...parsed,
-        conversationContext: context,
-        publishEnabled: false,
+      if (result.statusCode === 200 && result.body.conversationContext && !result.body.idempotent) await writeStoreAsync(store);
+      jsonResponse(response, result.statusCode, {
+        ...result.body,
         aiHealth: require("../scripts/curriculum-operator-ai-transport.js").summarizeAiHealth({
           configured: openAiConfigured === true,
           reachable: openAiConfigured === true,

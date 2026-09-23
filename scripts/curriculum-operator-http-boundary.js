@@ -13,9 +13,16 @@ async function handleParseRequest({
   const ownerId = schema.text(session.email, 160).toLowerCase();
   if (!ownerId) return { statusCode: 401, body: { ok: false, code: "owner_required", error: "Owner authentication is required." } };
   const sessionId = schema.text(body.operatorSessionId, 100);
+  const requestId = schema.text(body.requestId, 120);
   const rawText = schema.text(body.command || body.rawCommand || "", 4000);
   if (!rawText) return { statusCode: 400, body: { ok: false, code: "command_required", error: "Enter a message for the operator." } };
   let stored = sessionId ? conversation.loadConversationContext(store, ownerId, sessionId, now()) : null;
+  if (requestId && schema.asArray(stored?.messages).some((message) => message.role === "owner" && message.requestId === requestId)) {
+    return {
+      statusCode: 200,
+      body: { ok: true, action: "parse", conversationContext: stored, publishEnabled: false, jobCreated: false, idempotent: true },
+    };
+  }
   const correction = conversation.parseSemanticCorrection(rawText);
   if (correction.type === "start_over" && sessionId) {
     conversation.clearTemporaryConversation(store, ownerId, sessionId);
@@ -53,9 +60,15 @@ async function handleParseRequest({
         currentLessonId: target?.id || stored?.currentLessonId || null,
         currentLessonTitle: target?.title || stored?.currentLessonTitle || null,
         currentOperation: parsed.command?.intent || stored?.currentOperation || null,
+        requestedActivities: [...new Set([...(stored?.requestedActivities || []), ...(parsed.command?.scope?.requestedActivities || [])])].slice(0, 24),
         requestedExclusions: [...new Set([...(stored?.requestedExclusions || []), ...(parsed.interpretation?.nextContext?.previousExclusions || [])])],
+        imageRequirements: parsed.command?.actions?.generateImages ? "requested" : stored?.imageRequirements || null,
+        printableRequirements: parsed.command?.actions?.generatePrintables ? "requested" : stored?.printableRequirements || null,
+        unresolvedQuestion: correction.clarificationRequired
+          ? correction.responseText
+          : (parsed.needsConfirmation ? "I need one detail before I continue: please tell me which lesson you mean." : null),
         messages: [...(stored?.messages || []), {
-          role: "owner", rawText, operation: parsed.command?.intent, resolvedLessonIds: parsed.command?.scope?.lessonIds || [],
+          role: "owner", requestId, rawText, operation: parsed.command?.intent, resolvedLessonIds: parsed.command?.scope?.lessonIds || [],
         }, {
           role: "operator", operation: parsed.command?.intent, resolvedLessonIds: parsed.command?.scope?.lessonIds || [],
           effectiveInstructionSummary: parsed.effectiveInstructions?.summary || null,

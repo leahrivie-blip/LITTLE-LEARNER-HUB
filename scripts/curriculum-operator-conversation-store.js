@@ -46,6 +46,7 @@ function sanitizeMessage(message = {}, { ownerId, sessionId, conversationId, now
   const createdAt = schema.text(message.createdAt, 40) || new Date(now).toISOString();
   return {
     messageId: schema.text(message.messageId, 120) || `${conversationId || "co"}:${now}:${index}`,
+    requestId: schema.text(message.requestId, 120) || null,
     conversationId: schema.text(message.conversationId, 120) || conversationId || null,
     ownerId: schema.text(message.ownerId, 160).toLowerCase() || schema.text(ownerId, 160).toLowerCase(),
     sessionId: schema.text(message.sessionId, 100) || schema.text(sessionId, 100),
