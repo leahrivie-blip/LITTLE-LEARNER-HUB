@@ -55177,6 +55177,14 @@ function adminAnalyticsDiagnosticHtml(diagnostic) {
   `;
 }
 
+function refreshAdminHomeWorkspaceIfVisible() {
+  if (getAdminSectionTab() !== "admin-home") return;
+  const target = document.querySelector("#adminWorkspaceLandingApp");
+  if (target && typeof window.AdminWorkspace?.renderAdminHomeWorkspace === "function") {
+    window.AdminWorkspace.renderAdminHomeWorkspace(target);
+  }
+}
+
 async function loadAdminAnalyticsFromBackend(options = {}) {
   const token = adminSession()?.token;
   if (!analyticsConfig.adminEndpoint || !canUseLaunchBackend() || !token) {
@@ -55201,6 +55209,7 @@ async function loadAdminAnalyticsFromBackend(options = {}) {
       renderAdminOwnerOverview();
       renderAdminAnalytics();
     }
+    refreshAdminHomeWorkspaceIfVisible();
     return null;
   }
 
@@ -55216,6 +55225,7 @@ async function loadAdminAnalyticsFromBackend(options = {}) {
       renderAdminOwnerOverview();
       renderAdminAnalytics();
     }
+    refreshAdminHomeWorkspaceIfVisible();
     return null;
   }
 
@@ -55228,6 +55238,7 @@ async function loadAdminAnalyticsFromBackend(options = {}) {
       renderAdminOwnerOverview();
       renderAdminAnalytics();
     }
+    refreshAdminHomeWorkspaceIfVisible();
     return adminAnalyticsCache;
   }
 
@@ -55245,6 +55256,7 @@ async function loadAdminAnalyticsFromBackend(options = {}) {
     renderAdminOwnerOverview();
     renderAdminAnalytics();
   }
+  refreshAdminHomeWorkspaceIfVisible();
 
   const controller = new AbortController();
   adminAnalyticsAbortController = controller;
@@ -55327,6 +55339,7 @@ async function loadAdminAnalyticsFromBackend(options = {}) {
       renderAdminOwnerOverview();
       renderAdminUsersDashboard();
       renderAdminFeedbackCenter();
+      refreshAdminHomeWorkspaceIfVisible();
       return adminAnalyticsCache;
     } catch (error) {
       const aborted = error?.name === "AbortError";
@@ -55348,6 +55361,7 @@ async function loadAdminAnalyticsFromBackend(options = {}) {
       renderAdminOwnerOverview();
       renderAdminAnalytics();
       renderAdminMarketingAnalytics();
+      refreshAdminHomeWorkspaceIfVisible();
       return null;
     } finally {
       clearTimeout(timeoutId);
@@ -55356,6 +55370,7 @@ async function loadAdminAnalyticsFromBackend(options = {}) {
       }
       adminAnalyticsLoading = false;
       adminAnalyticsLoadPromise = null;
+      refreshAdminHomeWorkspaceIfVisible();
     }
   })();
 

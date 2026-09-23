@@ -58,6 +58,7 @@ async function main() {
 
   test("static guards — communications workspace nav restored", () => {
     const appJs = appSource();
+    const commsJs = fs.readFileSync(path.join(ROOT, "comms-center.js"), "utf8");
     assert.match(appJs, /adminMessagesWorkspaceNavHtml/);
     assert.match(appJs, /messages-conversations/);
     assert.match(appJs, /messages-sent/);
@@ -66,6 +67,10 @@ async function main() {
     assert.match(appJs, /messages-email/);
     assert.match(appJs, /defaultTab: "messages-conversations"/);
     assert.match(appJs, /adminMessageDeliveryStatusHtml/);
+    assert.match(commsJs, /data-inbox-kind="unread"/);
+    assert.match(commsJs, /kindFilter === "unread"/);
+    assert.match(commsJs, /markRead=0/);
+    assert.match(commsJs, /visible = visible\.filter\(\(i\) => !i\.isTestInternal\)/);
   });
 
   seedStore(STORE, {
@@ -166,7 +171,13 @@ async function main() {
     });
 
     await test("archive hides inbox item without deleting thread", async () => {
+      const markUnread = await adminApi("POST", "/api/admin/messages/mark-unread", {
+        token: adminToken,
+        body: { userEmail: USER_A },
+      });
+      assert.equal(markUnread.status, 200, JSON.stringify(markUnread.json));
       const inboxBefore = await adminApi("GET", "/api/admin/inbox", { token: adminToken });
+      assert.ok(Number(inboxBefore.json.summary?.unread || 0) >= 1, "inbox returns an unread count");
       const item = (inboxBefore.json.items || []).find((i) => i.email === USER_A);
       if (item) {
         const archive = await adminApi("POST", "/api/admin/inbox/archive", {

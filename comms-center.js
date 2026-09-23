@@ -2093,7 +2093,7 @@
       paint();
       try {
         const convo = await adminFetchJson(
-          `/api/admin/messages/conversation?userEmail=${encodeURIComponent(selected.email)}`,
+          `/api/admin/messages/conversation?userEmail=${encodeURIComponent(selected.email)}&markRead=0`,
         );
         const messages = Array.isArray(convo.messages) ? convo.messages : [];
         conversationHtml = messages.length
@@ -2123,8 +2123,13 @@
       let visible = items;
       if (kindFilter === "test-internal") {
         visible = items.filter((i) => i.isTestInternal);
+      } else if (kindFilter === "unread") {
+        visible = items.filter((i) => Number(i.unreadCount || 0) > 0);
       } else if (kindFilter !== "all") {
         visible = items.filter((i) => i.kind === kindFilter);
+      }
+      if (kindFilter !== "all" && kindFilter !== "test-internal") {
+        visible = visible.filter((i) => !i.isTestInternal);
       }
       const q = searchQuery.trim().toLowerCase();
       if (q) {
@@ -2161,6 +2166,7 @@
         </label>
         <div class="admin-inbox-summary">
           <button type="button" class="comms-admin-tab${kindFilter === "all" ? " active" : ""}" data-inbox-kind="all">All (${summary.total || items.length})</button>
+          <button type="button" class="comms-admin-tab${kindFilter === "unread" ? " active" : ""}" data-inbox-kind="unread">Unread (${summary.unread || 0})</button>
           <button type="button" class="comms-admin-tab${kindFilter === "message" ? " active" : ""}" data-inbox-kind="message">Messages (${summary.message || 0})</button>
           <button type="button" class="comms-admin-tab${kindFilter === "support" ? " active" : ""}" data-inbox-kind="support">Support (${summary.support || 0})</button>
           <button type="button" class="comms-admin-tab${kindFilter === "bug" ? " active" : ""}" data-inbox-kind="bug">Bugs (${summary.bug || 0})</button>

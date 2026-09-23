@@ -1086,6 +1086,7 @@ function createCommsApi(deps) {
       bug: visibleItems.filter((i) => i.kind === "bug").length,
       feedback: visibleItems.filter((i) => i.kind === "feedback").length,
       message: visibleItems.filter((i) => i.kind === "message").length,
+      unread: visibleItems.filter((i) => Number(i.unreadCount || 0) > 0).length,
       testInternal: visibleItems.filter((i) => i.isTestInternal).length,
       archived: items.filter((i) => i.isArchived).length,
     };

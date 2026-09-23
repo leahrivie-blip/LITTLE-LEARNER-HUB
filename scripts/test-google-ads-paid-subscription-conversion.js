@@ -78,6 +78,12 @@ const appJs = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
 const serverJs = fs.readFileSync(path.join(__dirname, "..", "server/index.js"), "utf8");
 const indexHtml = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
 assert.match(serverJs, /const paymentConfirmed = session\.payment_status === "paid";/);
+assert.match(serverJs, /const paid = paymentConfirmed;/);
+assert.doesNotMatch(
+  serverJs.slice(serverJs.indexOf("async function handleCheckoutStatus"), serverJs.indexOf("async function requireMatchingBillingIdentity")),
+  /paymentConfirmed \|\| session\.status === "complete"/,
+  "a completed but unpaid checkout must not grant paid access",
+);
 assert.match(serverJs, /paymentConfirmed,/);
 assert.match(serverJs, /amountTotal: Number\.isFinite\(Number\(session\.amount_total\)\)/);
 assert.match(appJs, /if \(session\.paymentConfirmed === true\) \{[\s\S]*?emitAfterPaidSubscriptionConfirmed/);

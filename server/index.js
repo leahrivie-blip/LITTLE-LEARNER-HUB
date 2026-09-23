@@ -12443,7 +12443,10 @@ async function handleCheckoutStatus(request, response, url) {
     const promoTrialDays = Number(session.metadata?.promoTrialDays || userEntry?.[1]?.pendingTrialDays || 0);
     const promoLabel = session.metadata?.promoLabel || userEntry?.[1]?.pendingPromoLabel || "";
     const paymentConfirmed = session.payment_status === "paid";
-    const paid = paymentConfirmed || session.status === "complete";
+    // A completed Checkout redirect may still be unpaid (for example, asynchronous
+    // payment methods). This browser-facing status check must not grant access until
+    // Stripe explicitly confirms payment; lifecycle webhooks remain authoritative.
+    const paid = paymentConfirmed;
     let upgradedUser = null;
     if (paid && email) {
       upgradedUser = applyCheckoutMembershipUpgrade(email, {
@@ -16281,7 +16284,9 @@ function updateAnalyticsUser(store, event) {
   const updates = {
     ...base,
     email: event.user,
-    plan: event.plan || base.plan || "Free",
+    // Analytics is client-submitted telemetry; subscription changes only come
+    // from verified Stripe/webhook or authenticated billing flows.
+    plan: base.plan || "Free",
     lastSeenAt: event.createdAt,
     featureUsage,
     updatedAt: new Date().toISOString(),
@@ -16327,18 +16332,6 @@ function updateAnalyticsUser(store, event) {
     }
   }
   if (event.name === "account_login_complete") updates.lastLoginAt = event.createdAt;
-  if (event.name === "checkout_success") {
-    updates.plan = event.detail?.plan || event.plan || updates.plan;
-    updates.subscriptionStatus = `${updates.plan || "Pro"} Subscription Active`;
-    updates.monthlyPrice = event.detail?.monthlyPrice || updates.monthlyPrice || "";
-  }
-  if (event.name === "subscription_canceled") {
-    updates.plan = "Free";
-    updates.subscriptionStatus = "Canceled - Free Plan Active";
-    updates.subscriptionCadence = "";
-    updates.monthlyPrice = "$0/month";
-    updates.priceLock = "";
-  }
   preserveSignupTransactionalFields(updates, cachedUser, base);
   store.users[event.user] = updates;
   if (eventEmail && eventEmail !== event.user) store.users[eventEmail] = updates;
@@ -19892,8 +19885,11 @@ function pruneAnalyticsEventsInStore(store) {
 async function handleAnalyticsEvent(request, response) {
   const body = await readJson(request);
   const event = sanitizeAnalyticsEvent(body, request);
-  const userStorePatch = analyticsStore.requiresUserStorePatch(event.name);
-  const billingStorePatch = analyticsStore.requiresBillingStorePatch(event.name);
+  // This public endpoint accepts browser telemetry. Membership and billing
+  // events must be applied only by authenticated billing flows or Stripe.
+  const untrustedBillingEvent = ["checkout_success", "subscription_canceled"].includes(event.name);
+  const userStorePatch = !untrustedBillingEvent && analyticsStore.requiresUserStorePatch(event.name);
+  const billingStorePatch = !untrustedBillingEvent && analyticsStore.requiresBillingStorePatch(event.name);
   const highVolume = analyticsStore.isHighVolumeAnalyticsEvent(event.name);
 
   // Mirror PageView to CAPI (deduped with browser via event.id). Safe/no-op if CAPI off.
