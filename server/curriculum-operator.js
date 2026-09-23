@@ -30,6 +30,7 @@ const conversationStore = require("../scripts/curriculum-operator-conversation-s
 const assetRetryApi = require("../scripts/curriculum-operator-asset-retry.js");
 const instructionProfile = require("../scripts/curriculum-operator-instruction-profile.js");
 const operatorHttpBoundary = require("../scripts/curriculum-operator-http-boundary.js");
+const researchApi = require("../scripts/curriculum-operator-research.js");
 
 const ACTIONS = Object.freeze([
   "parse",
@@ -2348,6 +2349,10 @@ function createCurriculumOperatorApi(deps) {
           configured: openAiConfigured === true,
           reachable: openAiConfigured === true,
           model: process.env.OPENAI_MODEL || "",
+        }),
+        researchReadiness: researchApi.readiness({
+          enabled: process.env.CURRICULUM_OPERATOR_LIVE_RESEARCH_ENABLED === "true",
+          apiKey: process.env.OPENAI_API_KEY || "",
         }),
       });
       return;

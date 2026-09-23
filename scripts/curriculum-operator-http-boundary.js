@@ -90,7 +90,10 @@ async function handleParseRequest({
   }
   return {
     statusCode: 200,
-    body: { ok: true, action: "parse", ...parsed, conversationContext: context, publishEnabled: false, jobCreated: false },
+    body: {
+      ok: true, action: "parse", ...parsed, conversationContext: context, publishEnabled: false, jobCreated: false,
+      researchStatus: research ? (research.ok ? "ready" : research.code) : null,
+    },
   };
 }
 

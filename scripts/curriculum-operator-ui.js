@@ -124,6 +124,12 @@
     return instructions.slice(0, 8).map((instruction) => `• ${instruction}`).join("\n");
   }
 
+  function researchStatusLabel(readiness) {
+    if (readiness?.status === "ready") return "Live research ready";
+    if (readiness?.status === "missing_api_key") return "Live research needs configuration";
+    return "Live research disabled";
+  }
+
   const state = {
     mounted: false,
     busy: false,
@@ -585,6 +591,12 @@
         </div>
         ${state.message ? `<p class="access-notice ${state.isError ? "error" : ""}" role="status">${esc(state.message)}</p>` : ""}
         ${renderRunStatusBlock()}
+        <section class="co-panel">
+          <h4>Research</h4>
+          <p class="muted-copy">${esc(researchStatusLabel(state.commandParsed?.researchReadiness))}. Sources are supporting research only; they do not automatically become lesson content.</p>
+          ${state.commandParsed?.researchStatus && state.commandParsed.researchStatus !== "ready" && state.commandParsed.researchStatus !== "research_provider_unavailable" ? `<p class="access-notice error">Research failed; no sources were saved.</p>` : ""}
+          ${(state.conversation?.researchSources || []).map((source) => source.url?.startsWith("https://") ? `<p><a href="${esc(source.url)}" target="_blank" rel="noopener noreferrer">${esc(source.title)}</a> · ${esc(source.source)}${source.publicationDate ? ` · ${esc(source.publicationDate)}` : ""}<br><span class="muted-copy">${esc(source.summary || "")} · Retrieved ${esc(source.retrievedAt || "")}</span></p>` : "").join("")}
+        </section>
         <section class="co-panel">
           <h4>Conversation</h4>
           <p class="muted-copy">Current lesson: ${esc(state.conversation?.currentLessonTitle || "None")} · Operation: ${esc(state.conversation?.currentOperation || "None")} · Publishing: disabled</p>

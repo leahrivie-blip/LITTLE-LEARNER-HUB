@@ -67,6 +67,7 @@ console.log("\nE–I. UI source guards duplicate submission + running panel");
   ok(/profile_get/.test(src), "profile loads through API");
   ok(/profile_save/.test(src), "profile save uses API");
   ok(/requestId: action === "parse"/.test(src), "parse requests include an idempotency request ID");
+  ok(/Live research ready/.test(src) && /researchSources/.test(src), "research readiness and validated sources render in UI");
   ok(/permanent preferences are still remembered/.test(src), "start-over preserves profile copy");
   ok(/disabled" : ""\}>Run job/.test(src) === false, "run button disabled via runInFlight/busy");
 }

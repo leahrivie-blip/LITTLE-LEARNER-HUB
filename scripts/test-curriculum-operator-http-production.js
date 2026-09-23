@@ -33,6 +33,8 @@ const api = createCurriculumOperatorApi({
   assert.equal(first.body.action, "parse", "production route preserves parse response shape");
   assert.equal(first.body.publishEnabled, false, "response preserves publish-disabled contract");
   assert.ok(first.body.aiHealth && typeof first.body.aiHealth === "object", "response preserves AI health contract");
+  assert.equal(first.body.researchReadiness.status, "disabled", "response reports disabled research readiness");
+  assert.equal(JSON.stringify(first.body).includes("OPENAI_API_KEY"), false, "response never exposes a research secret name or value");
   assert.equal(first.body.conversationContext.messages.length, 2, "production route uses boundary message persistence");
   assert.equal(first.body.jobCreated, false, "parse route never runs a job");
 

@@ -6,6 +6,13 @@ const MAX_RESULTS = 5;
 const TIMEOUT_MS = 8000;
 const MAX_RESPONSE_BYTES = 120000;
 
+// Live research is opt-in: OPENAI_API_KEY and CURRICULUM_OPERATOR_LIVE_RESEARCH_ENABLED=true.
+function readiness({ enabled = false, apiKey = "" } = {}) {
+  if (!enabled) return { status: "disabled", available: false };
+  if (!String(apiKey || "").trim()) return { status: "missing_api_key", available: false };
+  return { status: "ready", available: true };
+}
+
 function researchUnavailable(query = "") {
   return {
     ok: false,
@@ -20,7 +27,7 @@ function researchUnavailable(query = "") {
 function safeUrl(value) {
   try {
     const url = new URL(String(value || ""));
-    return ["https:", "http:"].includes(url.protocol) ? url : null;
+    return url.protocol === "https:" ? url : null;
   } catch (_error) {
     return null;
   }
@@ -88,4 +95,4 @@ async function requestResearch({ query = "", apiKey = "", enabled = false, fetch
   }
 }
 
-module.exports = { UNAVAILABLE_MESSAGE, OPENAI_RESPONSES_URL, MAX_RESULTS, TIMEOUT_MS, researchUnavailable, normalizeSources, requestResearch };
+module.exports = { UNAVAILABLE_MESSAGE, OPENAI_RESPONSES_URL, MAX_RESULTS, TIMEOUT_MS, readiness, researchUnavailable, normalizeSources, requestResearch };

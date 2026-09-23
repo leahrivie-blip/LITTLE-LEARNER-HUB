@@ -13,6 +13,9 @@ async function fetchOk() {
 }
 
 (async () => {
+  assert.equal(research.readiness({ enabled: false, apiKey: "secret" }).status, "disabled", "disabled flag reports disabled");
+  assert.equal(research.readiness({ enabled: true, apiKey: "" }).status, "missing_api_key", "missing key is reported");
+  assert.equal(research.readiness({ enabled: true, apiKey: "test-key" }).status, "ready", "enabled key reports ready");
   assert.equal((await research.requestResearch({ query: "x" })).available, false, "feature flag defaults disabled");
   assert.equal((await research.requestResearch({ query: "x", enabled: true })).code, "research_api_key_missing", "missing key is safe");
   const valid = await research.requestResearch({ query: "healthy habits", enabled: true, apiKey: "test-key", fetchImpl: fetchOk, now: () => 0 });
