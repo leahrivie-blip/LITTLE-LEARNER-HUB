@@ -82,7 +82,7 @@ function assertStaticContracts() {
   assert.match(consentJs, /has-google-consent-banner/);
   const styles = fs.readFileSync(path.join(ROOT, "styles.css"), "utf8");
   assert.match(styles, /has-google-consent-banner/);
-  assert.match(styles, /user-authenticated\.has-google-consent-banner/);
+  assert.match(styles, /has-google-consent-banner:not\(\.home-view\)/);
   assert.doesNotMatch(
     appJs.slice(appJs.indexOf("function calendarWeekHeaderActionsHtml"), appJs.indexOf("function calendarWeekEmptyStateHtml")),
     /data-calendar-print-week[\s\S]*hasLesson/,
@@ -93,6 +93,14 @@ async function runBrowser() {
   const { chromium, devices } = require("playwright");
   fs.mkdirSync(ARTIFACT, { recursive: true });
   const browser = await chromium.launch({ headless: true });
+  try {
+    return await runBrowserWith(browser, devices);
+  } finally {
+    await browser.close().catch(() => {});
+  }
+}
+
+async function runBrowserWith(browser, devices) {
   const baseUrl = `http://127.0.0.1:${PORT}`;
   const farmCover = "/images/lesson-covers/farm-animals.jpg";
   const results = [];
@@ -133,6 +141,15 @@ async function runBrowser() {
   }
 
   async function assertConsentDoesNotCoverApp(page, label) {
+    await page.waitForFunction(() => {
+      const banner = document.getElementById("llhGoogleConsentBanner")
+        || document.getElementById("llhMetaCookieNotice");
+      if (!banner || banner.hidden) return true;
+      if (!document.body.classList.contains("user-authenticated")) return false;
+      const pos = getComputedStyle(banner).position;
+      return pos === "relative" || pos === "static";
+    }, null, { timeout: 10000 }).catch(() => {});
+    await page.waitForTimeout(200);
     const report = await page.evaluate(() => {
       const banner = document.getElementById("llhGoogleConsentBanner")
         || document.getElementById("llhMetaCookieNotice");
@@ -142,6 +159,23 @@ async function runBrowser() {
         return { present: false, overlaps: [], horizontalScroll: document.documentElement.scrollWidth > window.innerWidth + 2 };
       }
       const br = banner.getBoundingClientRect();
+      const mainRect = main ? main.getBoundingClientRect() : null;
+      const clipVisible = (r) => {
+        if (!mainRect) return r;
+        const top = Math.max(r.top, mainRect.top);
+        const bottom = Math.min(r.bottom, mainRect.bottom);
+        const left = Math.max(r.left, mainRect.left);
+        const right = Math.min(r.right, mainRect.right);
+        if (bottom - top < 2 || right - left < 2) return null;
+        return { top, bottom, left, right, width: right - left, height: bottom - top };
+      };
+      const overlapsBanner = (r) => {
+        const visible = clipVisible(r);
+        if (!visible) return false;
+        const overlapW = Math.min(visible.right, br.right) - Math.max(visible.left, br.left);
+        const overlapH = Math.min(visible.bottom, br.bottom) - Math.max(visible.top, br.top);
+        return overlapW > 4 && overlapH > 4;
+      };
       const selectors = [
         '.sidebar [data-view="calendar"]',
         '.sidebar [data-view="lessons"]',
@@ -162,13 +196,32 @@ async function runBrowser() {
           if (r.width < 2 || r.height < 2) return;
           const style = getComputedStyle(el);
           if (style.display === "none" || style.visibility === "hidden") return;
-          const hit = !(r.right <= br.left || r.left >= br.right || r.bottom <= br.top || r.top >= br.bottom);
-          if (hit) overlaps.push(`${sel}:${(el.textContent || "").trim().slice(0, 28)}`);
+          if (overlapsBanner(r)) overlaps.push(`${sel}:${(el.textContent || "").trim().slice(0, 28)}`);
         });
       }
-      // Signed-in main column must end above the banner (no content under overlay).
-      const mainBottom = main ? main.getBoundingClientRect().bottom : 0;
-      const mainCoversBanner = main && mainBottom > br.top + 4;
+      const bannerPosition = getComputedStyle(banner).position;
+      const mainBottom = mainRect ? mainRect.bottom : 0;
+      const active = document.querySelector(".active-view");
+      let activeCovered = false;
+      if (active) {
+        const nodes = active.querySelectorAll("h1, h2, h3, button, input, a, .llh-calendar-toolbar, .lesson-plan-card");
+        for (const el of nodes) {
+          const r = el.getBoundingClientRect();
+          if (r.width < 2 || r.height < 2) continue;
+          const style = getComputedStyle(el);
+          if (style.display === "none" || style.visibility === "hidden") continue;
+          if (overlapsBanner(r)) {
+            activeCovered = true;
+            overlaps.push(`active:${(el.textContent || el.tagName || "").toString().trim().slice(0, 28)}`);
+            break;
+          }
+        }
+      }
+      document.querySelectorAll(".llh-cal-week-jump").forEach((el) => {
+        const r = el.getBoundingClientRect();
+        if (r.width < 2 || r.height < 2) return;
+        if (overlapsBanner(r)) overlaps.push("week-jump");
+      });
       return {
         present: true,
         dismissible: Boolean(
@@ -177,10 +230,12 @@ async function runBrowser() {
         hasGoogleClass: body.classList.contains("has-google-consent-banner"),
         hasMetaClass: body.classList.contains("has-meta-cookie-notice"),
         authenticated: body.classList.contains("user-authenticated"),
+        bannerPosition,
         bannerHeight: Math.round(br.height),
+        bannerTop: Math.round(br.top),
         bannerBottom: Math.round(br.bottom),
         mainBottom: Math.round(mainBottom),
-        mainCoversBanner,
+        activeCovered,
         overlaps: overlaps.slice(0, 8),
         horizontalScroll: document.documentElement.scrollWidth > window.innerWidth + 2,
       };
@@ -189,16 +244,20 @@ async function runBrowser() {
     if (!report.present) return report;
     assert.equal(report.horizontalScroll, false, `${label}: consent must not cause horizontal scroll`);
     assert.equal(report.dismissible, true, `${label}: consent must remain dismissible`);
-    assert.equal(report.overlaps.length, 0, `${label}: consent covers controls: ${report.overlaps.join(" | ")}`);
+    assert.equal(report.overlaps.length, 0, `${label}: consent covers controls: ${report.overlaps.join(" | ")} | geom=${JSON.stringify({ bannerTop: report.bannerTop, mainBottom: report.mainBottom, pos: report.bannerPosition })}`);
+    assert.equal(report.activeCovered, false, `${label}: consent covers active view content`);
     if (report.authenticated) {
       assert.ok(
         report.hasGoogleClass || report.hasMetaClass,
         `${label}: signed-in consent must reserve layout space via body class`,
       );
-      assert.equal(
-        report.mainCoversBanner,
-        false,
-        `${label}: signed-in .main must end above consent banner (mainBottom=${report.mainBottom}, bannerTop overlap)`,
+      assert.ok(
+        report.bannerPosition === "relative" || report.bannerPosition === "static",
+        `${label}: signed-in consent must be in-flow, got position=${report.bannerPosition}`,
+      );
+      assert.ok(
+        report.mainBottom <= report.bannerTop + 2,
+        `${label}: main must end at/above consent strip (mainBottom=${report.mainBottom}, bannerTop=${report.bannerTop})`,
       );
     }
     return report;
@@ -343,7 +402,6 @@ async function runBrowser() {
     await page.close();
   }
 
-  await browser.close();
   return results;
 }
 

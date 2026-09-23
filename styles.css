@@ -24117,61 +24117,84 @@ body.has-google-consent-banner {
 }
 
 /*
- * Signed-in app: dock consent in the main column so sidebar nav stays clear,
- * and constrain .main height so calendar/binder/print chrome scroll above the
- * fixed banner instead of being visually covered.
+ * Signed-in / app chrome (not marketing home): keep consent in document flow
+ * as a bottom strip so it cannot cover calendar, binder, lesson-plan, nav, or
+ * print controls. Uses :not(.home-view) so it applies as soon as the signed-in
+ * shell is active, even before user-authenticated is toggled.
  */
-body.user-authenticated.has-meta-cookie-notice,
-body.user-authenticated.has-google-consent-banner {
+body.has-meta-cookie-notice:not(.home-view),
+body.has-google-consent-banner:not(.home-view) {
   padding-bottom: 0;
-  --llh-consent-reserve: 112px;
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
 }
 
-body.user-authenticated.has-google-consent-banner {
-  --llh-consent-reserve: 200px;
+body.has-meta-cookie-notice:not(.home-view) .app-shell,
+body.has-google-consent-banner:not(.home-view) .app-shell {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto;
+  max-height: none;
+  overflow: hidden;
+  grid-template-rows: minmax(0, 1fr);
+  align-content: stretch;
 }
 
-body.user-authenticated.has-meta-cookie-notice .main,
-body.user-authenticated.has-google-consent-banner .main {
-  max-height: calc(100dvh - var(--llh-consent-reserve));
-  overflow-x: hidden;
+body.has-meta-cookie-notice:not(.home-view) .sidebar,
+body.has-google-consent-banner:not(.home-view) .sidebar {
+  height: auto;
+  max-height: 100%;
+  min-height: 0;
+  align-self: stretch;
+  overflow: auto;
+}
+
+body.has-meta-cookie-notice:not(.home-view) .main,
+body.has-google-consent-banner:not(.home-view) .main {
+  min-height: 0;
+  max-height: 100%;
+  height: auto;
+  align-self: stretch;
+  overflow-x: clip;
   overflow-y: auto;
   padding-bottom: 12px;
   box-sizing: border-box;
 }
 
-body.user-authenticated .llh-meta-cookie-notice,
-body.user-authenticated #llhGoogleConsentBanner,
-body.user-authenticated #llhMetaCookieNotice {
-  left: max(16px, calc(268px + 16px));
-  right: 16px;
+body.has-meta-cookie-notice:not(.home-view) .llh-meta-cookie-notice,
+body.has-google-consent-banner:not(.home-view) .llh-meta-cookie-notice,
+body.has-meta-cookie-notice:not(.home-view) #llhGoogleConsentBanner,
+body.has-google-consent-banner:not(.home-view) #llhGoogleConsentBanner,
+body.has-meta-cookie-notice:not(.home-view) #llhMetaCookieNotice,
+body.has-google-consent-banner:not(.home-view) #llhMetaCookieNotice {
+  position: relative !important;
+  left: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  z-index: 5;
+  flex: 0 0 auto;
+  width: 100%;
   max-width: none;
-  width: auto;
   margin: 0;
-  z-index: 40;
+  border-radius: 0;
+  box-shadow: 0 -6px 18px rgba(42, 42, 53, 0.08);
+  box-sizing: border-box;
 }
 
 @media (max-width: 1100px) {
-  body.user-authenticated .llh-meta-cookie-notice,
-  body.user-authenticated #llhGoogleConsentBanner,
-  body.user-authenticated #llhMetaCookieNotice {
-    left: 10px;
-    right: 10px;
-    max-width: calc(100vw - 20px);
-  }
-
-  body.user-authenticated.has-google-consent-banner {
-    --llh-consent-reserve: 220px;
-  }
-}
-
-@media (max-width: 640px) {
-  body.user-authenticated.has-google-consent-banner {
-    --llh-consent-reserve: 248px;
-  }
-
-  body.user-authenticated.has-meta-cookie-notice {
-    --llh-consent-reserve: 128px;
+  body.has-meta-cookie-notice:not(.home-view) .llh-meta-cookie-notice,
+  body.has-google-consent-banner:not(.home-view) .llh-meta-cookie-notice,
+  body.has-meta-cookie-notice:not(.home-view) #llhGoogleConsentBanner,
+  body.has-google-consent-banner:not(.home-view) #llhGoogleConsentBanner,
+  body.has-meta-cookie-notice:not(.home-view) #llhMetaCookieNotice,
+  body.has-google-consent-banner:not(.home-view) #llhMetaCookieNotice {
+    left: auto !important;
+    right: auto !important;
+    max-width: none;
+    width: 100%;
   }
 }
 
