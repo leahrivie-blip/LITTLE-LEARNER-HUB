@@ -537,6 +537,10 @@
     "test:teaching-kit-entire-binder-complete": "NODE_ENV=test node scripts/test-teaching-kit-entire-binder-complete.js",
     "test:teaching-kit-tiny-artist-entire-binder": "NODE_ENV=test node scripts/test-teaching-kit-tiny-artist-entire-binder.js",
     "test:visual-production-brief": "NODE_ENV=test node scripts/test-visual-production-brief.js",
+    "test:subscription-status-auth": "NODE_ENV=test node scripts/test-subscription-status-auth.js",
+    "test:subscription-status-client-auth": "NODE_ENV=test node scripts/test-subscription-status-client-auth.js",
+    "test:nested-spa-assets": "node scripts/test-nested-spa-assets.js",
+    "test:google-consent-accept": "node scripts/test-google-consent-accept.js",
     "test:binder-builder": "NODE_ENV=test node scripts/test-binder-builder.js",
     "test:binder-builder-ui": "NODE_ENV=test node scripts/test-binder-builder-ui.js"
   },

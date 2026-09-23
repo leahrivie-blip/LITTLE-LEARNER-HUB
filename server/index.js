@@ -13361,9 +13361,101 @@ async function syncUserMembershipFromStripe(email, { force = false, reason = "su
   return { subscription, recoveredFromStripe };
 }
 
+/**
+ * Strict identity for GET /api/subscription-status only.
+ * Unlike resolveScheduleIdentity (schedule/child-data), this NEVER treats
+ * x-llh-user-email as proof of identity. Accepted proofs:
+ *   - NODE_ENV=test Bearer test:<email>
+ *   - server-minted member session (llh_member_*)
+ *   - verified Firebase ID token
+ * x-llh-user-email is an optional consistency check: if present and it conflicts
+ * with the verified token identity, the request is rejected.
+ */
+async function resolveSubscriptionStatusIdentity(request) {
+  const authHeader = String(request.headers.authorization || "");
+  const headerEmail = normalizeEmail(request.headers["x-llh-user-email"] || "");
+  let identity = null;
+
+  if (process.env.NODE_ENV === "test" && authHeader.startsWith("Bearer test:")) {
+    const email = normalizeEmail(authHeader.slice("Bearer test:".length).trim());
+    if (email) identity = { uid: `test-${email}`, email, source: "test" };
+  }
+
+  if (!identity) {
+    const memberSession = tempPasswordAuth.resolveMemberSession(readStore(), authHeader);
+    if (memberSession?.email) {
+      identity = {
+        uid: memberSession.uid,
+        email: memberSession.email,
+        source: "member-session",
+        memberSessionToken: memberSession.token,
+      };
+    }
+  }
+
+  if (!identity && firebaseConfigStatus().ready) {
+    try {
+      const firebaseIdentity = await verifyFirebaseUser(request);
+      if (firebaseIdentity?.uid) {
+        identity = {
+          uid: firebaseIdentity.uid,
+          email: normalizeEmail(firebaseIdentity.email || ""),
+          source: "firebase",
+        };
+      }
+    } catch {
+      identity = null;
+    }
+  }
+
+  if (!identity?.email) return null;
+
+  if (headerEmail && headerEmail !== identity.email) {
+    const error = new Error("Authenticated identity does not match x-llh-user-email.");
+    error.code = "identity_header_mismatch";
+    throw error;
+  }
+  return identity;
+}
+
 async function handleSubscriptionStatus(request, response, url) {
-  const email = normalizeEmail(url.searchParams.get("email"));
+  const requestedEmail = normalizeEmail(url.searchParams.get("email"));
   const forceRefresh = url.searchParams.get("refresh") === "1" || url.searchParams.get("force") === "1";
+
+  // Auth gate: never trust ?email= or x-llh-user-email alone. Unauthenticated
+  // callers get 401 with no profile/membership/analytics payload. Members may
+  // only read their own row; admins may look up another email via the existing
+  // admin token path.
+  let email = "";
+  const adminToken = extractAdminToken(request, url);
+  if (adminToken && validAdminToken(adminToken)) {
+    if (!requestedEmail) {
+      jsonResponse(response, 400, { error: "email is required." });
+      return;
+    }
+    email = requestedEmail;
+  } else {
+    let identity = null;
+    try {
+      identity = await resolveSubscriptionStatusIdentity(request);
+    } catch (error) {
+      if (error?.code === "identity_header_mismatch") {
+        jsonResponse(response, 403, { error: error.message || "Authenticated identity does not match x-llh-user-email." });
+        return;
+      }
+      identity = null;
+    }
+    if (!identity?.email) {
+      jsonResponse(response, 401, { error: "Sign in is required." });
+      return;
+    }
+    if (requestedEmail && requestedEmail !== identity.email) {
+      jsonResponse(response, 403, { error: "You can only view your own subscription status." });
+      return;
+    }
+    email = identity.email;
+  }
+
   try {
     const { subscription, recoveredFromStripe } = await syncUserMembershipFromStripe(email, {
       force: forceRefresh,

@@ -715,7 +715,12 @@ async function main() {
       stripeSubscriptionStatus: "unpaid", monthlyPrice: "$0/month", updatedAt: new Date().toISOString(),
     };
     writeStore(store);
-    const failedSub = await requestJson("GET", "/api/subscription-status?email=failed-pay@billing.test");
+    const failedSub = await requestJson("GET", "/api/subscription-status?email=failed-pay@billing.test", null, {
+      headers: {
+        Authorization: "Bearer test:failed-pay@billing.test",
+        "x-llh-user-email": "failed-pay@billing.test",
+      },
+    });
     assert(failedSub.json.subscription?.hasProAccess === false, "Payment failed user has no Pro access");
     // Confirmed mapping: unpaid is never canceled/ended — it always shows the neutral
     // "Billing Review Required" label, never "Payment Failed"/"Ended".
@@ -744,7 +749,12 @@ async function main() {
       assert(paidUser?.foundingMemberActive === true, "Webhook must set foundingMemberActive");
       assert(paidUser?.stripeSubscriptionStatus === "active" || paidUser?.stripeSubscriptionStatus === "trialing", "Webhook must set stripeSubscriptionStatus");
       assert(membershipAccess.membershipHasProAccess(paidUser), "Webhook Founding member must have Pro access");
-      const statusRes = await requestJson("GET", "/api/subscription-status?email=paid-founding@billing.test");
+      const statusRes = await requestJson("GET", "/api/subscription-status?email=paid-founding@billing.test", null, {
+        headers: {
+          Authorization: "Bearer test:paid-founding@billing.test",
+          "x-llh-user-email": "paid-founding@billing.test",
+        },
+      });
       assert(statusRes.json?.subscription?.hasProAccess === true, "subscription-status must report Pro access after Founding checkout");
       assert(statusRes.json?.subscription?.membershipPlan === "Founding Member", "subscription-status must show Founding Member");
     }

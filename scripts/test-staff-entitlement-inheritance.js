@@ -170,7 +170,7 @@ async function main() {
     await waitForHealth();
 
     await test("1+17 existing accepted co-director inherits Pro without re-invite", async () => {
-      const res = await request("GET", `/api/subscription-status?email=${encodeURIComponent(CODIRECTOR)}`);
+      const res = await request("GET", `/api/subscription-status?email=${encodeURIComponent(CODIRECTOR)}`, { email: CODIRECTOR });
       assert.equal(res.status, 200, JSON.stringify(res.json));
       assert.equal(res.json.subscription.hasProAccess, true);
       assert.equal(res.json.subscription.accessInheritedFromOwner, OWNER);
@@ -180,17 +180,17 @@ async function main() {
     });
 
     await test("5+18+19 staff role stays director and billing stays on owner", async () => {
-      const res = await request("GET", `/api/subscription-status?email=${encodeURIComponent(CODIRECTOR)}`);
+      const res = await request("GET", `/api/subscription-status?email=${encodeURIComponent(CODIRECTOR)}`, { email: CODIRECTOR });
       assert.equal(res.json.subscription.role, "director");
       assert.ok(!res.json.subscription.capabilities?.includes?.("billing"));
-      const owner = await request("GET", `/api/subscription-status?email=${encodeURIComponent(OWNER)}`);
+      const owner = await request("GET", `/api/subscription-status?email=${encodeURIComponent(OWNER)}`, { email: OWNER });
       assert.equal(owner.json.subscription.hasProAccess, true);
       assert.equal(owner.json.subscription.independentlySubscribed, true);
       assert.equal(owner.json.subscription.stripeSubscriptionId, "sub_ashley");
     });
 
     await test("20 standalone paid user still has personal Pro", async () => {
-      const res = await request("GET", "/api/subscription-status?email=paid.solo@example.com");
+      const res = await request("GET", "/api/subscription-status?email=paid.solo@example.com", { email: "paid.solo@example.com" });
       assert.equal(res.json.subscription.hasProAccess, true);
       assert.equal(res.json.subscription.independentlySubscribed, true);
       assert.equal(res.json.subscription.accessInheritedFromOwner, "");
@@ -221,7 +221,7 @@ async function main() {
       });
       assert.equal(res.status, 200, JSON.stringify(res.json));
       assert.equal(res.json.account.linkedProgramOwnerEmail, OWNER);
-      const status = await request("GET", "/api/subscription-status?email=teacher.free@example.com");
+      const status = await request("GET", "/api/subscription-status?email=teacher.free@example.com", { email: "teacher.free@example.com" });
       assert.equal(status.json.subscription.hasProAccess, true);
       assert.equal(status.json.subscription.accessInheritedFromOwner, OWNER);
     });
@@ -291,7 +291,7 @@ async function main() {
       assert.equal(removed.status, 200, JSON.stringify(removed.json));
       const after = await request("GET", "/api/staff/invites", { email: OWNER });
       assert.ok(after.json.seats.used <= 3);
-      const status = await request("GET", "/api/subscription-status?email=teacher.free@example.com");
+      const status = await request("GET", "/api/subscription-status?email=teacher.free@example.com", { email: "teacher.free@example.com" });
       assert.equal(status.json.subscription.hasProAccess, false);
       assert.equal(status.json.subscription.stripeSubscriptionId, "");
     });
@@ -325,7 +325,7 @@ async function main() {
     });
 
     await test("O non-founding Monthly Pro linked staff do not inherit Pro", async () => {
-      const res = await request("GET", `/api/subscription-status?email=${encodeURIComponent(MONTHLY_STAFF)}`);
+      const res = await request("GET", `/api/subscription-status?email=${encodeURIComponent(MONTHLY_STAFF)}`, { email: MONTHLY_STAFF });
       assert.equal(res.json.subscription.hasProAccess, false);
       assert.equal(res.json.subscription.accessInheritedFromOwner || "", "");
     });
@@ -336,7 +336,7 @@ async function main() {
       raw.users[OWNER].stripeSubscriptionStatus = "canceled";
       raw.users[OWNER].subscriptionStatus = "Canceled and Ended";
       fs.writeFileSync(STORE, JSON.stringify(raw, null, 2));
-      const res = await request("GET", `/api/subscription-status?email=${encodeURIComponent(CODIRECTOR)}`);
+      const res = await request("GET", `/api/subscription-status?email=${encodeURIComponent(CODIRECTOR)}`, { email: CODIRECTOR });
       assert.equal(res.json.subscription.hasProAccess, false);
     });
   } finally {

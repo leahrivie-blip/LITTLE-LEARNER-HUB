@@ -17,12 +17,31 @@
       root.localStorage.removeItem("llhAttribution");
     } catch { /* optional storage */ }
   };
+  const suppressMetaWhileGoogleOpen = () => {
+    const meta = document.getElementById("llhMetaCookieNotice");
+    if (!meta) return;
+    meta.setAttribute("data-google-consent-suppressed", "1");
+    meta.setAttribute("aria-hidden", "true");
+    meta.hidden = true;
+    meta.style.display = "none";
+    try { document.body.classList.remove("has-meta-cookie-notice"); } catch { /* ignore */ }
+  };
+  const restoreMetaAfterGoogleClosed = () => {
+    const meta = document.getElementById("llhMetaCookieNotice");
+    if (!meta || meta.getAttribute("data-google-consent-suppressed") !== "1") return;
+    meta.removeAttribute("data-google-consent-suppressed");
+    meta.removeAttribute("aria-hidden");
+    meta.hidden = false;
+    meta.style.display = "";
+    try { document.body.classList.add("has-meta-cookie-notice"); } catch { /* ignore */ }
+  };
   const open = () => {
     document.getElementById("llhGoogleConsentBanner")?.remove();
+    suppressMetaWhileGoogleOpen();
     const current = read();
     const banner = document.createElement("section");
     banner.id = "llhGoogleConsentBanner";
-    banner.className = "llh-meta-cookie-notice";
+    banner.className = "llh-meta-cookie-notice llh-google-consent-banner";
     banner.setAttribute("role", "dialog");
     banner.setAttribute("aria-label", "Analytics and advertising preferences");
     banner.innerHTML = `<p>Optional analytics and advertising: ${current?.granted === true ? "accepted" : current?.granted === false ? "rejected" : "not decided"}. See our <a href="/privacy">Privacy Policy</a>.</p><button type="button" data-google-consent="accept">Accept analytics and advertising</button><button type="button" data-google-consent="reject">Reject optional tracking</button><button type="button" data-google-consent="withdraw">Withdraw consent</button>`;
@@ -33,6 +52,10 @@
       if (!granted) clearAdvertisingIdentifiers();
       update(granted);
       banner.remove();
+      restoreMetaAfterGoogleClosed();
+      try {
+        if (typeof root.ensureMetaCookieNotice === "function") root.ensureMetaCookieNotice();
+      } catch { /* optional */ }
     });
     document.body.appendChild(banner);
   };

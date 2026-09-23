@@ -10,6 +10,24 @@ function uniqueE2eId(suffix = "") {
 }
 
 /**
+ * Parser now requires DESCRIPTION + TEACHER_ROLE on each activity.
+ * Keep legacy fixture text readable; enrich missing fields before parse.
+ * @param {string} text
+ * @returns {string}
+ */
+function ensureRequiredActivityImportFields(text) {
+  return String(text || "").replace(
+    /(DIRECTIONS:\n(?:.*\n)*?)(LEARNING GOAL[S]?:)/gi,
+    (match, directionsBlock, learningLabel) => {
+      if (/DESCRIPTION:/i.test(directionsBlock) && /TEACHER[_ ]ROLE:/i.test(directionsBlock)) {
+        return match;
+      }
+      return `${directionsBlock}DESCRIPTION:\nChildren explore and practice the activity steps.\n\nTEACHER_ROLE:\nGuide participation and model language.\n\n${learningLabel}`;
+    },
+  );
+}
+
+/**
  * @param {string} unique
  * @returns {string}
  */
@@ -301,6 +319,7 @@ Goal mon-${i}`;
 
 module.exports = {
   uniqueE2eId,
+  ensureRequiredActivityImportFields,
   buildE2eLessonImportText,
   buildMinimalLessonImportText,
   buildProLessonImportText,
