@@ -40,6 +40,7 @@
     "test:curriculum-operator-message-history": "NODE_ENV=test node scripts/test-curriculum-operator-message-history.js",
     "test:curriculum-operator-http": "NODE_ENV=test node scripts/test-curriculum-operator-http.js",
     "test:curriculum-operator-http-production": "NODE_ENV=test node scripts/test-curriculum-operator-http-production.js",
+    "test:curriculum-operator-research": "NODE_ENV=test node scripts/test-curriculum-operator-research.js",
     "test:curriculum-operator-asset-retry": "NODE_ENV=test node scripts/test-curriculum-operator-asset-retry.js",
     "test:curriculum-operator-instruction-profile": "NODE_ENV=test node scripts/test-curriculum-operator-instruction-profile.js",
     "test:curriculum-operator-nl-smoke-blockers": "NODE_ENV=test node scripts/test-curriculum-operator-nl-smoke-blockers.js",

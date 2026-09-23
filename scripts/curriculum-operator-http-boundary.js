@@ -1,6 +1,8 @@
 "use strict";
 
 const schema = require("./curriculum-operator-schema.js");
+const createApi = require("./curriculum-operator-create.js");
+const researchApi = require("./curriculum-operator-research.js");
 
 async function handleParseRequest({
   body = {}, session = {}, store, curriculum = {}, phase = 7, dependencies = {},
@@ -24,6 +26,9 @@ async function handleParseRequest({
     };
   }
   const correction = conversation.parseSemanticCorrection(rawText);
+  const research = createApi.parseCreationBrief(rawText).brief.researchRequested
+    ? researchApi.requestResearch({ query: rawText })
+    : null;
   if (correction.type === "start_over" && sessionId) {
     conversation.clearTemporaryConversation(store, ownerId, sessionId);
     stored = null;
@@ -64,6 +69,7 @@ async function handleParseRequest({
         requestedExclusions: [...new Set([...(stored?.requestedExclusions || []), ...(parsed.interpretation?.nextContext?.previousExclusions || [])])],
         imageRequirements: parsed.command?.actions?.generateImages ? "requested" : stored?.imageRequirements || null,
         printableRequirements: parsed.command?.actions?.generatePrintables ? "requested" : stored?.printableRequirements || null,
+        researchRequested: research?.ok !== true && research !== null,
         unresolvedQuestion: correction.clarificationRequired
           ? correction.responseText
           : (parsed.needsConfirmation ? "I need one detail before I continue: please tell me which lesson you mean." : null),
@@ -72,7 +78,7 @@ async function handleParseRequest({
         }, {
           role: "operator", operation: parsed.command?.intent, resolvedLessonIds: parsed.command?.scope?.lessonIds || [],
           effectiveInstructionSummary: parsed.effectiveInstructions?.summary || null,
-          responseText: correction.responseText || (parsed.needsConfirmation
+          responseText: correction.responseText || research?.message || (parsed.needsConfirmation
             ? "I need one detail before I continue: please tell me which lesson you mean."
             : `I understand. ${target ? `You want me to update ${target.title}` : "I have your request"}, and publishing will stay off.`),
         }],
