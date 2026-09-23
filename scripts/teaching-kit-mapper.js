@@ -33,22 +33,22 @@
     Object.freeze({ id: "overview", label: "Overview" }),
     Object.freeze({ id: "weekly_plan", label: "Weekly Plan" }),
     Object.freeze({ id: "activities", label: "Activities" }),
+    Object.freeze({ id: "materials", label: "Materials & Prep" }),
+    Object.freeze({ id: "books_songs", label: "Books & Songs" }),
+    Object.freeze({ id: "documentation", label: "Documentation & Family" }),
     Object.freeze({ id: "printables", label: "Printables" }),
-    Object.freeze({ id: "songs", label: "Songs" }),
-    Object.freeze({ id: "books", label: "Books" }),
     Object.freeze({ id: "examples", label: "Example Images" }),
-    Object.freeze({ id: "teacher_toolkit", label: "Teacher Toolkit" }),
   ]);
 
   const PROVIDER_BINDER_SECTION_MAP = Object.freeze({
     overview: "overview",
     weekly_plan: "weekly_plan",
     activities: "daily_activities",
+    materials: "materials",
+    books_songs: "books_songs",
+    documentation: "documentation",
     printables: "printables",
-    songs: "songs",
-    books: "books",
     examples: "examples",
-    teacher_toolkit: "teacher_toolkit",
   });
 
   const BUILD_PRESETS = Object.freeze([
@@ -929,8 +929,40 @@
         return { objectives: bulletLines(ctx.plan.objectives) };
       case "vocabulary":
         return { words: ctx.vocabulary };
-      case "materials":
-        return { materials: ctx.weekMaterials };
+      case "materials": {
+        const toolkit = ctx.teacherToolkit || {};
+        const list = (raw) => asArray(raw).map(text).filter(Boolean);
+        const prep = list(toolkit.prepChecklist);
+        const master = list(toolkit.masterMaterialsChecklist || toolkit.masterMaterials).length
+          ? list(toolkit.masterMaterialsChecklist || toolkit.masterMaterials)
+          : asArray(ctx.weekMaterials).map(text).filter(Boolean);
+        return {
+          materials: master,
+          prepChecklist: prep,
+          materialSubstitutions: list(toolkit.materialSubstitutions || toolkit.substitutions),
+          teacherPreparation: text(toolkit.teacherPreparation),
+          setupCleanupShortcuts: list(toolkit.setupCleanupShortcuts || toolkit.setupShortcuts),
+          notes: text(toolkit.notes),
+        };
+      }
+      case "books_songs":
+        return { books: ctx.books, songs: ctx.songs };
+      case "documentation":
+        return {
+          prompts: bulletLines(ctx.plan.observationOpportunities),
+          familyConnection: text(ctx.plan.familyConnection),
+          observationPrompts: (() => {
+            const toolkit = ctx.teacherToolkit || {};
+            const list = (raw) => asArray(raw).map(text).filter(Boolean);
+            return list(toolkit.observationPrompts).length
+              ? list(toolkit.observationPrompts)
+              : bulletLines(ctx.plan.observationOpportunities);
+          })(),
+          documentationPrompts: (() => {
+            const toolkit = ctx.teacherToolkit || {};
+            return asArray(toolkit.documentationPrompts || toolkit.milestonePrompts).map(text).filter(Boolean);
+          })(),
+        };
       case "weekly_plan":
         return {
           days: WEEKDAYS.map((day) => {
@@ -1063,12 +1095,24 @@
   function sectionHasContent(sectionId, content) {
     if (!content || typeof content !== "object") return false;
     if (Array.isArray(content.activities)) return content.activities.length > 0;
+    if (Array.isArray(content.books) || Array.isArray(content.songs)) {
+      return (content.books || []).length > 0 || (content.songs || []).length > 0;
+    }
     if (Array.isArray(content.books)) return content.books.length > 0;
     if (Array.isArray(content.songs)) return content.songs.length > 0;
     if (Array.isArray(content.words)) return content.words.length > 0;
-    if (Array.isArray(content.materials)) return content.materials.length > 0;
+    if (Array.isArray(content.materials) || Array.isArray(content.prepChecklist)) {
+      return (content.materials || []).length > 0
+        || (content.prepChecklist || []).length > 0
+        || Boolean(text(content.teacherPreparation));
+    }
     if (Array.isArray(content.objectives)) return content.objectives.length > 0;
-    if (Array.isArray(content.prompts)) return content.prompts.length > 0;
+    if (Array.isArray(content.prompts) || Array.isArray(content.observationPrompts) || Array.isArray(content.documentationPrompts)) {
+      return (content.prompts || []).length > 0
+        || (content.observationPrompts || []).length > 0
+        || (content.documentationPrompts || []).length > 0
+        || Boolean(text(content.familyConnection));
+    }
     if (Array.isArray(content.printables)) return content.printables.length > 0;
     if (Array.isArray(content.activitiesWithPhotos)) return content.activitiesWithPhotos.length > 0;
     if (Array.isArray(content.extensions)) return content.extensions.length > 0;
@@ -1226,11 +1270,19 @@
       const visible = sectionHasContent(section.id, content);
       let itemCount = 0;
       if (Array.isArray(content.activities)) itemCount = content.activities.length;
-      else if (Array.isArray(content.books)) itemCount = content.books.length;
+      else if (section.id === "books_songs") {
+        itemCount = (content.books || []).length + (content.songs || []).length;
+      } else if (Array.isArray(content.books)) itemCount = content.books.length;
       else if (Array.isArray(content.songs)) itemCount = content.songs.length;
       else if (Array.isArray(content.words)) itemCount = content.words.length;
-      else if (Array.isArray(content.materials)) itemCount = content.materials.length;
-      else if (Array.isArray(content.printables)) itemCount = content.printables.length;
+      else if (Array.isArray(content.materials) || section.id === "materials") {
+        itemCount = (content.materials || []).length + (content.prepChecklist || []).length;
+      } else if (section.id === "documentation") {
+        itemCount = (content.prompts || []).length
+          + (content.observationPrompts || []).length
+          + (content.documentationPrompts || []).length
+          + (text(content.familyConnection) ? 1 : 0);
+      } else if (Array.isArray(content.printables)) itemCount = content.printables.length;
       else if (Array.isArray(content.activitiesWithPhotos)) itemCount = content.activitiesWithPhotos.length;
       else if (Array.isArray(content.prepChecklist) || section.id === "teacher_toolkit") {
         itemCount = [
@@ -1350,7 +1402,7 @@
         hasParentMessage: Boolean(text(safePlan.familyConnection)),
         hasVocabulary: vocabulary.length > 0,
         hasTeacherToolkit: Boolean(
-          providerBinder.tabs.some((tab) => tab.id === "teacher_toolkit"),
+          providerBinder.tabs.some((tab) => tab.id === "materials" || tab.id === "teacher_toolkit"),
         ),
       },
     };

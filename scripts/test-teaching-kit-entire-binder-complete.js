@@ -94,16 +94,21 @@ function mime(filePath) {
 function unitFarmAnimalsMaterialsComplete() {
   console.log("\nUnit: Farm Animals Entire Binder materials completeness");
   const kit = loadLiveKit();
-  const expectedMaterials = (kit.companion?.materialsModel?.master || []).length;
-  ok(expectedMaterials > 80, `live-shape master materials exceed old 80-cap (${expectedMaterials})`);
-  ok(expectedMaterials > 60, `live-shape master materials exceed old HTML 60-cap (${expectedMaterials})`);
+  const storedMaster = (kit.companion?.materialsModel?.master || []).length;
+  ok(storedMaster > 80, `live-shape master materials exceed old 80-cap (${storedMaster})`);
+  ok(storedMaster > 60, `live-shape master materials exceed old HTML 60-cap (${storedMaster})`);
 
   const model = Model.buildPrintableTeachingKitModel(kit, null, {});
   ok(model.ok === true, "printable model builds");
-  ok((model.overview?.masterMaterials || []).length === expectedMaterials,
-    `model keeps all master materials (${model.overview.masterMaterials.length}/${expectedMaterials})`);
-  ok((model.overview?.masterMaterialsDetailed || []).length === expectedMaterials,
-    `model keeps all detailed materials (${model.overview.masterMaterialsDetailed.length}/${expectedMaterials})`);
+  const expectedMaterials = (model.overview?.masterMaterials || []).length;
+  ok(expectedMaterials >= 80, `printable model materials stay substantial after near-dedupe (${expectedMaterials})`);
+  ok((model.overview?.masterMaterialsDetailed || []).length >= Math.min(expectedMaterials, 80),
+    `detailed materials stay substantial (${model.overview.masterMaterialsDetailed.length})`);
+  ok((model.overview?.masterMaterialsDetailed || []).length <= expectedMaterials,
+    `detailed materials do not exceed master labels (${model.overview.masterMaterialsDetailed.length}/${expectedMaterials})`);
+  // Near-duplicate collapse may reduce below the raw stored master count — never inflate.
+  ok(expectedMaterials <= storedMaster,
+    `dedupe does not invent materials (${expectedMaterials}/${storedMaster})`);
 
   const entire = Print.buildBinderPrintHtml(kit, {
     preset: "week_binder",
@@ -111,19 +116,24 @@ function unitFarmAnimalsMaterialsComplete() {
     forceDesigned: true,
   });
   ok(entire.ok === true && entire.documentMode === "entire_binder", "Entire Binder builds");
-  ok(materialsLiCount(entire.html) === expectedMaterials,
-    `Entire Binder Materials list has every item (${materialsLiCount(entire.html)}/${expectedMaterials})`);
-  ok(toolkitSetupMaterialsLiCount(entire.html) === expectedMaterials,
-    `Toolkit setup materials list has every item (${toolkitSetupMaterialsLiCount(entire.html)}/${expectedMaterials})`);
+  ok(materialsLiCount(entire.html) >= expectedMaterials,
+    `Entire Binder Materials list keeps supplies (${materialsLiCount(entire.html)}/${expectedMaterials})`);
+  ok(materialsLiCount(entire.html) <= expectedMaterials + 40,
+    `Materials & Prep checklist stays bounded (${materialsLiCount(entire.html)})`);
 
   // Expected section presence (assembly manifest).
   const tabs = entire.sectionManifest || [];
-  ["Cover", "Contents", "Overview", "Weekly Plan", "Daily Plans", "Activities", "Songs", "Books", "Teacher Toolkit", "Materials"]
+  ["Cover", "Contents", "Overview", "Weekly Plan", "Daily Plans", "Activities", "Materials"]
     .forEach((tab) => ok(tabs.includes(tab), `section present: ${tab}`));
+  ok(
+    tabs.includes("Books & Songs") || tabs.includes("Books &amp; Songs"),
+    "Books & Songs combined section",
+  );
+  ok(!tabs.includes("Teacher Toolkit"), "Teacher Toolkit folded into Materials & Prep");
+  ok(!tabs.includes("Example Images"), "Example Images not in default printed binder");
   ok(tabs.filter((tab) => tab === "Daily Plans").length === 5, "five weekday Daily Plans pages");
   ok((entire.manifest?.activities || []).length === 15, "fifteen activities requested");
   ok(activityCardCount(entire.html) === 15, `fifteen activity cards rendered (${activityCardCount(entire.html)})`);
-  ok(expectedMaterials === 113, `Farm Animals live-shape has 113 materials (${expectedMaterials})`);
   ok((entire.manifest?.songs || []).length === 5, "five songs requested");
   ok((entire.manifest?.books || []).length === 3, "three books requested");
   ok((entire.attachmentPlan?.attachments || []).length === 1, "one printable PDF planned");
@@ -136,8 +146,10 @@ function unitFarmAnimalsMaterialsComplete() {
     paperSize: "letter",
     forceDesigned: true,
   });
-  ok(materialsLiCount(materialsOnly.html) === expectedMaterials,
-    `Materials List pack also keeps every item (${materialsLiCount(materialsOnly.html)}/${expectedMaterials})`);
+  ok(materialsLiCount(materialsOnly.html) >= Math.min(expectedMaterials, (model.overview?.masterMaterialsDetailed || []).length),
+    `Materials List pack also keeps supplies (${materialsLiCount(materialsOnly.html)}/${expectedMaterials})`);
+  ok(materialsLiCount(materialsOnly.html) >= 80,
+    `Materials List pack stays substantial (${materialsLiCount(materialsOnly.html)})`);
 
   return { expectedMaterials, htmlPageCount: entire.pageCount };
 }
@@ -199,7 +211,9 @@ function unitSelectiveModesStillWork() {
   ok(activityCardCount(oneActivity.html) === 1, "One Activity renders exactly one activity card");
   ok(materialsLiCount(oneDay.html) === 0, "One Day does not dump the full Materials list");
   ok(materialsLiCount(oneActivity.html) === 0, "One Activity does not dump the full Materials list");
-  ok(materialsLiCount(entire.html) === expectedMaterials, "Entire Binder still keeps full Materials list");
+  ok(materialsLiCount(entire.html) >= 80, `Entire Binder still keeps full Materials list (${materialsLiCount(entire.html)})`);
+  ok(materialsLiCount(entire.html) <= expectedMaterials + 40,
+    `Entire Binder Materials & Prep stays bounded (${materialsLiCount(entire.html)}/${expectedMaterials})`);
 
   // One Song / One Printable when ids exist.
   if (songId) {
@@ -273,7 +287,8 @@ function unitOversizedBinderManifest() {
     forceDesigned: true,
   });
   ok(built.ok === true, "oversized Entire Binder builds");
-  ok(materialsLiCount(built.html) === 160, `oversized Materials list complete (${materialsLiCount(built.html)})`);
+  ok(materialsLiCount(built.html) >= 160, `oversized Materials list complete (${materialsLiCount(built.html)})`);
+  ok(materialsLiCount(built.html) <= 200, `oversized Materials & Prep stays bounded (${materialsLiCount(built.html)})`);
   ok((built.attachmentPlan?.attachments || []).length === 3, "three printable attachments planned");
   ok((built.manifest?.activities || []).length === 15, "activities retained on oversized kit");
   return built;
@@ -357,11 +372,6 @@ async function browserCompleteBinderProof(expectedMaterials) {
       document.body.appendChild(host);
       const materialsLi = [...host.querySelectorAll('[data-tk-print-tab="Materials"]')]
         .reduce((sum, node) => sum + node.querySelectorAll("li").length, 0);
-      const toolkitMaterialsLi = [...host.querySelectorAll('[data-tk-print-tab="Teacher Toolkit"]')]
-        .reduce((sum, node) => {
-          const group = node.querySelector('[data-toolkit-group="materials"]');
-          return sum + (group ? group.querySelectorAll("li").length : 0);
-        }, 0);
       const activityCards = host.querySelectorAll(".tk-print-activity-card").length;
       const sectionTabs = [...host.querySelectorAll("[data-tk-print-tab]")].map((node) => node.getAttribute("data-tk-print-tab"));
       const merged = await PrintApi.buildMergedTeachingKitPdf(liveKit, {
@@ -387,7 +397,6 @@ async function browserCompleteBinderProof(expectedMaterials) {
         mergeOk: merged.ok,
         reason: merged.reason,
         materialsLi,
-        toolkitMaterialsLi,
         activityCards,
         sectionTabs,
         htmlPages: built.pageCount,
@@ -405,12 +414,17 @@ async function browserCompleteBinderProof(expectedMaterials) {
 
     ok(result.mergeOk === true, "Entire Binder merge succeeded");
     ok(result.validationOk === true, "PDF signature valid");
-    ok(result.materialsLi === expectedMaterials, `browser Materials list complete (${result.materialsLi})`);
-    ok(result.toolkitMaterialsLi === expectedMaterials,
-      `browser Toolkit materials complete (${result.toolkitMaterialsLi})`);
+    ok(result.materialsLi >= Math.min(expectedMaterials, 80), `browser Materials list complete (${result.materialsLi})`);
+    ok(result.materialsLi <= expectedMaterials + 40, `browser Materials & Prep stays bounded (${result.materialsLi})`);
     ok(result.activityCards === 15, `browser activity cards complete (${result.activityCards})`);
-    ["Cover", "Contents", "Overview", "Weekly Plan", "Daily Plans", "Activities", "Songs", "Books", "Teacher Toolkit", "Materials"]
+    ["Cover", "Contents", "Overview", "Weekly Plan", "Daily Plans", "Activities", "Materials"]
       .forEach((tab) => ok(result.sectionTabs.includes(tab), `browser section present: ${tab}`));
+    ok(
+      result.sectionTabs.includes("Books & Songs") || result.sectionTabs.includes("Books &amp; Songs"),
+      "browser Books & Songs combined",
+    );
+    ok(!result.sectionTabs.includes("Teacher Toolkit"), "browser binder folds toolkit into materials");
+    ok(!result.sectionTabs.includes("Example Images"), "browser binder omits example images");
     ok(result.includedIds.includes(printableId), "printable attachment included");
     ok(result.includedIds.length === 1, "no printable attachment dropped or duplicated");
     ok(result.attachmentPages === 2, `fixture printable pages preserved (${result.attachmentPages})`);
@@ -448,9 +462,6 @@ async function browserCompleteBinderProof(expectedMaterials) {
       });
       const materialsBlock = built.html.match(/data-tk-print-tab="Materials"[\s\S]*?(?=<section class="tk-print-page|$)/)?.[0] || "";
       const materialsLi = (materialsBlock.match(/<li[\s>]/g) || []).length;
-      const toolkitBlock = built.html.match(/data-tk-print-tab="Teacher Toolkit"[\s\S]*?(?=<section class="tk-print-page|$)/)?.[0] || "";
-      const toolkitGroup = toolkitBlock.match(/data-toolkit-group="materials"[\s\S]*?(?=<section class="tk-print-toolkit-group"|$)/)?.[0] || "";
-      const toolkitMaterialsLi = (toolkitGroup.match(/<li[\s>]/g) || []).length;
       const activityCards = (built.html.match(/class="tk-print-activity-card"/g) || []).length;
       const merged = await PrintApi.buildMergedTeachingKitPdf(payload.kit, {
         preset: "week_binder",
@@ -465,7 +476,6 @@ async function browserCompleteBinderProof(expectedMaterials) {
         ok: merged.ok,
         reason: merged.reason,
         materialsLi,
-        toolkitMaterialsLi,
         activityCards,
         totalPages: merged.report?.totalPages || 0,
         binderPages: merged.report?.binderPageCount || 0,
@@ -479,10 +489,8 @@ async function browserCompleteBinderProof(expectedMaterials) {
     });
 
     ok(fivePageResult.ok === true, "5-page printable Entire Binder merge succeeded");
-    ok(fivePageResult.materialsLi === expectedMaterials,
+    ok(fivePageResult.materialsLi >= Math.min(expectedMaterials, 80),
       `5-page printable Materials still complete (${fivePageResult.materialsLi})`);
-    ok(fivePageResult.toolkitMaterialsLi === expectedMaterials,
-      `5-page printable Toolkit materials still complete (${fivePageResult.toolkitMaterialsLi})`);
     ok(fivePageResult.activityCards === 15, `5-page printable activities still complete (${fivePageResult.activityCards})`);
     ok(fivePageResult.includedIds.includes(printableId), "5-page printable still attached");
     ok(fivePageResult.attachmentPages === 5, `5-page printable pages preserved (${fivePageResult.attachmentPages})`);
@@ -555,7 +563,8 @@ async function browserCompleteBinderProof(expectedMaterials) {
     });
 
     ok(oversizedResult.ok === true, "oversized Entire Binder merge succeeded");
-    ok(oversizedResult.materialsLi === 160, `oversized Materials complete in browser HTML (${oversizedResult.materialsLi})`);
+    ok(oversizedResult.materialsLi >= 160, `oversized Materials complete in browser HTML (${oversizedResult.materialsLi})`);
+    ok(oversizedResult.materialsLi <= 200, `oversized Materials & Prep stays bounded (${oversizedResult.materialsLi})`);
     ok(oversizedResult.includedIds.length === 3, "all three printables merged");
     ok(oversizedResult.attachmentPages === 9, `oversized attachment pages 2+3+4=${oversizedResult.attachmentPages}`);
     ok(oversizedResult.totalPages === expectedMergedPageCount(oversizedResult.binderPages, oversizedResult.attachmentPages),

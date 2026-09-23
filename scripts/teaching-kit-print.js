@@ -37,20 +37,7 @@
       parts: ["cover", "setup", "daily", "activities", "songsBooks", "vocabulary", "family", "observations", "printables"],
       daysMode: "all",
       default: true,
-    }),
-    Object.freeze({
-      id: "full_weekly_plan",
-      label: "Full Weekly Lesson Plan",
-      documentMode: "full_weekly",
-      parts: ["cover", "daily", "activities", "songsBooks", "vocabulary", "observations"],
-      daysMode: "all",
-    }),
-    Object.freeze({
-      id: "weekly_overview",
-      label: "Weekly Overview",
-      documentMode: "overview",
-      parts: ["cover", "setup", "vocabulary"],
-      daysMode: "none",
+      primary: true,
     }),
     Object.freeze({
       id: "today_pack",
@@ -58,6 +45,32 @@
       documentMode: "one_day",
       parts: ["cover", "daily", "activities", "songsBooks", "family", "observations"],
       daysMode: "today",
+      advanced: true,
+    }),
+    Object.freeze({
+      id: "selected_resources",
+      label: "Choose specific pages",
+      documentMode: "selected_resources",
+      parts: ["cover"],
+      daysMode: "none",
+      advanced: true,
+    }),
+    // Kept for API / deep-link compatibility — hidden from the simplified Print Center UI.
+    Object.freeze({
+      id: "full_weekly_plan",
+      label: "Full Weekly Lesson Plan",
+      documentMode: "full_weekly",
+      parts: ["cover", "daily", "activities", "songsBooks", "vocabulary", "observations"],
+      daysMode: "all",
+      hidden: true,
+    }),
+    Object.freeze({
+      id: "weekly_overview",
+      label: "Weekly Overview",
+      documentMode: "overview",
+      parts: ["cover", "setup", "vocabulary"],
+      daysMode: "none",
+      hidden: true,
     }),
     Object.freeze({
       id: "activities_only",
@@ -65,6 +78,7 @@
       documentMode: "activities",
       parts: ["cover", "activities"],
       daysMode: "none",
+      hidden: true,
     }),
     Object.freeze({
       id: "one_activity",
@@ -72,6 +86,7 @@
       documentMode: "one_activity",
       parts: ["activities"],
       daysMode: "none",
+      hidden: true,
     }),
     Object.freeze({
       id: "songs_pack",
@@ -79,6 +94,7 @@
       documentMode: "songs",
       parts: ["cover", "songsBooks"],
       daysMode: "none",
+      hidden: true,
     }),
     Object.freeze({
       id: "one_song",
@@ -86,6 +102,7 @@
       documentMode: "one_song",
       parts: ["songsBooks"],
       daysMode: "none",
+      hidden: true,
     }),
     Object.freeze({
       id: "song_lyrics",
@@ -93,6 +110,7 @@
       documentMode: "song_lyrics",
       parts: ["songsBooks"],
       daysMode: "none",
+      hidden: true,
     }),
     Object.freeze({
       id: "book_guide",
@@ -100,6 +118,7 @@
       documentMode: "books",
       parts: ["cover", "songsBooks"],
       daysMode: "none",
+      hidden: true,
     }),
     Object.freeze({
       id: "materials_list",
@@ -107,6 +126,7 @@
       documentMode: "materials",
       parts: ["cover", "setup"],
       daysMode: "none",
+      hidden: true,
     }),
     Object.freeze({
       id: "teacher_toolkit",
@@ -114,6 +134,7 @@
       documentMode: "toolkit",
       parts: ["cover", "setup", "vocabulary", "observations", "family"],
       daysMode: "none",
+      hidden: true,
     }),
     Object.freeze({
       id: "all_printables",
@@ -121,6 +142,7 @@
       documentMode: "printables",
       parts: ["cover", "printables"],
       daysMode: "none",
+      hidden: true,
     }),
     Object.freeze({
       id: "one_printable",
@@ -128,6 +150,7 @@
       documentMode: "one_printable",
       parts: ["printables"],
       daysMode: "none",
+      hidden: true,
     }),
     Object.freeze({
       id: "monday_setup_pack",
@@ -135,6 +158,7 @@
       documentMode: "monday_setup",
       parts: ["cover", "setup", "printables"],
       daysMode: "none",
+      hidden: true,
     }),
     Object.freeze({
       id: "family_pack",
@@ -142,24 +166,18 @@
       documentMode: "family",
       parts: ["cover", "family", "vocabulary", "songsBooks"],
       daysMode: "none",
-    }),
-    Object.freeze({
-      id: "selected_resources",
-      label: "Selected Resources",
-      documentMode: "selected_resources",
-      parts: ["cover"],
-      daysMode: "none",
+      hidden: true,
     }),
   ]);
 
   const PART_LABELS = Object.freeze({
     cover: "Cover page",
-    setup: "Monday Morning Setup",
+    setup: "Materials & Prep",
     daily: "Daily Classroom pages",
     activities: "Activity cards",
-    songsBooks: "Songs & Books",
-    vocabulary: "Vocabulary",
-    family: "Parent connection",
+    songsBooks: "Books & Songs",
+    vocabulary: "Vocabulary (in overview)",
+    family: "Family connection",
     observations: "Observation prompts",
     printables: "Printables (Used in week)",
   });
@@ -792,42 +810,33 @@
         if (!dayHasPrintableContent(day)) return;
         pushManifestItem(items, "day", day.day, `${day.dayLabel} plan`);
       });
-      pushManifestItem(items, "section", "daily_materials", "Daily materials and preparation");
+    }
+    if ((include.materials || include.toolkit) && setupOn) {
+      pushManifestItem(items, "section", "materials", "Materials & Prep");
     }
     if (include.activities && activitiesOn && (model.activities || []).length) {
       pushManifestItem(items, "section", "activities", "Activity cards");
     }
-    if (include.songs && songsBooksOn && (model.songs || []).length) {
-      pushManifestItem(items, "section", "songs", "Songs");
-    }
-    if (include.books && songsBooksOn && (model.books || []).length) {
-      pushManifestItem(items, "section", "books", "Books and discussion prompts");
+    if (songsBooksOn && ((include.songs && (model.songs || []).length) || (include.books && (model.books || []).length))) {
+      pushManifestItem(items, "section", "books_songs", "Books & Songs");
     }
     if (include.vocabulary && vocabOn && (model.overview?.vocabulary || []).length) {
-      pushManifestItem(items, "section", "vocabulary", "Vocabulary");
+      pushManifestItem(items, "section", "vocabulary", "Vocabulary (in overview)");
     }
-    if (observationsOn && (
-      (model.overview?.observationFocus || []).length
-      || (model.days || []).some((day) => (day.observations || []).length)
-      || (model.activities || []).some((activity) => (activity.observationIdeas || []).length)
-    )) {
-      pushManifestItem(items, "section", "observations", "Observation / documentation prompts");
-    }
-    if (familyOn && text(model.overview?.familyConnection)) {
-      pushManifestItem(items, "section", "family", "Family connection");
-    }
-    if (include.toolkit && setupOn) {
-      pushManifestItem(items, "section", "toolkit", "Teacher Toolkit");
-    }
-    if (include.materials && setupOn) {
-      pushManifestItem(items, "section", "materials", "Materials list");
+    if (
+      (observationsOn && (
+        (model.overview?.observationFocus || []).length
+        || (model.days || []).some((day) => (day.observations || []).length)
+        || (model.activities || []).some((activity) => (activity.observationIdeas || []).length)
+      ))
+      || (familyOn && text(model.overview?.familyConnection))
+    ) {
+      pushManifestItem(items, "section", "documentation", "Documentation & Family");
     }
     if (include.printables && printablesOn && (model.printables || []).length) {
       pushManifestItem(items, "section", "printables", "Approved / available printables");
     }
-    if (selection?.includeImages !== false && activitiesOn && (model.examples || []).length) {
-      pushManifestItem(items, "section", "images", "Approved example images");
-    }
+    // Example images stay digital-only — not listed in default binder print manifests.
     delete items._seen;
     return items;
   }
@@ -2008,10 +2017,11 @@
         if (toc) chunks.push(page("Contents", "Table of Contents", adminBannerHtml(selection) + toc, selection.footerLabel));
       }
     }
+    // Weekly overview (vocabulary lives here — not a separate filler section).
     if (sectionIds.has("overview")) {
       const overviewHtml = overviewBody(model, selection);
       if (text(overviewHtml.replace(/<[^>]+>/g, " "))) {
-        chunks.push(page("Overview", "Overview", adminBannerHtml(selection) + overviewHtml, selection.footerLabel));
+        chunks.push(page("Overview", "Weekly Overview", adminBannerHtml(selection) + overviewHtml, selection.footerLabel));
       }
     }
     if (sectionIds.has("weekAtAGlance") && partEnabled(selection, "daily")) {
@@ -2025,26 +2035,55 @@
         chunks.push(page("Daily Plans", `${day.dayLabel}`, adminBannerHtml(selection) + body, selection.footerLabel));
       });
     }
+    // One materials/prep list — Teacher Toolkit prep folds into this checklist.
+    if ((sectionIds.has("materials") || sectionIds.has("toolkit")) && partEnabled(selection, "setup")) {
+      const materialsBody = materialsChecklistBody(model);
+      const prepBits = [];
+      const toolkit = model.toolkit || {};
+      const setup = toolkit.mondayMorningSetup || {};
+      if ((setup.prepTasks || []).length) {
+        prepBits.push(panelHtml(
+          "Prep checklist",
+          checkboxListHtml((setup.prepTasks || []).map((task) => `${task.label}${task.minutes ? ` (~${task.minutes} min)` : ""}`), 12),
+          "prep",
+        ));
+      }
+      if ((toolkit.teachingTips || []).length) {
+        prepBits.push(panelHtml("Teaching tips", bulletListHtml(toolkit.teachingTips, 6), "tip"));
+      }
+      const combined = [materialsBody, ...prepBits].filter(Boolean).join("\n");
+      if (text(String(combined || "").replace(/<[^>]+>/g, " "))) {
+        chunks.push(page("Materials", "Materials & Prep", adminBannerHtml(selection) + combined, selection.footerLabel));
+      }
+    }
     if (sectionIds.has("activities") && partEnabled(selection, "activities")) {
       chunks.push(packActivityPages(model.activities || [], selection, "Activities", false));
     }
-    if (sectionIds.has("songs") && partEnabled(selection, "songsBooks")) {
-      const body = songsBody(model, false);
-      if (body) chunks.push(page("Songs", "Songs", body, selection.footerLabel));
-    }
-    if (sectionIds.has("books") && partEnabled(selection, "songsBooks")) {
-      const body = booksBody(model, selection);
-      if (body) chunks.push(page("Books", "Book Guide", body, selection.footerLabel));
-    }
-    if (sectionIds.has("toolkit") && partEnabled(selection, "setup")) {
-      const toolkitHtml = toolkitBody(model);
-      if (text(toolkitHtml.replace(/<[^>]+>/g, " "))) {
-        chunks.push(page("Teacher Toolkit", "Teacher Toolkit", toolkitHtml, selection.footerLabel));
+    // Books & Songs combined into one section.
+    if (partEnabled(selection, "songsBooks") && (sectionIds.has("songs") || sectionIds.has("books"))) {
+      const songHtml = sectionIds.has("songs") ? songsBody(model, false) : "";
+      const bookHtml = sectionIds.has("books") ? booksBody(model, selection) : "";
+      const combined = [
+        bookHtml ? `<div class="tk-print-section-banner">Books</div>${bookHtml}` : "",
+        songHtml ? `<div class="tk-print-section-banner">Songs</div>${songHtml}` : "",
+      ].filter(Boolean).join("\n");
+      if (text(combined.replace(/<[^>]+>/g, " "))) {
+        chunks.push(page("Books & Songs", "Books & Songs", combined, selection.footerLabel));
       }
     }
-    if (sectionIds.has("materials") && partEnabled(selection, "setup")) {
-      const body = materialsChecklistBody(model);
-      if (body) chunks.push(page("Materials", "Materials List", body, selection.footerLabel));
+    // Documentation & Family combined (observation + parent connection).
+    if (partEnabled(selection, "observations") || partEnabled(selection, "family")) {
+      const docParts = [
+        partEnabled(selection, "observations")
+          ? panelHtml("Observation prompts", bulletListHtml(model.overview?.observationFocus, 8), "watch")
+          : "",
+        partEnabled(selection, "family") && hasDisplayValue(model.overview?.familyConnection)
+          ? panelHtml("Family connection", bulletListHtml(toBullets(model.overview.familyConnection, 6), 6), "family")
+          : "",
+      ].filter(Boolean).join("\n");
+      if (text(docParts.replace(/<[^>]+>/g, " "))) {
+        chunks.push(page("Documentation & Family", "Documentation & Family", docParts, selection.footerLabel));
+      }
     }
     if (sectionIds.has("printables") && partEnabled(selection, "printables")) {
       const items = model.printables || [];
@@ -2061,18 +2100,7 @@
       }
       chunks.push(printableImagePages(model, selection));
     }
-    if (sectionIds.has("examples") && selection.includeImages && partEnabled(selection, "activities")) {
-      const leftovers = (model.examples || []).filter((image) => {
-        const onCards = (model.activities || []).some((activity) => (
-          activity.examplePhotoUrl === image.url || activity.setupPhotoUrl === image.url
-        ));
-        const onPrintable = (model.printables || []).some((item) => item.previewUrl === image.url || item.fileUrl === image.url);
-        return !onCards && !onPrintable;
-      });
-      if (leftovers.length) {
-        chunks.push(page("Example Images", "Example Images", examplesBody({ examples: leftovers }), selection.footerLabel));
-      }
-    }
+    // Example Images stay optional digital reference — never default printed binder pages.
     return chunks;
   }
 

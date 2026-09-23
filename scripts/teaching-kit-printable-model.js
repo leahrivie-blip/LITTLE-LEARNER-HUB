@@ -681,16 +681,17 @@
     const sectionOrder = [
       { id: "cover", label: "Cover", available: true },
       { id: "toc", label: "Table of Contents", available: true },
-      { id: "overview", label: "Overview", available: capabilities.overview },
+      { id: "overview", label: "Weekly Overview", available: capabilities.overview },
       { id: "weekAtAGlance", label: "Weekly Plan", available: capabilities.weekAtAGlance },
       { id: "dailyPlans", label: "Daily Lesson Pages", available: capabilities.dailyPlans },
-      { id: "activities", label: "Reusable Activities", available: capabilities.activities },
+      { id: "materials", label: "Materials & Prep", available: capabilities.materials || capabilities.toolkit },
+      { id: "activities", label: "Activity Cards", available: capabilities.activities },
       { id: "songs", label: "Songs", available: capabilities.songs },
       { id: "books", label: "Books", available: capabilities.books },
-      { id: "toolkit", label: "Teacher Toolkit", available: capabilities.toolkit },
-      { id: "materials", label: "Materials", available: capabilities.materials },
       { id: "printables", label: "Printables", available: capabilities.printables },
-      { id: "examples", label: "Example Images", available: capabilities.examples },
+      // Toolkit folds into Materials & Prep; examples stay digital-only (not default print).
+      { id: "toolkit", label: "Teacher Toolkit", available: false },
+      { id: "examples", label: "Example Images", available: false },
       { id: "teacherNotes", label: "Teacher Notes / Planning", available: capabilities.teacherNotes },
     ];
 

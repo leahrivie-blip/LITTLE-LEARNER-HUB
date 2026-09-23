@@ -616,7 +616,10 @@ async function main() {
         if (input) input.dispatchEvent(new Event("click", { bubbles: true }));
       });
       const beforeBtnCalls = await page.evaluate(() => window.__llhPrintCalls || 0);
-      await page.locator("[data-tk-print-binder]").first().click({ force: true });
+      // Primary Print Center CTA is Print or Download (data-tk-download-binder);
+      // legacy data-tk-print-binder remains hidden for advanced/compat paths.
+      const primaryPrint = page.locator("[data-tk-download-binder]:not([hidden]), [data-tk-preview-print]:not([hidden])").first();
+      await primaryPrint.click({ force: true });
       await page.waitForTimeout(300);
       const afterBtn = await page.evaluate(() => ({
         calls: window.__llhPrintCalls || 0,

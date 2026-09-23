@@ -18952,6 +18952,8 @@ body.has-action-toast #llhMetaCookieNotice {
   font: inherit;
   color: var(--llh-primary-deep, #5a4d8a);
   padding: 2px;
+  min-width: 28px;
+  min-height: 44px;
 }
 
 .llh-cal-week-jump:disabled {
@@ -19164,7 +19166,7 @@ body.has-action-toast #llhMetaCookieNotice {
   }
 
   .llh-calendar-grid-7 {
-    grid-template-columns: 18px repeat(7, minmax(0, 1fr));
+    grid-template-columns: 28px repeat(7, minmax(0, 1fr));
   }
 
   .llh-cal-week-jump-label {
@@ -22778,7 +22780,7 @@ canvas {
   }
 
   .llh-calendar-grid-7 {
-    grid-template-columns: 22px repeat(7, minmax(0, 1fr));
+    grid-template-columns: 28px repeat(7, minmax(0, 1fr));
   }
 
   .llh-cal-cell {
@@ -22939,7 +22941,7 @@ canvas {
   }
 
   .llh-calendar-grid-7 {
-    grid-template-columns: 18px repeat(7, minmax(0, 1fr));
+    grid-template-columns: 28px repeat(7, minmax(0, 1fr));
   }
 
   .llh-cal-cell {

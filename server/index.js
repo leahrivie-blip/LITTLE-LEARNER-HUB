@@ -20996,7 +20996,7 @@ async function handleCurriculumLessonPlanTeachingKit(request, response, url, pla
     ...(ownerOnlyPreview ? { ownerPreview: true } : {}),
   };
 
-  const respondUnlocked = () => {
+  const respondUnlocked = async () => {
     // Never feed admin enrichmentDraft into the provider Teaching Kit mapper.
     // Incomplete drafts must not change the published member experience.
     let enrichmentApi = null;
@@ -21014,6 +21014,17 @@ async function handleCurriculumLessonPlanTeachingKit(request, response, url, pla
         return next;
       })();
     const mapped = teachingKit.mapLessonPlanToTeachingKit(planForMap, activities, resources, mapperOptions);
+    // Displayed printable page counts must match actual PDF metadata when bytes are available.
+    try {
+      const merge = require("../scripts/teaching-kit-printable-pdf-merge.js");
+      if (merge?.enrichPrintablesWithPdfPageCounts && mapped?.companion?.printables?.length) {
+        mapped.companion.printables = await merge.enrichPrintablesWithPdfPageCounts(mapped.companion.printables);
+        const printableSection = (mapped.sections || []).find((section) => section.id === "printables");
+        if (printableSection?.content?.printables) {
+          printableSection.content.printables = mapped.companion.printables;
+        }
+      }
+    } catch (_e) { /* keep stored counts */ }
     jsonResponse(response, 200, {
       teachingKit: {
         ...mapped,
@@ -21025,7 +21036,7 @@ async function handleCurriculumLessonPlanTeachingKit(request, response, url, pla
   };
 
   if (access.authorized) {
-    respondUnlocked();
+    await respondUnlocked();
     return;
   }
 
@@ -21034,7 +21045,7 @@ async function handleCurriculumLessonPlanTeachingKit(request, response, url, pla
     store,
   };
   if (userMayUnlockFreeCurriculumPlan(plan, accessContext)) {
-    respondUnlocked();
+    await respondUnlocked();
     return;
   }
 
@@ -27014,6 +27025,17 @@ async function handleAdminTeachingKitPrintable(request, response) {
       error.status = 400;
       throw error;
     }
+    let pageCount = 0;
+    try {
+      const merge = require("../scripts/teaching-kit-printable-pdf-merge.js");
+      const bytes = parsed.fileData && String(parsed.fileData).startsWith("data:application/pdf")
+        ? Buffer.from(String(parsed.fileData).split(",")[1] || "", "base64")
+        : null;
+      if (merge?.inspectPdfPages && bytes?.length) {
+        const inspected = await merge.inspectPdfPages(bytes);
+        pageCount = Number(inspected.pageCount) || 0;
+      }
+    } catch (_e) { /* keep 0; caller may still pass a stored value */ }
     if (usePostgresStore()) {
       const stored = await persistCurriculumUploadToMediaAsset({
         resourceId,
@@ -27026,6 +27048,7 @@ async function handleAdminTeachingKitPrintable(request, response) {
         mediaUrl: stored.mediaUrl,
         mimeType: "application/pdf",
         fileName: stored.fileName,
+        pageCount,
       };
     }
     return {
@@ -27034,6 +27057,7 @@ async function handleAdminTeachingKitPrintable(request, response) {
       mediaUrl: "",
       mimeType: "application/pdf",
       fileName: sanitizeCurriculumUploadFileName(fileName || "printable.pdf"),
+      pageCount,
     };
   };
 
@@ -27093,7 +27117,8 @@ async function handleAdminTeachingKitPrintable(request, response) {
         description: body.description || "",
         ageGroup: body.ageGroup || lessonPlan.age || "",
         theme: body.theme || lessonPlan.theme || "",
-        pageCount: body.pageCount,
+        // Prefer actual PDF metadata page count over a manually entered guess.
+        pageCount: pdfFields.pageCount || body.pageCount,
         printingInstructions: body.printingInstructions || "",
         accessLevel: body.accessLevel || "pro",
         ...pdfFields,
@@ -27132,13 +27157,16 @@ async function handleAdminTeachingKitPrintable(request, response) {
         return;
       }
       let next = { ...existing };
+      let pdfMetaPageCount = null;
       if (action === "update" || action === "replace_pdf") {
         if (action === "replace_pdf" || body.fileData) {
           if (!body.fileData) {
             jsonResponse(response, 400, { error: "PDF fileData is required to replace the file.", code: "pdf_required" });
             return;
           }
-          Object.assign(next, await applyPdfToResource(resourceIdIncoming, body.fileData, body.fileName));
+          const pdfFields = await applyPdfToResource(resourceIdIncoming, body.fileData, body.fileName);
+          Object.assign(next, pdfFields);
+          if (Number(pdfFields.pageCount) > 0) pdfMetaPageCount = Number(pdfFields.pageCount);
         }
       }
       if (action === "update" || action === "replace_preview") {
@@ -27163,6 +27191,10 @@ async function handleAdminTeachingKitPrintable(request, response) {
         if (body.pageCount != null) next.pageCount = body.pageCount;
         if (body.printingInstructions != null) next.printingInstructions = body.printingInstructions;
         if (body.accessLevel != null) next.accessLevel = body.accessLevel;
+      }
+      // Actual PDF metadata always wins over a stale/manual page count when a PDF was uploaded.
+      if (pdfMetaPageCount != null && pdfMetaPageCount > 0) {
+        next.pageCount = pdfMetaPageCount;
       }
       // Never auto-publish from this endpoint. Preserve published status if already published;
       // new/create path always starts as draft.
