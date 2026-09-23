@@ -251,6 +251,7 @@ function validateParsedCommandSafety({
   command = {},
   explicitLessonIds = [],
   resolvedLessonIds = [],
+  requestedTargetCount = null,
   confirmReasons = [],
 } = {}) {
   const raw = text(rawCommand);
@@ -259,6 +260,7 @@ function validateParsedCommandSafety({
   const contradictions = [];
   const explicitIds = [...new Set(schema.asArray(explicitLessonIds).map((id) => text(id, 160)).filter(Boolean))];
   const resolvedIds = [...new Set(schema.asArray(resolvedLessonIds).map((id) => text(id, 160)).filter(Boolean))];
+  const requestedCount = Number.isInteger(requestedTargetCount) ? requestedTargetCount : null;
 
   if (explicitIds.length === 1) {
     const unexpected = resolvedIds.filter((id) => !explicitIds.includes(id));
@@ -310,6 +312,16 @@ function validateParsedCommandSafety({
   if ((isOneLessonScopeCommand(raw) || explicitIds.length === 1) && resolvedIds.length > 1) {
     reasons.push("parsed_intent_contradiction");
     contradictions.push({ code: "PARSED_INTENT_CONTRADICTION", field: "lessonScope", message: "One-lesson command resolved to multiple lessons." });
+  }
+  if (requestedCount === 1 && resolvedIds.length > 1) {
+    reasons.push("unexpected_scope_expansion");
+    contradictions.push({
+      code: "UNEXPECTED_SCOPE_EXPANSION",
+      field: "lessonScope",
+      message: "One lesson was requested but multiple lessons were resolved.",
+      requestedTargetCount: requestedCount,
+      resolvedLessonIds: resolvedIds,
+    });
   }
   if (actions.textOnly === true && (actions.generateImages === true || actions.generatePrintables === true || actions.generateSongsBooks === true)) {
     reasons.push("parsed_intent_contradiction");

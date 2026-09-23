@@ -101,6 +101,8 @@ function buildArchitectUserPrompt(brief, { revisionIssues, previousContent, prev
       activityTarget,
       exclusions: brief.exclusions || {},
       requestedFeatures: brief.requestedFeatures || {},
+      requestedActivities: schema.asArray(brief.requestedActivities).slice(0, 24),
+      materialCostMode: brief.materialCostMode || { requested: false, source: "default", preserveStandardMaterials: false },
       researchRequested: brief.researchRequested === true,
       coverRequested: brief.coverRequested === true,
     },
@@ -182,6 +184,12 @@ function buildArchitectUserPrompt(brief, { revisionIssues, previousContent, prev
       "Every activity must include dayOfWeek from requiredWeekdays (lowercase in JSON: monday…friday).",
       "All five weekdays must be represented when activityTarget >= 5.",
       "No near-duplicate activity concepts.",
+      brief.materialCostMode?.requested
+        ? "Use normal activity-appropriate materials first when useful, then add clearly labeled low-cost alternatives without reducing safety or developmental quality."
+        : "Choose activity-appropriate materials; do not describe the lesson as budget-friendly or add cheaper substitutions unless requested.",
+      ...(schema.asArray(brief.requestedActivities).length
+        ? ["Include every requestedActivities item as a complete activity; do not replace it with an unrelated activity."]
+        : []),
       "researchRequested is informational only; do not claim web research occurred.",
     ],
   };
@@ -210,6 +218,18 @@ function buildArchitectUserPrompt(brief, { revisionIssues, previousContent, prev
     "Respond with JSON only.",
     JSON.stringify(payload, null, 2),
   ].join("\n");
+}
+
+function validateRequestedActivities(requestedActivities = [], generatedTitles = []) {
+  const titles = schema.asArray(generatedTitles).map((title) => structurePaste.normalizeTitleKey(title));
+  const missing = [];
+  schema.asArray(requestedActivities).forEach((requested) => {
+    const terms = structurePaste.normalizeTitleKey(requested).split(" ").filter((term) => term.length > 2);
+    if (!terms.length) return;
+    const matched = titles.some((title) => terms.every((term) => title.includes(term)));
+    if (!matched) missing.push(text(requested, 180));
+  });
+  return { ok: missing.length === 0, missing };
 }
 
 function flattenActivityTitles(content) {
@@ -513,6 +533,10 @@ function validateArchitectOutput(rawText, brief) {
   if (domains.size < Math.min(4, Math.max(2, Math.floor(target / 4)))) {
     issues.push("weak_domain_variety");
   }
+  const requestedActivityValidation = validateRequestedActivities(brief.requestedActivities, titles);
+  if (!requestedActivityValidation.ok) {
+    requestedActivityValidation.missing.forEach((activity) => issues.push(`requested_activity_missing:${activity}`));
+  }
 
   const content = {
     lesson,
@@ -731,6 +755,7 @@ module.exports = {
   buildArchitectSystemPrompt,
   buildArchitectUserPrompt,
   validateArchitectOutput,
+  validateRequestedActivities,
   buildOperatorCreateArchitectFixtureResponse,
   composeNewLessonContent,
   conceptKey,

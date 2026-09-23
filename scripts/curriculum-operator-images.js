@@ -1074,6 +1074,7 @@ async function runImagePlanForLesson({
   lessonCount = 1,
   command = null,
   forceFullImageCoverage = false,
+  actionsOverride = null,
 } = {}) {
   if (touchImages === false) {
     return {
@@ -1087,7 +1088,7 @@ async function runImagePlanForLesson({
     };
   }
 
-  const rawActions = buildImageActionsFromAudit(plan, activities, audit, {
+  const rawActions = schema.asArray(actionsOverride).length ? schema.asArray(actionsOverride) : buildImageActionsFromAudit(plan, activities, audit, {
     replaceBadImages,
     auditExistingImages: replaceBadImages === true && touchImages !== false,
     command,

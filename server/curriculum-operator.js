@@ -26,6 +26,9 @@ const printableAgeBand = require("../scripts/curriculum-operator-printable-age-b
 const allowlistApi = require("../scripts/curriculum-operator-mutation-allowlist.js");
 const executionScopeApi = require("../scripts/curriculum-operator-execution-scope.js");
 const vocabSurgicalApi = require("../scripts/curriculum-operator-vocab-surgical-apply.js");
+const conversationStore = require("../scripts/curriculum-operator-conversation-store.js");
+const assetRetryApi = require("../scripts/curriculum-operator-asset-retry.js");
+const instructionProfile = require("../scripts/curriculum-operator-instruction-profile.js");
 
 const ACTIONS = Object.freeze([
   "parse",
@@ -37,6 +40,11 @@ const ACTIONS = Object.freeze([
   "get",
   "resume",
   "cancel",
+  "context_get",
+  "context_clear",
+  "retry_failed_assets",
+  "profile_get",
+  "profile_save",
 ]);
 
 function createCurriculumOperatorApi(deps) {
@@ -510,7 +518,7 @@ function createCurriculumOperatorApi(deps) {
     };
   }
 
-  async function runPrintablesForLesson(job, plan, audit, store, sessionEmail, lr) {
+  async function runPrintablesForLesson(job, plan, audit, store, sessionEmail, lr, actionsOverride = null) {
     const curriculum = readSiteCurriculum(store);
     const linked = schema.asArray(curriculum.activities).filter((a) => a.lessonPlanId === plan.id);
     const hardMax = Number(job.command?.limits?.maxPrintableGenerations)
@@ -567,6 +575,7 @@ function createCurriculumOperatorApi(deps) {
       generatePrintableVisual: typeof generateOperatorImage === "function"
         ? async ({ prompt, mock }) => generateOperatorImage({ prompt, mock })
         : null,
+      actionsOverride,
     });
 
     if (printableRun.code === "SCOPE_REVIEW_REQUIRED") {
@@ -621,7 +630,7 @@ function createCurriculumOperatorApi(deps) {
     };
   }
 
-  async function runImagesForLesson(job, plan, audit, store, sessionEmail, lr) {
+  async function runImagesForLesson(job, plan, audit, store, sessionEmail, lr, actionsOverride = null) {
     const curriculum = readSiteCurriculum(store);
     const linked = schema.asArray(curriculum.activities).filter((a) => a.lessonPlanId === plan.id);
 
@@ -653,6 +662,7 @@ function createCurriculumOperatorApi(deps) {
       mockGenerate,
       preferPublicMediaUrls: imagesApi.commandRequestsConnectedAutoApply(job.command),
       alreadySucceededKeys: collectSucceededImageKeys(lr),
+      actionsOverride,
     });
 
     if (imageRun.code === "SCOPE_REVIEW_REQUIRED") {
@@ -2175,6 +2185,37 @@ function createCurriculumOperatorApi(deps) {
       jsonResponse(response, 400, { error: "Unknown operator action.", code: "unknown_action", actions: ACTIONS });
       return;
     }
+    const operatorSessionId = schema.text(body.operatorSessionId, 100);
+    if (action === "context_get") {
+      jsonResponse(response, 200, {
+        ok: true,
+        action,
+        context: operatorSessionId ? conversationStore.read(store, session.email, operatorSessionId) : null,
+      });
+      return;
+    }
+    if (action === "context_clear") {
+      if (operatorSessionId) {
+        conversationStore.clear(store, session.email, operatorSessionId);
+        await writeStoreAsync(store);
+      }
+      jsonResponse(response, 200, { ok: true, action, context: null });
+      return;
+    }
+    if (action === "profile_get") {
+      jsonResponse(response, 200, { ok: true, action, profile: instructionProfile.read(store, session.email) });
+      return;
+    }
+    if (action === "profile_save") {
+      if (body.ownerAuthorization !== true) {
+        jsonResponse(response, 409, { ok: false, code: "profile_owner_confirmation_required" });
+        return;
+      }
+      const profile = instructionProfile.save(store, session.email, body.instructions, body.corrections);
+      await writeStoreAsync(store);
+      jsonResponse(response, 200, { ok: true, action, profile });
+      return;
+    }
 
     const phase = schema.clampInt(body.phase, 1, 8, 7);
     const curriculum = typeof readSiteCurriculum === "function"
@@ -2277,16 +2318,50 @@ function createCurriculumOperatorApi(deps) {
     }
 
     if (action === "parse") {
+      const storedConversation = operatorSessionId
+        ? conversationStore.read(store, session.email, operatorSessionId)
+        : null;
+      const operatorContext = body.operatorContext && typeof body.operatorContext === "object"
+        ? body.operatorContext
+        : (storedConversation?.currentLessonId
+          ? {
+            previousIntent: storedConversation.currentOperation || "",
+            previousResolvedTargets: [storedConversation.currentLessonId],
+            previousExclusions: storedConversation.requestedExclusions || [],
+          }
+          : null);
       const parsed = commandApi.parseOperatorCommand(body.command || body.rawCommand || "", {
         currentlySelectedLessonId: body.currentlySelectedLessonId,
         phase,
         lessonPlans: schema.asArray(curriculum?.lessonPlans),
-        operatorContext: body.operatorContext,
+        operatorContext,
       });
+      const target = parsed.command.scope?.lessonIds?.length === 1
+        ? schema.asArray(curriculum?.lessonPlans).find((lesson) => lesson.id === parsed.command.scope.lessonIds[0])
+        : null;
+      const nextContext = parsed.interpretation?.nextContext || {};
+      const context = operatorSessionId
+        ? conversationStore.save(store, {
+          ownerId: session.email,
+          sessionId: operatorSessionId,
+          currentLessonId: target?.id || nextContext.previousResolvedTargets?.[0] || null,
+          currentLessonTitle: target?.title || null,
+          ageGroup: target?.age || parsed.command.scope?.ageBand || null,
+          currentOperation: parsed.command.intent,
+          requestedActivities: parsed.command.scope?.requestedActivities || [],
+          requestedExclusions: nextContext.previousExclusions || [],
+          imageRequirements: parsed.command.actions?.generateImages ? "requested" : null,
+          printableRequirements: parsed.command.actions?.generatePrintables ? "requested" : null,
+          researchRequested: createApi.parseCreationBrief(parsed.command.rawCommand || "").brief.researchRequested,
+          unresolvedQuestion: parsed.needsConfirmation ? (parsed.confirmReasons || [])[0] || null : null,
+          latestDraftJobId: body.latestDraftJobId || null,
+        }) : null;
+      if (context) await writeStoreAsync(store);
       jsonResponse(response, 200, {
         ok: true,
         action,
         ...parsed,
+        conversationContext: context,
         publishEnabled: false,
         aiHealth: require("../scripts/curriculum-operator-ai-transport.js").summarizeAiHealth({
           configured: openAiConfigured === true,
@@ -2478,6 +2553,21 @@ function createCurriculumOperatorApi(deps) {
         }
       }
 
+      const targetCountValidation = executionScopeApi.validateResolvedTargetCount(command, selection.selected);
+      if (!targetCountValidation.ok) {
+        jsonResponse(response, 409, {
+          ok: false,
+          code: targetCountValidation.code,
+          error: `${targetCountValidation.message} No job was created.`,
+          targetCountValidation,
+          command,
+          selection,
+          needsConfirmation: false,
+          runBlocked: true,
+        });
+        return;
+      }
+
       if (selection.selected.length > command.limits.hardMaxLessons) {
         jsonResponse(response, 409, {
           ok: false,
@@ -2635,6 +2725,103 @@ function createCurriculumOperatorApi(deps) {
         return;
       }
       jsonResponse(response, 200, { ok: true, action, job });
+      return;
+    }
+
+    if (action === "retry_failed_assets") {
+      const ownerId = schema.text(body.ownerId, 160).toLowerCase();
+      const sessionContext = operatorSessionId
+        ? conversationStore.read(store, session.email, operatorSessionId)
+        : null;
+      if (!sessionContext || ownerId !== String(session.email || "").toLowerCase()) {
+        jsonResponse(response, 403, { ok: false, code: "retry_owner_or_session_mismatch" });
+        return;
+      }
+      const sourceJobId = schema.text(body.sourceJobId, 80);
+      const lessonId = schema.text(body.lessonId, 160);
+      const bag = readJobs(store);
+      const sourceJob = bag.jobs.find((job) => job.id === sourceJobId);
+      const retries = schema.asArray(store.curriculumOperatorAssetRetries);
+      const validation = assetRetryApi.validateRequest({
+        sourceJob,
+        ownerId,
+        sessionId: operatorSessionId,
+        lessonId,
+        selectedAssetIds: body.selectedAssetIds,
+        selectedAssetTypes: body.selectedAssetTypes,
+        retryKey: body.retryKey,
+        authorization: body.ownerAuthorization === true,
+        retries,
+      });
+      if (!validation.ok) {
+        jsonResponse(response, 409, { ok: false, code: validation.code, published: false });
+        return;
+      }
+      const plan = schema.asArray(curriculum.lessonPlans).find((lesson) => lesson.id === lessonId);
+      if (!plan || (sessionContext.currentLessonId && sessionContext.currentLessonId !== lessonId)) {
+        jsonResponse(response, 409, { ok: false, code: "retry_lesson_mismatch", published: false });
+        return;
+      }
+      const retry = assetRetryApi.createRetry({
+        sourceJobId,
+        lessonId,
+        retryKey: body.retryKey,
+        attempt: validation.attempt,
+        selected: validation.selected,
+        reason: body.retryReason,
+      });
+      retry.status = "running";
+      store.curriculumOperatorAssetRetries = [...retries, retry].slice(-100);
+      await writeStoreAsync(store);
+
+      const sourceResult = schema.asArray(sourceJob.lessonResults).find((row) => row.lessonId === lessonId);
+      const retryJob = {
+        id: retry.id,
+        command: {
+          ...sourceJob.command,
+          actions: {
+            ...sourceJob.command.actions,
+            upgradeLesson: false,
+            upgradeActivities: false,
+            generateSongsBooks: false,
+            touchCover: false,
+            publish: false,
+            generateImages: validation.selected.some((row) => row.type === "image"),
+            generatePrintables: validation.selected.some((row) => row.type === "printable"),
+          },
+        },
+        lessonResults: [sourceResult],
+        progress: { lessonCount: 1 },
+        costCounters: {},
+      };
+      const audit = sourceResult.auditAfter || sourceResult.audit || {};
+      const imageActions = validation.selected.filter((row) => row.type === "image").map((row) => row.action);
+      const printableActions = validation.selected.filter((row) => row.type === "printable").map((row) => row.action);
+      const outcomes = [];
+      if (imageActions.length) {
+        const imageRun = await runImagesForLesson(retryJob, plan, audit, store, session.email, sourceResult, imageActions);
+        outcomes.push(...schema.asArray(imageRun.imageRun?.actions));
+      }
+      if (printableActions.length) {
+        const printableRun = await runPrintablesForLesson(retryJob, plan, audit, store, session.email, sourceResult, printableActions);
+        outcomes.push(...schema.asArray(printableRun.printableRun?.actions));
+      }
+      retry.assets = retry.assets.map((asset) => {
+        const result = outcomes.find((outcome) => outcome.idempotencyKey === asset.idempotencyKey);
+        return {
+          ...asset,
+          status: result?.status === "success" ? "succeeded" : (result?.status === "skipped" ? "skipped" : "failed"),
+          failureReason: schema.text(result?.error || asset.failureReason, 500) || null,
+        };
+      });
+      retry.status = retry.assets.every((asset) => asset.status === "succeeded" || asset.status === "skipped")
+        ? "completed"
+        : "completed_with_failures";
+      retry.updatedAt = new Date().toISOString();
+      store.curriculumOperatorAssetRetries = store.curriculumOperatorAssetRetries
+        .map((entry) => entry.id === retry.id ? retry : entry);
+      await writeStoreAsync(store);
+      jsonResponse(response, 200, { ok: true, action, retry, published: false, autoPublish: false });
       return;
     }
 

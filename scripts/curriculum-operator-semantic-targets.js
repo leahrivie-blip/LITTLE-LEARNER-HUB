@@ -133,6 +133,25 @@ function resolveTargets({
     };
   }
 
+  // Short conversational corrections (for example, "keep the cover" after a
+  // planned lesson update) inherit only the trusted prior target held by the
+  // UI. They never inherit a collection, and a newly named title still wins.
+  if (!schema.asArray(parsedTitles).length && !signals.collection
+    && context.previousResolvedTargets?.length
+    && /\b(?:keep|leave|use|make|add|fix|update|change|cheaper|movement)\b/i.test(String(signals.raw || ""))) {
+    return {
+      mode: "context_inherit",
+      rows: context.previousResolvedTargets.map((id) => byId.get(id)).filter(Boolean),
+      exampleOnly: [],
+      unresolved: [],
+      ambiguous: [],
+      inheritedOperation: context.previousIntent || null,
+      selection: "explicit_ids",
+      lessonIds: context.previousResolvedTargets.slice(),
+      titles: [],
+    };
+  }
+
   if (signals.sameAsPrevious && schema.asArray(parsedTitles).length) {
     const titled = resolveRequestedTitles(parsedTitles, catalog, signals.exampleSpan);
     return {

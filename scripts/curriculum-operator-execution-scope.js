@@ -57,6 +57,23 @@ function computeExecutionFlags(command = {}) {
   };
 }
 
+function validateResolvedTargetCount(command = {}, selected = []) {
+  const requested = command?.scope?.requestedTargetCount;
+  const rows = schema.asArray(selected);
+  if (requested === 1 && rows.length > 1) {
+    return {
+      ok: false,
+      code: "TARGET_COUNT_MISMATCH",
+      message: "One lesson was requested, but the resolved scope contains multiple lessons.",
+      requestedTargetCount: requested,
+      resolvedTargetCount: rows.length,
+      lessonIds: rows.map((row) => row.id),
+      lessonTitles: rows.map((row) => row.title),
+    };
+  }
+  return { ok: true, requestedTargetCount: requested || null, resolvedTargetCount: rows.length };
+}
+
 function buildScopeAwarePhaseNote(command = {}) {
   const flags = computeExecutionFlags(command);
   const { phase, doCreate, doUpgrade, doImages, doPrintables, doSongsBooks, narrow, weeklyFieldScope } = flags;
@@ -236,6 +253,7 @@ module.exports = {
   isFullKitPhaseNote,
   isFullKitJobLog,
   computeExecutionFlags,
+  validateResolvedTargetCount,
   buildScopeAwarePhaseNote,
   buildJobCreatedLogMessage,
   buildRunStartLogMessage,
