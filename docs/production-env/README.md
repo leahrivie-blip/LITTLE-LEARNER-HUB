@@ -70,6 +70,17 @@ RENDER_API_KEY=... npm run env:deploy-guard -- --dry-run
 
 Prefer Render **Environment Groups** or Blueprint `envVars` with `sync: false` for secrets and plain values for non-secrets (`nonSecretBlueprintSafe`).
 
+### Curriculum Operator live research
+
+Live research is opt-in and stays disabled unless both server-side settings exist in Render:
+
+```text
+OPENAI_API_KEY=<configured privately in Render>
+CURRICULUM_OPERATOR_LIVE_RESEARCH_ENABLED=true
+```
+
+Keep `OPENAI_API_KEY` in the Render Dashboard or an Environment Group. Never commit, print, or copy its value into Cursor/local configuration. The feature flag is non-secret and defaults to `false` in `render.yaml`.
+
 - Non-secrets (thresholds, email from/to, model names, feature flags) may live in `render.yaml`.
 - Secrets must stay in the Dashboard / Environment Group — **never in Git**.
 - Blueprint must not be used to replace a shorter secret set over a longer live set without the merge tool.

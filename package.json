@@ -42,6 +42,7 @@
     "test:curriculum-operator-http-production": "NODE_ENV=test node scripts/test-curriculum-operator-http-production.js",
     "test:curriculum-operator-research": "NODE_ENV=test node scripts/test-curriculum-operator-research.js",
     "test:curriculum-operator-live-research": "NODE_ENV=test node scripts/test-curriculum-operator-live-research.js",
+    "test:curriculum-operator-research-config": "NODE_ENV=test node scripts/test-curriculum-operator-research-config.js",
     "test:curriculum-operator-asset-retry": "NODE_ENV=test node scripts/test-curriculum-operator-asset-retry.js",
     "test:curriculum-operator-instruction-profile": "NODE_ENV=test node scripts/test-curriculum-operator-instruction-profile.js",
     "test:curriculum-operator-nl-smoke-blockers": "NODE_ENV=test node scripts/test-curriculum-operator-nl-smoke-blockers.js",
