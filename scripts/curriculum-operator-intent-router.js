@@ -390,6 +390,10 @@ function detectNewLessonIntent(rawCommand, context = {}) {
   ) {
     return true;
   }
+  if (
+    /\bi\s+need\s+(?:a\s+|an\s+)?(?:infant|toddler|preschool|school[\s-]?age)\s+lesson\b/i.test(raw)
+    && /\b(?:about|with|for)\b/i.test(raw)
+  ) return true;
   return false;
 }
 

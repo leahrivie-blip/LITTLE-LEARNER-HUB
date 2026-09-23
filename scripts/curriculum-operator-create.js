@@ -66,6 +66,7 @@ function extractRequestedActivities(rawCommand) {
   const raw = text(rawCommand, 4000);
   const match = raw.match(/\busing\s+([^.!?]{3,700})/i)
     || raw.match(/\bwith\s+(?:these\s+)?activities?\s*:?\s*([^.!?]{3,700})/i)
+    || raw.match(/\blesson\s+about\s+[^.!?]{2,240}\s+with\s+([^.!?]{3,700})/i)
     || raw.match(/\badd\s+(?:these\s+)?activities?\s+to\s+[^:]{2,180}:\s*([^.!?]{3,700})/i);
   if (!match) return [];
   return match[1]
@@ -128,7 +129,7 @@ function parseCreationBrief(rawCommand, options = {}) {
   title = text(title, 120).replace(/\b\d+\s*activit.*$/i, "").trim();
   const theme = title || text(options.theme, 120);
 
-  const researchRequested = /\b(look\s+up|research|find\s+(activity\s+)?inspiration|browse\s+ideas)\b/i.test(raw);
+  const researchRequested = /\b(look\s+up|research|search\s+(?:google|online|the\s+web)|find\s+(activity\s+)?inspiration|browse\s+ideas)\b/i.test(raw);
   const coverRequested = exclusions.flags.touchCover === true
     || /\b(cover\s+image|include\s+a\s+cover|with\s+a\s+cover)\b/i.test(raw);
 
@@ -145,6 +146,7 @@ function parseCreationBrief(rawCommand, options = {}) {
     activityTarget: activityTarget || (ageBand ? defaultActivityTarget(ageBand) : 12),
     requestedActivities,
     materialCostMode,
+    effectiveInstructions: options.effectiveInstructions || null,
     teachingGoals: [],
     requestedFeatures: {
       songs: exclusions.flags.touchSongs !== false && !exclusions.flags.textOnly,

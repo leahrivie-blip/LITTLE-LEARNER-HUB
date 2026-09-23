@@ -10,6 +10,7 @@ const assert = require("node:assert/strict");
 const commandApi = require("./curriculum-operator-command.js");
 const allowlist = require("./curriculum-operator-mutation-allowlist.js");
 const draftCompose = require("./curriculum-operator-review-draft-compose.js");
+const createApi = require("./curriculum-operator-create.js");
 
 const COLORS = "cur-lp-aaaaaaaaaaaaaaaa";
 const BUGS = "cur-lp-bbbbbbbbbbbbbbbb";
@@ -363,6 +364,30 @@ console.log("\n16) do-not-change exclusions never activate that capability");
   ok(list.command.actions.generateSongsBooks !== true, "exclusion list does not activate songs/books");
   ok(list.command.actions.touchCover !== true, "exclusion list does not activate cover");
   ok(list.command.actions.connectedUpgrade !== true, "exclusion list does not activate connectedUpgrade");
+}
+
+console.log("\n17) owner-style long create request remains a safe draft");
+{
+  const raw = "I need a toddler lesson about healthy habits with handwashing, tooth brushing, movement, and a feelings activity. Make the full Teaching Kit, realistic exact-activity pictures, matching printables, songs, book suggestions, cleanup, safety, observations, family connection, and all teacher fields. Use normal activity materials unless I specifically ask for cheaper supplies. Save it as a draft for me to review.";
+  const parsed = parse(raw, { lessonPlans: [] });
+  const brief = createApi.parseCreationBrief(raw).brief;
+  ok(parsed.command.actions.createLesson === true, "owner-style request creates a lesson");
+  ok(parsed.command.scope.ageBand === "toddler", "owner-style request retains toddler age");
+  ok(["handwashing", "tooth brushing", "movement", "a feelings activity"].every((item) => brief.requestedActivities.includes(item)), "owner-style request retains every requested activity");
+  ok(parsed.command.actions.generateImages === true && parsed.command.actions.generatePrintables === true, "owner-style request includes matching assets");
+  ok(parsed.command.actions.generateSongsBooks === true, "owner-style request includes songs and books");
+  ok(parsed.command.actions.saveDraft === true && parsed.command.actions.publish !== true, "owner-style request remains draft-only");
+  const correction = parse("Wait, don’t make it budget friendly. Use the materials that make the activity work best.", {
+    operatorContext: { previousResolvedTargets: [LMW], previousIntent: "CREATE_LESSON" },
+  });
+  ok(correction.command.actions.publish !== true, "material correction cannot publish");
+  const assetsOnly = parse("Only fix the pictures and printables for that lesson. Leave all lesson wording alone.", {
+    currentlySelectedLessonId: LMW,
+  });
+  ok(assetsOnly.command.actions.upgradeLesson !== true, "asset-only follow-up cannot enter text update");
+  ok(assetsOnly.command.actions.publish !== true, "asset-only follow-up cannot publish");
+  const research = createApi.parseCreationBrief("Search Google for current trending daycare healthy-habits ideas and tell me the sources.");
+  ok(research.brief.researchRequested === true, "research is recorded as requested, not fabricated");
 }
 
 console.log(`\nSemantic understanding passed ${passed} assertions.`);
