@@ -14,5 +14,6 @@ const ready = research.readiness({ enabled: true, apiKey: "mock-secret-value" })
 assert.equal(ready.status, "ready", "enabled flag plus mocked key reports ready");
 assert.equal(JSON.stringify(ready).includes("mock-secret-value"), false, "ready response omits secret-derived data");
 const renderYaml = fs.readFileSync("render.yaml", "utf8");
-assert.equal(renderYaml.includes("CURRICULUM_OPERATOR_LIVE_RESEARCH_ENABLED"), false, "Blueprint does not manage the dashboard-only research flag");
+assert.match(renderYaml, /key: CURRICULUM_OPERATOR_LIVE_RESEARCH_ENABLED\s+value: "true"/, "Blueprint enables the non-secret research flag");
+assert.equal(renderYaml.includes("value: OPENAI_API_KEY"), false, "OpenAI secret remains dashboard-only");
 console.log("Curriculum operator research configuration checks passed.");

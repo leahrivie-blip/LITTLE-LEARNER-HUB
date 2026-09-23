@@ -79,9 +79,9 @@ OPENAI_API_KEY=<configured privately in Render>
 CURRICULUM_OPERATOR_LIVE_RESEARCH_ENABLED=true
 ```
 
-Keep `OPENAI_API_KEY` in the Render Dashboard or an Environment Group. Never commit, print, or copy its value into Cursor/local configuration. `CURRICULUM_OPERATOR_LIVE_RESEARCH_ENABLED` is intentionally Dashboard-managed: the application defaults to disabled when the flag is absent, and only literal `true` enables it.
+Keep `OPENAI_API_KEY` in the Render Dashboard or an Environment Group. Never commit, print, or copy its value into Cursor/local configuration. The application defaults to disabled when the flag is absent, and only literal `true` enables it.
 
-Before enabling research, set `CURRICULUM_OPERATOR_LIVE_RESEARCH_ENABLED=true` in the Render service environment. The flag is omitted from `render.yaml`, so Blueprint sync must not overwrite the Dashboard setting. Do not add the key to source control.
+`render.yaml` enables the non-secret `CURRICULUM_OPERATOR_LIVE_RESEARCH_ENABLED=true` flag. Before deployment, confirm Render privately contains `OPENAI_API_KEY`; Blueprint sync may manage the non-secret flag but must never add the key to source control.
 
 - Non-secrets (thresholds, email from/to, model names, feature flags) may live in `render.yaml`.
 - Secrets must stay in the Dashboard / Environment Group — **never in Git**.
