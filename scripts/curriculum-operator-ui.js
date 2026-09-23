@@ -207,6 +207,10 @@
     }
   }
 
+  function operatorRequestId() {
+    return `cor_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+  }
+
   async function api(action, extra = {}) {
     const token = adminToken();
     if (!token) throw new Error("Admin session required.");
@@ -227,6 +231,7 @@
       },
       body: JSON.stringify({
         action,
+        requestId: action === "parse" ? operatorRequestId() : undefined,
         currentlySelectedLessonId: currentlySelectedLessonId || undefined,
         operatorSessionId: operatorSessionId() || undefined,
         ...extra,

@@ -31,6 +31,8 @@ const api = createCurriculumOperatorApi({
   const first = replies.at(-1);
   assert.equal(first.status, 200, "production route accepts authenticated owner");
   assert.equal(first.body.action, "parse", "production route preserves parse response shape");
+  assert.equal(first.body.publishEnabled, false, "response preserves publish-disabled contract");
+  assert.ok(first.body.aiHealth && typeof first.body.aiHealth === "object", "response preserves AI health contract");
   assert.equal(first.body.conversationContext.messages.length, 2, "production route uses boundary message persistence");
   assert.equal(first.body.jobCreated, false, "parse route never runs a job");
 
@@ -44,5 +46,8 @@ const api = createCurriculumOperatorApi({
 
   await api.handle({ body: { action: "parse", command: "Update Big Feelings, Little Bodies.", operatorSessionId: "a", requestId: "one" } }, {});
   assert.equal(replies.at(-1).body.idempotent, true, "duplicate request does not persist duplicate messages");
+  await api.handle({ body: { action: "parse", command: "Update Big Feelings, Little Bodies.", operatorSessionId: "a", requestId: "four" } }, {});
+  assert.equal(replies.at(-1).body.idempotent, undefined, "same text with a new request ID is a new message");
+  assert.equal(replies.at(-1).body.conversationContext.messages.length, 8, "new request ID persists another owner/operator pair");
   console.log("Curriculum operator production HTTP adapter checks passed.");
 })().catch((error) => { console.error(error); process.exitCode = 1; });
