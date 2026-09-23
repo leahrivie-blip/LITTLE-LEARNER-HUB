@@ -6533,11 +6533,15 @@ let pendingIntendedBootView = "";
 let suppressBootLanding = false;
 let viewNavigationGeneration = 0;
 const APP_BOOT_VERIFY_TIMEOUT_MS = 18000;
+/** Membership sync can be slower than other boot steps (auth token + network). */
+const APP_BOOT_MEMBERSHIP_TIMEOUT_MS = 45000;
 let appBootState = "ready";
 let appBootError = "";
 let appBootRunId = 0;
 /** Last user-driven setView requested while membership verification was locking navigation. */
 let pendingBootNavigation = null;
+/** In-flight membership sync that may finish after a timeout — used for auto-recovery. */
+let pendingMembershipSyncPromise = null;
 
 function requiresVerifiedAppBoot() {
   return Boolean(currentUser) && canUseLaunchBackend();
@@ -6744,10 +6748,41 @@ async function withBootVerificationTimeout(label, task, timeoutMs = APP_BOOT_VER
 async function runSignedInBootVerification() {
   if (!currentUser) return;
   if (stripeCheckoutConfig.subscriptionStatusEndpoint) {
-    await withBootVerificationTimeout("Membership sync", async () => {
+    // Keep a single in-flight sync so a timeout can still recover when the request
+    // finishes later — without unlocking on definitive auth/membership failure.
+    const syncPromise = (async () => {
       const data = await syncSubscriptionFromBackend(currentUser, { renderFounding: true, forceRefresh: false });
-      if (data === null) throw new Error("Membership could not be verified.");
-    });
+      if (data === null) {
+        const error = new Error("Membership could not be verified.");
+        error.code = "membership_unverified";
+        throw error;
+      }
+      return data;
+    })();
+    pendingMembershipSyncPromise = syncPromise;
+    try {
+      await withBootVerificationTimeout(
+        "Membership sync",
+        () => syncPromise,
+        APP_BOOT_MEMBERSHIP_TIMEOUT_MS,
+      );
+    } catch (error) {
+      const timedOut = /did not finish in time/i.test(String(error?.message || error || ""));
+      if (timedOut) {
+        // Stay fail-closed (gate + Try Again), but auto-recover if sync later succeeds.
+        syncPromise.then((data) => {
+          if (!data) return;
+          if (!requiresVerifiedAppBoot()) return;
+          if (appBootState === "ready") return;
+          markAppBootReady();
+        }).catch(() => {
+          /* definitive failure stays on the gate until Try Again */
+        });
+      }
+      throw error;
+    } finally {
+      if (pendingMembershipSyncPromise === syncPromise) pendingMembershipSyncPromise = null;
+    }
   }
   if (firebaseAuthEnabled) {
     await withBootVerificationTimeout("Child data sync", async () => {
@@ -34524,12 +34559,21 @@ function homeFarmAnimalsLesson() {
 
 function homeLessonCoverUrl(resource) {
   const plan = resource?._curriculumLessonPlan || resource || {};
+  const title = `${plan.title || resource?.title || ""} ${plan.theme || resource?.theme || ""}`;
+  const isFarmAnimals = /farm animals/i.test(title) || plan.id === "cur-lp-preschool-farm-animals" || resource?.id === "cur-lp-preschool-farm-animals";
+  const farmCover = "/images/lesson-covers/farm-animals.jpg";
   const resolved = typeof lessonPlanCoversApi === "function"
     ? lessonPlanCoversApi()?.resolveLessonPlanCover?.(plan)
     : null;
   const raw = resource?.thumbnailUrl || resource?.previewData || plan.coverImageUrl || resolved?.url || "";
   const safe = typeof sanitizedImageSource === "function" ? sanitizedImageSource(raw) : String(raw || "").trim();
-  return safe || "/images/lesson-covers/farm.svg";
+  // Farm Animals must paint the photographic cover on first meaningful paint — never the SVG flash.
+  if (isFarmAnimals) {
+    if (!safe || /\/farm\.svg$/i.test(safe) || /farm-friends\.svg$/i.test(safe)) return farmCover;
+    if (/farm-animals\.jpg$/i.test(safe)) return safe;
+    return farmCover;
+  }
+  return safe || "";
 }
 
 function homeMatchesAgeFilter(resource, ageFilter) {
@@ -34605,7 +34649,7 @@ function homeFarmFeaturedHtml(resource, dayKey) {
   return `
     <article class="llh-farm-featured" data-home-farm-id="${escapeHtml(resource.id)}">
       <div class="llh-farm-featured-hero">
-        <img src="${escapeHtml(cover)}" alt="${escapeHtml(plan.coverImageAlt || resource.title || "Farm Animals")}" width="640" height="360" loading="eager" decoding="async" onerror="this.onerror=null;this.src='/images/lesson-covers/farm.svg';" />
+        <img src="${escapeHtml(cover)}" alt="${escapeHtml(plan.coverImageAlt || resource.title || "Farm Animals")}" width="640" height="360" loading="eager" decoding="async" fetchpriority="high" />
         <div>
           <p class="llh-farm-kicker"><span class="llh-chip free">Free</span> Preschool · Farm Animals${activityCount ? ` · ${activityCount} activities` : ""} · 5-day lesson plan</p>
           <h3>${escapeHtml(resource.title || "Farm Animals")}</h3>
@@ -34696,8 +34740,14 @@ function renderHomePublicPreviews() {
   const heroCover = document.querySelector("#homeHeroFarmCover");
   const farm = homeFarmAnimalsLesson();
   if (heroCover && farm) {
-    heroCover.src = homeLessonCoverUrl(farm);
+    const nextSrc = homeLessonCoverUrl(farm);
+    // Keep the SSR/eager JPG if already correct — avoid swapping to a wrong interim src.
+    if (nextSrc && heroCover.getAttribute("src") !== nextSrc) {
+      heroCover.src = nextSrc;
+    }
     heroCover.alt = farm.coverImageAlt || "Farm Animals weekly lesson plan cover";
+    heroCover.setAttribute("fetchpriority", "high");
+    heroCover.loading = "eager";
   }
   if (farmHost) {
     farmHost.classList.remove("is-loading", "is-empty", "is-ready");
@@ -37955,14 +38005,20 @@ function calendarWeekGlanceStats(doc, lesson, sunday, saturday, realItems, deriv
 
 function calendarWeekHeaderActionsHtml(week, options = {}) {
   const hasLesson = Boolean(options.hasLesson);
+  // When a lesson is assigned, print/clear live on the lesson card only (one action area).
+  if (hasLesson) {
+    return `
+    <div class="llh-cal-week-actions" role="group" aria-label="Week planning actions">
+      <button type="button" class="ghost-button" data-view="lessons">Browse Library</button>
+      <button type="button" class="ghost-button" data-view="ai">Doc Helper</button>
+    </div>
+  `;
+  }
   return `
     <div class="llh-cal-week-actions" role="group" aria-label="Week planning actions">
       <button type="button" class="primary-button" data-calendar-add-lesson-plan data-calendar-add-lesson-week="${escapeHtml(week)}">Add Lesson Plan</button>
       <button type="button" class="ghost-button" data-view="lessons">Browse Library</button>
       <button type="button" class="ghost-button" data-view="ai">Doc Helper</button>
-      <button type="button" class="ghost-button" data-calendar-print-week="${escapeHtml(week)}" ${hasLesson ? "" : "disabled"} title="${hasLesson ? "Download week-at-a-glance PDF (classroom copy)" : "Add a lesson plan before printing"}">Print Week PDF</button>
-      <button type="button" class="ghost-button" data-calendar-print-full="${escapeHtml(week)}" ${hasLesson ? "" : "disabled"} title="${hasLesson ? "Print the full classroom lesson plan" : "Add a lesson plan before printing"}">Print Full Plan</button>
-      ${hasLesson ? `<button type="button" class="ghost-button" data-calendar-clear-week="${escapeHtml(week)}" title="Remove this week's lesson plan and activities from the calendar">Clear Week</button>` : ""}
     </div>
   `;
 }
@@ -69504,12 +69560,22 @@ document.addEventListener("click", async (event) => {
       navOptions.weekStartDate = viewButton.dataset.dashSelectWeek;
     }
     const resolvedNext = resolveSidebarView(nextView);
+    // Primary hubs (Calendar, Lessons, etc.) must not inherit Billing/Settings back labels.
+    // Deep links still set return context via setViewReturnContext callers elsewhere.
+    const primaryHubViews = new Set([
+      "calendar", "lessons", "activities", "today", "messages", "children",
+      "home", "whats-new", "ai", "support-center", "behavior-support",
+    ]);
     if (previousView && previousView !== resolvedNext && previousView !== "home") {
-      setViewReturnContext(resolvedNext, {
-        type: "view",
-        view: previousView === "home" && isLoggedIn() ? "calendar" : previousView,
-        label: fallbackBackLabel(previousView === "home" && isLoggedIn() ? "calendar" : previousView),
-      });
+      if (primaryHubViews.has(resolvedNext)) {
+        clearViewReturnContext(resolvedNext);
+      } else {
+        setViewReturnContext(resolvedNext, {
+          type: "view",
+          view: previousView === "home" && isLoggedIn() ? "calendar" : previousView,
+          label: fallbackBackLabel(previousView === "home" && isLoggedIn() ? "calendar" : previousView),
+        });
+      }
     }
     if (viewButton.dataset.settingsAnchor) {
       navOptions.settingsAnchor = viewButton.dataset.settingsAnchor;

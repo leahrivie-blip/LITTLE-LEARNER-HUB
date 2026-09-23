@@ -104,8 +104,17 @@ function unitTinyArtistManifestAndScale() {
   });
   ok(built.ok === true && built.documentMode === "entire_binder", "Entire Binder builds");
   const tabs = built.sectionManifest || [];
-  ["Cover", "Overview", "Weekly Plan", "Daily Plans", "Activities", "Songs", "Books", "Teacher Toolkit", "Materials"]
+  ["Cover", "Overview", "Weekly Plan", "Daily Plans", "Activities", "Materials"]
     .forEach((tab) => ok(tabs.includes(tab), `section present: ${tab}`));
+  ok(!tabs.includes("Teacher Toolkit"), "Teacher Toolkit folded into Materials & Prep");
+  ok(!tabs.includes("Example Images"), "Example Images not in default printed binder");
+  const hasBooksOrSongs = (kit.companion?.books || []).length > 0 || (kit.companion?.songs || []).length > 0;
+  if (hasBooksOrSongs) {
+    ok(
+      tabs.includes("Books & Songs") || tabs.includes("Books &amp; Songs"),
+      "Books & Songs combined",
+    );
+  }
   ok(tabs.filter((tab) => tab === "Daily Plans").length === 5, "five weekday Daily Plans pages");
   ok(activityCardCount(built.html) === 15, `all 15 activity cards rendered (${activityCardCount(built.html)})`);
   ok(/Tiny Artist Studio/i.test(built.html), "cover/title copy present");

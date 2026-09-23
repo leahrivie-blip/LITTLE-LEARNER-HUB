@@ -28,11 +28,11 @@
     "overview",
     "weekly_plan",
     "activities",
+    "materials",
+    "books_songs",
+    "documentation",
     "printables",
-    "songs",
-    "books",
     "examples",
-    "teacher_toolkit",
   ]);
 
   const WEEKDAYS = Object.freeze(["monday", "tuesday", "wednesday", "thursday", "friday"]);
@@ -225,10 +225,14 @@
     overview: "Overview",
     weekly_plan: "Weekly Plan",
     activities: "Activities",
+    materials: "Materials & Prep",
+    books_songs: "Books & Songs",
+    documentation: "Documentation & Family",
     printables: "Printables",
+    examples: "Example Images",
+    // Legacy ids kept for older saved kits / owner previews.
     songs: "Songs",
     books: "Books",
-    examples: "Example Images",
     teacher_toolkit: "Teacher Toolkit",
   });
 
@@ -295,11 +299,11 @@
         overview: "overview",
         weekly_plan: "weekly_plan",
         activities: "daily_activities",
+        materials: "materials",
+        books_songs: "books_songs",
+        documentation: "documentation",
         printables: "printables",
-        songs: "songs",
-        books: "books",
         examples: "examples",
-        teacher_toolkit: "teacher_toolkit",
       };
       const section = sectionById(kit, map[id] || id);
       const hasContent = Boolean(section && (section.visible || section.content));
@@ -801,7 +805,7 @@
             <article class="tk-card">
               <h4>Print pack</h4>
               <div class="tk-stack">
-                ${presets.map((preset) => {
+                ${(presets.filter((preset) => !preset.hidden && (preset.primary || preset.id === "week_binder" || !preset.advanced))).map((preset) => {
                   const meta = presetAvailability[preset.id] || { available: true, reason: "" };
                   const available = meta.available !== false;
                   return `
@@ -811,6 +815,20 @@
                   </label>`;
                 }).join("") || `<p class="tk-muted">Print module not loaded.</p>`}
               </div>
+              <details class="tk-detail tk-print-advanced" ${["today_pack", "selected_resources"].includes(state.printPreset) ? "open" : ""}>
+                <summary>Advanced options</summary>
+                <div class="tk-detail-body tk-stack">
+                  ${(presets.filter((preset) => preset.advanced && !preset.hidden)).map((preset) => {
+                    const meta = presetAvailability[preset.id] || { available: true, reason: "" };
+                    const available = meta.available !== false;
+                    return `
+                    <label class="tk-radio-row${available ? "" : " is-disabled"}">
+                      <input type="radio" name="tk-print-preset" value="${escapeHtml(preset.id)}" ${state.printPreset === preset.id ? "checked" : ""} data-tk-print-preset="${escapeHtml(preset.id)}" ${available ? "" : "disabled"} />
+                      <span>${escapeHtml(preset.label)}${available ? "" : ` — ${escapeHtml(meta.reason || "Not available yet")}`}</span>
+                    </label>`;
+                  }).join("")}
+                </div>
+              </details>
               ${state.printPreset === "today_pack" ? `
                 <div class="tk-print-select-block">
                   <h4>Choose day</h4>
@@ -1006,14 +1024,14 @@
               ${!selectionSummary.canPrint && printEnabled ? `<p class="tk-note" role="status">${escapeHtml(selectionSummary.emptyReason || "Select something to print.")}</p>` : ""}
               ${binderStatusPanelHtml(kit, state)}
               <div class="tk-build-cta-stack">
-                <button type="button" class="tk-btn tk-btn-primary" data-tk-print-binder ${actionEnabled ? "" : "disabled"} aria-disabled="${actionEnabled ? "false" : "true"}">${actionEnabled ? "Print selection" : (printEnabled ? (busy ? "Working…" : "Print (select items)") : "Print binder (unavailable)")}</button>
-                <button type="button" class="tk-btn tk-btn-secondary" data-tk-download-binder ${actionEnabled ? "" : "disabled"} aria-disabled="${actionEnabled ? "false" : "true"}">${busy ? "Preparing your binder…" : (actionEnabled ? "Download PDF" : (printEnabled ? "Download (select items)" : "Download PDF (unavailable)"))}</button>
-                <button type="button" class="tk-btn tk-btn-ghost" data-tk-preview-print ${actionEnabled ? "" : "disabled"} aria-disabled="${actionEnabled ? "false" : "true"}">Preview selection</button>
-                <button type="button" class="tk-btn tk-btn-ghost" data-tk-goto="binder">Open Digital Binder</button>
+                <button type="button" class="tk-btn tk-btn-primary" data-tk-download-binder ${actionEnabled ? "" : "disabled"} aria-disabled="${actionEnabled ? "false" : "true"}">${busy ? "Preparing your binder…" : (actionEnabled ? "Print or Download" : (printEnabled ? "Select items to continue" : "Print Center unavailable"))}</button>
+                <button type="button" class="tk-btn tk-btn-ghost" data-tk-preview-print ${actionEnabled ? "" : "disabled"} aria-disabled="${actionEnabled ? "false" : "true"}">Preview</button>
+                <button type="button" class="tk-btn tk-btn-ghost" data-tk-choose-pages ${printEnabled && !busy ? "" : "disabled"}>Choose specific pages</button>
+                <button type="button" class="tk-btn tk-btn-ghost" data-tk-print-binder ${actionEnabled ? "" : "disabled"} aria-disabled="${actionEnabled ? "false" : "true"}" hidden>Print selection</button>
               </div>
               <div class="tk-print-preview-host" data-tk-print-preview-host hidden></div>
               <p class="tk-muted tk-note" id="tk-print-help">${printEnabled
-                ? "Preview, Print, and Download PDF use the same resolved selection document (not the open binder tab)."
+                ? "Preview and Print or Download use the same resolved binder document. Use Choose specific pages for One Day or Selected Resources."
                 : "Print Center is not available for this session. Binder preview and lesson downloads still work from the action bar."}</p>`;
               })()}
             </article>
@@ -1028,10 +1046,13 @@
       overview: "overview",
       weekly_plan: "weekly_plan",
       activities: "daily_activities",
+      materials: "materials",
+      books_songs: "books_songs",
+      documentation: "documentation",
       printables: "printables",
+      examples: "examples",
       songs: "songs",
       books: "books",
-      examples: "examples",
       teacher_toolkit: "teacher_toolkit",
     };
     const section = sectionById(kit, map[tabId] || tabId);
@@ -1207,6 +1228,101 @@
       `;
     }
 
+    if (tabId === "materials") {
+      const ownerPreview = isOwnerPreviewKit(kit);
+      const materials = content.materials || kit.companion?.mondayMorningSetup?.materials || [];
+      const prep = content.prepChecklist || [];
+      const subs = content.materialSubstitutions || [];
+      return `
+        <div class="tk-binder-section-body">
+          <h3 class="tk-section-title">Materials &amp; Prep</h3>
+          <p class="tk-muted">One deduplicated checklist for the week — gather once, teach all week.</p>
+          <article class="tk-card">
+            <h4>Weekly materials</h4>
+            ${checklistHtml(materials.map((label) => (typeof label === "string" ? { label } : label)), "materials")
+              || emptyBinderStateHtml("Materials", ownerPreview)}
+          </article>
+          ${prep.length ? `
+            <article class="tk-card">
+              <h4>Prep checklist</h4>
+              ${checklistHtml(prep.map((label) => (typeof label === "string" ? { label } : label)), "prep")}
+            </article>
+          ` : ""}
+          ${hasDisplayValue(content.teacherPreparation) ? `
+            <article class="tk-card">
+              <h4>Teacher preparation</h4>
+              <p class="tk-muted tk-pre">${escapeHtml(content.teacherPreparation)}</p>
+            </article>
+          ` : ""}
+          ${subs.length ? `
+            <article class="tk-card">
+              <h4>Substitutions</h4>
+              <ul class="tk-list">${subs.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+            </article>
+          ` : ""}
+        </div>
+      `;
+    }
+
+    if (tabId === "books_songs") {
+      const books = content.books || kit.companion?.books || [];
+      const songs = content.songs || kit.companion?.songs || [];
+      const ownerPreview = isOwnerPreviewKit(kit);
+      return `
+        <div class="tk-binder-section-body">
+          <h3 class="tk-section-title">Books &amp; Songs</h3>
+          <div class="tk-stack">
+            <h4 class="tk-section-subtitle">Books</h4>
+            ${books.map((book) => `
+              <article class="tk-binder-block">
+                <h4>${escapeHtml(book.title || "Book")}</h4>
+                ${book.author ? `<p class="tk-muted">by ${escapeHtml(book.author)}</p>` : ""}
+                ${book.whyThisBook ? `<p class="tk-muted"><strong>Why it fits:</strong> ${escapeHtml(book.whyThisBook)}</p>` : ""}
+                ${(book.afterReadingQuestions || book.questions || book.readAloudQuestions || []).length
+                  ? `<div class="tk-muted"><strong>After reading</strong><ul class="tk-list">${(book.afterReadingQuestions || book.questions || book.readAloudQuestions).map((q) => `<li>${escapeHtml(q)}</li>`).join("")}</ul></div>`
+                  : ""}
+              </article>
+            `).join("") || emptyBinderStateHtml("Books", ownerPreview)}
+            <h4 class="tk-section-subtitle">Songs</h4>
+            ${songs.map((song) => `
+              <article class="tk-binder-block">
+                <h4>${escapeHtml(song.title || "Song")}</h4>
+                ${hasDisplayValue(song.whenToUse) ? `<p class="tk-muted"><strong>When to use:</strong> ${escapeHtml(song.whenToUse)}</p>` : ""}
+                ${hasDisplayValue(song.motions) ? `<p class="tk-muted"><strong>Motions:</strong> ${escapeHtml(song.motions)}</p>` : ""}
+                ${song.lyricsPrintable && song.lyrics ? detailBlockHtml("Lyrics", `<p class="tk-muted tk-pre tk-lyrics">${escapeHtml(song.lyrics)}</p>`) : ""}
+              </article>
+            `).join("") || emptyBinderStateHtml("Songs", ownerPreview)}
+          </div>
+        </div>
+      `;
+    }
+
+    if (tabId === "documentation") {
+      const ownerPreview = isOwnerPreviewKit(kit);
+      const prompts = content.observationPrompts || content.prompts || [];
+      const docs = content.documentationPrompts || [];
+      const family = content.familyConnection || kit.companion?.parentConnection?.readyToSendMessage || "";
+      return `
+        <div class="tk-binder-section-body">
+          <h3 class="tk-section-title">Documentation &amp; Family</h3>
+          <article class="tk-card">
+            <h4>Observation prompts</h4>
+            <ul class="tk-list">${prompts.map((item) => `<li>${escapeHtml(item)}</li>`).join("") || `<li class="tk-muted">${ownerPreview ? "Not added yet." : "None listed"}</li>`}</ul>
+          </article>
+          ${docs.length ? `
+            <article class="tk-card">
+              <h4>Documentation prompts</h4>
+              <ul class="tk-list">${docs.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+            </article>
+          ` : ""}
+          <article class="tk-card">
+            <h4>Family connection</h4>
+            <p class="tk-muted tk-pre">${escapeHtml(family || (ownerPreview ? "Not added yet." : "No family message yet."))}</p>
+          </article>
+        </div>
+      `;
+    }
+
     if (tabId === "songs") {
       const songs = content.songs || kit.companion?.songs || [];
       const ownerPreview = isOwnerPreviewKit(kit);
@@ -1270,7 +1386,7 @@
       return `
         <div class="tk-binder-section-body">
           <h3 class="tk-section-title">Example Images</h3>
-          <p class="tk-muted">Classroom-achievable setup and finished examples. Original Little Learner Hub assets only.</p>
+          <p class="tk-muted">Optional digital reference — not included in the default printed binder. Classroom-achievable setup and finished examples.</p>
           <div class="tk-example-gallery">
             ${gallerySource.map((activity) => `
               <figure class="tk-example-card">
@@ -1386,8 +1502,8 @@
         <div class="tk-stack tk-binder-actions">
           <button type="button" class="tk-btn tk-btn-ghost" data-tk-goto="build">Build &amp; Print</button>
           ${state.printCenterEnabled
-            ? `<button type="button" class="tk-btn tk-btn-primary" data-tk-print-binder ${state.downloadBusy ? "disabled" : ""} aria-disabled="${state.downloadBusy ? "true" : "false"}">${state.downloadBusy ? "Working…" : "Print binder"}</button>
-               <button type="button" class="tk-btn tk-btn-secondary" data-tk-download-binder ${state.downloadBusy ? "disabled" : ""} aria-disabled="${state.downloadBusy ? "true" : "false"}">${state.downloadBusy ? "Preparing your binder…" : "Download PDF"}</button>`
+            ? `<button type="button" class="tk-btn tk-btn-primary" data-tk-download-binder ${state.downloadBusy ? "disabled" : ""} aria-disabled="${state.downloadBusy ? "true" : "false"}">${state.downloadBusy ? "Preparing your binder…" : "Print or Download"}</button>
+               <button type="button" class="tk-btn tk-btn-ghost" data-tk-preview-print ${state.downloadBusy ? "disabled" : ""}>Preview</button>`
             : ""}
           <button type="button" class="tk-btn tk-btn-secondary" data-tk-goto="today">Back to Today</button>
         </div>
@@ -1511,7 +1627,7 @@
           observations: true,
           printables: true,
         },
-      includeImages: true,
+      includeImages: false,
       inkSaver: false,
       paperSize: "letter",
       kitKey: text(kit?.lessonPlanId || kit?.id || kit?.title || ""),
@@ -1751,6 +1867,21 @@
         if (printApi?.defaultPartsForPreset) state.printParts = printApi.defaultPartsForPreset("today_pack");
         rerender({ preserveScroll: true });
         root.querySelector("[data-tk-print-preset='today_pack']")?.focus();
+        return;
+      }
+
+      const choosePages = event.target.closest("[data-tk-choose-pages]");
+      if (choosePages) {
+        event.preventDefault();
+        if (!state.printCenterEnabled || choosePages.disabled || state.downloadBusy) return;
+        state.surface = "build";
+        state.printPreset = "selected_resources";
+        const printApi = typeof globalThis !== "undefined" ? globalThis.LLHTeachingKitPrint : null;
+        if (printApi?.defaultPartsForPreset) {
+          state.printParts = printApi.defaultPartsForPreset("selected_resources");
+        }
+        rerender({ preserveScroll: true });
+        root.querySelector("[data-tk-print-preset='selected_resources']")?.focus();
         return;
       }
 

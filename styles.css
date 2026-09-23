@@ -18952,6 +18952,8 @@ body.has-action-toast #llhMetaCookieNotice {
   font: inherit;
   color: var(--llh-primary-deep, #5a4d8a);
   padding: 2px;
+  min-width: 28px;
+  min-height: 44px;
 }
 
 .llh-cal-week-jump:disabled {
@@ -19164,7 +19166,7 @@ body.has-action-toast #llhMetaCookieNotice {
   }
 
   .llh-calendar-grid-7 {
-    grid-template-columns: 18px repeat(7, minmax(0, 1fr));
+    grid-template-columns: 28px repeat(7, minmax(0, 1fr));
   }
 
   .llh-cal-week-jump-label {
@@ -22778,7 +22780,7 @@ canvas {
   }
 
   .llh-calendar-grid-7 {
-    grid-template-columns: 22px repeat(7, minmax(0, 1fr));
+    grid-template-columns: 28px repeat(7, minmax(0, 1fr));
   }
 
   .llh-cal-cell {
@@ -22939,7 +22941,7 @@ canvas {
   }
 
   .llh-calendar-grid-7 {
-    grid-template-columns: 18px repeat(7, minmax(0, 1fr));
+    grid-template-columns: 28px repeat(7, minmax(0, 1fr));
   }
 
   .llh-cal-cell {
@@ -23989,7 +23991,8 @@ body.hdh-persona-parent .main {
   gap: 10px 12px;
   align-items: center;
   justify-content: space-between;
-  max-width: 640px;
+  max-width: min(640px, calc(100vw - 32px));
+  width: auto;
   margin: 0 auto;
   padding: 10px 14px;
   border-radius: 12px;
@@ -23999,6 +24002,9 @@ body.hdh-persona-parent .main {
   color: var(--llh-ink, #2a2a35);
   font-size: 0.88rem;
   line-height: 1.4;
+  box-sizing: border-box;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 /* Google Ads consent must sit above the Meta notice and remain clickable. */
@@ -24007,6 +24013,28 @@ body.hdh-persona-parent .main {
   z-index: 12010;
   pointer-events: auto;
 }
+
+#llhGoogleConsentBanner button[data-google-consent] {
+  flex: 1 1 auto;
+  min-height: 44px;
+  min-width: min(100%, 148px);
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--llh-primary, #7b6bb5) 22%, #fff);
+  background: #fff;
+  color: var(--llh-ink, #2a2a35);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+#llhGoogleConsentBanner button[data-google-consent="accept"] {
+  background: linear-gradient(135deg, #8b6be8, #7055d1);
+  border-color: transparent;
+  color: #fff;
+}
+
 body:has(#llhGoogleConsentBanner) #llhMetaCookieNotice {
   display: none !important;
   pointer-events: none !important;
@@ -24016,6 +24044,7 @@ body:has(#llhGoogleConsentBanner) #llhMetaCookieNotice {
 .llh-meta-cookie-notice p {
   margin: 0;
   flex: 1 1 220px;
+  min-width: 0;
 }
 
 .llh-meta-cookie-link {
@@ -24046,6 +24075,7 @@ body:has(#llhGoogleConsentBanner) #llhMetaCookieNotice {
     right: 10px;
     bottom: max(10px, env(safe-area-inset-bottom, 0px));
     z-index: 40; /* below auth (13000) and below resource viewer chrome */
+    max-width: calc(100vw - 20px);
   }
 
   .llh-meta-cookie-dismiss {
@@ -24071,11 +24101,101 @@ body:has(#llhGoogleConsentBanner) #llhMetaCookieNotice {
   body.home-view.has-meta-cookie-notice {
     padding-bottom: calc(148px + env(safe-area-inset-bottom, 0px));
   }
+
+  body.home-view.has-google-consent-banner {
+    padding-bottom: calc(220px + env(safe-area-inset-bottom, 0px));
+  }
 }
 
-/* Keep page CTAs reachable while the cookie notice is visible. */
+/* Keep page CTAs reachable while the cookie / Google consent notice is visible. */
 body.has-meta-cookie-notice {
   padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+}
+
+body.has-google-consent-banner {
+  padding-bottom: calc(168px + env(safe-area-inset-bottom, 0px));
+}
+
+/*
+ * Signed-in / app chrome (not marketing home): keep consent in document flow
+ * as a bottom strip so it cannot cover calendar, binder, lesson-plan, nav, or
+ * print controls. Uses :not(.home-view) so it applies as soon as the signed-in
+ * shell is active, even before user-authenticated is toggled.
+ */
+body.has-meta-cookie-notice:not(.home-view),
+body.has-google-consent-banner:not(.home-view) {
+  padding-bottom: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+}
+
+body.has-meta-cookie-notice:not(.home-view) .app-shell,
+body.has-google-consent-banner:not(.home-view) .app-shell {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto;
+  max-height: none;
+  overflow: hidden;
+  grid-template-rows: minmax(0, 1fr);
+  align-content: stretch;
+}
+
+body.has-meta-cookie-notice:not(.home-view) .sidebar,
+body.has-google-consent-banner:not(.home-view) .sidebar {
+  height: auto;
+  max-height: 100%;
+  min-height: 0;
+  align-self: stretch;
+  overflow: auto;
+}
+
+body.has-meta-cookie-notice:not(.home-view) .main,
+body.has-google-consent-banner:not(.home-view) .main {
+  min-height: 0;
+  max-height: 100%;
+  height: auto;
+  align-self: stretch;
+  overflow-x: clip;
+  overflow-y: auto;
+  padding-bottom: 12px;
+  box-sizing: border-box;
+}
+
+body.has-meta-cookie-notice:not(.home-view) .llh-meta-cookie-notice,
+body.has-google-consent-banner:not(.home-view) .llh-meta-cookie-notice,
+body.has-meta-cookie-notice:not(.home-view) #llhGoogleConsentBanner,
+body.has-google-consent-banner:not(.home-view) #llhGoogleConsentBanner,
+body.has-meta-cookie-notice:not(.home-view) #llhMetaCookieNotice,
+body.has-google-consent-banner:not(.home-view) #llhMetaCookieNotice {
+  position: relative !important;
+  left: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  z-index: 5;
+  flex: 0 0 auto;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  border-radius: 0;
+  box-shadow: 0 -6px 18px rgba(42, 42, 53, 0.08);
+  box-sizing: border-box;
+}
+
+@media (max-width: 1100px) {
+  body.has-meta-cookie-notice:not(.home-view) .llh-meta-cookie-notice,
+  body.has-google-consent-banner:not(.home-view) .llh-meta-cookie-notice,
+  body.has-meta-cookie-notice:not(.home-view) #llhGoogleConsentBanner,
+  body.has-google-consent-banner:not(.home-view) #llhGoogleConsentBanner,
+  body.has-meta-cookie-notice:not(.home-view) #llhMetaCookieNotice,
+  body.has-google-consent-banner:not(.home-view) #llhMetaCookieNotice {
+    left: auto !important;
+    right: auto !important;
+    max-width: none;
+    width: 100%;
+  }
 }
 
 /* Shared loading indicator — spinner + label (Calendar, Messages, requests). */

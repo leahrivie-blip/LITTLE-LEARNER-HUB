@@ -50,11 +50,11 @@
     Object.freeze({ id: "overview", label: "Overview", sectionId: "overview" }),
     Object.freeze({ id: "weekly_plan", label: "Weekly Plan", sectionId: "weekly_plan" }),
     Object.freeze({ id: "activities", label: "Activities", sectionId: "daily_activities" }),
+    Object.freeze({ id: "materials", label: "Materials & Prep", sectionId: "materials" }),
+    Object.freeze({ id: "books_songs", label: "Books & Songs", sectionId: "books_songs" }),
+    Object.freeze({ id: "documentation", label: "Documentation & Family", sectionId: "documentation" }),
     Object.freeze({ id: "printables", label: "Printables", sectionId: "printables" }),
-    Object.freeze({ id: "songs", label: "Songs", sectionId: "songs" }),
-    Object.freeze({ id: "books", label: "Books", sectionId: "books" }),
     Object.freeze({ id: "examples", label: "Example Images", sectionId: "examples" }),
-    Object.freeze({ id: "teacher_toolkit", label: "Teacher Toolkit", sectionId: "teacher_toolkit" }),
   ]);
 
   const PROVIDER_BINDER_TAB_IDS = Object.freeze(
@@ -89,12 +89,13 @@
     Object.freeze({ id: "overview", label: "Weekly Lesson Overview", printDefault: true }),
     Object.freeze({ id: "objectives", label: "Learning Objectives", printDefault: true }),
     Object.freeze({ id: "vocabulary", label: "Vocabulary Words", printDefault: true }),
-    Object.freeze({ id: "materials", label: "Materials List", printDefault: true }),
+    Object.freeze({ id: "materials", label: "Materials & Prep", printDefault: true }),
     Object.freeze({ id: "weekly_plan", label: "Monday–Friday Lesson Plans", printDefault: true }),
     Object.freeze({ id: "daily_activities", label: "Daily Activities", printDefault: true }),
     Object.freeze({ id: "circle_time", label: "Circle Time", printDefault: false }),
     Object.freeze({ id: "books", label: "Books", printDefault: true }),
     Object.freeze({ id: "songs", label: "Songs", printDefault: true }),
+    Object.freeze({ id: "books_songs", label: "Books & Songs", printDefault: true }),
     Object.freeze({ id: "process_art", label: "Process Art", printDefault: false }),
     Object.freeze({ id: "invitations", label: "Invitations to Play", printDefault: false }),
     Object.freeze({ id: "small_group", label: "Small Group Activities", printDefault: false }),
@@ -108,6 +109,7 @@
     Object.freeze({ id: "teacher_tips", label: "Teacher Tips", printDefault: false }),
     Object.freeze({ id: "observations", label: "Observation Prompts", printDefault: true }),
     Object.freeze({ id: "family", label: "Family Connection Ideas", printDefault: true }),
+    Object.freeze({ id: "documentation", label: "Documentation & Family", printDefault: true }),
     Object.freeze({ id: "extensions", label: "Extension Activities", printDefault: false }),
     Object.freeze({ id: "printables", label: "Printable Resources", printDefault: true }),
     Object.freeze({ id: "examples", label: "Activity Picture Examples", printDefault: false }),
@@ -115,7 +117,7 @@
     Object.freeze({ id: "vocab_cards", label: "Vocabulary Cards", printDefault: false }),
     Object.freeze({ id: "family_letter", label: "Family Letter", printDefault: false }),
     Object.freeze({ id: "observation_forms", label: "Observation Forms", printDefault: false }),
-    Object.freeze({ id: "teacher_toolkit", label: "Teacher Toolkit", printDefault: true }),
+    Object.freeze({ id: "teacher_toolkit", label: "Teacher Toolkit", printDefault: false }),
   ]);
 
   /** Map existing activityCategory strings → kit section ids (extensible). */

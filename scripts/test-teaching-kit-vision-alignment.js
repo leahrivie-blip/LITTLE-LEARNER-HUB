@@ -164,11 +164,11 @@ function testProviderBinderTabs() {
     "overview",
     "weekly_plan",
     "activities",
+    "materials",
+    "books_songs",
+    "documentation",
     "printables",
-    "songs",
-    "books",
     "examples",
-    "teacher_toolkit",
   ].forEach((id) => assert(ids.includes(id), `tab ${id}`));
 }
 

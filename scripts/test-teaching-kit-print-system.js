@@ -170,13 +170,14 @@ function testFarmAnimalsCompleteBinder() {
   ok(/tk-print-check/i.test(binder.html), "materials checklists present");
   ok(/Monday/.test(binder.html) && /Friday/.test(binder.html), "weekdays included");
   ok(/Farm Animal Discovery Basket/i.test(binder.html), "activity included");
-  ok(/Teacher Toolkit/i.test(binder.html), "toolkit included");
-  ok(/Monday Morning Setup/i.test(binder.html), "setup is toolkit subsection");
+  ok(/Materials &amp; Prep|Materials & Prep|Prep checklist/i.test(binder.html), "materials & prep included");
   ok(/Complete Teaching Kit|Teacher Binder/i.test(binder.html), "complete teaching kit cover branding");
   ok(/Overview/i.test(binder.html), "overview section");
-  ok(/complete weekly checklist|Materials List/i.test(binder.html), "overview points to materials list");
-  ok(!/data-toolkit-group="tips"/.test(binder.html), "empty Teaching Tips card omitted");
+  ok(/complete weekly checklist|Materials List|Materials &amp; Prep|Materials & Prep/i.test(binder.html), "overview points to materials list");
   ok(/data-tk-print-tab="Materials"/.test(binder.html), "materials section included in full kit");
+  ok(/Books &amp; Songs|Books & Songs/i.test(binder.html), "books & songs combined");
+  ok(!/data-tk-print-tab="Teacher Toolkit"/.test(binder.html), "separate teacher toolkit page removed from default binder");
+  ok(!/data-tk-print-tab="Example Images"/.test(binder.html), "example images not in default printed binder");
   ok(!/No printable resources have been added/i.test(binder.html), "full kit omits empty printables section");
   assertNoForbidden(binder.html, "farm binder");
 

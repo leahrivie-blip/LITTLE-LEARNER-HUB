@@ -90,6 +90,8 @@ function assertStaticContract() {
   assert.match(appJs, /markAppBootFailed/);
   assert.match(appJs, /pendingBootNavigation/);
   assert.match(appJs, /fromPendingBootNavigation/);
+  assert.match(appJs, /APP_BOOT_MEMBERSHIP_TIMEOUT_MS/);
+  assert.match(appJs, /pendingMembershipSyncPromise/);
   assert.doesNotMatch(appJs, /App boot timed out — continuing with local UI/);
   assert.match(css, /\.app-boot-gate/);
 }
@@ -174,17 +176,21 @@ async function runBrowserChecks() {
   {
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
     await page.route("**/api/subscription-status**", async (route) => {
-      // Boot verification timeout is APP_BOOT_VERIFY_TIMEOUT_MS (18s); delay past it
+      // Membership timeout is APP_BOOT_MEMBERSHIP_TIMEOUT_MS (45s); delay past it
       // so the recoverable gate appears instead of a late successful sync.
-      await new Promise((r) => setTimeout(r, 22000));
-      await route.continue();
+      await new Promise((r) => setTimeout(r, 48000));
+      try {
+        await route.abort("timedout");
+      } catch {
+        // Retry/unroute may already have settled this request.
+      }
     });
     await seedPersona(page);
     const consoleLogs = [];
     page.on("console", (msg) => consoleLogs.push(msg.text()));
     const start = Date.now();
     await page.goto(`${baseUrl}/index.html`, { waitUntil: "domcontentloaded", timeout: 60000 });
-    await page.waitForSelector("#appBootGate:not([hidden]) #appBootGateRetry", { timeout: 30000 });
+    await page.waitForSelector("#appBootGate:not([hidden]) #appBootGateRetry", { timeout: 60000 });
     timings.slowSyncErrorMs = Date.now() - start;
     const blocked = await page.evaluate(() => ({
       gateVisible: !document.querySelector("#appBootGate")?.hidden,
@@ -205,6 +211,52 @@ async function runBrowserChecks() {
     await page.locator('.sidebar [data-view="activities"]').click();
     await page.waitForSelector("#view-activities.active-view", { timeout: 10000 });
     await page.screenshot({ path: "/opt/cursor/artifacts/screenshots/signed-in-nav-boot-recovery.png", fullPage: true });
+    await page.close();
+  }
+
+  console.log("3b) Slow membership sync auto-recovers when the request finishes successfully");
+  {
+    const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    let releaseSync;
+    const syncGate = new Promise((resolve) => { releaseSync = resolve; });
+    await page.route("**/api/subscription-status**", async (route) => {
+      await syncGate;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          ok: true,
+          plan: "Pro",
+          subscriptionStatus: "Active",
+          stripeSubscriptionStatus: "active",
+        }),
+      });
+    });
+    await seedPersona(page);
+    await page.goto(`${baseUrl}/index.html`, { waitUntil: "domcontentloaded", timeout: 60000 });
+    await page.waitForFunction(
+      () => document.body.classList.contains("app-boot-verifying")
+        || Boolean(document.querySelector("#appBootGate:not([hidden])")),
+      null,
+      { timeout: 10000 },
+    );
+    // Hold the sync past the membership timeout so the gate appears, then succeed.
+    await page.waitForSelector("#appBootGate:not([hidden]) #appBootGateRetry", { timeout: 60000 });
+    const mid = await page.evaluate(() => ({
+      gateVisible: !document.querySelector("#appBootGate")?.hidden,
+      bootReady: document.body.classList.contains("app-boot-ready"),
+    }));
+    assert.equal(mid.gateVisible, true);
+    assert.equal(mid.bootReady, false);
+    releaseSync();
+    await page.waitForFunction(
+      () => document.body.classList.contains("app-boot-ready") && document.querySelector("#appBootGate")?.hidden,
+      null,
+      { timeout: 15000 },
+    );
+    await page.locator('.sidebar [data-view="lessons"]').click();
+    await page.waitForSelector("#view-lessons.active-view #lessonPlanSearch", { timeout: 10000 });
+    await page.screenshot({ path: "/opt/cursor/artifacts/screenshots/signed-in-nav-boot-late-success.png", fullPage: true });
     await page.close();
   }
 

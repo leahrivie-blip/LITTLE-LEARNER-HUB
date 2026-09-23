@@ -542,7 +542,10 @@
     "test:nested-spa-assets": "node scripts/test-nested-spa-assets.js",
     "test:google-consent-accept": "node scripts/test-google-consent-accept.js",
     "test:binder-builder": "NODE_ENV=test node scripts/test-binder-builder.js",
-    "test:binder-builder-ui": "NODE_ENV=test node scripts/test-binder-builder-ui.js"
+    "test:binder-builder-ui": "NODE_ENV=test node scripts/test-binder-builder-ui.js",
+    "test:printable-pagecount-metadata": "NODE_ENV=test node scripts/test-printable-pagecount-metadata.js",
+    "test:materials-near-dedupe": "NODE_ENV=test node scripts/test-materials-near-dedupe.js",
+    "test:polish-device-cover-calendar": "NODE_ENV=test node scripts/test-polish-device-cover-calendar.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",

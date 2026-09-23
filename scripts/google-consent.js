@@ -28,6 +28,7 @@
   };
   const restoreMetaAfterGoogleClosed = () => {
     const meta = document.getElementById("llhMetaCookieNotice");
+    try { document.body.classList.remove("has-google-consent-banner"); } catch { /* ignore */ }
     if (!meta || meta.getAttribute("data-google-consent-suppressed") !== "1") return;
     meta.removeAttribute("data-google-consent-suppressed");
     meta.removeAttribute("aria-hidden");
@@ -37,6 +38,7 @@
   };
   const open = () => {
     document.getElementById("llhGoogleConsentBanner")?.remove();
+    try { document.body.classList.remove("has-google-consent-banner"); } catch { /* ignore */ }
     suppressMetaWhileGoogleOpen();
     const current = read();
     const banner = document.createElement("section");
@@ -51,6 +53,10 @@
       const granted = choice === "accept";
       if (!granted) clearAdvertisingIdentifiers();
       update(granted);
+      try {
+        if (banner.__llhConsentResize) root.removeEventListener("resize", banner.__llhConsentResize);
+        document.body.style.removeProperty("--llh-consent-reserve");
+      } catch { /* ignore */ }
       banner.remove();
       restoreMetaAfterGoogleClosed();
       try {
@@ -58,6 +64,23 @@
       } catch { /* optional */ }
     });
     document.body.appendChild(banner);
+    // Reserve space under the fixed banner so signed-in calendar/binder/print
+    // controls are not covered (must not silently drop body padding).
+    try { document.body.classList.add("has-google-consent-banner"); } catch { /* ignore */ }
+    const syncConsentReserve = () => {
+      try {
+        const height = Math.ceil(banner.getBoundingClientRect().height || 0);
+        if (!height) return;
+        const reserve = Math.max(112, height + 20);
+        document.body.style.setProperty("--llh-consent-reserve", `${reserve}px`);
+      } catch { /* ignore */ }
+    };
+    syncConsentReserve();
+    try {
+      root.requestAnimationFrame(syncConsentReserve);
+      root.addEventListener("resize", syncConsentReserve, { passive: true });
+      banner.__llhConsentResize = syncConsentReserve;
+    } catch { /* optional */ }
   };
   const existing = read();
   if (existing && typeof existing.granted === "boolean") update(existing.granted);

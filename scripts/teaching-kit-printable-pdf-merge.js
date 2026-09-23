@@ -377,11 +377,52 @@
     return { ok: true, pageCount: pages.length, pages };
   }
 
+  /**
+   * Displayed page count must come from actual PDF metadata when bytes are available.
+   * Falls back to the stored resource.pageCount only when inspection is unavailable.
+   */
+  async function resolveDisplayedPageCount(resource, options = {}) {
+    const stored = Number(resource?.pageCount) || 0;
+    const fileData = text(resource?.fileData);
+    const fileUrl = text(resource?.fileUrl || resource?.url || resource?.downloadUrl || resource?.mediaUrl);
+    const source = fileData || fileUrl;
+    if (!source) return { pageCount: stored, source: stored ? "stored" : "none", ok: false };
+    try {
+      const bytes = await defaultFetchBytes(source, resource, options);
+      if (!bytes || !isPdfBytes(bytes)) return { pageCount: stored, source: stored ? "stored" : "none", ok: false };
+      const inspected = await inspectPdfPages(bytes);
+      if (inspected.ok && inspected.pageCount > 0) {
+        return { pageCount: inspected.pageCount, source: "pdf_metadata", ok: true };
+      }
+    } catch (_err) { /* fall through */ }
+    return { pageCount: stored, source: stored ? "stored" : "none", ok: false };
+  }
+
+  async function enrichPrintablesWithPdfPageCounts(printables, options = {}) {
+    const list = Array.isArray(printables) ? printables : [];
+    const next = [];
+    for (const item of list) {
+      if (!item || typeof item !== "object") {
+        next.push(item);
+        continue;
+      }
+      const resolved = await resolveDisplayedPageCount(item, options);
+      next.push({
+        ...item,
+        pageCount: resolved.pageCount,
+        pageCountSource: resolved.source,
+      });
+    }
+    return next;
+  }
+
   return {
     planPrintableAttachments,
     loadAttachmentBytes,
     mergeTeachingKitPdf,
     inspectPdfPages,
+    resolveDisplayedPageCount,
+    enrichPrintablesWithPdfPageCounts,
     isPdfBytes,
     dataUrlToBytes,
     defaultFetchBytes,
