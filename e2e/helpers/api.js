@@ -1,4 +1,5 @@
 const { parseCurriculumLessonPlanImport } = require("../../scripts/curriculum-lesson-import-parser.js");
+const { ensureRequiredActivityImportFields } = require("./lesson-data.js");
 
 const ADMIN = {
   email: process.env.E2E_ADMIN_EMAIL || "e2e-admin@test.local",
@@ -93,7 +94,8 @@ async function fetchPublicLibrary(baseURL) {
  * @param {object} [overrides]
  */
 function parseImportLesson(importText, overrides = {}) {
-  const parsed = parseCurriculumLessonPlanImport(importText, {
+  const enriched = ensureRequiredActivityImportFields(importText);
+  const parsed = parseCurriculumLessonPlanImport(enriched, {
     generateItemId: () => `e2e-item-${Math.random().toString(16).slice(2, 10)}`,
   });
   if (!parsed.ok) {

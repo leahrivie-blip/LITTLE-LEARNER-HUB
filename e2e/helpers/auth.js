@@ -1,8 +1,46 @@
 /**
+ * E2E personas store identity in localStorage only. After subscription-status
+ * auth hardening, boot verification requires a real Authorization token.
+ * Under NODE_ENV=test the server accepts Bearer test:<email>. Install a
+ * page-level fetch shim so membership sync can complete without weakening
+ * production auth (test tokens are rejected outside NODE_ENV=test).
+ * @param {import('@playwright/test').Page} page
+ */
+async function installE2eSubscriptionAuth(page) {
+  await page.addInitScript(() => {
+    if (window.__llhE2eSubAuthInstalled) return;
+    window.__llhE2eSubAuthInstalled = true;
+    const originalFetch = window.fetch.bind(window);
+    window.fetch = (input, init = {}) => {
+      try {
+        const url = typeof input === "string" ? input : String(input && input.url ? input.url : "");
+        if (url.includes("/api/subscription-status")) {
+          const email = String(localStorage.getItem("llhUser") || "").trim().toLowerCase();
+          if (email) {
+            const headers = new Headers(init.headers || {});
+            if (!headers.has("Authorization")) {
+              headers.set("Authorization", `Bearer test:${email}`);
+            }
+            if (!headers.has("x-llh-user-email") && !headers.has("X-LLH-User-Email")) {
+              headers.set("x-llh-user-email", email);
+            }
+            init = { ...init, headers };
+          }
+        }
+      } catch {
+        /* ignore shim errors — fall through to original fetch */
+      }
+      return originalFetch(input, init);
+    };
+  });
+}
+
+/**
  * @param {import('@playwright/test').Page} page
  * @param {'logged-out'|'free'|'trial'|'pro'|'founding'} persona
  */
 async function setUserPersona(page, persona) {
+  await installE2eSubscriptionAuth(page);
   const url = page.url();
   if (!url || url === "about:blank" || !url.includes("index.html")) {
     await page.goto("/index.html", { waitUntil: "domcontentloaded" });
@@ -102,4 +140,5 @@ module.exports = {
   setUserPersona,
   clearAdminSession,
   loginAsAdmin,
+  installE2eSubscriptionAuth,
 };

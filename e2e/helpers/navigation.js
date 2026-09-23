@@ -1,13 +1,16 @@
 /**
- * Wait until the SPA shell is loaded (do not require topbar search — it is hidden on home).
+ * Wait until the SPA shell finished boot verification.
+ * Do not require #view-home to be visible — signed-in users land on Calendar
+ * (or Today in work-mode), so #view-home stays in the DOM but hidden.
  * @param {import('@playwright/test').Page} page
  */
 async function waitForAppReady(page) {
-  await page.waitForSelector("#view-home", { timeout: 30000 });
-  await page.waitForResponse(
-    (response) => response.url().includes("/api/site-content") && response.status() === 200,
+  await page.waitForFunction(
+    () => document.body.classList.contains("app-boot-ready")
+      && (!document.querySelector("#appBootGate") || document.querySelector("#appBootGate").hidden),
+    null,
     { timeout: 45000 },
-  ).catch(() => {});
+  );
 }
 
 /**

@@ -34,12 +34,19 @@ test.describe("Access control", () => {
     }
   });
 
-  test("logged-out user is prompted to log in for lesson library", async ({ page }) => {
+  test("logged-out user is prompted to log in for protected views", async ({ page }) => {
     await setUserPersona(page, "logged-out");
     await page.goto("/index.html", { waitUntil: "domcontentloaded" });
     await waitForAppReady(page);
+    // Guest browse of lessons/activities is intentionally allowed (guestAllowedViews).
     await page.evaluate(() => {
       if (typeof setView === "function") setView("lessons");
+    });
+    await expect(page.locator("#view-lessons")).toHaveClass(/active-view/);
+    await expect(page.locator("body")).not.toHaveClass(/auth-modal-open/);
+    // Protected app surfaces still require login.
+    await page.evaluate(() => {
+      if (typeof setView === "function") setView("calendar");
     });
     await expect(page.locator("body")).toHaveClass(/auth-modal-open/);
     await expect(page.locator("#authModal")).toBeVisible();
@@ -87,12 +94,16 @@ test.describe("Access control", () => {
     await page.fill("#lessonPlanSearch", proTitle);
     await page.waitForTimeout(400);
     const proCard = page.locator("#view-lessons .resource-card").filter({ hasText: proTitle }).first();
-    await proCard.locator('button[data-view-resource]').click();
+    // Locked Netflix browse cards hide the View Plan button; the card itself is the preview target.
+    await proCard.click();
     await page.waitForSelector("#featurePreviewModal.open, #resourceViewerModal.open", { timeout: 15000 });
     const lockedModal = page.locator("#featurePreviewModal.open");
     if (await lockedModal.count()) {
-      await expect(lockedModal).toContainText(/Pro|Trial/i);
-      await expect(lockedModal.locator("[data-start-pro-trial]")).toHaveCount(1);
+      await expect(lockedModal).toContainText(/Pro|Trial|Unlock/i);
+      // Founding acquisition is closed: Free users get paid checkout CTAs, not trial-start.
+      await expect(
+        lockedModal.locator("[data-start-pro-trial], [data-checkout-plan]").first(),
+      ).toBeVisible();
     }
   });
 
@@ -118,8 +129,9 @@ test.describe("Access control", () => {
     const proCard = page.locator("#view-lessons .resource-card").filter({ hasText: proTitle }).first();
     if (await proCard.count()) {
       await expect(proCard).toHaveClass(/locked/);
-      const planTag = await proCard.locator(".tag").allTextContents();
-      expect(planTag.join(" ")).toMatch(/Pro/i);
+      // Browse cards use .browse-card-badge (not legacy .tag) for Free/Pro.
+      const planBadge = await proCard.locator(".browse-card-badge").allTextContents();
+      expect(planBadge.join(" ")).toMatch(/Pro/i);
     }
   });
 });

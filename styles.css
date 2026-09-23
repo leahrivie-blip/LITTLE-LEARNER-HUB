@@ -24001,6 +24001,18 @@ body.hdh-persona-parent .main {
   line-height: 1.4;
 }
 
+/* Google Ads consent must sit above the Meta notice and remain clickable. */
+#llhGoogleConsentBanner.llh-google-consent-banner,
+#llhGoogleConsentBanner {
+  z-index: 12010;
+  pointer-events: auto;
+}
+body:has(#llhGoogleConsentBanner) #llhMetaCookieNotice {
+  display: none !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+}
+
 .llh-meta-cookie-notice p {
   margin: 0;
   flex: 1 1 220px;

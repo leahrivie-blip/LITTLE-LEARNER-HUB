@@ -3629,11 +3629,9 @@ function openAuthModal(mode = "login") {
   if (!(modal?.classList.contains("open"))) {
     authModalReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   }
-  setAuthMode(mode);
-  document.body.classList.add("auth-modal-open");
-  syncProviderBodyScrollLock(preferredScroll);
-  syncNonessentialNoticesForAuthOverlay(true);
-  // Close leftover onboarding so it cannot intercept login after logout.
+  // Close leftover onboarding BEFORE claiming auth-modal-open. closeModal() clears
+  // auth-modal-open when #authModal is not yet .open, which would strip the class
+  // we are about to set and break body.auth-modal-open CSS / tests.
   try {
     if (typeof NewUserOnboarding?.closeModal === "function") NewUserOnboarding.closeModal();
     const nuo = document.querySelector("#newUserOnboardingModal");
@@ -3645,6 +3643,10 @@ function openAuthModal(mode = "login") {
   } catch {
     /* ignore */
   }
+  setAuthMode(mode);
+  document.body.classList.add("auth-modal-open");
+  syncProviderBodyScrollLock(preferredScroll);
+  syncNonessentialNoticesForAuthOverlay(true);
   modal.hidden = false;
   modal.classList.add("open");
   modal.setAttribute("aria-hidden", "false");
@@ -4548,6 +4550,8 @@ function ensureMetaCookieNotice() {
   try {
     if (document.getElementById("llhMetaCookieNotice")) return;
     if (localStorage.getItem("llhMetaCookieNoticeDismissed") === "1") return;
+    // One consent layer at a time: do not cover the Google Ads consent Accept button.
+    if (document.getElementById("llhGoogleConsentBanner")) return;
     // Avoid stacking cookie with Teaching Kit / member-update banner.
     if (typeof shouldShowMemberUpdateBanner === "function" && shouldShowMemberUpdateBanner()) return;
     const memberUpdate = document.querySelector("#memberUpdateBanner");
@@ -5638,12 +5642,43 @@ function subscriptionToAccountUpdates(subscription) {
   };
 }
 
+/**
+ * Auth headers for GET /api/subscription-status.
+ * Identity must come from a verified member session, Firebase ID token, or
+ * (NODE_ENV=test only) Bearer test:<email>. x-llh-user-email is a consistency
+ * check only — never proof of identity.
+ * @returns {Promise<Record<string, string>>}
+ */
+async function subscriptionStatusAuthHeaders() {
+  const headers = {};
+  try {
+    // Reuse the same token resolution as other authenticated APIs (member
+    // session → live Firebase ID token → local/test Bearer test: fallback).
+    // Do not trust a stale llhFirebaseIdToken cache or email header alone.
+    const auth = typeof firebaseAuthHeaders === "function"
+      ? await firebaseAuthHeaders()
+      : null;
+    if (auth?.Authorization) {
+      headers.Authorization = String(auth.Authorization);
+    }
+  } catch {
+    /* ignore — caller treats missing Authorization as unauthenticated */
+  }
+  if (currentUser) {
+    headers["x-llh-user-email"] = String(currentUser).trim().toLowerCase();
+  }
+  return headers;
+}
+
 async function syncSubscriptionFromBackend(email, options = {}) {
   const cleanEmail = String(email || "").trim().toLowerCase();
   if (!cleanEmail || !stripeCheckoutConfig.subscriptionStatusEndpoint || !canUseStripeBackend()) return null;
   try {
     const refreshParam = options.forceRefresh ? "&refresh=1" : "";
-    const response = await fetchWithWakeRetry(`${stripeCheckoutConfig.subscriptionStatusEndpoint}?email=${encodeURIComponent(cleanEmail)}${refreshParam}`);
+    const response = await fetchWithWakeRetry(
+      `${stripeCheckoutConfig.subscriptionStatusEndpoint}?email=${encodeURIComponent(cleanEmail)}${refreshParam}`,
+      { headers: await subscriptionStatusAuthHeaders() },
+    );
     const data = await response.json();
     if (!response.ok) throw new Error(data?.error || "Could not sync subscription.");
     if (data?.founding) applyFoundingStatus(data.founding);
@@ -80777,6 +80812,8 @@ try {
 } catch {
   /* ignore */
 }
+// Allow google-consent.js to recreate the Meta notice after Google Accept/Reject.
+try { window.ensureMetaCookieNotice = ensureMetaCookieNotice; } catch { /* ignore */ }
 
 // Test / diagnostics hooks (also used by Playwright conversion checks).
 window.FOUNDING_CLOSED_FOR_ACQUISITION = FOUNDING_CLOSED_FOR_ACQUISITION;
