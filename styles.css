@@ -23991,7 +23991,8 @@ body.hdh-persona-parent .main {
   gap: 10px 12px;
   align-items: center;
   justify-content: space-between;
-  max-width: 640px;
+  max-width: min(640px, calc(100vw - 32px));
+  width: auto;
   margin: 0 auto;
   padding: 10px 14px;
   border-radius: 12px;
@@ -24001,6 +24002,9 @@ body.hdh-persona-parent .main {
   color: var(--llh-ink, #2a2a35);
   font-size: 0.88rem;
   line-height: 1.4;
+  box-sizing: border-box;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 /* Google Ads consent must sit above the Meta notice and remain clickable. */
@@ -24009,6 +24013,28 @@ body.hdh-persona-parent .main {
   z-index: 12010;
   pointer-events: auto;
 }
+
+#llhGoogleConsentBanner button[data-google-consent] {
+  flex: 1 1 auto;
+  min-height: 44px;
+  min-width: min(100%, 148px);
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--llh-primary, #7b6bb5) 22%, #fff);
+  background: #fff;
+  color: var(--llh-ink, #2a2a35);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+#llhGoogleConsentBanner button[data-google-consent="accept"] {
+  background: linear-gradient(135deg, #8b6be8, #7055d1);
+  border-color: transparent;
+  color: #fff;
+}
+
 body:has(#llhGoogleConsentBanner) #llhMetaCookieNotice {
   display: none !important;
   pointer-events: none !important;
@@ -24018,6 +24044,7 @@ body:has(#llhGoogleConsentBanner) #llhMetaCookieNotice {
 .llh-meta-cookie-notice p {
   margin: 0;
   flex: 1 1 220px;
+  min-width: 0;
 }
 
 .llh-meta-cookie-link {
@@ -24048,6 +24075,7 @@ body:has(#llhGoogleConsentBanner) #llhMetaCookieNotice {
     right: 10px;
     bottom: max(10px, env(safe-area-inset-bottom, 0px));
     z-index: 40; /* below auth (13000) and below resource viewer chrome */
+    max-width: calc(100vw - 20px);
   }
 
   .llh-meta-cookie-dismiss {
@@ -24073,11 +24101,78 @@ body:has(#llhGoogleConsentBanner) #llhMetaCookieNotice {
   body.home-view.has-meta-cookie-notice {
     padding-bottom: calc(148px + env(safe-area-inset-bottom, 0px));
   }
+
+  body.home-view.has-google-consent-banner {
+    padding-bottom: calc(220px + env(safe-area-inset-bottom, 0px));
+  }
 }
 
-/* Keep page CTAs reachable while the cookie notice is visible. */
+/* Keep page CTAs reachable while the cookie / Google consent notice is visible. */
 body.has-meta-cookie-notice {
   padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+}
+
+body.has-google-consent-banner {
+  padding-bottom: calc(168px + env(safe-area-inset-bottom, 0px));
+}
+
+/*
+ * Signed-in app: dock consent in the main column so sidebar nav stays clear,
+ * and constrain .main height so calendar/binder/print chrome scroll above the
+ * fixed banner instead of being visually covered.
+ */
+body.user-authenticated.has-meta-cookie-notice,
+body.user-authenticated.has-google-consent-banner {
+  padding-bottom: 0;
+  --llh-consent-reserve: 112px;
+}
+
+body.user-authenticated.has-google-consent-banner {
+  --llh-consent-reserve: 200px;
+}
+
+body.user-authenticated.has-meta-cookie-notice .main,
+body.user-authenticated.has-google-consent-banner .main {
+  max-height: calc(100dvh - var(--llh-consent-reserve));
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-bottom: 12px;
+  box-sizing: border-box;
+}
+
+body.user-authenticated .llh-meta-cookie-notice,
+body.user-authenticated #llhGoogleConsentBanner,
+body.user-authenticated #llhMetaCookieNotice {
+  left: max(16px, calc(268px + 16px));
+  right: 16px;
+  max-width: none;
+  width: auto;
+  margin: 0;
+  z-index: 40;
+}
+
+@media (max-width: 1100px) {
+  body.user-authenticated .llh-meta-cookie-notice,
+  body.user-authenticated #llhGoogleConsentBanner,
+  body.user-authenticated #llhMetaCookieNotice {
+    left: 10px;
+    right: 10px;
+    max-width: calc(100vw - 20px);
+  }
+
+  body.user-authenticated.has-google-consent-banner {
+    --llh-consent-reserve: 220px;
+  }
+}
+
+@media (max-width: 640px) {
+  body.user-authenticated.has-google-consent-banner {
+    --llh-consent-reserve: 248px;
+  }
+
+  body.user-authenticated.has-meta-cookie-notice {
+    --llh-consent-reserve: 128px;
+  }
 }
 
 /* Shared loading indicator — spinner + label (Calendar, Messages, requests). */

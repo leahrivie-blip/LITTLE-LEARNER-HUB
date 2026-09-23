@@ -8,12 +8,36 @@ const storage = new Map([["gclid", "x"], ["llhAttribution", "x"]]);
 const calls = [];
 function boot(path = "/") {
   const nodes = new Map();
+  const classList = {
+    _set: new Set(),
+    add(name) { this._set.add(name); },
+    remove(name) { this._set.delete(name); },
+    contains(name) { return this._set.has(name); },
+  };
   const document = {
     getElementById: (id) => nodes.get(id) || null,
-    createElement: () => ({ dataset: {}, setAttribute() {}, addEventListener(_n, fn) { this.click = fn; }, remove() { nodes.delete(this.id); } }),
-    body: { appendChild(node) { nodes.set(node.id, node); } },
+    createElement: () => ({
+      dataset: {},
+      style: { setProperty() {}, removeProperty() {} },
+      getBoundingClientRect: () => ({ height: 120, width: 320, top: 0, left: 0, bottom: 120, right: 320 }),
+      setAttribute() {},
+      addEventListener(_n, fn) { this.click = fn; },
+      remove() { nodes.delete(this.id); },
+    }),
+    body: {
+      classList,
+      style: { setProperty() {}, removeProperty() {} },
+      appendChild(node) { nodes.set(node.id, node); },
+    },
   };
-  const window = { location: { pathname: path }, localStorage: { getItem: (k) => storage.get(k) || null, setItem: (k, v) => storage.set(k, v), removeItem: (k) => storage.delete(k) }, gtag: (...args) => calls.push(args) };
+  const window = {
+    location: { pathname: path },
+    localStorage: { getItem: (k) => storage.get(k) || null, setItem: (k, v) => storage.set(k, v), removeItem: (k) => storage.delete(k) },
+    gtag: (...args) => calls.push(args),
+    requestAnimationFrame: (fn) => fn(),
+    addEventListener() {},
+    removeEventListener() {},
+  };
   vm.runInNewContext(source, { window, document });
   return { window, document };
 }

@@ -78,6 +78,11 @@ function assertStaticContracts() {
   assert.match(appJs, /primaryHubViews/);
   assert.match(appJs, /homeLessonCoverUrl/);
   assert.match(appJs, /farm-animals\.jpg/);
+  const consentJs = fs.readFileSync(path.join(ROOT, "scripts/google-consent.js"), "utf8");
+  assert.match(consentJs, /has-google-consent-banner/);
+  const styles = fs.readFileSync(path.join(ROOT, "styles.css"), "utf8");
+  assert.match(styles, /has-google-consent-banner/);
+  assert.match(styles, /user-authenticated\.has-google-consent-banner/);
   assert.doesNotMatch(
     appJs.slice(appJs.indexOf("function calendarWeekHeaderActionsHtml"), appJs.indexOf("function calendarWeekEmptyStateHtml")),
     /data-calendar-print-week[\s\S]*hasLesson/,
@@ -115,17 +120,88 @@ async function runBrowser() {
       const out = [];
       const doc = document.documentElement;
       if (doc.scrollWidth > window.innerWidth + 2) out.push(`horizontal-scroll:${doc.scrollWidth}>${window.innerWidth}`);
-      const overlaps = [];
       document.querySelectorAll("button, a.primary-button, a.ghost-button, .tk-btn").forEach((el) => {
         const r = el.getBoundingClientRect();
         if (r.width > 0 && r.height > 0 && (r.width < 24 || r.height < 24)) {
-          overlaps.push(`tiny-tap:${(el.textContent || "").trim().slice(0, 24)}`);
+          out.push(`tiny-tap:${(el.textContent || "").trim().slice(0, 24)}`);
         }
       });
-      return out.concat(overlaps.slice(0, 5));
+      return out.slice(0, 8);
     });
     results.push({ label, issues });
     return issues;
+  }
+
+  async function assertConsentDoesNotCoverApp(page, label) {
+    const report = await page.evaluate(() => {
+      const banner = document.getElementById("llhGoogleConsentBanner")
+        || document.getElementById("llhMetaCookieNotice");
+      const body = document.body;
+      const main = document.querySelector("main.main");
+      if (!banner || banner.hidden || getComputedStyle(banner).display === "none") {
+        return { present: false, overlaps: [], horizontalScroll: document.documentElement.scrollWidth > window.innerWidth + 2 };
+      }
+      const br = banner.getBoundingClientRect();
+      const selectors = [
+        '.sidebar [data-view="calendar"]',
+        '.sidebar [data-view="lessons"]',
+        ".sidebar .nav-link",
+        "[data-calendar-nav]",
+        "[data-calendar-add-lesson-plan]",
+        "[data-calendar-jump-month]",
+        "[data-tk-download-binder]",
+        "[data-tk-preview-print]",
+        "[data-tk-choose-pages]",
+        ".topbar #signinButton",
+        ".topbar .sidebar-toggle",
+      ];
+      const overlaps = [];
+      for (const sel of selectors) {
+        document.querySelectorAll(sel).forEach((el) => {
+          const r = el.getBoundingClientRect();
+          if (r.width < 2 || r.height < 2) return;
+          const style = getComputedStyle(el);
+          if (style.display === "none" || style.visibility === "hidden") return;
+          const hit = !(r.right <= br.left || r.left >= br.right || r.bottom <= br.top || r.top >= br.bottom);
+          if (hit) overlaps.push(`${sel}:${(el.textContent || "").trim().slice(0, 28)}`);
+        });
+      }
+      // Signed-in main column must end above the banner (no content under overlay).
+      const mainBottom = main ? main.getBoundingClientRect().bottom : 0;
+      const mainCoversBanner = main && mainBottom > br.top + 4;
+      return {
+        present: true,
+        dismissible: Boolean(
+          banner.querySelector("[data-google-consent], [data-llh-meta-cookie-dismiss]"),
+        ),
+        hasGoogleClass: body.classList.contains("has-google-consent-banner"),
+        hasMetaClass: body.classList.contains("has-meta-cookie-notice"),
+        authenticated: body.classList.contains("user-authenticated"),
+        bannerHeight: Math.round(br.height),
+        bannerBottom: Math.round(br.bottom),
+        mainBottom: Math.round(mainBottom),
+        mainCoversBanner,
+        overlaps: overlaps.slice(0, 8),
+        horizontalScroll: document.documentElement.scrollWidth > window.innerWidth + 2,
+      };
+    });
+    results.push({ label: `${label}-consent`, report });
+    if (!report.present) return report;
+    assert.equal(report.horizontalScroll, false, `${label}: consent must not cause horizontal scroll`);
+    assert.equal(report.dismissible, true, `${label}: consent must remain dismissible`);
+    assert.equal(report.overlaps.length, 0, `${label}: consent covers controls: ${report.overlaps.join(" | ")}`);
+    if (report.authenticated) {
+      assert.ok(
+        report.hasGoogleClass || report.hasMetaClass,
+        `${label}: signed-in consent must reserve layout space via body class`,
+      );
+      assert.equal(
+        report.mainCoversBanner,
+        false,
+        `${label}: signed-in .main must end above consent banner (mainBottom=${report.mainBottom}, bannerTop overlap)`,
+      );
+    }
+    return report;
   }
 
   console.log("1) Public homepage Farm Animals cover first paint");
@@ -185,6 +261,7 @@ async function runBrowser() {
       const printButtons = await page.locator("[data-calendar-print-week], [data-calendar-print-full], [data-calendar-clear-week]").count();
       // Empty week should not show duplicate print/clear action areas in the header.
       results.push({ label: `${vp.name}-calendar-print-controls`, count: printButtons });
+      await assertConsentDoesNotCoverApp(page, `${vp.name}-calendar`);
     }
 
     for (const view of [
@@ -215,6 +292,7 @@ async function runBrowser() {
     if (farmCardSrc) {
       assert.match(farmCardSrc, /farm-animals\.jpg/, `${vp.name}: lesson card cover must be farm-animals.jpg`);
     }
+    await assertConsentDoesNotCoverApp(page, `${vp.name}-lessons`);
     await page.screenshot({
       path: path.join(ARTIFACT, `polish-layout-${vp.name}.png`),
       fullPage: false,
