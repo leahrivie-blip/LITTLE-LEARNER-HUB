@@ -116,6 +116,7 @@ function extractSignals(rawCommand) {
   const impliedImageRepair = (/\b(?:images?|pictures?|photos?|pics|visuals?|cartoons?)\b/.test(folded)
       || /\brealistic\b/.test(folded))
     && !mentionsOtherKitWork
+    && !inExclusionList(folded, "(?:pictures?|images?|photos?|pics|visuals?)")
     && (/\breplace\b/.test(folded) || /\bfix\b/.test(folded) || /\bmake\b/.test(folded)
       || /\bkeep\s+(?:the\s+)?good\b/.test(folded) || /\baudit\b/.test(folded)
       || /\bcartoons?\b/.test(folded) || /\brealistic\b/.test(folded));

@@ -77,8 +77,8 @@ Module.prototype.require = function mockPgRequire(id) {
         }
 
         // ─── llh_store (the shared application document) ──────────────────
-        if (text.includes("SELECT data FROM llh_store")) {
-          if (state.store) return { rows: [{ data: state.store }] };
+        if (/SELECT\s+data(?:\s*,\s*updated_at)?\s+FROM\s+llh_store/i.test(text)) {
+          if (state.store) return { rows: [{ data: state.store, updated_at: new Date().toISOString() }] };
           return { rows: [] };
         }
         if (text.includes("INSERT INTO llh_store")) {

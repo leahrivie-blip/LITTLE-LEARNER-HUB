@@ -14,6 +14,7 @@ const GARBAGE_TITLE_RE = new RegExp([
   "\\bcurrent\\s+(?:vocabulary|state)\\b",
   "\\bcanonical\\s+write\\b",
   "\\bfinal\\s+report\\b",
+  "\\bready\\s+for\\s+owner\\s+review\\b",
   "\\bexpected\\s+(?:values?|outcomes?)\\b",
   "\\bmalformed\\b",
   "\\blegacy\\b",
