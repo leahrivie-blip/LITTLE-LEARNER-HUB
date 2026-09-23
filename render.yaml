@@ -49,9 +49,6 @@ services:
         value: gpt-4o-mini
       - key: OPENAI_IMAGE_MODEL
         value: gpt-image-2
-      # Opt-in only; OPENAI_API_KEY remains a Dashboard/Environment Group secret.
-      - key: CURRICULUM_OPERATOR_LIVE_RESEARCH_ENABLED
-        value: "false"
       - key: ADMIN_EMAIL
         sync: false
       # Optional comma-separated extra owner logins (iCloud aliases are already built in).

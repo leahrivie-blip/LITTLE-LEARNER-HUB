@@ -2,6 +2,7 @@
 "use strict";
 
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
 const research = require("./curriculum-operator-research.js");
 
 const safe = research.readiness({ enabled: false, apiKey: "mock-secret-value" });
@@ -12,4 +13,6 @@ assert.equal(research.readiness({ enabled: true, apiKey: "" }).status, "missing_
 const ready = research.readiness({ enabled: true, apiKey: "mock-secret-value" });
 assert.equal(ready.status, "ready", "enabled flag plus mocked key reports ready");
 assert.equal(JSON.stringify(ready).includes("mock-secret-value"), false, "ready response omits secret-derived data");
+const renderYaml = fs.readFileSync("render.yaml", "utf8");
+assert.equal(renderYaml.includes("CURRICULUM_OPERATOR_LIVE_RESEARCH_ENABLED"), false, "Blueprint does not manage the dashboard-only research flag");
 console.log("Curriculum operator research configuration checks passed.");
