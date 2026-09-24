@@ -23,6 +23,7 @@ const ROUTES = Object.freeze({
 });
 
 const NATURAL_INTENTS = Object.freeze({
+  RESEARCH_ONLY: "research_only",
   CREATE_LESSON: "create_lesson",
   UPDATE_ONE_LESSON: "update_one_lesson",
   UPDATE_MULTIPLE_LESSONS: "update_multiple_lessons",
@@ -46,6 +47,7 @@ const ASSET_CATEGORIES = Object.freeze([
 ]);
 
 const ACTION_VERBS = /\b(add|make|create|fix|replace|regenerate|finish|complete|upgrade|improve|edit|update|generate|build|upload|need|whatever)\b/i;
+const RESEARCH_VERBS = /\b(?:research|search(?:\s+(?:google|online|current|trends?|ideas?))?|look\s+(?:up|into)|find)\b/i;
 
 const STOP_TITLE_PREFIX = /^(The|All|These|Those|Lessons?|Plans?|Toddler|Toddlers|Preschool|Infant|Infants|Pro|Free|This|Current|Selected|A|An|New)\b/;
 
@@ -184,6 +186,25 @@ function isShortSelectedLessonMutation(rawCommand) {
   return false;
 }
 
+function hasExistingLessonMutationIntent(rawCommand) {
+  const raw = text(rawCommand);
+  return (
+    /\b(?:update|edit|change|fix|improve|revise|upgrade|finish|complete)\b/i.test(raw)
+    || /\b(?:make|set)\b[^.!?]{0,48}\bpublish[\s-]?ready\b/i.test(raw)
+    || /\b(?:add|do|redo|replace|regenerate|generate|make|create|fix|update)\b[^.!?]{0,48}\b(?:images?|pictures?|photos?|visuals?|printables?|(?:station|maker)\s+signs?|activity\s+cards?|cover|songs?|books?|activities?|teaching\s+kit)\b/i.test(raw)
+  );
+}
+
+function hasExistingLessonTargetingEvidence(rawCommand, options = {}) {
+  const raw = text(rawCommand);
+  if (extractExplicitLessonIds(raw, options.lessonPlans || []).length) return true;
+  if (/\b(?:my|this|that|the|existing|current|selected)\s+(?:\w+\s+){0,4}lesson\b/i.test(raw)) return true;
+  if (hasExistingLessonMutationIntent(raw)) return true;
+  const selectedId = text(options.currentlySelectedLessonId, 160);
+  return Boolean(selectedId && (/\b(?:this|current|selected)\s+lesson\b|\bfor\s+this\s+one\b|\bthis\s+one\b/i.test(raw)
+    || isShortSelectedLessonMutation(raw)));
+}
+
 function extractExplicitLessonIds(rawCommand, lessonPlans = []) {
   const raw = text(rawCommand);
   const ids = [];
@@ -278,6 +299,7 @@ function detectExistingLessonReferences(rawCommand, options = {}) {
     selectedId && isShortSelectedLessonMutation(raw),
   );
   const newLessonIntent = detectNewLessonIntent(raw, { existingLessonIntent: false });
+  const hasTargetingEvidence = hasExistingLessonTargetingEvidence(raw, options);
 
   const ageScopedHint = /\b(?:the|a)\s+(infant|toddler|preschool|school[\s-]?age|mixed)\s+lesson\b/i.exec(raw);
   let ageScopedMatches = [];
@@ -301,7 +323,7 @@ function detectExistingLessonReferences(rawCommand, options = {}) {
       const row = schema.asArray(options.lessonPlans).map(planRowSummary).find((m) => m.id === id);
       if (row) pushUnique(row);
     });
-  } else {
+  } else if (hasTargetingEvidence) {
     // A named title is always narrower than an age label. Age only
     // disambiguates same-titled lessons; it never selects every age-band lesson.
     const titleMatches = ageScopedHint && catalogMatches.length
@@ -322,10 +344,8 @@ function detectExistingLessonReferences(rawCommand, options = {}) {
     pushUnique(selectedLesson);
   }
 
-  if (!catalogMatches.length && ageScopedMatches.length === 1) pushUnique(ageScopedMatches[0]);
-
   const titles = commandSafety.sanitizeLessonTitles([
-    ...hints,
+    ...(hasTargetingEvidence ? hints : []),
     ...resolvedLessons.map((r) => r.title),
   ], raw, options.lessonPlans || []);
 
@@ -349,13 +369,12 @@ function detectExistingLessonReferences(rawCommand, options = {}) {
     usesSelectedContext: refersToThisLesson || shortSelectedMutation,
     selectedLessonId: selectedId,
     source,
-    existingLessonIntent: Boolean(
+    existingLessonIntent: Boolean(hasTargetingEvidence && (
       resolvedLessons.length
       || explicitLessonIds.length
       || hints.length
       || ((refersToThisLesson || shortSelectedMutation) && selectedId)
-      || ageScopedMatches.length === 1,
-    ),
+    )),
   };
 }
 
@@ -366,9 +385,11 @@ function detectExistingLessonReferences(rawCommand, options = {}) {
  */
 function detectNewLessonIntent(rawCommand, context = {}) {
   const raw = text(rawCommand);
+  if (hasExplicitResearchOnlyIntent(raw)) return false;
   if (/\bdo\s+not\s+create\s+(?:a\s+)?new\s+lesson\b/i.test(raw)) return false;
   if (/\b(?:same|existing)\s+lesson\s+id\b/i.test(raw)) return false;
   if (context.existingLessonIntent) return false;
+  if (hasStagedResearchCreateIntent(raw)) return true;
   // A new lesson may explicitly request matching printables. The printable
   // shortcut only suppresses create intent when a lesson target is already
   // present, not merely because the word appears in the request.
@@ -384,7 +405,7 @@ function detectNewLessonIntent(rawCommand, context = {}) {
     return true;
   }
   if (
-    /\b(?:create|make|build)\s+(?:a\s+|an\s+)?(?:infant|toddler|preschool|school[\s-]?age|pro|free)\b/i.test(raw)
+    /\b(?:create|make|build)\s+(?:me\s+)?(?:a\s+|an\s+)?(?:infant|toddler|preschool|school[\s-]?age|pro|free)\b(?:\s+\w+){0,5}\s+lesson\b/i.test(raw)
     && /\blesson\b/i.test(raw)
     && !/\b(?:fix|upgrade|finish|improve|edit|replace|add)\b/i.test(raw)
   ) {
@@ -395,6 +416,24 @@ function detectNewLessonIntent(rawCommand, context = {}) {
     && /\b(?:about|with|for)\b/i.test(raw)
   ) return true;
   return false;
+}
+
+function hasExplicitResearchOnlyIntent(rawCommand) {
+  const raw = text(rawCommand);
+  return RESEARCH_VERBS.test(raw) && (
+    /\b(?:do\s+not|don['’]?t)\s+(?:create|make|build)\s+(?:a\s+)?lesson\b/i.test(raw)
+    || /\bresearch\s+only\b/i.test(raw)
+    || /\bjust\s+(?:return|give|show)\s+(?:the\s+)?sources?\b/i.test(raw)
+    || /\b(?:do\s+not|don['’]?t)\s+make\s+anything\s+yet\b/i.test(raw)
+    || /\bno\s+lessons?\s+or\s+assets?\b/i.test(raw)
+  );
+}
+
+function hasStagedResearchCreateIntent(rawCommand) {
+  const raw = text(rawCommand);
+  return !hasExplicitResearchOnlyIntent(raw)
+    && RESEARCH_VERBS.test(raw)
+    && /\b(?:create|make|build|write)\b[^.!?]{0,40}\b(?:lesson(?:\s+plan)?|(?:infant|toddler|preschool)\s+plan)\b/i.test(raw);
 }
 
 function detectAssetCategories(rawCommand, exclusions = {}) {
@@ -455,7 +494,7 @@ function detectAssetCategories(rawCommand, exclusions = {}) {
  */
 function classifyNaturalLanguageIntent(rawCommand, lessonRef = {}) {
   const raw = text(rawCommand);
-  const research = /\b(?:research|search(?:\s+(?:google|current|trends?|ideas?))?)\b/i.test(raw);
+  const research = RESEARCH_VERBS.test(raw);
   const hasBroaderWork = /\b(?:full\s+teaching\s+kit|upgrade\s+(?:the\s+)?existing|fill\s+empty|missing\s+(?:teacher\s+tips|book)|books?\s+discussion|vocabulary)\b/i.test(raw);
   const onlyImages = !hasBroaderWork
     && /\b(?:only\s+(?:update|change|fix|replace|regenerate|generate)\s+(?:the\s+)?(?:activity\s+)?(?:images?|pictures?|photos?|visuals?)|(?:images?|pictures?|photos?|visuals?)\s+only)\b/i.test(raw);
@@ -468,7 +507,9 @@ function classifyNaturalLanguageIntent(rawCommand, lessonRef = {}) {
     return NATURAL_INTENTS.PUBLISH;
   }
   if (research && create) return NATURAL_INTENTS.RESEARCH_AND_CREATE;
-  if (research && (lessonRef.existingLessonIntent || lessonRef.resolvedLessons?.length)) return NATURAL_INTENTS.RESEARCH_AND_UPDATE;
+  if (research && lessonRef.existingLessonIntent && hasExistingLessonMutationIntent(raw)) return NATURAL_INTENTS.RESEARCH_AND_UPDATE;
+  if (research && /\b(?:make|create|build|write)\s+(?:something|one|it|this)\b/i.test(raw)) return NATURAL_INTENTS.AMBIGUOUS;
+  if (research) return NATURAL_INTENTS.RESEARCH_ONLY;
   if (create) return NATURAL_INTENTS.CREATE_LESSON;
   if (onlyImages) return NATURAL_INTENTS.IMAGE_ONLY_UPDATE;
   if (onlyPrintables) return NATURAL_INTENTS.PRINTABLE_ONLY_UPDATE;
@@ -532,7 +573,8 @@ function resolveOwnerIntent(rawCommand, options = {}) {
   const lessonRef = detectExistingLessonReferences(raw, options);
   // An explicit “create a/new … lesson” is not retargeted to an unrelated
   // catalog item merely because its age band happens to have one match.
-  const newLessonIntent = detectNewLessonIntent(raw, { existingLessonIntent: false });
+  const stagedResearchCreate = hasStagedResearchCreateIntent(raw);
+  const newLessonIntent = stagedResearchCreate || detectNewLessonIntent(raw, { existingLessonIntent: false });
   if (newLessonIntent) {
     lessonRef.lessonIds = [];
     lessonRef.resolvedLessons = [];
@@ -541,7 +583,9 @@ function resolveOwnerIntent(rawCommand, options = {}) {
   }
   const assetCategories = detectAssetCategories(raw, exclusions);
   const assetCategory = pickPrimaryAssetCategory(assetCategories);
-  const naturalIntent = classifyNaturalLanguageIntent(raw, lessonRef);
+  const naturalIntent = stagedResearchCreate
+    ? NATURAL_INTENTS.RESEARCH_AND_CREATE
+    : classifyNaturalLanguageIntent(raw, lessonRef);
   const inherited = buildInheritedContext(lessonRef.resolvedLessons);
   const notes = [];
 
@@ -552,7 +596,12 @@ function resolveOwnerIntent(rawCommand, options = {}) {
   const hasMutationVerb = ACTION_VERBS.test(raw)
     || /\b(audit|find|check|list|show)\b/i.test(raw);
 
-  if (naturalIntent === NATURAL_INTENTS.IMAGE_ONLY_UPDATE && lessonRef.existingLessonIntent) {
+  if (naturalIntent === NATURAL_INTENTS.RESEARCH_ONLY) {
+    lessonRef.lessonIds = [];
+    lessonRef.resolvedLessons = [];
+    lessonRef.titles = [];
+    lessonRef.existingLessonIntent = false;
+  } else if (naturalIntent === NATURAL_INTENTS.IMAGE_ONLY_UPDATE && lessonRef.existingLessonIntent) {
     route = ROUTES.EXISTING_IMAGE;
   } else if (naturalIntent === NATURAL_INTENTS.PRINTABLE_ONLY_UPDATE && lessonRef.existingLessonIntent) {
     route = ROUTES.EXISTING_PRINTABLE;
@@ -634,6 +683,7 @@ function resolveOwnerIntent(rawCommand, options = {}) {
   return {
     route,
     naturalIntent,
+    isResearchRequest: RESEARCH_VERBS.test(raw),
     existingLessonIntent: lessonRef.existingLessonIntent,
     newLessonIntent,
     needsClarification,
@@ -857,7 +907,11 @@ module.exports = {
   isExplicitCoverRequestCommand,
   requestsWeakImageReplacement,
   detectExistingLessonReferences,
+  hasExistingLessonTargetingEvidence,
+  hasExistingLessonMutationIntent,
+  hasExplicitResearchOnlyIntent,
   detectNewLessonIntent,
+  hasStagedResearchCreateIntent,
   detectAssetCategories,
   classifyNaturalLanguageIntent,
   isShortSelectedLessonMutation,

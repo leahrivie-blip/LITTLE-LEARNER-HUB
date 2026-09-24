@@ -3,6 +3,7 @@
 const schema = require("./curriculum-operator-schema.js");
 const createApi = require("./curriculum-operator-create.js");
 const researchApi = require("./curriculum-operator-research.js");
+const intentRouter = require("./curriculum-operator-intent-router.js");
 
 async function handleParseRequest({
   body = {}, session = {}, store, curriculum = {}, phase = 7, dependencies = {},
@@ -46,7 +47,9 @@ async function handleParseRequest({
   const parsed = parseCommand(rawText, {
     phase,
     lessonPlans: lessons,
-    currentlySelectedLessonId: toddler?.id || body.currentlySelectedLessonId,
+    currentlySelectedLessonId: intentRouter.hasStagedResearchCreateIntent(rawText)
+      ? body.currentlySelectedLessonId
+      : (toddler?.id || body.currentlySelectedLessonId),
     operatorContext: body.operatorContext || (stored?.currentLessonId ? {
       previousIntent: stored.currentOperation || "",
       previousResolvedTargets: [stored.currentLessonId],
@@ -56,11 +59,24 @@ async function handleParseRequest({
   });
   const target = schema.asArray(parsed.command?.scope?.lessonIds).length === 1
     ? lessons.find((lesson) => lesson.id === parsed.command.scope.lessonIds[0]) : null;
+  const stagedConfirmationReason = schema.asArray(parsed.confirmReasons)
+    .find((reason) => reason === "research_then_lesson_confirmation_required"
+      || reason === "research_then_update_confirmation_required");
+  const stagedConfirmation = stagedConfirmationReason === "research_then_lesson_confirmation_required"
+    ? "Research is complete. I’m ready to create a new lesson using these findings. Confirm to continue."
+    : (stagedConfirmationReason === "research_then_update_confirmation_required"
+      ? "Research is complete. I’m ready to update the existing lesson using these findings. Confirm to continue."
+      : "");
+  const effectiveCorrection = stagedConfirmation
+    ? { ...correction, type: "none", responseText: null, affectedTarget: null }
+    : correction;
+  const confirmationMessage = stagedConfirmation
+    || (parsed.needsConfirmation ? "I need one detail before I continue: please tell me which lesson you mean." : "");
   let context = null;
   if (sessionId) {
     try {
       context = conversation.save(store, {
-        ...conversation.applySemanticCorrection(stored || {}, correction),
+        ...conversation.applySemanticCorrection(stored || {}, effectiveCorrection),
         ownerId, sessionId,
         currentLessonId: target?.id || stored?.currentLessonId || null,
         currentLessonTitle: target?.title || stored?.currentLessonTitle || null,
@@ -71,16 +87,16 @@ async function handleParseRequest({
         printableRequirements: parsed.command?.actions?.generatePrintables ? "requested" : stored?.printableRequirements || null,
         researchRequested: research !== null,
         researchSources: research?.ok === true ? research.sources : [],
-        unresolvedQuestion: correction.clarificationRequired
-          ? correction.responseText
-          : (parsed.needsConfirmation ? "I need one detail before I continue: please tell me which lesson you mean." : null),
+        unresolvedQuestion: effectiveCorrection.clarificationRequired
+          ? effectiveCorrection.responseText
+          : (confirmationMessage || null),
         messages: [...(stored?.messages || []), {
           role: "owner", requestId, rawText, operation: parsed.command?.intent, resolvedLessonIds: parsed.command?.scope?.lessonIds || [],
         }, {
           role: "operator", operation: parsed.command?.intent, resolvedLessonIds: parsed.command?.scope?.lessonIds || [],
           effectiveInstructionSummary: parsed.effectiveInstructions?.summary || null,
-          responseText: correction.responseText || research?.message || (parsed.needsConfirmation
-            ? "I need one detail before I continue: please tell me which lesson you mean."
+          responseText: effectiveCorrection.responseText || research?.message || (confirmationMessage
+            ? confirmationMessage
             : `I understand. ${target ? `You want me to update ${target.title}` : "I have your request"}, and publishing will stay off.`),
         }],
       }, now());
