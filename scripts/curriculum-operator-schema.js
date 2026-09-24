@@ -612,6 +612,11 @@ function normalizeOperatorCommand(raw = {}, options = {}) {
       updatedSince: text(scopeIn.updatedSince, 40) || null,
       currentlySelectedLessonId: text(scopeIn.currentlySelectedLessonId, 160) || null,
       requireExplicitIdsIfAmbiguous: scopeIn.requireExplicitIdsIfAmbiguous !== false,
+      requestedTargetCount: Number.isInteger(scopeIn.requestedTargetCount)
+        ? clampInt(scopeIn.requestedTargetCount, 1, limits.hardMaxLessons, null)
+        : null,
+      requestedActivities: asArray(scopeIn.requestedActivities)
+        .map((item) => text(item, 180)).filter(Boolean).slice(0, 24),
     },
     actions,
     completion: {

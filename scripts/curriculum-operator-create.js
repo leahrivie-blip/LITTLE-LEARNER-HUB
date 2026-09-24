@@ -11,6 +11,7 @@ const schema = require("./curriculum-operator-schema.js");
 const structurePaste = require("./curriculum-lesson-structure-paste.js");
 const orchestrator = require("./curriculum-operator-orchestrator.js");
 const printableAgeBand = require("./curriculum-operator-printable-age-band.js");
+const instructionProfile = require("./curriculum-operator-instruction-profile.js");
 const intentRouter = require("./curriculum-operator-intent-router.js");
 
 const WEEKDAYS = Object.freeze(["monday", "tuesday", "wednesday", "thursday", "friday"]);
@@ -61,6 +62,23 @@ function creationIdempotencyKey(brief) {
   return `create:${title}:${age}:${plan}`;
 }
 
+function extractRequestedActivities(rawCommand) {
+  const raw = text(rawCommand, 4000);
+  const match = raw.match(/\busing\s+([^.!?]{3,700})/i)
+    || raw.match(/\bwith\s+(?:these\s+)?activities?\s*:?\s*([^.!?]{3,700})/i)
+    || raw.match(/\blesson\s+about\s+[^.!?]{2,240}\s+with\s+([^.!?]{3,700})/i)
+    || raw.match(/\badd\s+(?:these\s+)?activities?\s+to\s+[^:]{2,180}:\s*([^.!?]{3,700})/i);
+  if (!match) return [];
+  return match[1]
+    .split(/\s*,\s*|\s+(?:and|&)\s+/i)
+    .map((item) => text(item, 180)
+      .replace(/^(?:and|&)\s+/i, "")
+      .replace(/\b(?:make|build|create)\b.*$/i, "").trim())
+    .filter((item) => item.length >= 3)
+    .slice(0, 24)
+    .filter((item, index, all) => !all.slice(0, index).some((seen) => seen.toLowerCase() === item.toLowerCase()));
+}
+
 /**
  * Parse owner create command into a typed brief.
  */
@@ -85,6 +103,8 @@ function parseCreationBrief(rawCommand, options = {}) {
   const activityTarget = countMatch
     ? schema.clampInt(countMatch[1], 4, 24, null)
     : (ageBand ? defaultActivityTarget(ageBand) : null);
+  const requestedActivities = extractRequestedActivities(raw);
+  const materialCostMode = instructionProfile.resolveMaterialCostMode(raw, options.lessonInstructions || []);
 
   let title = "";
   const quoted = raw.match(/[“"]([^”"]{2,120})[”"]/);
@@ -109,7 +129,7 @@ function parseCreationBrief(rawCommand, options = {}) {
   title = text(title, 120).replace(/\b\d+\s*activit.*$/i, "").trim();
   const theme = title || text(options.theme, 120);
 
-  const researchRequested = /\b(look\s+up|research|find\s+(activity\s+)?inspiration|browse\s+ideas)\b/i.test(raw);
+  const researchRequested = /\b(look\s+up|research|search\s+(?:google|online|the\s+web)|find\s+(activity\s+)?inspiration|browse\s+ideas)\b/i.test(raw);
   const coverRequested = exclusions.flags.touchCover === true
     || /\b(cover\s+image|include\s+a\s+cover|with\s+a\s+cover)\b/i.test(raw);
 
@@ -124,6 +144,10 @@ function parseCreationBrief(rawCommand, options = {}) {
     ageLabel: ageBand ? ageLabel(ageBand) : "",
     accessPlan,
     activityTarget: activityTarget || (ageBand ? defaultActivityTarget(ageBand) : 12),
+    requestedActivities,
+    materialCostMode,
+    effectiveInstructions: options.effectiveInstructions || null,
+    researchContext: schema.asArray(options.researchSources).filter((source) => source && typeof source === "object").slice(0, 5),
     teachingGoals: [],
     requestedFeatures: {
       songs: exclusions.flags.touchSongs !== false && !exclusions.flags.textOnly,
@@ -533,6 +557,7 @@ module.exports = {
   WEEKDAYS,
   DEFAULT_ACTIVITY_TARGETS,
   parseCreationBrief,
+  extractRequestedActivities,
   creationIdempotencyKey,
   findCreationDuplicates,
   similarityScore,

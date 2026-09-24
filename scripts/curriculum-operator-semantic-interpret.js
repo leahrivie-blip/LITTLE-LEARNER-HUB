@@ -33,6 +33,7 @@ function applyToParsedResult(parsed = {}, options = {}) {
   const command = parsed.command;
   if (!command || typeof command !== "object") return parsed;
   const raw = command.rawCommand || options.rawCommand || "";
+  const isCreate = command.actions?.createLesson === true;
   const signals = signalsApi.extractSignals(raw);
   const context = sanitizeOperatorContext(options.operatorContext);
 
@@ -45,9 +46,19 @@ function applyToParsedResult(parsed = {}, options = {}) {
     currentlySelectedLessonId: options.currentlySelectedLessonId || command.scope?.currentlySelectedLessonId,
     context,
   });
+  const conversationalFollowUp = targets.mode === "context_inherit"
+    && targets.rows.length === 1
+    && !signals.doTheSame;
 
   let nextActions = { ...command.actions };
-  if (compiled.primary) {
+  if (conversationalFollowUp) {
+    nextActions.upgradeLesson = true;
+    nextActions.upgradeActivities = true;
+    nextActions.saveDraft = true;
+    nextActions.connectedUpgrade = true;
+    nextActions.connectedAutoApply = true;
+  }
+  if (compiled.primary && !isCreate) {
     nextActions = capabilities.applyCapabilityFlags(nextActions, compiled);
   } else if (command.completion?.mutationsEnabled && nextActions.planOnly !== true) {
     nextActions.composeReviewDraft = true;
@@ -55,6 +66,7 @@ function applyToParsedResult(parsed = {}, options = {}) {
     if (nextActions.connectedAutoApply !== false) nextActions.connectedAutoApply = true;
   }
   if (signals.exclude.publish) nextActions.publish = false;
+  if (signals.exclude.cover) nextActions.touchCover = false;
   if (signals.coverRequested) nextActions.touchCover = true;
 
   const nextScope = { ...command.scope };
@@ -74,11 +86,13 @@ function applyToParsedResult(parsed = {}, options = {}) {
     nextScope.titles = [];
   }
 
-  let nextIntent = compiled.intent || command.intent;
-  if (compiled.primary === "ACTIVITY_IMAGE_REPAIR") nextIntent = "finish_images";
-  if (compiled.primary === "META_INSTRUCTION") nextIntent = "unknown";
+  let nextIntent = conversationalFollowUp ? "finish_full_kit" : (isCreate ? command.intent : (compiled.intent || command.intent));
+  if (!isCreate && compiled.primary === "ACTIVITY_IMAGE_REPAIR") nextIntent = "finish_images";
+  if (!isCreate && compiled.primary === "META_INSTRUCTION") nextIntent = "unknown";
 
-  const confirmReasons = [...schema.asArray(parsed.confirmReasons)];
+  const confirmReasons = conversationalFollowUp
+    ? schema.asArray(parsed.confirmReasons).filter((reason) => reason !== "ambiguous_scope")
+    : [...schema.asArray(parsed.confirmReasons)];
   if (signals.accessConflict) confirmReasons.push("semantic_contradiction");
   if (signals.publishConflict) confirmReasons.push("semantic_contradiction");
   if (signals.metaInstruction) confirmReasons.push("meta_instruction");
@@ -113,13 +127,13 @@ function applyToParsedResult(parsed = {}, options = {}) {
     ],
   }, { phase: command.completion?.phase || options.phase || 7 });
 
-  if (compiled.primary) {
+  if (compiled.primary && !isCreate) {
     nextCommand.actions = capabilities.applyCapabilityFlags(nextCommand.actions, compiled);
     if (compiled.intent) nextCommand.intent = compiled.intent;
   }
   nextCommand.actions.publish = false;
   if (signals.exclude.publish) nextCommand.actions.publish = false;
-  if (compiled.primary === "ACTIVITY_IMAGE_REPAIR") {
+  if (!isCreate && compiled.primary === "ACTIVITY_IMAGE_REPAIR") {
     nextCommand.intent = "finish_images";
     nextCommand.actions.connectedUpgrade = false;
     nextCommand.actions.upgradeLesson = false;
@@ -144,7 +158,7 @@ function applyToParsedResult(parsed = {}, options = {}) {
     nextCommand.scope.ageBand = signals.ageBand || null;
     if (signals.access) nextCommand.scope.plan = signals.access;
   }
-  if (compiled.primary === "FULL_KIT_WORK") {
+  if (!isCreate && compiled.primary === "FULL_KIT_WORK") {
     nextCommand.intent = "finish_full_kit";
     nextCommand.actions.connectedUpgrade = true;
     nextCommand.actions.connectedAutoApply = nextCommand.actions.planOnly !== true;
@@ -168,16 +182,18 @@ function applyToParsedResult(parsed = {}, options = {}) {
     nextCommand.actions.connectedUpgrade = false;
   }
 
-  const contradiction = contradictionApi.checkContradictions({
-    signals,
-    command: nextCommand,
-    resolvedRows: targets.rows,
-    compiled,
-  });
+  const contradiction = isCreate
+    ? { blocked: false, contradictions: [], confirmReasons: [] }
+    : contradictionApi.checkContradictions({
+      signals,
+      command: nextCommand,
+      resolvedRows: targets.rows,
+      compiled,
+    });
   contradiction.confirmReasons.forEach((reason) => confirmReasons.push(reason));
 
   const unjustified = capabilities.capabilityWithoutReason(nextCommand.actions, compiled.reasons);
-  if (unjustified.length && compiled.primary === "ACTIVITY_IMAGE_REPAIR") {
+  if (!isCreate && unjustified.length && compiled.primary === "ACTIVITY_IMAGE_REPAIR") {
     unjustified.forEach((flag) => { nextCommand.actions[flag] = false; });
   }
 

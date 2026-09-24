@@ -26,6 +26,11 @@ const printableAgeBand = require("../scripts/curriculum-operator-printable-age-b
 const allowlistApi = require("../scripts/curriculum-operator-mutation-allowlist.js");
 const executionScopeApi = require("../scripts/curriculum-operator-execution-scope.js");
 const vocabSurgicalApi = require("../scripts/curriculum-operator-vocab-surgical-apply.js");
+const conversationStore = require("../scripts/curriculum-operator-conversation-store.js");
+const assetRetryApi = require("../scripts/curriculum-operator-asset-retry.js");
+const instructionProfile = require("../scripts/curriculum-operator-instruction-profile.js");
+const operatorHttpBoundary = require("../scripts/curriculum-operator-http-boundary.js");
+const researchApi = require("../scripts/curriculum-operator-research.js");
 
 const ACTIONS = Object.freeze([
   "parse",
@@ -37,6 +42,11 @@ const ACTIONS = Object.freeze([
   "get",
   "resume",
   "cancel",
+  "context_get",
+  "context_clear",
+  "retry_failed_assets",
+  "profile_get",
+  "profile_save",
 ]);
 
 function createCurriculumOperatorApi(deps) {
@@ -510,7 +520,7 @@ function createCurriculumOperatorApi(deps) {
     };
   }
 
-  async function runPrintablesForLesson(job, plan, audit, store, sessionEmail, lr) {
+  async function runPrintablesForLesson(job, plan, audit, store, sessionEmail, lr, actionsOverride = null) {
     const curriculum = readSiteCurriculum(store);
     const linked = schema.asArray(curriculum.activities).filter((a) => a.lessonPlanId === plan.id);
     const hardMax = Number(job.command?.limits?.maxPrintableGenerations)
@@ -567,6 +577,7 @@ function createCurriculumOperatorApi(deps) {
       generatePrintableVisual: typeof generateOperatorImage === "function"
         ? async ({ prompt, mock }) => generateOperatorImage({ prompt, mock })
         : null,
+      actionsOverride,
     });
 
     if (printableRun.code === "SCOPE_REVIEW_REQUIRED") {
@@ -621,7 +632,7 @@ function createCurriculumOperatorApi(deps) {
     };
   }
 
-  async function runImagesForLesson(job, plan, audit, store, sessionEmail, lr) {
+  async function runImagesForLesson(job, plan, audit, store, sessionEmail, lr, actionsOverride = null) {
     const curriculum = readSiteCurriculum(store);
     const linked = schema.asArray(curriculum.activities).filter((a) => a.lessonPlanId === plan.id);
 
@@ -653,6 +664,7 @@ function createCurriculumOperatorApi(deps) {
       mockGenerate,
       preferPublicMediaUrls: imagesApi.commandRequestsConnectedAutoApply(job.command),
       alreadySucceededKeys: collectSucceededImageKeys(lr),
+      actionsOverride,
     });
 
     if (imageRun.code === "SCOPE_REVIEW_REQUIRED") {
@@ -1280,6 +1292,7 @@ function createCurriculumOperatorApi(deps) {
           editedBy: sessionEmail || (phaseNum >= 6 ? "curriculum-operator-phase6" : "curriculum-operator-phase25"),
           callAi: callOperatorAi,
           command: job.command,
+          effectiveInstructions: job.command.effectiveInstructions || null,
           weeklyFieldScope: job.command?.actions?.weeklyFieldScope,
           mutationAllowlist,
         });
@@ -1380,6 +1393,10 @@ function createCurriculumOperatorApi(deps) {
             intended: built.intended,
             changed: built.changed,
             keepSnapshots: built.keepSnapshots,
+            validationInput: upgradeApi.buildExistingLessonValidationInput({
+              plan,
+              command: job.command,
+            }),
           });
           ownerReviewStatus = upgradeApi.classifyOwnerReviewStatus({
             beforeScores: before.audit.scores,
@@ -2175,6 +2192,37 @@ function createCurriculumOperatorApi(deps) {
       jsonResponse(response, 400, { error: "Unknown operator action.", code: "unknown_action", actions: ACTIONS });
       return;
     }
+    const operatorSessionId = schema.text(body.operatorSessionId, 100);
+    if (action === "context_get") {
+      jsonResponse(response, 200, {
+        ok: true,
+        action,
+        context: operatorSessionId ? conversationStore.read(store, session.email, operatorSessionId) : null,
+      });
+      return;
+    }
+    if (action === "context_clear") {
+      if (operatorSessionId) {
+        conversationStore.clear(store, session.email, operatorSessionId);
+        await writeStoreAsync(store);
+      }
+      jsonResponse(response, 200, { ok: true, action, context: null });
+      return;
+    }
+    if (action === "profile_get") {
+      jsonResponse(response, 200, { ok: true, action, profile: instructionProfile.read(store, session.email) });
+      return;
+    }
+    if (action === "profile_save") {
+      if (body.ownerAuthorization !== true) {
+        jsonResponse(response, 409, { ok: false, code: "profile_owner_confirmation_required" });
+        return;
+      }
+      const profile = instructionProfile.save(store, session.email, body.instructions, body.corrections);
+      await writeStoreAsync(store);
+      jsonResponse(response, 200, { ok: true, action, profile });
+      return;
+    }
 
     const phase = schema.clampInt(body.phase, 1, 8, 7);
     const curriculum = typeof readSiteCurriculum === "function"
@@ -2277,21 +2325,34 @@ function createCurriculumOperatorApi(deps) {
     }
 
     if (action === "parse") {
-      const parsed = commandApi.parseOperatorCommand(body.command || body.rawCommand || "", {
-        currentlySelectedLessonId: body.currentlySelectedLessonId,
+      const result = await operatorHttpBoundary.handleParseRequest({
+        body,
+        session,
+        store,
+        curriculum,
         phase,
-        lessonPlans: schema.asArray(curriculum?.lessonPlans),
-        operatorContext: body.operatorContext,
+        dependencies: {
+          conversationStore,
+          profileStore: instructionProfile,
+          parseCommand: commandApi.parseOperatorCommand,
+          now: Date.now,
+          researchConfig: {
+            enabled: process.env.CURRICULUM_OPERATOR_LIVE_RESEARCH_ENABLED === "true",
+            apiKey: process.env.OPENAI_API_KEY || "",
+          },
+        },
       });
-      jsonResponse(response, 200, {
-        ok: true,
-        action,
-        ...parsed,
-        publishEnabled: false,
+      if (result.statusCode === 200 && result.body.conversationContext && !result.body.idempotent) await writeStoreAsync(store);
+      jsonResponse(response, result.statusCode, {
+        ...result.body,
         aiHealth: require("../scripts/curriculum-operator-ai-transport.js").summarizeAiHealth({
           configured: openAiConfigured === true,
           reachable: openAiConfigured === true,
           model: process.env.OPENAI_MODEL || "",
+        }),
+        researchReadiness: researchApi.readiness({
+          enabled: process.env.CURRICULUM_OPERATOR_LIVE_RESEARCH_ENABLED === "true",
+          apiKey: process.env.OPENAI_API_KEY || "",
         }),
       });
       return;
@@ -2310,9 +2371,11 @@ function createCurriculumOperatorApi(deps) {
           phase,
           lessonPlans: schema.asArray(curriculum?.lessonPlans),
           operatorContext: body.operatorContext,
+          ownerProfile: instructionProfile.read(store, session.email),
         });
 
       let command = parsed.command;
+      if (parsed.effectiveInstructions) command.effectiveInstructions = parsed.effectiveInstructions;
       if (!command.rawCommand && !(command.scope.lessonIds?.length || command.scope.titles?.length)
         && !wantsCreate(command)) {
         jsonResponse(response, 400, {
@@ -2376,6 +2439,11 @@ function createCurriculumOperatorApi(deps) {
           defaultAccessPlan: inheritParent?.plan === "Pro" ? "Pro" : (parsed.ownerIntent?.inheritFromLesson?.accessPlan || "Free"),
           parentLesson: inheritParent || undefined,
           ageBand: parsed.ownerIntent?.inheritFromLesson?.ageBand || undefined,
+          lessonInstructions: parsed.effectiveInstructions?.permanentInstructions || [],
+          effectiveInstructions: parsed.effectiveInstructions || null,
+          researchSources: operatorSessionId
+            ? conversationStore.read(store, session.email, operatorSessionId)?.researchSources || []
+            : [],
         });
         if (!briefResult.ok) {
           const ageOnly = (briefResult.needsOwnerInput || []).length === 1
@@ -2476,6 +2544,21 @@ function createCurriculumOperatorApi(deps) {
           });
           return;
         }
+      }
+
+      const targetCountValidation = executionScopeApi.validateResolvedTargetCount(command, selection.selected);
+      if (!targetCountValidation.ok) {
+        jsonResponse(response, 409, {
+          ok: false,
+          code: targetCountValidation.code,
+          error: `${targetCountValidation.message} No job was created.`,
+          targetCountValidation,
+          command,
+          selection,
+          needsConfirmation: false,
+          runBlocked: true,
+        });
+        return;
       }
 
       if (selection.selected.length > command.limits.hardMaxLessons) {
@@ -2635,6 +2718,107 @@ function createCurriculumOperatorApi(deps) {
         return;
       }
       jsonResponse(response, 200, { ok: true, action, job });
+      return;
+    }
+
+    if (action === "retry_failed_assets") {
+      const ownerId = schema.text(body.ownerId, 160).toLowerCase();
+      const sessionContext = operatorSessionId
+        ? conversationStore.read(store, session.email, operatorSessionId)
+        : null;
+      if (!sessionContext || ownerId !== String(session.email || "").toLowerCase()) {
+        jsonResponse(response, 403, { ok: false, code: "retry_owner_or_session_mismatch" });
+        return;
+      }
+      const sourceJobId = schema.text(body.sourceJobId, 80);
+      const lessonId = schema.text(body.lessonId, 160);
+      const bag = readJobs(store);
+      const sourceJob = bag.jobs.find((job) => job.id === sourceJobId);
+      const retries = schema.asArray(store.curriculumOperatorAssetRetries);
+      const validation = assetRetryApi.validateRequest({
+        sourceJob,
+        ownerId,
+        sessionId: operatorSessionId,
+        lessonId,
+        selectedAssetIds: body.selectedAssetIds,
+        selectedAssetTypes: body.selectedAssetTypes,
+        retryKey: body.retryKey,
+        authorization: body.ownerAuthorization === true,
+        retries,
+      });
+      if (!validation.ok) {
+        jsonResponse(response, 409, { ok: false, code: validation.code, published: false });
+        return;
+      }
+      const plan = schema.asArray(curriculum.lessonPlans).find((lesson) => lesson.id === lessonId);
+      if (!plan || (sessionContext.currentLessonId && sessionContext.currentLessonId !== lessonId)) {
+        jsonResponse(response, 409, { ok: false, code: "retry_lesson_mismatch", published: false });
+        return;
+      }
+      const retry = assetRetryApi.createRetry({
+        sourceJobId,
+        lessonId,
+        retryKey: body.retryKey,
+        attempt: validation.attempt,
+        selected: validation.selected,
+        reason: body.retryReason,
+      });
+      retry.status = "running";
+      store.curriculumOperatorAssetRetries = [...retries, retry].slice(-100);
+      await writeStoreAsync(store);
+
+      const sourceResult = schema.asArray(sourceJob.lessonResults).find((row) => row.lessonId === lessonId);
+      const retryJob = {
+        id: retry.id,
+        command: {
+          ...sourceJob.command,
+          effectiveInstructions: require("../scripts/curriculum-operator-effective-instructions.js").buildEffectiveInstructions({
+            rawCommand: sourceJob.command?.rawCommand || "",
+            profile: instructionProfile.read(store, session.email),
+          }),
+          actions: {
+            ...sourceJob.command.actions,
+            upgradeLesson: false,
+            upgradeActivities: false,
+            generateSongsBooks: false,
+            touchCover: false,
+            publish: false,
+            generateImages: validation.selected.some((row) => row.type === "image"),
+            generatePrintables: validation.selected.some((row) => row.type === "printable"),
+          },
+        },
+        lessonResults: [sourceResult],
+        progress: { lessonCount: 1 },
+        costCounters: {},
+      };
+      const audit = sourceResult.auditAfter || sourceResult.audit || {};
+      const imageActions = validation.selected.filter((row) => row.type === "image").map((row) => row.action);
+      const printableActions = validation.selected.filter((row) => row.type === "printable").map((row) => row.action);
+      const outcomes = [];
+      if (imageActions.length) {
+        const imageRun = await runImagesForLesson(retryJob, plan, audit, store, session.email, sourceResult, imageActions);
+        outcomes.push(...schema.asArray(imageRun.imageRun?.actions));
+      }
+      if (printableActions.length) {
+        const printableRun = await runPrintablesForLesson(retryJob, plan, audit, store, session.email, sourceResult, printableActions);
+        outcomes.push(...schema.asArray(printableRun.printableRun?.actions));
+      }
+      retry.assets = retry.assets.map((asset) => {
+        const result = outcomes.find((outcome) => outcome.idempotencyKey === asset.idempotencyKey);
+        return {
+          ...asset,
+          status: result?.status === "success" ? "succeeded" : (result?.status === "skipped" ? "skipped" : "failed"),
+          failureReason: schema.text(result?.error || asset.failureReason, 500) || null,
+        };
+      });
+      retry.status = retry.assets.every((asset) => asset.status === "succeeded" || asset.status === "skipped")
+        ? "completed"
+        : "completed_with_failures";
+      retry.updatedAt = new Date().toISOString();
+      store.curriculumOperatorAssetRetries = store.curriculumOperatorAssetRetries
+        .map((entry) => entry.id === retry.id ? retry : entry);
+      await writeStoreAsync(store);
+      jsonResponse(response, 200, { ok: true, action, retry, published: false, autoPublish: false });
       return;
     }
 

@@ -48,6 +48,9 @@ console.log("A–D. Run Job status helpers");
     }) === "Updating content…",
     "running job uses real currentAction",
   );
+  ok(t.profileSummary({ version: 3, instructions: ["Use realistic photos.", "Keep the cover."] }).includes("Use realistic photos."),
+    "remembered instruction summary uses saved profile");
+  ok(t.profileSummary({ instructions: [] }).includes("No permanent"), "empty profile has honest summary");
 }
 
 console.log("\nE–I. UI source guards duplicate submission + running panel");
@@ -61,6 +64,11 @@ console.log("\nE–I. UI source guards duplicate submission + running panel");
   ok(/aria-live="polite"/.test(src), "live region for screen readers / mobile");
   ok(/startRunPolling/.test(src), "poll loop while long run executes");
   ok(/!state\.runInFlight\) render/.test(src), "refreshJobs preserves running indicator");
+  ok(/profile_get/.test(src), "profile loads through API");
+  ok(/profile_save/.test(src), "profile save uses API");
+  ok(/requestId: action === "parse"/.test(src), "parse requests include an idempotency request ID");
+  ok(/Live research ready/.test(src) && /researchSources/.test(src), "research readiness and validated sources render in UI");
+  ok(/permanent preferences are still remembered/.test(src), "start-over preserves profile copy");
   ok(/disabled" : ""\}>Run job/.test(src) === false, "run button disabled via runInFlight/busy");
 }
 

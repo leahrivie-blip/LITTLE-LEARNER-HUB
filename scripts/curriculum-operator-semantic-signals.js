@@ -202,9 +202,11 @@ function extractSignals(rawCommand) {
       || imagesOnlyResolved
       || vocabOnly,
     cover: inExclusionList(folded, "cover")
+      || /\b(?:do\s+not|dont|don't|never)\b[^.!?]{0,120}\bcover\b/.test(folded)
       || (imagesOnlyResolved && !/\bcover\b/.test(folded)),
     publish: /\bdont\s+publ/.test(folded)
       || /\bdo not publ/.test(folded)
+      || /\b(?:do\s+not|dont|don't|never)\b[^.!?]{0,120}\bpublish\b/.test(folded)
       || /\bnever\s+(?:auto[\s-]?)?publish\b/.test(folded)
       || /\bdo not publish\b/i.test(raw)
       || /\bdon['’]?t\s+publish\b/i.test(raw),

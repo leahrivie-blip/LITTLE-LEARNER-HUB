@@ -305,6 +305,7 @@ async function buildUpgradeDraft(plan, curriculum, audit, options = {}) {
     touchSongs: options.touchSongs !== false,
     touchBooks: options.touchBooks !== false,
     command: options.command || null,
+    effectiveInstructions: options.effectiveInstructions || options.command?.effectiveInstructions || null,
     weeklyFieldScope: options.weeklyFieldScope || options.command?.actions?.weeklyFieldScope || null,
   });
 
@@ -411,6 +412,7 @@ function verifyUpgradeResult({
   intended,
   changed,
   keepSnapshots,
+  validationInput = null,
 }) {
   const checks = [];
   const pass = (ok, code, message) => checks.push({ ok: Boolean(ok), code, message });
@@ -509,6 +511,27 @@ function verifyUpgradeResult({
     checks,
     failed,
     changedCount: schema.asArray(changed).length,
+    validationInput,
+  };
+}
+
+function buildExistingLessonValidationInput({ plan = {}, command = {} } = {}) {
+  const actions = command.actions || {};
+  const effectiveInstructions = command.effectiveInstructions || null;
+  return {
+    lessonId: plan.id || null,
+    lessonTitle: plan.title || null,
+    ageGroup: plan.age || null,
+    requestedActivities: schema.asArray(command.scope?.requestedActivities),
+    operation: command.intent || "upgrade",
+    weeklyFieldScope: schema.asArray(actions.weeklyFieldScope),
+    effectiveInstructions,
+    profileVersion: effectiveInstructions?.profileVersion || null,
+    imageRequirements: actions.generateImages === true,
+    printableRequirements: actions.generatePrintables === true,
+    exclusions: effectiveInstructions?.exclusions || {},
+    draftOnly: true,
+    publishDisabled: actions.publish !== true,
   };
 }
 
@@ -530,6 +553,7 @@ function classifyOwnerReviewStatus({ beforeScores, afterScores, verification, bl
 module.exports = {
   buildUpgradeDraft,
   verifyUpgradeResult,
+  buildExistingLessonValidationInput,
   classifyOwnerReviewStatus,
   shouldWriteField,
   snapshotKeepFields,

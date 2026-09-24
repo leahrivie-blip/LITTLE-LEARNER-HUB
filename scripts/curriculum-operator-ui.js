@@ -73,7 +73,7 @@
       ...(planSummary?.confirmReasons || []),
     ].filter((reason) => DANGEROUS_CONFIRM_REASONS.includes(reason));
     if (reasons.includes("unexpected_scope_expansion") || reasons.includes("multiple_lessons_matched")) {
-      return "Run blocked — lesson scope expanded unexpectedly. Narrow to one explicit lesson ID.";
+      return "I found more than one matching lesson, so I stopped before changing anything. Select one lesson or tell me its exact title and age group.";
     }
     if (reasons.includes("parsed_intent_contradiction")) {
       return "Run blocked — parsed actions contradict explicit exclusions/constraints.";
@@ -82,7 +82,9 @@
       return "Run blocked — execution plan contradicts parsed weekly scope. Interpret again.";
     }
     if (reasons.includes("ambiguous_scope") || reasons.includes("missing_selected_lesson")) {
-      return "Run blocked — command scope is ambiguous. Interpret again with an explicit lesson ID.";
+      return reasons.includes("missing_selected_lesson")
+        ? "Which lesson should I update? Please select one lesson or tell me its exact title."
+        : "Which lesson should I use? Please select one lesson or tell me its exact title and age group.";
     }
     if (reasons.includes("meta_instruction")) {
       return "This appears to be a system-development instruction rather than a curriculum job. No curriculum mutation planned.";
@@ -97,12 +99,16 @@
     const interp = parsed?.interpretation || parsed?.command?.interpretation;
     if (!interp?.ownerSummary) return "";
     const flags = interp.ownerFacingFlags || {};
+    const effective = parsed?.effectiveInstructions || {};
     return `
           <section class="co-panel">
             <h4>Understood request</h4>
             <pre class="co-summary">${esc(interp.ownerSummary)}</pre>
             <p class="muted-copy">${esc(flags.connectedAutoApply || "Successful approved AI changes will be saved directly into the lesson draft for your review.")}</p>
             <p class="muted-copy">${esc(flags.publish || "Nothing will publish automatically.")}</p>
+            ${effective.profileLoaded ? `<p class="muted-copy">Permanent profile v${esc(effective.profileVersion)} applied: ${esc((effective.permanentInstructions || []).slice(0, 3).join(" · "))}</p>` : ""}
+            ${effective.oneTimeOverrides?.length ? `<p class="muted-copy">One-time instructions: ${esc(effective.oneTimeOverrides.join(" · "))}</p>` : ""}
+            ${effective.exclusions?.cover ? "<p class=\"muted-copy\">Cover: unchanged</p>" : ""}
             <p class="muted-copy">${esc(flags.touchPrintables || "")}</p>
             ${parsed.aiHealth ? `<p class="muted-copy">AI configured: ${parsed.aiHealth.configured ? "yes" : "no"}${parsed.aiHealth.lastErrorCategory ? ` · last error: ${esc(parsed.aiHealth.lastErrorCategory)}` : ""}</p>` : ""}
             <details>
@@ -110,6 +116,18 @@
               <pre class="co-json">${esc(JSON.stringify(parsed.command, null, 2))}</pre>
             </details>
           </section>`;
+  }
+
+  function profileSummary(profile) {
+    const instructions = Array.isArray(profile?.instructions) ? profile.instructions.filter(Boolean) : [];
+    if (!instructions.length) return "No permanent curriculum instructions are saved.";
+    return instructions.slice(0, 8).map((instruction) => `• ${instruction}`).join("\n");
+  }
+
+  function researchStatusLabel(readiness) {
+    if (readiness?.status === "ready") return "Live research ready";
+    if (readiness?.status === "missing_api_key") return "Live research needs configuration";
+    return "Live research disabled";
   }
 
   const state = {
@@ -127,6 +145,9 @@
     planSummary: null,
     commandParsed: null,
     operatorContext: null,
+    conversation: null,
+    profile: null,
+    profileError: "",
     job: null,
     jobs: [],
     flagEnabled: false,
@@ -178,6 +199,24 @@
     }
   }
 
+  function operatorSessionId() {
+    try {
+      const key = "llh-curriculum-operator-session";
+      let id = sessionStorage.getItem(key);
+      if (!id) {
+        id = `cos_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+        sessionStorage.setItem(key, id);
+      }
+      return id;
+    } catch {
+      return "";
+    }
+  }
+
+  function operatorRequestId() {
+    return `cor_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+  }
+
   async function api(action, extra = {}) {
     const token = adminToken();
     if (!token) throw new Error("Admin session required.");
@@ -198,7 +237,9 @@
       },
       body: JSON.stringify({
         action,
+        requestId: action === "parse" ? operatorRequestId() : undefined,
         currentlySelectedLessonId: currentlySelectedLessonId || undefined,
+        operatorSessionId: operatorSessionId() || undefined,
         ...extra,
       }),
     });
@@ -326,6 +367,10 @@
     const review = lr.ownerReviewStatus || "AUDIT_ONLY";
     const changed = Array.isArray(lr.updated) ? lr.updated : [];
     const kept = Array.isArray(lr.kept) ? lr.kept : [];
+    const failedAssets = [
+      ...(Array.isArray(lr.imageActions) ? lr.imageActions.map((a) => ({ ...a, assetType: "image" })) : []),
+      ...(Array.isArray(lr.printableActions) ? lr.printableActions.map((a) => ({ ...a, assetType: "printable" })) : []),
+    ].filter((asset) => asset.status === "failed" && asset.retryable !== false && asset.approved !== true);
     return `<article class="co-lesson-card">
       <header class="co-lesson-card-head">
         <div>
@@ -425,6 +470,15 @@
           : "<p class=\"muted-copy\">None listed</p>"}
       </section>
       ${renderOwnerReviewPanel(lr)}
+      ${failedAssets.length ? `
+      <section>
+        <h5>Failed assets</h5>
+        <div><button type="button" class="linkish" data-co-select-failed>Select all retryable</button> · <button type="button" class="linkish" data-co-clear-failed>Clear selection</button></div>
+        <ul>${failedAssets.map((asset) => `<li><label><input type="checkbox" data-co-failed-asset
+          data-co-asset-type="${esc(asset.assetType)}" value="${esc(asset.idempotencyKey)}"> ${esc(asset.assetType)} · ${esc(asset.activityTitle || asset.activityId || asset.idempotencyKey)}
+          — ${esc(asset.error || "Failed")} · retry ${esc(asset.retryCount || 0)} · failed</label></li>`).join("")}</ul>
+        <button type="button" class="ghost-button" disabled data-co-retry-assets="${esc((lr.audit || a)?.lessonId || lr.lessonId)}">Retry selected failed assets only</button>
+      </section>` : ""}
       ${review === "READY_FOR_OWNER_REVIEW" ? "" : `
       <div class="account-actions-row">
         <button type="button" class="ghost-button" data-co-open-lesson="${esc((lr.audit || a)?.lessonId || lr.lessonId)}">Open in Enrichment Editor</button>
@@ -537,17 +591,42 @@
         </div>
         ${state.message ? `<p class="access-notice ${state.isError ? "error" : ""}" role="status">${esc(state.message)}</p>` : ""}
         ${renderRunStatusBlock()}
+        <section class="co-panel">
+          <h4>Research</h4>
+          <p class="muted-copy">${esc(researchStatusLabel(state.commandParsed?.researchReadiness))}. Sources are supporting research only; they do not automatically become lesson content.</p>
+          ${state.commandParsed?.researchStatus && state.commandParsed.researchStatus !== "ready" && state.commandParsed.researchStatus !== "research_provider_unavailable" ? `<p class="access-notice error">Research failed; no sources were saved.</p>` : ""}
+          ${(state.conversation?.researchSources || []).map((source) => source.url?.startsWith("https://") ? `<p><a href="${esc(source.url)}" target="_blank" rel="noopener noreferrer">${esc(source.title)}</a> · ${esc(source.source)}${source.publicationDate ? ` · ${esc(source.publicationDate)}` : ""}<br><span class="muted-copy">${esc(source.summary || "")} · Retrieved ${esc(source.retrievedAt || "")}</span></p>` : "").join("")}
+        </section>
+        <section class="co-panel">
+          <h4>Conversation</h4>
+          <p class="muted-copy">Current lesson: ${esc(state.conversation?.currentLessonTitle || "None")} · Operation: ${esc(state.conversation?.currentOperation || "None")} · Publishing: disabled</p>
+          ${state.conversation?.unresolvedQuestion ? `<p class="access-notice">${esc(state.conversation.unresolvedQuestion)}</p>` : ""}
+          <div class="co-log">${(state.conversation?.messages || []).slice(-10).map((message) => `<p><strong>${message.role === "owner" ? "Leah" : "Operator"}:</strong> ${esc(message.responseText || message.rawText)}</p>`).join("") || "<p class=\"muted-copy\">Send a message to begin.</p>"}</div>
+          ${(state.conversation?.corrections || []).length ? `<p class="muted-copy">Applied corrections: ${esc(state.conversation.corrections.join(" · "))}</p>` : ""}
+        </section>
         <label class="co-command-label">
           <span>Command</span>
           <textarea id="coCommandInput" rows="3" placeholder="Example: Create a Preschool Bakery lesson with 15 activities and leave it ready for review.">${esc(state.command)}</textarea>
         </label>
         ${runBlockNotice ? `<p class="access-notice error" role="alert">${esc(runBlockNotice)}</p>` : ""}
         <div class="account-actions-row co-run-actions">
-          <button type="button" class="ghost-button" id="coParseBtn" ${state.busy ? "disabled" : ""}>Interpret</button>
+          <button type="button" class="ghost-button" id="coParseBtn" ${state.busy ? "disabled" : ""}>Send</button>
           <button type="button" class="primary-button" id="coRunBtn" ${state.busy || state.runInFlight || runBlocked ? "disabled" : ""} title="${esc(runBlocked ? runBlockNotice : "")}">${esc(runButtonLabel(state.runPhase))}</button>
+          <button type="button" class="ghost-button" id="coStartOverBtn" ${state.busy ? "disabled" : ""}>Start over</button>
           <button type="button" class="ghost-button" id="coRefreshJobsBtn" ${state.busy ? "disabled" : ""}>Refresh jobs</button>
         </div>
         ${state.commandParsed ? renderUnderstoodRequest(state.commandParsed) : ""}
+        <section class="co-panel">
+          <h4>Remembered instructions</h4>
+          ${state.profileError ? `<p class="access-notice error">${esc(state.profileError)}</p>` : ""}
+          <pre class="co-summary">${esc(profileSummary(state.profile))}</pre>
+          ${state.profile?.version ? `<p class="muted-copy">Saved profile version ${esc(state.profile.version)}</p>` : ""}
+          <div class="account-actions-row">
+            <button type="button" class="ghost-button" id="coRememberProfileBtn">What instructions do you remember?</button>
+            <button type="button" class="ghost-button" id="coSaveProfileBtn">Save these as my permanent curriculum instructions</button>
+            <button type="button" class="ghost-button" id="coCleanConversationBtn">Start over but keep my permanent preferences</button>
+          </div>
+        </section>
         ${state.commandParsed && !state.commandParsed.interpretation?.ownerSummary ? `
           <section class="co-panel">
             <h4>Interpreted command</h4>
@@ -564,7 +643,7 @@
             <p>${esc(plan.selectionNote || "")}</p>
             <p class="muted-copy">${esc(plan.lessons?.length || 0)} lesson(s) · candidates considered ${esc(plan.candidatesConsidered || 0)}</p>
             <ol>${(plan.lessons || []).map((l) => `
-              <li><strong>${esc(l.title)}</strong> — readiness ${esc(l.readinessPercent)}% · ${esc(l.plan)} · ${esc(l.ageBand)}</li>`).join("")}</ol>
+              <li><strong>${esc(l.title)}</strong> (<code>${esc(l.id)}</code>) — readiness ${esc(l.readinessPercent)}% · ${esc(l.plan)} · ${esc(l.ageBand)}</li>`).join("")}</ol>
             <p class="muted-copy">${esc(plan.phaseNote || plan.phase1?.note || "")}</p>
           </section>` : ""}
         ${job ? `
@@ -639,6 +718,10 @@
     });
     el.querySelector("#coParseBtn")?.addEventListener("click", () => void onParse());
     el.querySelector("#coRunBtn")?.addEventListener("click", () => void onRun());
+    el.querySelector("#coStartOverBtn")?.addEventListener("click", () => void onStartOver());
+    el.querySelector("#coRememberProfileBtn")?.addEventListener("click", () => void onRememberProfile());
+    el.querySelector("#coSaveProfileBtn")?.addEventListener("click", () => void onSaveProfile());
+    el.querySelector("#coCleanConversationBtn")?.addEventListener("click", () => void onStartOver());
     el.querySelector("#coRefreshJobsBtn")?.addEventListener("click", () => void refreshJobs());
     el.querySelector("#coConfirmResumeBtn")?.addEventListener("click", () => void onConfirmResume());
     el.querySelector("#coPublishCancelBtn")?.addEventListener("click", () => {
@@ -676,6 +759,22 @@
         details?.scrollIntoView({ behavior: "smooth", block: "nearest" });
       });
     });
+    el.querySelectorAll("[data-co-retry-assets]").forEach((btn) => {
+      const card = btn.closest(".co-lesson-card");
+      const sync = () => { btn.disabled = !card?.querySelector("[data-co-failed-asset]:checked"); };
+      card?.querySelectorAll("[data-co-failed-asset]").forEach((input) => input.addEventListener("change", sync));
+      btn.addEventListener("click", () => void onRetryFailedAssets(btn.getAttribute("data-co-retry-assets"), card));
+    });
+    el.querySelectorAll("[data-co-select-failed]").forEach((btn) => btn.addEventListener("click", () => {
+      const card = btn.closest(".co-lesson-card");
+      card?.querySelectorAll("[data-co-failed-asset]").forEach((input) => { input.checked = true; });
+      card?.querySelector("[data-co-retry-assets]")?.removeAttribute("disabled");
+    }));
+    el.querySelectorAll("[data-co-clear-failed]").forEach((btn) => btn.addEventListener("click", () => {
+      const card = btn.closest(".co-lesson-card");
+      card?.querySelectorAll("[data-co-failed-asset]").forEach((input) => { input.checked = false; });
+      card?.querySelector("[data-co-retry-assets]")?.setAttribute("disabled", "disabled");
+    }));
     el.querySelectorAll("[data-co-publish-lesson]").forEach((btn) => {
       btn.addEventListener("click", () => void onOpenPublishConfirm(btn.getAttribute("data-co-publish-lesson")));
     });
@@ -753,6 +852,99 @@
     }
   }
 
+  async function onStartOver() {
+    state.operatorContext = null;
+    state.command = "";
+    state.commandParsed = null;
+    state.planSummary = null;
+    state.message = "Started a clean conversation. Your permanent preferences are still remembered.";
+    try {
+      await api("context_clear");
+    } catch (_error) {
+      state.message = "Started a new conversation locally. Server context could not be cleared.";
+    }
+    render();
+  }
+
+  async function onRememberProfile() {
+    state.busy = true;
+    state.profileError = "";
+    render();
+    try {
+      const result = await api("profile_get");
+      state.profile = result.profile || null;
+      state.message = `Here are your saved permanent instructions${result.profile?.version ? ` (version ${result.profile.version})` : ""}.`;
+    } catch (error) {
+      state.profileError = "Saved preferences could not be loaded. The operator will not invent remembered instructions.";
+      state.message = error.message || "Could not load saved instructions.";
+      state.isError = true;
+    } finally {
+      state.busy = false;
+      render();
+    }
+  }
+
+  async function onSaveProfile() {
+    const instructions = String(state.command || "").split(/\n+/).map((line) => line.trim()).filter(Boolean);
+    if (!instructions.length) {
+      state.isError = true;
+      state.message = "Paste the instruction list into the command box first. It will be reviewed before saving.";
+      render();
+      return;
+    }
+    const summary = instructions.slice(0, 8).map((line) => `• ${line}`).join("\n");
+    if (!global.confirm(`Save these as permanent curriculum instructions?\n\n${summary}`)) return;
+    state.busy = true;
+    state.isError = false;
+    state.profileError = "";
+    render();
+    try {
+      const result = await api("profile_save", { instructions, ownerAuthorization: true });
+      state.profile = result.profile || null;
+      state.message = `Permanent instructions saved${result.profile?.version ? ` as version ${result.profile.version}` : ""}.`;
+    } catch (error) {
+      state.isError = true;
+      state.message = "I understood the instructions, but could not save them permanently. They remain only in this conversation.";
+      state.profileError = error.message || "Profile save failed.";
+    } finally {
+      state.busy = false;
+      render();
+    }
+  }
+
+  async function onRetryFailedAssets(lessonId, card) {
+    const lr = (state.job?.lessonResults || []).find((row) => row.lessonId === lessonId || row.audit?.lessonId === lessonId);
+    const selected = Array.from(card?.querySelectorAll("[data-co-failed-asset]:checked") || [])
+      .map((input) => ({ type: input.dataset.coAssetType, id: input.value }))
+      .filter((asset) => asset.id && (asset.type === "image" || asset.type === "printable"));
+    if (!selected.length || !state.job?.id) return;
+    if (!global.confirm(`Retry ${selected.length} failed asset(s) only? Lesson text, cover, and successful assets will not change.`)) return;
+    state.busy = true;
+    render();
+    try {
+      const ownerId = String(typeof adminSession === "function" ? adminSession()?.email : "").toLowerCase();
+      const result = await api("retry_failed_assets", {
+        ownerId,
+        sourceJobId: state.job.id,
+        lessonId,
+        selectedAssetIds: selected.map((asset) => asset.id),
+        selectedAssetTypes: [...new Set(selected.map((asset) => asset.type))],
+        retryKey: `retry_${state.job.id}_${lessonId}_${Date.now()}`,
+        retryReason: "Owner requested failed assets only",
+        ownerAuthorization: true,
+      });
+      state.message = result.retry?.status === "completed"
+        ? "Selected failed assets retried. Review the draft; nothing was published."
+        : "Asset retry completed with remaining failures. Review the failed-assets list.";
+    } catch (error) {
+      state.isError = true;
+      state.message = error.message || "Failed-asset retry was not started.";
+    } finally {
+      state.busy = false;
+      render();
+    }
+  }
+
   async function onParse() {
     state.busy = true;
     state.message = "";
@@ -765,7 +957,14 @@
         operatorContext: state.operatorContext || undefined,
       });
       state.commandParsed = result;
-      if (result.interpretation?.nextContext) state.operatorContext = result.interpretation.nextContext;
+      state.conversation = result.conversationContext || state.conversation;
+      if (result.conversationContext) {
+        state.operatorContext = {
+          previousIntent: result.conversationContext.currentOperation,
+          previousResolvedTargets: result.conversationContext.currentLessonId ? [result.conversationContext.currentLessonId] : [],
+          previousExclusions: result.conversationContext.requestedExclusions || [],
+        };
+      } else if (result.interpretation?.nextContext) state.operatorContext = result.interpretation.nextContext;
       const planned = await api("plan", {
         command: state.command,
         phase: 7,
@@ -931,6 +1130,25 @@
     state.flagEnabled = flagOn();
     render();
     if (state.flagEnabled && isOwner()) {
+      try {
+        const restored = await api("context_get");
+        state.conversation = restored.context || null;
+        if (restored.context?.currentLessonId) {
+          state.operatorContext = {
+            previousIntent: restored.context.currentOperation || "",
+            previousResolvedTargets: [restored.context.currentLessonId],
+            previousExclusions: restored.context.requestedExclusions || [],
+          };
+        }
+      } catch (_error) {
+        // Context restoration is optional; the existing in-memory flow remains usable.
+      }
+      try {
+        const profileResult = await api("profile_get");
+        state.profile = profileResult.profile || null;
+      } catch (_error) {
+        state.profileError = "Saved preferences could not be loaded.";
+      }
       await refreshJobs();
     }
   }
@@ -941,6 +1159,7 @@
       mapCurrentActionToLabel,
       formatRunStatusFromJob,
       runButtonLabel,
+      profileSummary,
     },
   };
 })(typeof window !== "undefined" ? window : globalThis);
