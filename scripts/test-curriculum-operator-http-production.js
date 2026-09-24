@@ -51,5 +51,11 @@ const api = createCurriculumOperatorApi({
   await api.handle({ body: { action: "parse", command: "Update Big Feelings, Little Bodies.", operatorSessionId: "a", requestId: "four" } }, {});
   assert.equal(replies.at(-1).body.idempotent, undefined, "same text with a new request ID is a new message");
   assert.equal(replies.at(-1).body.conversationContext.messages.length, 8, "new request ID persists another owner/operator pair");
+
+  await api.handle({ body: { action: "run", command: "Research toddler healthy habits, then make a lesson." } }, {});
+  const staged = replies.at(-1);
+  assert.equal(staged.status, 409, "research then lesson cannot run a job before confirmation");
+  assert.equal(staged.body.code, "RESEARCH_ONLY_RUN_BLOCKED", "staged research has a dedicated run block");
+  assert.equal(staged.body.runBlocked, true, "staged research never reaches runJob");
   console.log("Curriculum operator production HTTP adapter checks passed.");
 })().catch((error) => { console.error(error); process.exitCode = 1; });

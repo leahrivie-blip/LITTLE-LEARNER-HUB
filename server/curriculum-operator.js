@@ -2385,6 +2385,19 @@ function createCurriculumOperatorApi(deps) {
         return;
       }
 
+      if (command.intent === "research_only"
+        || schema.asArray(parsed.confirmReasons).includes("research_then_lesson_confirmation_required")) {
+        jsonResponse(response, 409, {
+          ok: false,
+          code: "RESEARCH_ONLY_RUN_BLOCKED",
+          error: "Research-only requests cannot create or run a curriculum job. Confirm a separate lesson request after reviewing sources.",
+          command,
+          runBlocked: true,
+          needsConfirmation: command.intent !== "research_only",
+        });
+        return;
+      }
+
       if (action === "run" && allowlistApi.isRunBlockedByConfirmations(parsed.confirmReasons, parsed.parseSafety)) {
         jsonResponse(response, 409, {
           ok: false,
