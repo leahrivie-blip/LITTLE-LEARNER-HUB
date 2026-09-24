@@ -32,5 +32,79 @@ const command = require("./curriculum-operator-command.js");
   assert.equal(result.body.conversationContext.researchRequested, true, "research request is persisted in owner context");
   assert.match(result.body.conversationContext.messages.at(-1).responseText, /not connected yet/i, "owner sees an honest unavailable response");
   assert.equal(result.body.conversationContext.messages.at(-1).responseText.includes("http"), false, "no source URL is invented");
+
+  const researchOnlyCommand = "Search online for current toddler healthy-habits activity ideas and return the sources. Do not create a lesson.";
+  const parsedResearchOnly = command.parseOperatorCommand(researchOnlyCommand, { phase: 7 });
+  assert.equal(parsedResearchOnly.command.intent, "research_only", "explicit research-only wording has a dedicated operation");
+  for (const key of [
+    "createLesson", "upgradeLesson", "upgradeActivities", "generateImages",
+    "generatePrintables", "generateSongsBooks", "replaceBadImages", "publish",
+  ]) {
+    assert.equal(parsedResearchOnly.command.actions[key], false, `research-only clears ${key}`);
+  }
+  assert.equal(parsedResearchOnly.command.completion.mutationsEnabled, false, "research-only parsing disables mutations");
+
+  const staged = command.parseOperatorCommand("Research toddler healthy habits, then make a lesson.", { phase: 7 });
+  assert.equal(staged.needsConfirmation, true, "research then lesson requires confirmation before work");
+  assert.equal(staged.command.actions.createLesson, false, "staged request cannot create a lesson yet");
+  assert.equal(staged.command.actions.generateImages, false, "staged request cannot generate assets yet");
+
+  const ordinary = command.parseOperatorCommand("Create a toddler healthy habits lesson with activity images and printables.", { phase: 7 });
+  assert.equal(ordinary.command.actions.createLesson, true, "ordinary lesson request retains creation");
+  assert.equal(ordinary.command.actions.generateImages, true, "ordinary lesson request retains requested images");
+  assert.equal(ordinary.command.actions.generatePrintables, true, "ordinary lesson request retains requested printables");
+
+  let providerCalls = 0;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => {
+    providerCalls += 1;
+    return {
+      ok: true,
+      text: async () => JSON.stringify({
+        output: [{ content: [{ annotations: [{
+          url: "https://example.edu/toddler-healthy-habits",
+          title: "Toddler Healthy Habits",
+          text: "A concise, provider-supplied source summary.",
+        }] }] }],
+      }),
+    };
+  };
+  try {
+    const liveStore = {};
+    const request = {
+      command: researchOnlyCommand,
+      operatorSessionId: "research-only",
+      requestId: "research-only-1",
+    };
+    const liveDependencies = {
+      conversationStore: conversation,
+      parseCommand: command.parseOperatorCommand,
+      profileStore: { read: () => ({ version: 1, instructions: [] }) },
+      researchConfig: { enabled: true, apiKey: "test-key" },
+      now: () => Date.UTC(2026, 0, 1),
+    };
+    const first = await boundary.handleParseRequest({
+      body: request,
+      session: { email: "leah@example.test" },
+      store: liveStore,
+      curriculum: { lessonPlans: [] },
+      dependencies: liveDependencies,
+    });
+    const duplicate = await boundary.handleParseRequest({
+      body: request,
+      session: { email: "leah@example.test" },
+      store: liveStore,
+      curriculum: { lessonPlans: [] },
+      dependencies: liveDependencies,
+    });
+    assert.equal(first.body.jobCreated, false, "research-only request creates no job");
+    assert.equal(first.body.publishEnabled, false, "research-only request keeps publishing disabled");
+    assert.equal(first.body.conversationContext.researchSources.length, 1, "validated citations persist in conversation history");
+    assert.equal(first.body.conversationContext.researchSources[0].summary, "A concise, provider-supplied source summary.", "provider summary is preserved");
+    assert.equal(duplicate.body.idempotent, true, "duplicate request is idempotent");
+    assert.equal(providerCalls, 1, "duplicate request does not repeat the provider call");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
   console.log("Curriculum operator research safety checks passed.");
 })().catch((error) => { console.error(error); process.exitCode = 1; });

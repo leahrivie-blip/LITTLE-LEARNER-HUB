@@ -29,6 +29,53 @@ function parseAgeBand(command) {
   return schema.normalizeAgeBand(command);
 }
 
+function researchOnlyScope(rawCommand) {
+  const raw = String(rawCommand || "");
+  const requestsResearch = /\b(?:research|search(?:\s+(?:google|online|current|trends?|ideas?))?)\b/i.test(raw);
+  if (!requestsResearch) return { explicit: false, stagedLesson: false };
+  const explicit = (
+    /\b(?:do\s+not|don['’]?t)\s+(?:create|make|build)\s+(?:a\s+)?lesson\b/i.test(raw)
+    || /\bresearch\s+only\b/i.test(raw)
+    || /\bjust\s+(?:return|give|show)\s+(?:the\s+)?sources?\b/i.test(raw)
+    || /\b(?:do\s+not|don['’]?t)\s+make\s+anything\s+yet\b/i.test(raw)
+    || /\bno\s+lessons?\s+or\s+assets?\b/i.test(raw)
+  );
+  return {
+    explicit,
+    stagedLesson: !explicit
+      && /\b(?:then|after(?:ward)?)\s+(?:make|create|build)\s+(?:a\s+|the\s+|new\s+)?lesson\b/i.test(raw),
+  };
+}
+
+function stripResearchMutationActions(actions) {
+  Object.assign(actions, {
+    audit: true,
+    upgradeLesson: false,
+    upgradeActivities: false,
+    checkSongs: false,
+    checkBooks: false,
+    checkImages: false,
+    checkPrintables: false,
+    createLesson: false,
+    generateImages: false,
+    generatePrintables: false,
+    generateSongsBooks: false,
+    replaceBadImages: false,
+    touchImages: false,
+    touchPrintables: false,
+    touchSongs: false,
+    touchBooks: false,
+    touchCover: false,
+    touchDraft: false,
+    validate: false,
+    saveDraft: false,
+    publish: false,
+    connectedUpgrade: false,
+    connectedAutoApply: false,
+    composeReviewDraft: false,
+  });
+}
+
 function extractQuotedTitles(command) {
   const titles = [];
   const re = /[“"]([^”"]{2,120})[”"]/g;
@@ -62,6 +109,7 @@ function extractNamedLessonHints(command) {
 function parseOperatorCommand(rawCommand, options = {}) {
   const raw = schema.text(rawCommand, 4000);
   const lower = raw.toLowerCase();
+  const researchScope = researchOnlyScope(raw);
   const notes = [];
   const actions = schema.emptyActionsFlags();
   const count = parseCount(raw);
@@ -573,13 +621,49 @@ function parseOperatorCommand(rawCommand, options = {}) {
     phase2Executable: phase >= 2,
     mutationsStripped: !command.completion.mutationsEnabled,
   };
-  return intentRouter.applyPostSemanticSafety(semanticInterpret.applyToParsedResult(parsed, {
+  const result = intentRouter.applyPostSemanticSafety(semanticInterpret.applyToParsedResult(parsed, {
     phase,
     lessonPlans: options.lessonPlans || [],
     currentlySelectedLessonId: options.currentlySelectedLessonId || null,
     operatorContext: options.operatorContext || null,
     rawCommand: raw,
   }), ownerIntent);
+
+  if (researchScope.explicit) {
+    result.command.intent = "research_only";
+    result.command.scope.lessonIds = [];
+    result.command.scope.titles = [];
+    stripResearchMutationActions(result.command.actions);
+    result.command.completion.mutationsEnabled = false;
+    result.command.confirmations.reasons = [];
+    result.command.parsedNotes = [...new Set([
+      ...(result.command.parsedNotes || []),
+      "Research-only request: sources may be gathered, but no lesson or asset work will run.",
+    ])];
+    result.ambiguous = false;
+    result.needsConfirmation = false;
+    result.confirmReasons = [];
+    result.mutationsStripped = true;
+  } else if (researchScope.stagedLesson) {
+    stripResearchMutationActions(result.command.actions);
+    result.command.completion.mutationsEnabled = false;
+    result.command.confirmations.reasons = [...new Set([
+      ...(result.command.confirmations.reasons || []),
+      "research_then_lesson_confirmation_required",
+    ])];
+    result.command.parsedNotes = [...new Set([
+      ...(result.command.parsedNotes || []),
+      "Research and lesson creation are staged separately; confirm the lesson step after reviewing sources.",
+    ])];
+    result.ambiguous = true;
+    result.needsConfirmation = true;
+    result.confirmReasons = [...new Set([
+      ...(result.confirmReasons || []),
+      "research_then_lesson_confirmation_required",
+    ])];
+    result.mutationsStripped = true;
+  }
+  return result;
 }
 
 module.exports = {
