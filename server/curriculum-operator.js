@@ -2359,19 +2359,25 @@ function createCurriculumOperatorApi(deps) {
     }
 
     if (action === "plan" || action === "run") {
-      const parsed = body.command && typeof body.command === "object"
+      const confirmedStagedCommand = body.confirm === true
+        && (body.command?.intent === "research_then_create" || body.command?.intent === "research_then_update")
+        && body.command?.rawCommand;
+      const parsed = body.command && typeof body.command === "object" && !confirmedStagedCommand
         ? {
           command: schema.normalizeOperatorCommand(body.command, { phase }),
           needsConfirmation: body.forceConfirm === true,
           confirmReasons: schema.asArray(body.command?.confirmations?.reasons),
           ambiguous: false,
         }
-        : commandApi.parseOperatorCommand(body.command || body.rawCommand || "", {
+        : commandApi.parseOperatorCommand(
+          confirmedStagedCommand ? body.command.rawCommand : (body.command || body.rawCommand || ""),
+          {
           currentlySelectedLessonId: body.currentlySelectedLessonId,
           phase,
           lessonPlans: schema.asArray(curriculum?.lessonPlans),
           operatorContext: body.operatorContext,
           ownerProfile: instructionProfile.read(store, session.email),
+          confirmStagedResearchCreate: action === "run" && body.confirm === true,
         });
 
       let command = parsed.command;
@@ -2386,7 +2392,9 @@ function createCurriculumOperatorApi(deps) {
       }
 
       if (command.intent === "research_only"
-        || schema.asArray(parsed.confirmReasons).includes("research_then_lesson_confirmation_required")) {
+        || ((schema.asArray(parsed.confirmReasons).includes("research_then_lesson_confirmation_required")
+          || schema.asArray(parsed.confirmReasons).includes("research_then_update_confirmation_required"))
+          && body.confirm !== true)) {
         jsonResponse(response, 409, {
           ok: false,
           code: "RESEARCH_ONLY_RUN_BLOCKED",
@@ -2417,6 +2425,7 @@ function createCurriculumOperatorApi(deps) {
           phase,
           lessonPlans: schema.asArray(curriculum?.lessonPlans),
           currentlySelectedLessonId: body.currentlySelectedLessonId,
+          confirmStagedResearchCreate: body.confirm === true,
         });
         if (!revalidated.ok) {
           jsonResponse(response, 409, {

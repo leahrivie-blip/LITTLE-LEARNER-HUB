@@ -238,6 +238,8 @@ const SELECTION_MODES = Object.freeze([
 const INTENTS = Object.freeze([
   "audit",
   "research_only",
+  "research_then_create",
+  "research_then_update",
   "upgrade_batch",
   "fix_lesson",
   "create_lesson",

@@ -150,11 +150,9 @@ console.log("\nIMAGE routing");
       phase: 7,
       lessonPlans: [lmwLesson],
     });
-    expectExistingLesson(cmd, "Add visuals toddler", {
-      route: intentRouter.ROUTES.EXISTING_IMAGE,
-      generateImages: true,
-      ageBand: "toddler",
-    });
+    ok(cmd.ownerIntent.route === intentRouter.ROUTES.AMBIGUOUS, "Add visuals toddler: requires a target");
+    ok(cmd.command.scope.lessonIds.length === 0, "Add visuals toddler: no age-only target");
+    ok(cmd.command.actions.generateImages === false, "Add visuals toddler: no image generation without target");
   }
 }
 

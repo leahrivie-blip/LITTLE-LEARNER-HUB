@@ -29,21 +29,17 @@ function parseAgeBand(command) {
   return schema.normalizeAgeBand(command);
 }
 
-function researchOnlyScope(rawCommand) {
-  const raw = String(rawCommand || "");
-  const requestsResearch = /\b(?:research|search(?:\s+(?:google|online|current|trends?|ideas?))?)\b/i.test(raw);
-  if (!requestsResearch) return { explicit: false, stagedLesson: false };
-  const explicit = (
-    /\b(?:do\s+not|don['’]?t)\s+(?:create|make|build)\s+(?:a\s+)?lesson\b/i.test(raw)
-    || /\bresearch\s+only\b/i.test(raw)
-    || /\bjust\s+(?:return|give|show)\s+(?:the\s+)?sources?\b/i.test(raw)
-    || /\b(?:do\s+not|don['’]?t)\s+make\s+anything\s+yet\b/i.test(raw)
-    || /\bno\s+lessons?\s+or\s+assets?\b/i.test(raw)
-  );
+function researchOnlyScope(ownerIntent, confirmedStagedMutation = false) {
+  if (!ownerIntent?.isResearchRequest) return { explicit: false, stagedIntent: null, ambiguous: false };
   return {
-    explicit,
-    stagedLesson: !explicit
-      && /\b(?:then|after(?:ward)?)\s+(?:make|create|build)\s+(?:a\s+|the\s+|new\s+)?lesson\b/i.test(raw),
+    explicit: ownerIntent.naturalIntent === intentRouter.NATURAL_INTENTS.RESEARCH_ONLY,
+    stagedIntent: confirmedStagedMutation ? null
+      : (ownerIntent.naturalIntent === intentRouter.NATURAL_INTENTS.RESEARCH_AND_CREATE
+        ? "research_then_create"
+        : (ownerIntent.naturalIntent === intentRouter.NATURAL_INTENTS.RESEARCH_AND_UPDATE
+          ? "research_then_update"
+          : null)),
+    ambiguous: ownerIntent.naturalIntent === intentRouter.NATURAL_INTENTS.AMBIGUOUS,
   };
 }
 
@@ -109,7 +105,6 @@ function extractNamedLessonHints(command) {
 function parseOperatorCommand(rawCommand, options = {}) {
   const raw = schema.text(rawCommand, 4000);
   const lower = raw.toLowerCase();
-  const researchScope = researchOnlyScope(raw);
   const notes = [];
   const actions = schema.emptyActionsFlags();
   const count = parseCount(raw);
@@ -123,6 +118,7 @@ function parseOperatorCommand(rawCommand, options = {}) {
     currentlySelectedLessonId: options.currentlySelectedLessonId,
     lessonPlans: options.lessonPlans || [],
   });
+  const researchScope = researchOnlyScope(ownerIntent, options.confirmStagedResearchCreate === true);
   const requestedTargetCount = [
     intentRouter.NATURAL_INTENTS.UPDATE_ONE_LESSON,
     intentRouter.NATURAL_INTENTS.ACTIVITY_ONLY_UPDATE,
@@ -540,6 +536,11 @@ function parseOperatorCommand(rawCommand, options = {}) {
     actions.connectedUpgrade = true;
     if (explicitBooleans.connectedAutoApply !== false) actions.connectedAutoApply = true;
   }
+  if (ownerIntent.route === intentRouter.ROUTES.AMBIGUOUS
+    && !ownerIntent.lessonReference.lessonIds.length) {
+    intent = "audit";
+    stripResearchMutationActions(actions);
+  }
 
   const explicitLessonIds = intentRouter.extractExplicitLessonIds(raw, options.lessonPlans || []);
   const safety = commandSafety.validateParsedCommandSafety({
@@ -644,22 +645,45 @@ function parseOperatorCommand(rawCommand, options = {}) {
     result.needsConfirmation = false;
     result.confirmReasons = [];
     result.mutationsStripped = true;
-  } else if (researchScope.stagedLesson) {
+  } else if (researchScope.stagedIntent) {
+    result.command.intent = researchScope.stagedIntent;
     stripResearchMutationActions(result.command.actions);
     result.command.completion.mutationsEnabled = false;
+    const confirmationReason = researchScope.stagedIntent === "research_then_update"
+      ? "research_then_update_confirmation_required"
+      : "research_then_lesson_confirmation_required";
     result.command.confirmations.reasons = [...new Set([
       ...(result.command.confirmations.reasons || []),
-      "research_then_lesson_confirmation_required",
+      confirmationReason,
     ])];
     result.command.parsedNotes = [...new Set([
       ...(result.command.parsedNotes || []),
-      "Research and lesson creation are staged separately; confirm the lesson step after reviewing sources.",
+      researchScope.stagedIntent === "research_then_update"
+        ? "Research and lesson updates are staged separately; confirm the update after reviewing sources."
+        : "Research and lesson creation are staged separately; confirm the lesson step after reviewing sources.",
     ])];
     result.ambiguous = true;
     result.needsConfirmation = true;
     result.confirmReasons = [...new Set([
       ...(result.confirmReasons || []),
-      "research_then_lesson_confirmation_required",
+      confirmationReason,
+    ])];
+    result.mutationsStripped = true;
+  } else if (researchScope.ambiguous) {
+    result.command.intent = "audit";
+    result.command.scope.lessonIds = [];
+    result.command.scope.titles = [];
+    stripResearchMutationActions(result.command.actions);
+    result.command.completion.mutationsEnabled = false;
+    result.command.confirmations.reasons = [...new Set([
+      ...(result.command.confirmations.reasons || []),
+      "research_scope_clarification_required",
+    ])];
+    result.ambiguous = true;
+    result.needsConfirmation = true;
+    result.confirmReasons = [...new Set([
+      ...(result.confirmReasons || []),
+      "research_scope_clarification_required",
     ])];
     result.mutationsStripped = true;
   }
