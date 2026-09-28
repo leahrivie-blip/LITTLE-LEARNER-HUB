@@ -4693,6 +4693,12 @@ async function withPostgresClient(work, { label = "Postgres client" } = {}) {
   try {
     return await work(client);
   } catch (error) {
+    // Transient recovery/disconnect errors must destroy the checked-out client.
+    // Returning it to the pool can make every retry reuse an unusable connection
+    // while Postgres is still finishing crash recovery.
+    if (!connectionError && isTransientPostgresConnectionError(error)) {
+      connectionError = error;
+    }
     throw connectionError || error;
   } finally {
     if (typeof client.removeListener === "function") {
@@ -6015,6 +6021,23 @@ function enqueuePostgresStoreWrite() {
       return;
     }
     if (error?.code !== "store_count_drop_blocked") {
+      // Signup (and other hot paths) often enqueue a newer full-store write while an
+      // older attempt is still retrying recovery-mode errors. If a newer generation is
+      // already queued, do not sticky-fail readiness or send failed_write mail for the
+      // superseded attempt — the newer write owns the outcome (alert only if it also fails).
+      if (writeGeneration !== postgresWriteGeneration) {
+        storeWriteMetricsLib.recordWriteFailure(storeWriteMetrics);
+        logStorePersistence("failed_write_superseded", {
+          writeGeneration,
+          latest: postgresWriteGeneration,
+          error: error.message || String(error),
+        });
+        console.error(
+          "Could not persist launch store to Postgres (superseded by newer write):",
+          error.message || error,
+        );
+        return;
+      }
       databaseReady = false;
       lastPostgresError = error.message || "Postgres store write failed.";
       storeWriteMetricsLib.recordWriteFailure(storeWriteMetrics);
@@ -6222,10 +6245,12 @@ async function writeStoreAsync(store) {
     );
   }
   if (usePostgresStore() && postgresPool && databaseReady) {
+    let writeGeneration = 0;
     try {
       await flushDebouncedPostgresStoreWrite();
-      const { writeGeneration, writePromise } = enqueuePostgresStoreWrite();
-      await writePromise;
+      const enqueued = enqueuePostgresStoreWrite();
+      writeGeneration = enqueued.writeGeneration;
+      await enqueued.writePromise;
       // If a newer write superseded us while we waited, wait for that newer persist too
       // so the caller does not return success before the latest state is durable.
       if (writeGeneration !== postgresWriteGeneration) {
@@ -6238,10 +6263,39 @@ async function writeStoreAsync(store) {
         console.error("[store] Postgres writeAsync blocked by inventory guard:", error.message);
         throw error;
       }
-      databaseReady = false;
-      lastPostgresError = error.message || "Postgres store write failed.";
-      logStorePersistence("failed_write", { action: "writeStoreAsync", error: lastPostgresError });
-      maybeAlertPostgresDisconnect("postgres_write_async_failed");
+      // Our generation failed, but a newer queued write may still recover the same
+      // storeCache (common during signup: analytics + profile sync race). Wait for it
+      // before declaring a failed_write — avoids emergency mail when recovery succeeds.
+      if (writeGeneration && writeGeneration !== postgresWriteGeneration) {
+        try {
+          await postgresWriteChain;
+          if (databaseReady) {
+            logStorePersistence("write_async_superseded_recovered", {
+              writeGeneration,
+              latest: postgresWriteGeneration,
+              error: error.message || String(error),
+            });
+            return;
+          }
+        } catch {
+          /* newer write also failed — fall through to fail closed */
+        }
+      }
+      // enqueuePostgresStoreWrite already alerts for latest-generation failures.
+      // Only sticky-fail + alert here when readiness was not already cleared (e.g. race).
+      if (databaseReady) {
+        databaseReady = false;
+        lastPostgresError = error.message || "Postgres store write failed.";
+        logStorePersistence("failed_write", { action: "writeStoreAsync", error: lastPostgresError });
+        maybeAlertPostgresDisconnect("postgres_write_async_failed");
+      } else {
+        lastPostgresError = lastPostgresError || error.message || "Postgres store write failed.";
+        logStorePersistence("failed_write", {
+          action: "writeStoreAsync",
+          error: lastPostgresError,
+          note: "readiness already cleared by write chain",
+        });
+      }
       throw createStorePersistenceError(
         "Could not save to the database. Please try again in a moment.",
         "store_write_failed",
