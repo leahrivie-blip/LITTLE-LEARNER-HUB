@@ -252,12 +252,17 @@ async function main() {
     });
     const alertsBefore2 = countSafetyAlerts(child.__output());
     const failuresBefore2 = readStatus().conflictUpsertFailures || 0;
+    const releasedBefore2 = readStatus().clientsReleasedWithError || 0;
     const profile2 = await signupProfile(email2);
     assert.equal(profile2.status, 200, `retry signup failed: ${profile2.status} ${profile2.text}`);
     await new Promise((r) => setTimeout(r, 500));
     assert.ok(
       (readStatus().conflictUpsertFailures || 0) >= failuresBefore2 + 2,
       "expected recovery-mode failures before success",
+    );
+    assert.ok(
+      (readStatus().clientsReleasedWithError || 0) > releasedBefore2,
+      "recovery-mode failures must release/destroy the checked-out client with error",
     );
     assert.match(
       child.__output(),
@@ -273,10 +278,13 @@ async function main() {
     console.log("PASS  2 — recovery-mode retry succeeded without failed_write alert");
 
     // ---------- 3) Concurrent analytics + profile during recovery (signup race) ----------
+    // Exhaust the first write's startup-retry budget (POSTGRES_STARTUP_RETRY_COUNT=6 →
+    // 7 attempts) so it fails while the second signup write is already queued. That
+    // forces the superseded-write path rather than a same-generation retry-success.
     console.log("3) Concurrent analytics+profile signup under recovery-mode");
     const email3 = `signup-rec-race-${Date.now()}@gmail.com`;
     writeControl({
-      failNextConflictUpserts: 3,
+      failNextConflictUpserts: 7,
       failWithRecoveryMode: true,
     });
     const alertsBefore3 = countSafetyAlerts(child.__output());
@@ -306,8 +314,8 @@ async function main() {
     );
     assert.match(
       child.__output(),
-      /failed_write_superseded|write_async_superseded_recovered|write_retry|startupRecovery/,
-      "must show retry and/or superseded-write handling",
+      /failed_write_superseded|write_async_superseded_recovered/,
+      "concurrency must exercise superseded-write recovery (not only same-write retry)",
     );
     assert.equal(await launchDbReady(), true);
     console.log("PASS  3 — concurrent signup recovered; one user; no failed_write alert");
