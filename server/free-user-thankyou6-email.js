@@ -355,18 +355,18 @@ function buildEmailContent(options = {}) {
     "",
     "and get $6 off your first month of Little Learner Hub Pro.",
     "",
-    "That makes your first month just $7.99.",
+    "That makes your first month just $13.99 (regularly $19.99/month).",
     "",
     "With Pro, you'll unlock the full Little Learner Hub experience, including more lesson plans, activities, printables, planning tools, documentation tools, and everything new we're continuing to add for childcare providers.",
     "",
-    "Your first month: $7.99",
-    "Then: $13.99/month",
+    "Your first month: $13.99 with code THANKYOU6",
+    "Then: $19.99/month",
     "",
     `Promo code: ${PROMO_CODE}`,
     "",
     `Offer ends ${OFFER_EXPIRES_LABEL.replace(" at 11:59 PM CDT", "")} at 11:59 PM CDT.`,
     "",
-    "Try Pro for $7.99:",
+    "Upgrade to Pro with THANKYOU6:",
     ctaUrl,
     "",
     "Thank you for being here and helping me grow Little Learner Hub. 💛",
@@ -387,12 +387,12 @@ function buildEmailContent(options = {}) {
       <p>For a limited time, use code:</p>
       <p style="font-size:22px;font-weight:700;letter-spacing:0.06em;margin:12px 0">${escape(PROMO_CODE)}</p>
       <p>and get $6 off your first month of Little Learner Hub Pro.</p>
-      <p>That makes your first month just <strong>$7.99</strong>.</p>
+      <p>That makes your first month just <strong>$13.99</strong> (regularly $19.99/month).</p>
       <p>With Pro, you'll unlock the full Little Learner Hub experience, including more lesson plans, activities, printables, planning tools, documentation tools, and everything new we're continuing to add for childcare providers.</p>
-      <p><strong>Your first month:</strong> $7.99<br><strong>Then:</strong> $13.99/month<br><strong>Promo code:</strong> ${escape(PROMO_CODE)}</p>
+      <p><strong>Your first month:</strong> $13.99 with code THANKYOU6<br><strong>Then:</strong> $19.99/month<br><strong>Promo code:</strong> ${escape(PROMO_CODE)}</p>
       <p>Offer ends ${escape(OFFER_EXPIRES_LABEL)}.</p>
       <p style="margin:24px 0 12px">
-        <a href="${safeCta}" style="display:inline-block;background:#2f6f5e;color:#fff;text-decoration:none;padding:12px 18px;border-radius:8px;font-size:15px">Try Pro for $7.99</a>
+        <a href="${safeCta}" style="display:inline-block;background:#2f6f5e;color:#fff;text-decoration:none;padding:12px 18px;border-radius:8px;font-size:15px">Upgrade to Pro with THANKYOU6</a>
       </p>
       <p>Thank you for being here and helping me grow Little Learner Hub. 💛</p>
       <p>Leah<br>Little Learner Hub</p>

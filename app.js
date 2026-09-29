@@ -6460,7 +6460,8 @@ function resumeThankYou6CheckoutIfRequested() {
     return;
   }
   window.setTimeout(() => {
-    if (typeof startCheckout === "function") startCheckout("early_user", "thankyou6");
+    // THANKYOU6 uses Pro Monthly ($19.99); Early User $13.99 acquisition is retired.
+    if (typeof startCheckout === "function") startCheckout("monthly", "thankyou6");
   }, 400);
 }
 
@@ -52189,7 +52190,7 @@ async function renderAdminEmailEngagement() {
       <div class="admin-email-controls panel-form">
         <h4>Free User Thank You — THANKYOU6</h4>
         <p class="form-note"><strong>Campaign:</strong> Free User Thank You — THANKYOU6 · <strong>Offer:</strong> $6 off first month · <strong>Recipients:</strong> ${cachedThankYou6Preview?.counts?.selected ?? cachedThankYou6InAppPreview?.counts?.selected ?? 25} · <strong>Expiration:</strong> August 25, 2026 at 11:59 PM CDT</p>
-        <p class="form-note">Email and in-app use the <strong>same canonical recipient list</strong>. Checkout uses the existing $13.99 Early User price (not $19.99). Neither channel sends automatically or from the other channel.</p>
+        <p class="form-note">Email and in-app use the <strong>same canonical recipient list</strong>. Checkout uses Pro Monthly ($19.99) with promo code THANKYOU6 for a first-month discount. Early User $13.99 acquisition is retired. Neither channel sends automatically or from the other channel.</p>
         <div class="aup-insight-grid">
           <div class="aup-insight-card"><strong>${cachedThankYou6Preview?.counts?.totalFreeUsers ?? cachedThankYou6InAppPreview?.counts?.totalFreeUsers ?? "—"}</strong><span>Total Free users</span></div>
           <div class="aup-insight-card aup-insight--pro"><strong>${cachedThankYou6Preview?.counts?.totalEligible ?? cachedThankYou6InAppPreview?.counts?.totalEligible ?? "—"}</strong><span>Eligible</span></div>

@@ -582,7 +582,7 @@ const EARLY_USER_PRICING_ENABLED = ["1", "true", "yes", "on"].includes(
  * Public Early User ($13.99) acquisition is closed for NEW customers.
  * Existing Early User subscribers keep $13.99 via Stripe price-ID mapping and
  * stored billingOffer/priceLock markers — this flag must not reprice or migrate them.
- * THANKYOU6 campaign checkout may still select early_user via its isolated exception.
+ * No campaign (including THANKYOU6) may open a new Early User checkout.
  */
 const EARLY_USER_ACQUISITION_CLOSED = true;
 
@@ -11394,9 +11394,8 @@ async function handleCheckout(request, response, options = {}) {
   seedDefaultPromoCodes(store);
   purgeExpiredFoundingReservations(store, { persist: true });
   let requestedPlan = body.plan || "monthly";
-  // Early User is acquisition-only. Existing $13.99 subs keep working via price ID
-  // mapping even when the promo flag is later disabled.
-  // THANKYOU6 is the only exception: it must keep the $13.99 Early User price.
+  // Early User is acquisition-only and closed for NEW customers (including THANKYOU6).
+  // Existing $13.99 subs keep working via Stripe price ID mapping / billingOffer.
   requestedPlan = thankYou6Checkout.resolveCheckoutPlanKey(requestedPlan, {
     earlyUserAvailable: earlyUserPricingAvailable(),
     body,

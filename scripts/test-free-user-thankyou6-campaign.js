@@ -343,7 +343,7 @@ async function main() {
   const emailJs = fs.readFileSync(path.join(ROOT, "server/free-user-thankyou6-email.js"), "utf8");
   const checkoutJs = fs.readFileSync(path.join(ROOT, "server/thankyou6-checkout.js"), "utf8");
 
-  await test("campaign markers and $13.99 checkout stay isolated", () => {
+  await test("campaign markers and Pro Monthly checkout stay isolated", () => {
     assert.match(checkoutJs, /FREE_USER_THANKYOU6_AUG2026/);
     assert.match(emailJs, /SEND_THANKYOU6_CAMPAIGN/);
     assert.match(serverJs, /thankYou6Checkout\.resolveCheckoutPlanKey/);
@@ -354,15 +354,18 @@ async function main() {
     assert.match(appJs, /adminThankYou6InAppPreview/);
     assert.match(serverJs, /thankyou6-in-app\/dry-run/);
     assert.match(serverJs, /SEND_THANKYOU6_IN_APP/);
-    assert.equal(CHECKOUT_PLAN, "early_user");
-    assert.equal(CHECKOUT_PRICE_ENV, "STRIPE_PRICE_EARLY_USER_MONTHLY");
-    assert.equal(thankYou6Checkout.EXCLUDED_PRICE_ENV, "STRIPE_PRICE_PRO_MONTHLY");
+    assert.equal(CHECKOUT_PLAN, "monthly");
+    assert.equal(CHECKOUT_PRICE_ENV, "STRIPE_PRICE_PRO_MONTHLY");
+    assert.equal(thankYou6Checkout.RETIRED_EARLY_USER_PRICE_ENV, "STRIPE_PRICE_EARLY_USER_MONTHLY");
     const content = buildEmailContent({ siteUrl: "https://littlelearnershubbyleah.com" });
     assert.equal(content.subject, EMAIL_SUBJECT);
     assert.match(content.text, /THANKYOU6/);
+    assert.match(content.text, /\$19\.99\/month/);
+    assert.doesNotMatch(content.text, /Then:\s*\$13\.99\/month/);
     assert.match(content.ctaUrl, /view=upgrade/);
-    assert.match(content.ctaUrl, /plan=early_user/);
+    assert.match(content.ctaUrl, /plan=monthly/);
     assert.match(content.ctaUrl, /campaign=FREE_USER_THANKYOU6_AUG2026/);
+    assert.doesNotMatch(content.ctaUrl, /plan=early_user/);
     assert.doesNotMatch(content.ctaUrl, /sk_live|cs_live|price_/);
   });
 
@@ -658,7 +661,8 @@ async function main() {
     assert.equal(localStore.notifications.length, 0);
     assert.equal(preview.channel, "in_app");
     assert.match(preview.inApp.ctaPath, /campaign=FREE_USER_THANKYOU6_AUG2026/);
-    assert.match(preview.inApp.ctaPath, /plan=early_user/);
+    assert.match(preview.inApp.ctaPath, /plan=monthly/);
+    assert.doesNotMatch(preview.inApp.ctaPath, /plan=early_user/);
     assert.ok(!preview.recipients.some((row) => row.email === "llh.prod.flag.free.1785770260@littlelearnershubbyleah.com"));
     assert.ok(!preview.recipients.some((row) => row.email === "andvarvele22@gmil.com"));
     assert.ok(!preview.recipients.some((row) => row.email === "unsub.user@providermail.com"));
@@ -766,13 +770,16 @@ async function main() {
     assert.equal(localStore.notifications.length, 1);
   });
 
-  await test("in-app content uses only the isolated THANKYOU6 checkout path", () => {
+  await test("in-app content uses Pro Monthly THANKYOU6 checkout path", () => {
     const content = buildInAppContent({ siteUrl: "https://littlelearnershubbyleah.com" });
     assert.match(content.title, /thank-you/i);
     assert.match(content.body, /THANKYOU6/);
+    assert.match(content.body, /\$19\.99\/month/);
+    assert.doesNotMatch(content.body, /Early User/);
     assert.match(content.ctaPath, /view=upgrade/);
-    assert.match(content.ctaPath, /plan=early_user/);
+    assert.match(content.ctaPath, /plan=monthly/);
     assert.match(content.ctaPath, /campaign=FREE_USER_THANKYOU6_AUG2026/);
+    assert.doesNotMatch(content.ctaPath, /plan=early_user/);
     assert.doesNotMatch(content.ctaPath, /sk_live|cs_live|price_/);
   });
 
@@ -781,7 +788,7 @@ async function main() {
     await test("test server becomes healthy for checkout checks", async () => {
       await waitForHealth(child);
     });
-    await test("flag-off checkout remaps early_user to $19.99 unless THANKYOU6 campaign", async () => {
+    await test("flag-off and THANKYOU6 campaign both use $19.99 monthly (Early User retired)", async () => {
       const regular = await requestJson("POST", "/api/create-checkout-session", {
         email: "regular@providermail.com",
         plan: "early_user",
@@ -797,9 +804,9 @@ async function main() {
         campaign: CAMPAIGN_ID,
       });
       assert.equal(campaign.status, 200);
-      assert.equal(campaign.json.plan, "early_user");
-      assert.match(String(campaign.json.url || ""), /price_sim_early_user_monthly/);
-      assert.doesNotMatch(String(campaign.json.url || ""), /price_sim_pro_monthly/);
+      assert.equal(campaign.json.plan, "monthly");
+      assert.match(String(campaign.json.url || ""), /price_sim_pro_monthly/);
+      assert.doesNotMatch(String(campaign.json.url || ""), /price_sim_early_user_monthly/);
       assert.match(String(campaign.json.url || ""), /allow_promotion_codes=true/);
       assert.match(String(campaign.json.url || ""), /campaign=FREE_USER_THANKYOU6_AUG2026/);
     });

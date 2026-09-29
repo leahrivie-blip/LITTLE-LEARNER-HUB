@@ -342,10 +342,26 @@ async function main() {
         store.foundingMembers[0] = "legacy-founder@test.local";
       }
       writeStore(store);
-      const status = await requestJson("GET", `/api/subscription-status?email=${encodeURIComponent("legacy-founder@test.local")}`);
+      // /api/subscription-status requires authenticated identity (member session,
+      // Firebase, or NODE_ENV=test Bearer test:<email>). Email query alone is not proof.
+      const status = await requestJson(
+        "GET",
+        `/api/subscription-status?email=${encodeURIComponent("legacy-founder@test.local")}`,
+        null,
+        {
+          headers: {
+            Authorization: "Bearer test:legacy-founder@test.local",
+            "x-llh-user-email": "legacy-founder@test.local",
+          },
+        },
+      );
       assert.equal(status.status, 200);
       const sub = status.json.subscription || status.json;
-      assert.ok(sub.hasProAccess !== false || status.json.hasProAccess !== false || true);
+      assert.equal(sub?.hasProAccess, true, "legacy founding member must retain Pro access");
+      assert.ok(
+        String(store.users["legacy-founder@test.local"].monthlyPrice || "") === "$9.99/month",
+        "legacy founding store price remains $9.99",
+      );
       record("existing founding member record remains $9.99 grandfathered fields", true, store.users["legacy-founder@test.local"].monthlyPrice);
     }
   } finally {

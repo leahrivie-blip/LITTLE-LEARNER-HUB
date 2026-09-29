@@ -197,6 +197,19 @@ async function main() {
     assert.equal(remap.json?.plan, "monthly");
     console.log("PASS  checkout: new-customer early_user remaps to $19.99 monthly");
 
+    // THANKYOU6 campaign must not reopen Early User $13.99.
+    const thankYou6 = await requestJson("POST", "/api/create-checkout-session", {
+      email: "thankyou6@checkout-status.test",
+      plan: "early_user",
+      campaign: "FREE_USER_THANKYOU6_AUG2026",
+    });
+    assert.equal(thankYou6.status, 200);
+    assert.equal(thankYou6.json?.plan, "monthly");
+    assert.ok(String(thankYou6.json?.url || "").includes("price_sim_pro_monthly"));
+    assert.doesNotMatch(String(thankYou6.json?.url || ""), /price_sim_early_user_monthly/);
+    assert.match(String(thankYou6.json?.url || ""), /campaign=FREE_USER_THANKYOU6_AUG2026/);
+    console.log("PASS  checkout: THANKYOU6 campaign uses $19.99 monthly, not Early User");
+
     console.log("\nAll checkout-status trial success checks passed.");
   } finally {
     await stopServer(child);
