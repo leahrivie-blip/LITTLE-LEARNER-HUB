@@ -360,8 +360,13 @@ async function main() {
     const content = buildEmailContent({ siteUrl: "https://littlelearnershubbyleah.com" });
     assert.equal(content.subject, EMAIL_SUBJECT);
     assert.match(content.text, /THANKYOU6/);
+    assert.match(content.text, /\$6 off/);
     assert.match(content.text, /\$19\.99\/month/);
-    assert.doesNotMatch(content.text, /Then:\s*\$13\.99\/month/);
+    assert.match(content.html, /\$6 off/);
+    assert.match(content.html, /\$19\.99\/month/);
+    // Do not advertise retired Early User $13.99 as a new-customer price.
+    assert.doesNotMatch(content.text, /\$13\.99/);
+    assert.doesNotMatch(content.html, /\$13\.99/);
     assert.match(content.ctaUrl, /view=upgrade/);
     assert.match(content.ctaUrl, /plan=monthly/);
     assert.match(content.ctaUrl, /campaign=FREE_USER_THANKYOU6_AUG2026/);
@@ -774,7 +779,9 @@ async function main() {
     const content = buildInAppContent({ siteUrl: "https://littlelearnershubbyleah.com" });
     assert.match(content.title, /thank-you/i);
     assert.match(content.body, /THANKYOU6/);
+    assert.match(content.body, /\$6 off/);
     assert.match(content.body, /\$19\.99\/month/);
+    assert.doesNotMatch(content.body, /\$13\.99/);
     assert.doesNotMatch(content.body, /Early User/);
     assert.match(content.ctaPath, /view=upgrade/);
     assert.match(content.ctaPath, /plan=monthly/);

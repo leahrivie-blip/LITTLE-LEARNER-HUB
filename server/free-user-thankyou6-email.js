@@ -355,11 +355,11 @@ function buildEmailContent(options = {}) {
     "",
     "and get $6 off your first month of Little Learner Hub Pro.",
     "",
-    "That makes your first month just $13.99 (regularly $19.99/month).",
+    "Pro is $19.99/month. Use code THANKYOU6 to save $6 on your first month.",
     "",
     "With Pro, you'll unlock the full Little Learner Hub experience, including more lesson plans, activities, printables, planning tools, documentation tools, and everything new we're continuing to add for childcare providers.",
     "",
-    "Your first month: $13.99 with code THANKYOU6",
+    "First month: $6 off with code THANKYOU6",
     "Then: $19.99/month",
     "",
     `Promo code: ${PROMO_CODE}`,
@@ -387,9 +387,9 @@ function buildEmailContent(options = {}) {
       <p>For a limited time, use code:</p>
       <p style="font-size:22px;font-weight:700;letter-spacing:0.06em;margin:12px 0">${escape(PROMO_CODE)}</p>
       <p>and get $6 off your first month of Little Learner Hub Pro.</p>
-      <p>That makes your first month just <strong>$13.99</strong> (regularly $19.99/month).</p>
+      <p>Pro is <strong>$19.99/month</strong>. Use code THANKYOU6 to save $6 on your first month.</p>
       <p>With Pro, you'll unlock the full Little Learner Hub experience, including more lesson plans, activities, printables, planning tools, documentation tools, and everything new we're continuing to add for childcare providers.</p>
-      <p><strong>Your first month:</strong> $13.99 with code THANKYOU6<br><strong>Then:</strong> $19.99/month<br><strong>Promo code:</strong> ${escape(PROMO_CODE)}</p>
+      <p><strong>First month:</strong> $6 off with code THANKYOU6<br><strong>Then:</strong> $19.99/month<br><strong>Promo code:</strong> ${escape(PROMO_CODE)}</p>
       <p>Offer ends ${escape(OFFER_EXPIRES_LABEL)}.</p>
       <p style="margin:24px 0 12px">
         <a href="${safeCta}" style="display:inline-block;background:#2f6f5e;color:#fff;text-decoration:none;padding:12px 18px;border-radius:8px;font-size:15px">Upgrade to Pro with THANKYOU6</a>
