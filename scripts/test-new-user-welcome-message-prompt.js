@@ -78,6 +78,14 @@ assert.equal(modal.classList.contains("open"), false, "lesson-library action clo
 assert.equal(sandbox.lastView.view, "lessons", "welcome action opens the lesson library");
 assert.equal(onboarding.getState().step, "done", "lesson-library action completes the focused Free welcome");
 
+onboarding.beginAfterFreeSignup();
+listeners.click({
+  preventDefault() {},
+  target: { closest: () => ({ getAttribute: () => "continue" }) },
+});
+assert.match(body.innerHTML, /Included Free lesson plans for infants, toddlers, and preschoolers/);
+assert.doesNotMatch(body.innerHTML, /11 complete starter lesson plans/);
+
 onboarding.clearOnLogout();
 sandbox.currentUser = "resume-welcome@example.com";
 onboarding.beginAfterFreeSignup();
