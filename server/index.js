@@ -578,7 +578,16 @@ const EARLY_USER_PRICING_ENABLED = ["1", "true", "yes", "on"].includes(
   String(process.env.EARLY_USER_PRICING_ENABLED || "false").trim().toLowerCase(),
 );
 
+/**
+ * Public Early User ($13.99) acquisition is closed for NEW customers.
+ * Existing Early User subscribers keep $13.99 via Stripe price-ID mapping and
+ * stored billingOffer/priceLock markers — this flag must not reprice or migrate them.
+ * THANKYOU6 campaign checkout may still select early_user via its isolated exception.
+ */
+const EARLY_USER_ACQUISITION_CLOSED = true;
+
 function earlyUserPricingAvailable() {
+  if (EARLY_USER_ACQUISITION_CLOSED) return false;
   return EARLY_USER_PRICING_ENABLED && isConfiguredValue(process.env.STRIPE_PRICE_EARLY_USER_MONTHLY);
 }
 
@@ -11707,6 +11716,128 @@ async function handleCheckout(request, response, options = {}) {
 }
 
 async function stripeGet(pathname) {
+  if (STRIPE_CHECKOUT_SIMULATION) {
+    // Regression fixtures for /api/checkout-status (no live Stripe). Session/sub IDs encode the scenario.
+    if (pathname.startsWith("checkout/sessions/")) {
+      const id = decodeURIComponent(pathname.slice("checkout/sessions/".length));
+      if (!String(id).startsWith("cs_")) {
+        const err = new Error("No such checkout.session");
+        throw err;
+      }
+      if (/_open_/i.test(id)) {
+        return {
+          id,
+          object: "checkout.session",
+          status: "open",
+          payment_status: "unpaid",
+          customer: "cus_sim_open",
+          subscription: null,
+          metadata: { email: "open@checkout-status.test", plan: "monthly", promoTrialDays: "0" },
+          customer_details: { email: "open@checkout-status.test" },
+          amount_total: 1999,
+          currency: "usd",
+        };
+      }
+      if (/_expired_/i.test(id)) {
+        return {
+          id,
+          object: "checkout.session",
+          status: "expired",
+          payment_status: "unpaid",
+          customer: "cus_sim_expired",
+          subscription: null,
+          metadata: { email: "expired@checkout-status.test", plan: "monthly", promoTrialDays: "0" },
+          customer_details: { email: "expired@checkout-status.test" },
+          amount_total: 1999,
+          currency: "usd",
+        };
+      }
+      if (/_trial_nopay_/i.test(id)) {
+        return {
+          id,
+          object: "checkout.session",
+          status: "complete",
+          payment_status: "no_payment_required",
+          customer: "cus_sim_trial",
+          subscription: "sub_sim_trialing",
+          metadata: {
+            email: "trial-nopay@checkout-status.test",
+            plan: "monthly",
+            promoTrialDays: "7",
+            promoLabel: "7-Day Pro Trial",
+            trial7day: "true",
+          },
+          customer_details: { email: "trial-nopay@checkout-status.test" },
+          amount_total: 0,
+          currency: "usd",
+        };
+      }
+      if (/_paid_/i.test(id) || /_complete_paid_/i.test(id)) {
+        return {
+          id,
+          object: "checkout.session",
+          status: "complete",
+          payment_status: "paid",
+          customer: "cus_sim_paid",
+          subscription: "sub_sim_active",
+          metadata: { email: "paid@checkout-status.test", plan: "monthly", promoTrialDays: "0" },
+          customer_details: { email: "paid@checkout-status.test" },
+          amount_total: 1999,
+          currency: "usd",
+        };
+      }
+      if (/_nopay_nosub_/i.test(id)) {
+        return {
+          id,
+          object: "checkout.session",
+          status: "complete",
+          payment_status: "no_payment_required",
+          customer: "cus_sim_nosub",
+          subscription: null,
+          metadata: { email: "nosub@checkout-status.test", plan: "monthly", promoTrialDays: "7" },
+          customer_details: { email: "nosub@checkout-status.test" },
+          amount_total: 0,
+          currency: "usd",
+        };
+      }
+      // Default simulated complete unpaid — must not grant access.
+      return {
+        id,
+        object: "checkout.session",
+        status: "complete",
+        payment_status: "unpaid",
+        customer: "cus_sim_unpaid",
+        subscription: null,
+        metadata: { email: "unpaid@checkout-status.test", plan: "monthly" },
+        customer_details: { email: "unpaid@checkout-status.test" },
+        amount_total: 1999,
+        currency: "usd",
+      };
+    }
+    if (pathname.startsWith("subscriptions/")) {
+      const id = decodeURIComponent(pathname.slice("subscriptions/".length));
+      if (/trialing/i.test(id)) {
+        return {
+          id,
+          object: "subscription",
+          status: "trialing",
+          customer: "cus_sim_trial",
+          metadata: { email: "trial-nopay@checkout-status.test", plan: "monthly" },
+          items: { data: [{ price: { id: "price_sim_pro_monthly", unit_amount: 1999 } }] },
+          current_period_end: Math.floor(Date.now() / 1000) + 7 * 86400,
+        };
+      }
+      return {
+        id,
+        object: "subscription",
+        status: "active",
+        customer: "cus_sim_paid",
+        metadata: { email: "paid@checkout-status.test", plan: "monthly" },
+        items: { data: [{ price: { id: "price_sim_pro_monthly", unit_amount: 1999 } }] },
+        current_period_end: Math.floor(Date.now() / 1000) + 30 * 86400,
+      };
+    }
+  }
   const response = await fetch(`https://api.stripe.com/v1/${pathname}`, {
     method: "GET",
     headers: {
@@ -12497,10 +12628,36 @@ async function handleCheckoutStatus(request, response, url) {
     const promoTrialDays = Number(session.metadata?.promoTrialDays || userEntry?.[1]?.pendingTrialDays || 0);
     const promoLabel = session.metadata?.promoLabel || userEntry?.[1]?.pendingPromoLabel || "";
     const paymentConfirmed = session.payment_status === "paid";
-    // A completed Checkout redirect may still be unpaid (for example, asynchronous
-    // payment methods). This browser-facing status check must not grant access until
-    // Stripe explicitly confirms payment; lifecycle webhooks remain authoritative.
-    const paid = paymentConfirmed;
+    const sessionComplete = String(session.status || "") === "complete";
+    // Prefer live Stripe subscription proof for trial / no-charge completions.
+    // Do NOT treat bare no_payment_required as success without a verified subscription.
+    let liveSub = null;
+    let liveSubStatus = "";
+    if (session.subscription && typeof session.subscription === "string") {
+      try {
+        liveSub = await stripeGet(`subscriptions/${encodeURIComponent(session.subscription)}`);
+        liveSubStatus = String(liveSub?.status || "").trim().toLowerCase();
+      } catch (syncError) {
+        console.warn(`[membership] checkout_status subscription lookup failed session=${session.id}:`, syncError.message);
+      }
+    }
+    const verifiedSubscriptionActive = Boolean(liveSub?.id)
+      && (liveSubStatus === "trialing" || liveSubStatus === "active");
+    const verifiedNoChargeTrial = sessionComplete
+      && session.payment_status === "no_payment_required"
+      && verifiedSubscriptionActive;
+    // Webhook may have already granted access before the browser status poll returns.
+    const priorUser = userEntry?.[1] || {};
+    const webhookAlreadyActive = Boolean(email)
+      && sessionComplete
+      && membershipHasProAccess(priorUser)
+      && (
+        (session.subscription && String(priorUser.stripeSubscriptionId || "") === String(session.subscription))
+        || (promoTrialDays > 0 && membershipAccess.membershipUserInTrial(priorUser))
+      );
+    // Browser success requires paid payment, verified complete trial/no-charge sub,
+    // or webhook-already-active entitlement for this session. Incomplete/expired stay unpaid.
+    const paid = paymentConfirmed || verifiedNoChargeTrial || webhookAlreadyActive;
     let upgradedUser = null;
     if (paid && email) {
       upgradedUser = applyCheckoutMembershipUpgrade(email, {
@@ -12514,21 +12671,14 @@ async function handleCheckoutStatus(request, response, url) {
         source: "checkout_status",
       }, { deferPersist: true });
       // Prefer live Stripe subscription fields when available so period end is exact.
-      if (session.subscription && typeof session.subscription === "string") {
-        try {
-          const liveSub = await stripeGet(`subscriptions/${encodeURIComponent(session.subscription)}`);
-          if (liveSub?.id) {
-            upgradedUser = upsertStripeSubscription(email, session.customer, liveSub, { deferPersist: true });
-            logMembershipTransition("membership_synced_from_subscription", email, {
-              plan: upgradedUser.plan,
-              subscriptionStatus: upgradedUser.subscriptionStatus,
-              hasProAccess: membershipHasProAccess(upgradedUser),
-              extra: { source: "checkout_status" },
-            });
-          }
-        } catch (syncError) {
-          console.warn(`[membership] checkout_status subscription sync failed email=${email}:`, syncError.message);
-        }
+      if (liveSub?.id) {
+        upgradedUser = upsertStripeSubscription(email, session.customer, liveSub, { deferPersist: true });
+        logMembershipTransition("membership_synced_from_subscription", email, {
+          plan: upgradedUser.plan,
+          subscriptionStatus: upgradedUser.subscriptionStatus,
+          hasProAccess: membershipHasProAccess(upgradedUser),
+          extra: { source: "checkout_status", liveSubStatus, verifiedNoChargeTrial },
+        });
       }
       try {
         await writeStoreAsync(writableStore());
@@ -12541,6 +12691,9 @@ async function handleCheckoutStatus(request, response, url) {
         return;
       }
     }
+    const effectiveTrialDays = promoTrialDays > 0
+      ? promoTrialDays
+      : (verifiedNoChargeTrial && liveSubStatus === "trialing" ? STANDARD_TRIAL_DAYS : 0);
     jsonResponse(response, 200, {
       paid,
       paymentConfirmed,
@@ -12554,8 +12707,8 @@ async function handleCheckoutStatus(request, response, url) {
       subscriptionId: session.subscription,
       customerId: session.customer,
       promo: promoCode ? { applied: true, trialDays: promoTrialDays, label: promoLabel } : null,
-      trial: promoTrialDays > 0
-        ? { applied: true, trialDays: promoTrialDays, label: promoLabel || "Trial", paymentMethodRequired: true }
+      trial: effectiveTrialDays > 0
+        ? { applied: true, trialDays: effectiveTrialDays, label: promoLabel || "Trial", paymentMethodRequired: true }
         : null,
       founding: foundingStatusPayload(readStore()),
       membership: upgradedUser ? membershipSummaryForUser(upgradedUser) : null,

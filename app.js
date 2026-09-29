@@ -5828,7 +5828,17 @@ function checkoutPlanName(type) {
   return "Pro Monthly";
 }
 
+/**
+ * Public Early User ($13.99) acquisition is closed for NEW customers.
+ * Existing Early User subscribers keep entitlement via billingOffer/priceLock.
+ * Mirrors server EARLY_USER_ACQUISITION_CLOSED — do not re-open from stale cache.
+ */
+const EARLY_USER_ACQUISITION_CLOSED = true;
+
 function earlyUserPricingEnabled() {
+  // Public Early User acquisition is closed; existing Early User members are
+  // detected via accountIsEarlyUser() / billingOffer, not this acquisition flag.
+  if (EARLY_USER_ACQUISITION_CLOSED) return false;
   return Boolean(foundingStatusCache?.earlyUserPricingEnabled);
 }
 
@@ -67534,25 +67544,10 @@ async function startCheckout(type, trackingContext = "checkout") {
   const checkoutType = type;
   const amount = checkoutAmount(checkoutType);
   const promoCode = normalizedCheckoutPromoCode();
-  const priceConfirmLabel = checkoutType === "founding"
-    ? "Pro membership"
-    : checkoutType === "annual"
-      ? "Pro Annual at $199/year"
-      : checkoutType === "early_user"
-        ? earlyUserLimitedTimePriceCopy()
-        : `Pro Monthly at ${regularProMonthlyLabel()}`;
-  const promoConfirm = promoCode
-    ? `\n\nPromo ${promoCode}: first month is $0 (card required). After the free month, billing continues automatically unless you cancel before renewal.${checkoutType === "founding" || foundingSpotsRemaining() > 0 ? " You will continue at Pro pricing after the free month." : " You will continue at Pro pricing after the free month."}`
-    : "";
-  const membershipConfirm = checkoutType === "founding"
-    ? `\n\n${MEMBERSHIP_COPY.foundingCard}`
-    : `\n\n${membershipProCardCopy()}\n\nIf you start with a trial instead: ${membershipTrialCoreCopy()}`;
-  if (!window.confirm(`Continue to secure Stripe checkout for ${priceConfirmLabel}?${membershipConfirm}${promoConfirm}`)) {
-    if (checkoutType === "monthly" || checkoutType === "annual" || checkoutType === "early_user") {
-      trackProCheckoutAbandoned("confirm_declined", { type: checkoutType, amount, context: trackingContext });
-    }
-    return;
-  }
+  // Intentionally no window.confirm here: the user already clicked an explicit
+  // Upgrade/Subscribe CTA, pricing pages disclose the offer, and Stripe Checkout
+  // collects payment consent. confirm_declined abandon tracking no longer fires
+  // on this path (see trackProCheckoutAbandoned).
   if (checkoutType === "monthly" || checkoutType === "annual" || checkoutType === "early_user") {
     trackProUpgradeIntent("checkout_confirmed", { plan: checkoutType, offer: checkoutType === "early_user" ? "early_user" : "", context: trackingContext });
   }
