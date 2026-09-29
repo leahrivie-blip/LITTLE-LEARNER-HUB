@@ -306,16 +306,17 @@ function applyToParsedResult(parsed = {}, options = {}) {
   };
 }
 
-function refreshFinalizedResearchInterpretation(parsed = {}, { preserveTarget = false } = {}) {
+function refreshFinalizedResearchInterpretation(parsed = {}, { preserveTarget = false, targetRows = [] } = {}) {
   const command = parsed.command;
   if (!command || typeof command !== "object") return parsed;
   const scope = command.scope || {};
   const existing = command.interpretation || parsed.interpretation || {};
   const lessonIds = preserveTarget ? schema.asArray(scope.lessonIds) : [];
   const titles = preserveTarget ? schema.asArray(scope.titles) : [];
+  const rows = preserveTarget ? schema.asArray(targetRows) : [];
   const summary = summaryApi.buildOwnerSummary({
     command,
-    targets: { mode: lessonIds.length ? "explicit" : "none", rows: [] },
+    targets: { mode: lessonIds.length ? "explicit" : "none", rows },
     confidence: { overall: parsed.needsConfirmation ? "medium" : "high" },
   });
   command.interpretation = {

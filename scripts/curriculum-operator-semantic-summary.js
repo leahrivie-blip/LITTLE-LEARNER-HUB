@@ -20,13 +20,14 @@ function buildOwnerSummary({
   const actions = command.actions || {};
   const scope = command.scope || {};
   const rows = schema.asArray(targets.rows);
+  const researchOperation = command.intent;
   const researchIntent = [
     "research_only",
     "research_then_create",
     "research_then_update",
-  ].includes(command.intent);
+  ].includes(researchOperation);
   const operation = researchIntent
-    ? command.intent
+    ? researchOperation
     : compiled.primary === "ACTIVITY_IMAGE_REPAIR"
     ? "Repair activity images"
     : compiled.primary === "VOCABULARY_WORK"
@@ -85,9 +86,9 @@ function buildOwnerSummary({
     researchIntent
       ? "Save behavior: No curriculum changes are planned."
       : "Save behavior: Successful approved AI changes will be saved directly into the lesson draft for your review.",
-    researchIntent === "research_then_create"
+    researchOperation === "research_then_create"
       ? "Final action: Confirm before creating a new lesson."
-      : researchIntent === "research_then_update"
+      : researchOperation === "research_then_update"
         ? "Final action: Confirm before updating the existing lesson."
         : researchIntent
           ? "Final action: No curriculum job will run."

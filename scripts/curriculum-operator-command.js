@@ -690,6 +690,7 @@ function parseOperatorCommand(rawCommand, options = {}) {
   if (researchScope.explicit || researchScope.stagedIntent || researchScope.ambiguous) {
     result = semanticInterpret.refreshFinalizedResearchInterpretation(result, {
       preserveTarget: result.command.intent === "research_then_update",
+      targetRows: ownerIntent.lessonReference.resolvedLessons,
     });
   }
   return result;

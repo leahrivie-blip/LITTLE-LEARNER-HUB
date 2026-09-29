@@ -70,6 +70,7 @@ function assertNoResearchMutationActions(parsed, label) {
     assert.equal(staged.needsConfirmation, true, `${request} requires confirmation`);
     assertNoResearchMutationActions(staged, request);
     assert.match(staged.interpretation.ownerSummary, /Operation: research_then_create/, `${request} preview uses staged create`);
+    assert.match(staged.interpretation.ownerSummary, /Confirm before creating a new lesson/, `${request} preview requires create confirmation`);
   });
 
   const implicitResearchOnly = command.parseOperatorCommand("Research fall activities for preschool.", { phase: 7, lessonPlans });
@@ -99,6 +100,8 @@ function assertNoResearchMutationActions(parsed, label) {
   assert.equal(ordinary.command.actions.createLesson, true, "ordinary lesson request retains creation");
   assert.equal(ordinary.command.actions.generateImages, true, "ordinary lesson request retains requested images");
   assert.equal(ordinary.command.actions.generatePrintables, true, "ordinary lesson request retains requested printables");
+  assert.notEqual(ordinary.interpretation.primary, null, "ordinary lesson interpretation is not cleared by research refresh");
+  assert.notEqual(ordinary.interpretation.allowed.length, 0, "ordinary lesson capability scopes are preserved");
 
   const existingUpdate = command.parseOperatorCommand("Update my Toddler Healthy Habits lesson.", { phase: 7, lessonPlans });
   assert.equal(existingUpdate.ownerIntent.naturalIntent, "update_one_lesson", "named existing lesson remains an update");
@@ -118,6 +121,8 @@ function assertNoResearchMutationActions(parsed, label) {
   assert.equal(stagedUpdate.command.scope.lessonIds[0], "healthy-habits", "staged update retains the existing target");
   assertNoResearchMutationActions(stagedUpdate, "staged update");
   assert.match(stagedUpdate.interpretation.ownerSummary, /Operation: research_then_update/, "staged update preview uses canonical intent");
+  assert.match(stagedUpdate.interpretation.ownerSummary, /Targets: Healthy Habits/, "staged update preview preserves its target");
+  assert.match(stagedUpdate.interpretation.ownerSummary, /Confirm before updating the existing lesson/, "staged update preview requires confirmation");
 
   const confirmedStagedUpdate = command.parseOperatorCommand(
     "Research healthy habits then update my existing Healthy Habits lesson.",
