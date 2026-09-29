@@ -382,10 +382,10 @@
       <div class="nuo-screen nuo-welcome-message">
         <p class="nuo-emoji" aria-hidden="true">💌</p>
         <h2 id="newUserOnboardingTitle">Welcome to Little Learner Hub!</h2>
-        <p class="nuo-lead">Thanks for joining! I sent you a welcome message with information about how I can help with lesson planning, classroom ideas, and center planning.</p>
+        <p class="nuo-lead">Your included Free lesson plans are ready to explore.</p>
+        <p>Start by choosing a lesson plan for your age group. Leah is here to help with lesson plans, activities, or classroom ideas whenever you need support.</p>
         <div class="nuo-actions">
-          <button type="button" class="primary-button" data-nuo-action="read-welcome-message" aria-label="Read Leah's welcome message">Read My Message</button>
-          <button type="button" class="ghost-button" data-nuo-action="maybe-later" aria-label="Close welcome message prompt">Maybe Later</button>
+          <button type="button" class="primary-button" data-nuo-action="choose-free">Explore Lesson Plans</button>
         </div>
       </div>
     `;

@@ -63,23 +63,20 @@ assert.equal(onboarding.getState().step, "welcome-message");
 assert.equal(modal.classList.contains("open"), false, "prompt waits for authenticated profile sync");
 assert.equal(onboarding.showWelcomeMessagePrompt(), true);
 assert.equal(modal.classList.contains("open"), true, "new signup opens the welcome-message prompt");
-assert.match(body.innerHTML, /Read My Message/);
-assert.match(body.innerHTML, /Maybe Later/);
+assert.match(body.innerHTML, /Start by choosing a lesson plan for your age group/i);
+assert.match(body.innerHTML, /Leah is here to help with lesson plans, activities, or classroom ideas/i);
+assert.match(body.innerHTML, /Explore Lesson Plans/);
+assert.doesNotMatch(body.innerHTML, /I sent you a welcome message|Read My Message|Maybe Later|11 complete/i);
 assert.ok(onboarding.getState().welcomeMessagePromptShownAt, "prompt stores its own one-time display stamp");
 assert.equal(onboarding.showWelcomeMessagePrompt(), false, "duplicate signup completion cannot reopen the prompt");
 
-modal.classList.remove("open");
-onboarding.maybeResumeOnBoot();
-assert.equal(modal.classList.contains("open"), false, "hard refresh after shown does not reopen welcome-message");
-assert.equal(onboarding.getState().step, "welcome-message", "refresh leaves welcome-message step until user dismisses");
-onboarding.openModal();
 listeners.click({
   preventDefault() {},
-  target: { closest: () => ({ getAttribute: () => "maybe-later" }) },
+  target: { closest: () => ({ getAttribute: () => "choose-free" }) },
 });
-assert.equal(modal.classList.contains("open"), false, "Maybe Later closes only the prompt");
-assert.equal(onboarding.getState().step, "welcome", "Maybe Later preserves the existing onboarding state");
-assert.equal(onboarding.showWelcomeMessagePrompt(), false, "normal login/refresh cannot reopen the signup-only prompt");
+assert.equal(modal.classList.contains("open"), false, "lesson-library action closes the welcome prompt");
+assert.equal(sandbox.lastView.view, "lessons", "welcome action opens the lesson library");
+assert.equal(onboarding.getState().step, "done", "lesson-library action completes the focused Free welcome");
 
 onboarding.clearOnLogout();
 sandbox.currentUser = "resume-welcome@example.com";
@@ -99,12 +96,16 @@ onboarding.beginAfterFreeSignup({ deferWelcomeMessagePrompt: true });
 onboarding.showWelcomeMessagePrompt();
 listeners.click({
   preventDefault() {},
-  target: { closest: () => ({ getAttribute: () => "read-welcome-message" }) },
+  target: { closest: () => ({ getAttribute: () => "choose-free" }) },
 });
-assert.equal(sandbox.lastView.view, "messages");
-assert.equal(sandbox.lastView.options.conversation, true, "Read My Message opens the existing Leah conversation");
+assert.equal(sandbox.lastView.view, "lessons");
+assert.equal(sandbox.lastView.options.fromAuthLanding, true, "welcome action uses the lesson-library onboarding destination");
 
 assert.match(source, /state\.step !== "welcome-message"/, "welcome-message is excluded from boot resume");
+const membershipCopy = appSource.slice(appSource.indexOf("const MEMBERSHIP_COPY"), appSource.indexOf("const freePlanAgeGroups"));
+assert.match(membershipCopy, /freeStarterSection: "Your Included Free Plans"/);
+assert.match(membershipCopy, /freeStarterProgress: "Your included Free lesson plans are ready to explore\."/);
+assert.doesNotMatch(membershipCopy, /freeStarterProgress: "11 complete/);
 assert.match(appSource, /const signupProfileSync = syncAccountProfileToBackend\(/);
 assert.match(appSource, /signupProfileSync[\s\S]{0,500}showWelcomeMessagePrompt/);
 assert.match(appSource, /deferWelcomeMessagePrompt: true/);
