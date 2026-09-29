@@ -48,6 +48,9 @@ function assertNoResearchMutationActions(parsed, label) {
   const parsedResearchOnly = command.parseOperatorCommand(researchOnlyCommand, { phase: 7 });
   assert.equal(parsedResearchOnly.command.intent, "research_only", "explicit research-only wording has a dedicated operation");
   assertNoResearchMutationActions(parsedResearchOnly, "research-only");
+  assert.match(parsedResearchOnly.interpretation.ownerSummary, /Operation: research_only/, "research-only preview uses canonical intent");
+  assert.match(parsedResearchOnly.interpretation.ownerSummary, /Targets: No curriculum target/, "research-only preview has no target");
+  assert.doesNotMatch(parsedResearchOnly.interpretation.ownerSummary, /audit activity images|Printables may be updated/, "research-only preview has no stale asset work");
 
   const lessonPlans = [{ id: "healthy-habits", title: "Toddler Healthy Habits", age: "Toddler 12–24 Months" }];
   const stagedRequests = [
@@ -66,6 +69,7 @@ function assertNoResearchMutationActions(parsed, label) {
     assert.equal(staged.command.intent, "research_then_create", `${request} keeps a staged create operation`);
     assert.equal(staged.needsConfirmation, true, `${request} requires confirmation`);
     assertNoResearchMutationActions(staged, request);
+    assert.match(staged.interpretation.ownerSummary, /Operation: research_then_create/, `${request} preview uses staged create`);
   });
 
   const implicitResearchOnly = command.parseOperatorCommand("Research fall activities for preschool.", { phase: 7, lessonPlans });
@@ -113,6 +117,7 @@ function assertNoResearchMutationActions(parsed, label) {
   assert.equal(stagedUpdate.needsConfirmation, true, "research then update requires confirmation");
   assert.equal(stagedUpdate.command.scope.lessonIds[0], "healthy-habits", "staged update retains the existing target");
   assertNoResearchMutationActions(stagedUpdate, "staged update");
+  assert.match(stagedUpdate.interpretation.ownerSummary, /Operation: research_then_update/, "staged update preview uses canonical intent");
 
   const confirmedStagedUpdate = command.parseOperatorCommand(
     "Research healthy habits then update my existing Healthy Habits lesson.",
@@ -132,6 +137,7 @@ function assertNoResearchMutationActions(parsed, label) {
   assert.equal(ambiguousResearch.needsConfirmation, true, "ambiguous research work requests clarification");
   assert.equal(ambiguousResearch.command.scope.lessonIds.length, 0, "ambiguous research does not target a lesson");
   assertNoResearchMutationActions(ambiguousResearch, "ambiguous research");
+  assert.doesNotMatch(ambiguousResearch.interpretation.ownerSummary, /audit activity images|Printables may be updated/, "ambiguous research preview has no stale asset work");
 
   const contextualVisuals = command.parseOperatorCommand("Add visuals to my toddler lesson.", {
     phase: 7,
@@ -197,6 +203,7 @@ function assertNoResearchMutationActions(parsed, label) {
     assert.equal(first.body.needsConfirmation, true, "staged research requires confirmation");
     assert.match(first.body.conversationContext.messages.at(-1).responseText, /research is complete/i, "staged research has a clear confirmation message");
     assert.equal(first.body.command.scope.lessonIds.length, 0, "generic age wording does not select an existing lesson");
+    assert.match(first.body.interpretation.ownerSummary, /Operation: research_then_create/, "boundary returns the canonical staged preview");
     assert.equal(first.body.jobCreated, false, "staged research request creates no job");
     assert.equal(first.body.publishEnabled, false, "staged research request keeps publishing disabled");
     assert.equal(first.body.conversationContext.researchSources.length, 1, "validated citations persist in conversation history");

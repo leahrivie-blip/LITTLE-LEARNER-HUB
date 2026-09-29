@@ -622,7 +622,7 @@ function parseOperatorCommand(rawCommand, options = {}) {
     phase2Executable: phase >= 2,
     mutationsStripped: !command.completion.mutationsEnabled,
   };
-  const result = intentRouter.applyPostSemanticSafety(semanticInterpret.applyToParsedResult(parsed, {
+  let result = intentRouter.applyPostSemanticSafety(semanticInterpret.applyToParsedResult(parsed, {
     phase,
     lessonPlans: options.lessonPlans || [],
     currentlySelectedLessonId: options.currentlySelectedLessonId || null,
@@ -686,6 +686,11 @@ function parseOperatorCommand(rawCommand, options = {}) {
       "research_scope_clarification_required",
     ])];
     result.mutationsStripped = true;
+  }
+  if (researchScope.explicit || researchScope.stagedIntent || researchScope.ambiguous) {
+    result = semanticInterpret.refreshFinalizedResearchInterpretation(result, {
+      preserveTarget: result.command.intent === "research_then_update",
+    });
   }
   return result;
 }

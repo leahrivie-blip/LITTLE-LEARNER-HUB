@@ -306,9 +306,48 @@ function applyToParsedResult(parsed = {}, options = {}) {
   };
 }
 
+function refreshFinalizedResearchInterpretation(parsed = {}, { preserveTarget = false } = {}) {
+  const command = parsed.command;
+  if (!command || typeof command !== "object") return parsed;
+  const scope = command.scope || {};
+  const existing = command.interpretation || parsed.interpretation || {};
+  const lessonIds = preserveTarget ? schema.asArray(scope.lessonIds) : [];
+  const titles = preserveTarget ? schema.asArray(scope.titles) : [];
+  const summary = summaryApi.buildOwnerSummary({
+    command,
+    targets: { mode: lessonIds.length ? "explicit" : "none", rows: [] },
+    confidence: { overall: parsed.needsConfirmation ? "medium" : "high" },
+  });
+  command.interpretation = {
+    ...existing,
+    primary: null,
+    capabilityReasons: [],
+    allowed: [],
+    forbidden: [],
+    targets: {
+      mode: lessonIds.length ? "explicit" : "none",
+      ids: lessonIds,
+      exampleOnly: [],
+      unresolved: [],
+      ambiguous: [],
+      titles,
+    },
+    ownerSummary: summary.text,
+    ownerFacingFlags: summary.ownerFacingFlags,
+    nextContext: {
+      ...(existing.nextContext || {}),
+      previousIntent: command.intent,
+      previousResolvedTargets: lessonIds,
+      previousAllowedScopes: [],
+    },
+  };
+  return { ...parsed, command, interpretation: command.interpretation };
+}
+
 module.exports = {
   INTERPRET_VERSION,
   applyToParsedResult,
+  refreshFinalizedResearchInterpretation,
   sanitizeOperatorContext,
   extractSignals: signalsApi.extractSignals,
 };
