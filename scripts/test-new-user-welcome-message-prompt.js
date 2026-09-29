@@ -105,7 +105,9 @@ assert.match(source, /state\.step !== "welcome-message"/, "welcome-message is ex
 const membershipCopy = appSource.slice(appSource.indexOf("const MEMBERSHIP_COPY"), appSource.indexOf("const freePlanAgeGroups"));
 assert.match(membershipCopy, /freeStarterSection: "Your Included Free Plans"/);
 assert.match(membershipCopy, /freeStarterProgress: "Your included Free lesson plans are ready to explore\."/);
-assert.doesNotMatch(membershipCopy, /freeStarterProgress: "11 complete/);
+assert.match(membershipCopy, /freePolicyNotice: "Your Free account includes lesson plans across Infant, Toddler, and Preschool\./);
+const relatedFreeLibraryCopy = membershipCopy.match(/freeStarterProgress:.*|freePolicyNotice:.*/g)?.join("\n") || "";
+assert.doesNotMatch(relatedFreeLibraryCopy, /11 complete starter lesson plans/);
 assert.match(appSource, /const signupProfileSync = syncAccountProfileToBackend\(/);
 assert.match(appSource, /signupProfileSync[\s\S]{0,500}showWelcomeMessagePrompt/);
 assert.match(appSource, /deferWelcomeMessagePrompt: true/);

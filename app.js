@@ -2507,7 +2507,7 @@ const MEMBERSHIP_COPY = Object.freeze({
   freeStarterProgress: "Your included Free lesson plans are ready to explore.",
   unlockLibrary: "Want more plans later?",
   lockedFreePlan: "This plan is not included in your Free plans. Upgrade to Pro to unlock the complete plan.",
-  freePolicyNotice: "Your Free account includes 11 complete starter lesson plans across Infant, Toddler and Preschool. Your saved information remains available; additional plans require Pro access.",
+  freePolicyNotice: "Your Free account includes lesson plans across Infant, Toddler, and Preschool. Your saved information remains available; additional plans require Pro access.",
   watermarkTryAgain: "We couldn’t finish this premium curriculum export safely. Please try again.",
 });
 const freePlanAgeGroups = Object.freeze(["Infant", "Toddler", "Preschool"]);
