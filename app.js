@@ -4208,11 +4208,10 @@ async function finishSignupWithPlan(planChoice, options = {}) {
     updatePlanLabel();
     refreshPublicCurriculumLibrary().catch(() => {});
     window.LLHGoogleAdsFreeSignupConversion?.emitAfterFreeSignupCompletion();
+    trackEvent("signup_landed_free", { email, destination: "lessons", plan: "Free" });
     // Phase 1: onboarding welcome (experience-first) instead of Calendar upgrade card.
     if (typeof beginNewUserOnboardingAfterFreeSignup === "function") {
-      beginNewUserOnboardingAfterFreeSignup({
-        deferWelcomeMessagePrompt: Boolean(options.deferWelcomeMessagePrompt),
-      });
+      beginNewUserOnboardingAfterFreeSignup();
     } else {
       setView("calendar", { fromAuthLanding: true });
     }
@@ -76030,27 +76029,9 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
             runAuthSyncWithTimeout("signup child sync", () => syncChildDataFromBackend()),
             loadUserAiUsage(result.email).catch(() => {}),
           ]);
-        }).catch(() => {
-          if (finishFree) window.NewUserOnboarding?.cancelWelcomeMessagePrompt?.();
-        });
+        }).catch(() => {});
         if (finishFree) {
-          signupProfileSync
-            .then((syncedUser) => {
-              if (!syncedUser) {
-                window.NewUserOnboarding?.cancelWelcomeMessagePrompt?.();
-                return;
-              }
-              try {
-                window.NewUserOnboarding?.showWelcomeMessagePrompt?.();
-              } catch (error) {
-                console.warn("Welcome message prompt failed", error);
-              }
-            })
-            .catch(() => {
-              window.NewUserOnboarding?.cancelWelcomeMessagePrompt?.();
-            });
-          await finishSignupWithPlan("free", { deferWelcomeMessagePrompt: true });
-          trackEvent("signup_landed_free", { email: result.email, destination: "lessons" });
+          await finishSignupWithPlan("free");
         }
         return;
       }

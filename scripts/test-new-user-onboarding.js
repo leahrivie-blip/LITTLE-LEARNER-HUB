@@ -70,10 +70,18 @@ async function main() {
   assert.match(nuoJs, /trial_checkout_cancelled/);
   assert.match(nuoJs, /getContentRecommendations/);
   assert.match(nuoJs, /goToLessonPlans|setView\("lessons"/);
-  assert.match(nuoJs, /Browse Free Lesson Plans|Browse ready-to-use lesson plans|Browse my Free plans/);
-  assert.match(nuoJs, /Getting Started|free-ready|freeChosenAtSignup/);
+  assert.match(nuoJs, /Explore Lesson Plans/);
+  assert.match(nuoJs, /free-signup-success|freeChosenAtSignup/);
+  assert.match(nuoJs, /explore_lesson_plans_clicked/);
+  assert.match(nuoJs, /read_welcome_message_clicked/);
+  assert.match(nuoJs, /ghost-button[^>]*data-nuo-action="read-welcome-message"/);
+  assert.match(appJs, /trackEvent\("signup_landed_free"/);
+  assert.doesNotMatch(
+    appJs.slice(appJs.indexOf("if (finishFree)")),
+    /signup_landed_free/,
+    "fast path does not emit signup_landed_free separately",
+  );
   assert.doesNotMatch(nuoJs, /Limited time|Act now|Last chance/i);
-  assert.match(insights, /Biggest Opportunity/);
   assert.match(insights, /Conversion Opportunity|onboarding/);
   assert.doesNotMatch(insights, /Fix drop-off:/);
   assert.doesNotMatch(nuoJs, /stripe\.checkout|STRIPE_SECRET|price_/);
@@ -111,21 +119,18 @@ async function main() {
 
     await page.waitForSelector("#newUserOnboardingModal.open", { timeout: 10000 });
     const welcomeText = await page.locator("#newUserOnboardingBody").innerText();
-    assert.match(welcomeText, /Welcome to Little Learner Hub!/i);
-    assert.match(welcomeText, /We're glad you're here|We're excited you're here/i);
-    assert.match(welcomeText, /spend less time planning and more time teaching/i);
-    assert.match(welcomeText, /no pressure to upgrade/i);
+    assert.match(welcomeText, /Your Free account is ready/i);
+    assert.match(welcomeText, /Explore Lesson Plans/i);
+    assert.match(welcomeText, /Read My Message/i);
+    assert.doesNotMatch(welcomeText, /Show me around/i);
+    assert.equal(await page.locator("[data-nuo-action='choose-free']").count(), 0);
+    assert.equal(await page.locator("[data-nuo-action='continue']").count(), 0);
+    const exploreBtn = page.locator('[data-nuo-action="explore-lesson-plans"]');
+    const readBtn = page.locator('[data-nuo-action="read-welcome-message"]');
+    assert.match(await exploreBtn.getAttribute("class") || "", /primary-button/);
+    assert.match(await readBtn.getAttribute("class") || "", /ghost-button/);
 
-    await page.click('[data-nuo-action="continue"]');
-    // After Free signup, skip Free vs Trial dual chooser — show helpful Free overview once.
-    await page.waitForSelector("[data-nuo-action='choose-free']");
-    const freeReadyText = await page.locator("#newUserOnboardingBody").innerText();
-    assert.match(freeReadyText, /included with Free|Browse my Free plans/i);
-    assert.doesNotMatch(freeReadyText, /Most Popular/i);
-    assert.equal(await page.locator(".nuo-card--free").count(), 0);
-
-    // Free path lands on Lesson Plans with rich starter cards + getting started
-    await page.click('[data-nuo-action="choose-free"]');
+    await page.click('[data-nuo-action="explore-lesson-plans"]');
     await page.waitForFunction(() => !document.querySelector("#newUserOnboardingModal.open"), null, { timeout: 5000 });
     await page.waitForFunction(() => document.querySelector(".active-view")?.id === "view-lessons", null, { timeout: 8000 });
     await page.waitForSelector("[data-free-starter-explore], [data-getting-started-checklist]", { timeout: 8000 });
@@ -136,16 +141,50 @@ async function main() {
     const events = await page.evaluate(() => JSON.parse(localStorage.getItem("llhAnalyticsEvents") || "[]"));
     const names = events.map((e) => e.name);
     assert.ok(names.includes("welcome_screen_viewed"), "welcome_screen_viewed tracked");
-    assert.ok(names.includes("welcome_continue_pressed"), "welcome_continue_pressed tracked");
-    assert.ok(names.includes("free_selected"), "free_selected tracked");
+    assert.ok(names.includes("explore_lesson_plans_clicked"), "explore_lesson_plans_clicked tracked");
 
-    // Phase 2: free-ready completion is not an upgrade/trial prompt.
-    await page.evaluate(() => beginNewUserOnboardingAfterFreeSignup());
-    await page.waitForSelector("#newUserOnboardingModal.open");
-    await page.click('[data-nuo-action="continue"]');
-    await page.waitForSelector(".nuo-free-ready, [data-nuo-action='choose-free']");
-    assert.equal(await page.locator("[data-nuo-action='choose-trial']").count(), 0, "no trial CTA on free-ready");
-    assert.match(await page.locator("#newUserOnboardingBody").innerText(), /Compare Pro anytime in Settings|Browse my Free plans/i);
+    const completedState = await page.evaluate(() => NewUserOnboarding.getState());
+    assert.equal(completedState.step, "done");
+    assert.ok(completedState.completedAt, "onboarding marked complete");
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() => typeof NewUserOnboarding?.getState === "function", null, { timeout: 15000 });
+    const afterReload = await page.evaluate(() => ({
+      open: Boolean(document.querySelector("#newUserOnboardingModal.open")),
+      step: NewUserOnboarding.getState().step,
+    }));
+    assert.equal(afterReload.open, false, "onboarding does not reopen after completion on refresh");
+    assert.equal(afterReload.step, "done");
+
+    await page.evaluate(() => {
+      const email = `nuo-read-${Date.now()}@example.com`;
+      localStorage.setItem("llhUser", email);
+      localStorage.setItem("llhPlan", "Free");
+      const accounts = JSON.parse(localStorage.getItem("llhAccounts") || "{}");
+      accounts[email] = {
+        email,
+        plan: "Free",
+        subscriptionStatus: "Free Plan",
+        freeLessonAccessMode: "curated",
+        signupAt: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+      };
+      localStorage.setItem("llhAccounts", JSON.stringify(accounts));
+      if (typeof loadAccountState === "function") loadAccountState(email);
+      beginNewUserOnboardingAfterFreeSignup();
+    });
+    await page.waitForSelector("#newUserOnboardingModal.open", { timeout: 10000 });
+    await page.click('[data-nuo-action="read-welcome-message"]');
+    await page.waitForFunction(() => !document.querySelector("#newUserOnboardingModal.open"), null, { timeout: 5000 });
+    await page.waitForFunction(() => document.querySelector(".active-view")?.id === "view-messages", null, { timeout: 8000 });
+    const readPath = await page.evaluate(() => ({
+      step: NewUserOnboarding.getState().step,
+      open: Boolean(document.querySelector("#newUserOnboardingModal.open")),
+      events: JSON.parse(localStorage.getItem("llhAnalyticsEvents") || "[]").map((e) => e.name),
+    }));
+    assert.equal(readPath.step, "done");
+    assert.equal(readPath.open, false);
+    assert.ok(readPath.events.includes("read_welcome_message_clicked"));
 
     // Trial checkout path still available from the explore chooser (non–signup-Free flow).
     await page.evaluate(() => {
@@ -220,12 +259,23 @@ async function main() {
     assert.equal(returning.starter, false, "dismissed starter does not return");
     assert.ok(returning.featured || returning.freePrimary, "library browse content still shows");
 
-    // Mobile viewport
+    // Mobile viewport — single success surface
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.evaluate(() => beginNewUserOnboardingAfterFreeSignup());
+    await page.evaluate(() => {
+      const email = `nuo-mobile-${Date.now()}@example.com`;
+      localStorage.setItem("llhUser", email);
+      localStorage.setItem("llhPlan", "Free");
+      const accounts = JSON.parse(localStorage.getItem("llhAccounts") || "{}");
+      accounts[email] = { email, plan: "Free", subscriptionStatus: "Free Plan", signupAt: new Date().toISOString() };
+      localStorage.setItem("llhAccounts", JSON.stringify(accounts));
+      if (typeof loadAccountState === "function") loadAccountState(email);
+      beginNewUserOnboardingAfterFreeSignup();
+    });
     await page.waitForSelector("#newUserOnboardingModal.open");
     const mobileBox = await page.locator(".nuo-modal-card").boundingBox();
     assert.ok(mobileBox && mobileBox.width > 280, "mobile modal sized");
+    await page.click('[data-nuo-action="explore-lesson-plans"]');
+    await page.waitForFunction(() => !document.querySelector("#newUserOnboardingModal.open"), null, { timeout: 5000 });
 
     console.log("PASS browser onboarding flow");
   } catch (error) {
