@@ -227,7 +227,25 @@
   }
 
   function isOnboardingModalStep(step) {
-    return ["welcome-message", "welcome", "free-ready", "explore", "trial-explain", "trial-cancel", "trial-success"].includes(step);
+    return [
+      "welcome-message",
+      "welcome",
+      "free-ready",
+      "free-signup-success",
+      "explore",
+      "trial-explain",
+      "trial-cancel",
+      "trial-success",
+    ].includes(step);
+  }
+
+  /** Resume mid-chain Free signups on the single success surface (legacy stored steps). */
+  function normalizeFreeSignupResumeStep(step, state = getState()) {
+    if (!state.freeChosenAtSignup && !state.freeSelectedAt) return step;
+    if (step === "welcome-message" || step === "welcome" || step === "free-ready") {
+      return "free-signup-success";
+    }
+    return step;
   }
 
   function isNewUserOnboardingActive() {
@@ -391,6 +409,20 @@
     `;
   }
 
+  /** Single post-signup surface for explicit Free signup — curriculum-first, one primary CTA. */
+  function renderFreeSignupSuccess() {
+    return `
+      <div class="nuo-screen nuo-free-signup-success">
+        <p class="nuo-emoji" aria-hidden="true">🎉</p>
+        <h2 id="newUserOnboardingTitle">Your Free account is ready.</h2>
+        <p class="nuo-lead">Your included lesson plans are below — open one to start planning.</p>
+        <div class="nuo-actions">
+          <button type="button" class="primary-button" data-nuo-action="explore-lesson-plans">Explore Lesson Plans</button>
+        </div>
+      </div>
+    `;
+  }
+
   /** Helpful Free landing after signup already chose Free — no second Free vs Trial chooser. */
   function renderFreeReady() {
     return `
@@ -544,6 +576,9 @@
       case "free-ready":
         html = renderFreeReady();
         break;
+      case "free-signup-success":
+        html = renderFreeSignupSuccess();
+        break;
       case "explore":
         html = renderExplore();
         break;
@@ -666,19 +701,18 @@
     return parts.join("");
   }
 
-  function beginAfterFreeSignup({ deferWelcomeMessagePrompt = false } = {}) {
+  function beginAfterFreeSignup() {
     const now = new Date().toISOString();
     const email = currentAccountEmail();
     const prior = getState();
-    if (deferWelcomeMessagePrompt && prior.accountEmail === email && prior.welcomeMessagePromptShownAt) return;
+    if (prior.accountEmail === email && prior.completedAt) return;
     saveState({
       ...defaultState(),
       active: true,
-      step: deferWelcomeMessagePrompt ? "welcome-message" : "welcome",
+      step: "free-signup-success",
       accountCreatedAt: now,
       accountEmail: email,
       completedAt: "",
-      // Free was already selected during signup — do not ask again on explore.
       freeSelectedAt: now,
       freeChosenAtSignup: true,
       deferGenericUpgrades: true,
@@ -694,20 +728,14 @@
     } catch {
       /* ignore */
     }
-    track("welcome_screen_viewed", { step: "welcome" });
+    track("welcome_screen_viewed", { step: "free-signup-success" });
     goToLessonPlans({ fromAuthLanding: true, applyFreeLibraryDefaults: true });
-    if (!deferWelcomeMessagePrompt) window.setTimeout(() => openModal(), 40);
+    window.setTimeout(() => openModal(), 40);
   }
 
   function showWelcomeMessagePrompt() {
-    const state = getState();
-    if (!state.active || state.step !== "welcome-message" || state.welcomeMessagePromptShownAt || !currentAccountEmail()) return false;
-    updateState({ welcomeMessagePromptShownAt: new Date().toISOString() });
-    openModal();
-    window.setTimeout(() => {
-      document.querySelector('[data-nuo-action="read-welcome-message"]')?.focus?.();
-    }, 0);
-    return true;
+    // Free signup no longer uses a blocking welcome-message step (server still delivers the message).
+    return false;
   }
 
   function cancelWelcomeMessagePrompt() {
@@ -924,6 +952,16 @@
       renderOnboarding();
       return;
     }
+    if (action === "explore-lesson-plans") {
+      track("explore_lesson_plans_clicked", { source: "new_user_onboarding", plan: "Free" });
+      const state = getState();
+      updateState({
+        freeSelectedAt: state.freeSelectedAt || new Date().toISOString(),
+        deferGenericUpgrades: true,
+      });
+      finishFreePath();
+      return;
+    }
     if (action === "choose-free") {
       const state = getState();
       track("free_selected", {
@@ -1023,7 +1061,11 @@
     if (!email) return;
     // Only resume for the same signed-in account that started onboarding.
     if (state.accountEmail && state.accountEmail !== email) return;
-    if (state.active && isOnboardingModalStep(state.step) && state.step !== "welcome-message") {
+    const resumeStep = normalizeFreeSignupResumeStep(state.step, state);
+    if (resumeStep !== state.step) {
+      updateState({ step: resumeStep });
+    }
+    if (state.active && isOnboardingModalStep(resumeStep) && resumeStep !== "welcome-message") {
       window.setTimeout(() => openModal(), 80);
     }
   }

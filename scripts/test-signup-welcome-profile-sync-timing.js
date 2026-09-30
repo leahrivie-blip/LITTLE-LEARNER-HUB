@@ -24,25 +24,11 @@ async function runAuthSyncWithTimeout(label, task, timeoutMs = 6000) {
 }
 
 /**
- * Mirrors the Free-signup welcome prompt wiring in app.js after the late-sync hotfix.
- * @param {{ finishFree: boolean, signupProfileSync: Promise<unknown>, hooks: { showWelcomeMessagePrompt: () => void, cancelWelcomeMessagePrompt: () => void } }} opts
+ * Mirrors post-change Free-signup profile sync wiring (no welcome-message popup).
+ * @param {{ finishFree: boolean, signupProfileSync: Promise<unknown> }} opts
  */
-function wireFreeSignupWelcomePrompt({ finishFree, signupProfileSync, hooks }) {
-  runAuthSyncWithTimeout("signup profile sync", () => signupProfileSync).catch(() => {
-    if (finishFree) hooks.cancelWelcomeMessagePrompt();
-  });
-  if (!finishFree) return;
-  signupProfileSync
-    .then((syncedUser) => {
-      if (!syncedUser) {
-        hooks.cancelWelcomeMessagePrompt();
-        return;
-      }
-      hooks.showWelcomeMessagePrompt();
-    })
-    .catch(() => {
-      hooks.cancelWelcomeMessagePrompt();
-    });
+function wireFreeSignupProfileSync({ finishFree, signupProfileSync }) {
+  runAuthSyncWithTimeout("signup profile sync", () => signupProfileSync).catch(() => {});
 }
 
 function deferred() {
@@ -58,53 +44,23 @@ function deferred() {
 }
 
 async function testFastSync() {
-  const hooks = { showCount: 0, cancelCount: 0 };
   const sync = deferred();
-  wireFreeSignupWelcomePrompt({
-    finishFree: true,
-    signupProfileSync: sync.promise,
-    hooks: {
-      showWelcomeMessagePrompt: () => { hooks.showCount += 1; },
-      cancelWelcomeMessagePrompt: () => { hooks.cancelCount += 1; },
-    },
-  });
+  wireFreeSignupProfileSync({ finishFree: true, signupProfileSync: sync.promise });
   sync.resolve({ email: "fast@example.com" });
   await sync.promise;
   await Promise.resolve();
-  assert.equal(hooks.showCount, 1, "fast sync shows popup once");
-  assert.equal(hooks.cancelCount, 0);
 }
 
 async function testSlowSyncAfterTimeout() {
   mock.timers.enable({ apis: ["setTimeout"] });
   try {
-    const hooks = { showCount: 0, cancelCount: 0, shownAt: "" };
     const sync = deferred();
-    wireFreeSignupWelcomePrompt({
-      finishFree: true,
-      signupProfileSync: sync.promise,
-      hooks: {
-        showWelcomeMessagePrompt: () => {
-          if (hooks.shownAt) return false;
-          hooks.shownAt = new Date().toISOString();
-          hooks.showCount += 1;
-          return true;
-        },
-        cancelWelcomeMessagePrompt: () => { hooks.cancelCount += 1; },
-      },
-    });
-
+    wireFreeSignupProfileSync({ finishFree: true, signupProfileSync: sync.promise });
     mock.timers.tick(6000);
     await Promise.resolve();
-    assert.equal(hooks.showCount, 0, "timeout must not show popup before real sync completes");
-    assert.equal(hooks.shownAt, "", "welcomeMessagePromptShownAt must stay unset at timeout");
-
     sync.resolve({ email: "slow@example.com" });
     await sync.promise;
     await Promise.resolve();
-    assert.equal(hooks.showCount, 1, "late successful sync shows popup once");
-    assert.ok(hooks.shownAt, "prompt display stamp set only after real sync success");
-    assert.equal(hooks.cancelCount, 0);
   } finally {
     mock.timers.reset();
   }
@@ -113,54 +69,32 @@ async function testSlowSyncAfterTimeout() {
 async function testLateFailure() {
   mock.timers.enable({ apis: ["setTimeout"] });
   try {
-    const hooks = { showCount: 0, cancelCount: 0 };
     const sync = deferred();
-    wireFreeSignupWelcomePrompt({
-      finishFree: true,
-      signupProfileSync: sync.promise,
-      hooks: {
-        showWelcomeMessagePrompt: () => { hooks.showCount += 1; },
-        cancelWelcomeMessagePrompt: () => { hooks.cancelCount += 1; },
-      },
-    });
-
+    wireFreeSignupProfileSync({ finishFree: true, signupProfileSync: sync.promise });
     mock.timers.tick(6000);
     await Promise.resolve();
     sync.reject(new Error("profile sync failed"));
     await sync.promise.catch(() => {});
     await Promise.resolve();
-    assert.equal(hooks.showCount, 0);
-    assert.ok(hooks.cancelCount >= 1, "late sync failure cancels deferred welcome prompt");
   } finally {
     mock.timers.reset();
   }
 }
 
 async function testFailureBeforeTimeout() {
-  const hooks = { showCount: 0, cancelCount: 0 };
   const sync = deferred();
-  wireFreeSignupWelcomePrompt({
-    finishFree: true,
-    signupProfileSync: sync.promise,
-    hooks: {
-      showWelcomeMessagePrompt: () => { hooks.showCount += 1; },
-      cancelWelcomeMessagePrompt: () => { hooks.cancelCount += 1; },
-    },
-  });
+  wireFreeSignupProfileSync({ finishFree: true, signupProfileSync: sync.promise });
   sync.resolve(null);
   await sync.promise;
   await Promise.resolve();
-  assert.equal(hooks.showCount, 0);
-  assert.equal(hooks.cancelCount, 1);
 }
 
 async function main() {
   assert.match(appSource, /const signupProfileSync = syncAccountProfileToBackend\(/);
-  assert.match(appSource, /signupProfileSync[\s\S]{0,500}showWelcomeMessagePrompt/);
   assert.doesNotMatch(
-    appSource.slice(appSource.indexOf('runAuthSyncWithTimeout("signup profile sync"')),
-    /if \(syncedUser\) \{[\s\S]{0,220}showWelcomeMessagePrompt/,
-    "welcome popup must not depend only on timeout wrapper result",
+    appSource.slice(appSource.indexOf("const finishFree = isExplicitFreeSignupIntent")),
+    /showWelcomeMessagePrompt/,
+    "Free signup must not depend on welcome-message popup",
   );
   assert.match(appSource, /async function runAuthSyncWithTimeout\(label, task, timeoutMs = 6000\)/);
 

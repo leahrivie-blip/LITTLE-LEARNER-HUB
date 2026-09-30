@@ -54,72 +54,67 @@ const sandbox = {
     sandbox.lastView = { view, options };
   },
 };
+sandbox.trackEvent = (name, detail) => {
+  sandbox.events = sandbox.events || [];
+  sandbox.events.push({ name, detail });
+};
 sandbox.window = sandbox;
 vm.runInNewContext(source, sandbox, { filename: "new-user-onboarding.js" });
 
 const onboarding = sandbox.NewUserOnboarding;
-onboarding.beginAfterFreeSignup({ deferWelcomeMessagePrompt: true });
-assert.equal(onboarding.getState().step, "welcome-message");
-assert.equal(modal.classList.contains("open"), false, "prompt waits for authenticated profile sync");
-assert.equal(onboarding.showWelcomeMessagePrompt(), true);
-assert.equal(modal.classList.contains("open"), true, "new signup opens the welcome-message prompt");
-assert.match(body.innerHTML, /Read My Message/);
-assert.match(body.innerHTML, /Maybe Later/);
-assert.ok(onboarding.getState().welcomeMessagePromptShownAt, "prompt stores its own one-time display stamp");
-assert.equal(onboarding.showWelcomeMessagePrompt(), false, "duplicate signup completion cannot reopen the prompt");
-
-modal.classList.remove("open");
-onboarding.maybeResumeOnBoot();
-assert.equal(modal.classList.contains("open"), false, "hard refresh after shown does not reopen welcome-message");
-assert.equal(onboarding.getState().step, "welcome-message", "refresh leaves welcome-message step until user dismisses");
-onboarding.openModal();
-listeners.click({
-  preventDefault() {},
-  target: { closest: () => ({ getAttribute: () => "maybe-later" }) },
-});
-assert.equal(modal.classList.contains("open"), false, "Maybe Later closes only the prompt");
-assert.equal(onboarding.getState().step, "welcome", "Maybe Later preserves the existing onboarding state");
-assert.equal(onboarding.showWelcomeMessagePrompt(), false, "normal login/refresh cannot reopen the signup-only prompt");
-
-onboarding.clearOnLogout();
-sandbox.currentUser = "resume-welcome@example.com";
 onboarding.beginAfterFreeSignup();
-modal.classList.remove("open");
-onboarding.maybeResumeOnBoot();
-assert.equal(modal.classList.contains("open"), true, "other onboarding steps still resume on boot");
+assert.equal(onboarding.getState().step, "free-signup-success", "Free signup uses single success step");
+assert.equal(modal.classList.contains("open"), true, "success surface opens after Free signup");
+assert.match(body.innerHTML, /Explore Lesson Plans/);
+assert.doesNotMatch(body.innerHTML, /Read My Message/);
+assert.equal(onboarding.showWelcomeMessagePrompt(), false, "welcome-message prompt never blocks Free signup");
 
-onboarding.clearOnLogout();
-sandbox.currentUser = "sync-failure@example.com";
-onboarding.beginAfterFreeSignup({ deferWelcomeMessagePrompt: true });
-onboarding.cancelWelcomeMessagePrompt();
-assert.equal(onboarding.getState().step, "welcome", "profile-sync failure clears only the deferred prompt state");
-assert.equal(onboarding.showWelcomeMessagePrompt(), false, "a failed profile sync cannot show the welcome-message prompt later");
-
-onboarding.beginAfterFreeSignup({ deferWelcomeMessagePrompt: true });
-onboarding.showWelcomeMessagePrompt();
 listeners.click({
   preventDefault() {},
-  target: { closest: () => ({ getAttribute: () => "read-welcome-message" }) },
+  target: { closest: () => ({ getAttribute: () => "explore-lesson-plans" }) },
 });
-assert.equal(sandbox.lastView.view, "messages");
-assert.equal(sandbox.lastView.options.conversation, true, "Read My Message opens the existing Leah conversation");
-
-assert.match(source, /state\.step !== "welcome-message"/, "welcome-message is excluded from boot resume");
-assert.match(appSource, /const signupProfileSync = syncAccountProfileToBackend\(/);
-assert.match(appSource, /signupProfileSync[\s\S]{0,500}showWelcomeMessagePrompt/);
-assert.match(appSource, /deferWelcomeMessagePrompt: true/);
-assert.doesNotMatch(
-  appSource.slice(appSource.indexOf("finishSignupWithPlan")),
-  /showWelcomeMessagePrompt[\s\S]{0,400}finishSignupWithPlan\("pro"/,
-  "Pro signup does not trigger the Free signup-only popup",
+assert.equal(modal.classList.contains("open"), false, "Explore Lesson Plans dismisses onboarding");
+assert.equal(onboarding.getState().step, "done");
+assert.ok(
+  (sandbox.events || []).some((e) => e.name === "explore_lesson_plans_clicked"),
+  "explore_lesson_plans_clicked tracked",
 );
-assert.match(appSource, /NewUserOnboarding\?\.showWelcomeMessagePrompt\?\.\(\)/);
-assert.match(appSource, /NewUserOnboarding\?\.cancelWelcomeMessagePrompt\?\.\(\)/);
-assert.match(appSource, /Welcome message prompt failed/);
+
+onboarding.beginAfterFreeSignup();
+assert.equal(modal.classList.contains("open"), false, "completed onboarding does not reopen on repeat begin");
+
+onboarding.clearOnLogout();
+sandbox.currentUser = "legacy-welcome@example.com";
+values.set("llhNewUserOnboardingV1", JSON.stringify({
+  active: true,
+  step: "welcome",
+  accountEmail: "legacy-welcome@example.com",
+  freeChosenAtSignup: true,
+  freeSelectedAt: new Date().toISOString(),
+  completedAt: "",
+  firstTimeUser: true,
+  experiment: "A",
+  milestones: {},
+  checklist: {},
+  lessonOpenCount: 0,
+}));
+modal.classList.remove("open");
+onboarding.maybeResumeOnBoot();
+assert.equal(onboarding.getState().step, "free-signup-success", "legacy welcome step migrates to single surface");
+assert.equal(modal.classList.contains("open"), true, "incomplete Free onboarding resumes on boot");
+
+assert.match(appSource, /const signupProfileSync = syncAccountProfileToBackend\(/);
 assert.doesNotMatch(
-  appSource.slice(appSource.indexOf("const result = await loginWithProvider")),
+  appSource.slice(appSource.indexOf("const finishFree = isExplicitFreeSignupIntent")),
   /showWelcomeMessagePrompt/,
-  "normal login does not trigger the signup-only popup",
+  "Free fast signup does not open welcome-message prompt",
+);
+assert.match(appSource, /trackEvent\("signup_landed_free"/);
+assert.match(appSource, /beginNewUserOnboardingAfterFreeSignup\(\)/);
+assert.doesNotMatch(
+  appSource.slice(appSource.indexOf('finishSignupWithPlan("free")')),
+  /signup_landed_free[\s\S]{0,120}finishSignupWithPlan/,
+  "signup_landed_free is not duplicated on fast path after finishSignupWithPlan",
 );
 
 console.log("PASS new-user welcome message prompt");
