@@ -47,6 +47,7 @@ async function handleParseRequest({
   const parsed = parseCommand(rawText, {
     phase,
     lessonPlans: lessons,
+    activities: schema.asArray(curriculum.activities),
     currentlySelectedLessonId: intentRouter.hasStagedResearchCreateIntent(rawText)
       ? body.currentlySelectedLessonId
       : (toddler?.id || body.currentlySelectedLessonId),
@@ -54,6 +55,8 @@ async function handleParseRequest({
       previousIntent: stored.currentOperation || "",
       previousResolvedTargets: [stored.currentLessonId],
       previousExclusions: stored.requestedExclusions || [],
+      failedAssets: body.operatorContext?.failedAssets || [],
+      sourceJobId: body.operatorContext?.sourceJobId || stored?.previousJobId || "",
     } : null),
     ownerProfile: profile,
   });

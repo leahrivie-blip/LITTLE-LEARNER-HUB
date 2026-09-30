@@ -298,6 +298,8 @@ function refineImageDecision(planItem, activity, patch = {}, options = {}) {
   let decision = base;
   let nextReason = reason;
 
+  // replaceBadImages means "replace images that fail quality/match checks",
+  // NOT "regenerate every existing image". KEEP stays authoritative for usable URLs.
   if (decision === "KEEP" && options.replaceBadImages === true && existingUrl) {
     const looksBroken = /example\.com|placeholder|todo|missing|broken/i.test(existingUrl)
       || existingUrl === "about:blank";
@@ -307,15 +309,44 @@ function refineImageDecision(planItem, activity, patch = {}, options = {}) {
       nextReason = looksBroken
         ? "Existing image URL looks broken or placeholder; safe to replace after successful attach."
         : "Existing image looks like generic theme art rather than the real activity setup.";
-    } else if (options.auditExistingImages === true) {
+    } else if (options.forceReplaceAllImages === true && options.keepGoodImages !== true) {
       decision = "REPLACE";
-      nextReason = "Owner requested audit/replace of existing activity images; queued for realistic replacement.";
+      nextReason = "Owner explicitly requested regeneration of existing activity images.";
+    } else {
+      decision = "KEEP";
+      nextReason = options.keepGoodImages === true
+        ? "Existing activity image is usable — owner asked to keep good pictures."
+        : (nextReason || "Existing activity image is usable — keeping rather than blanket-replacing.");
     }
   }
 
   if (decision === "NOT_NEEDED" && existingUrl && options.replaceBadImages === true) {
     decision = "KEEP";
     nextReason = "Existing image present — owner requested audit; keeping until visual QA replacement passes.";
+  }
+
+  // Single-activity targeting: non-target activities are hard-protected.
+  const targetIds = options.targetActivityIds instanceof Set
+    ? options.targetActivityIds
+    : new Set(schema.asArray(options.targetActivityIds || options.command?.scope?.targetActivityIds)
+      .map((id) => text(id, 160)).filter(Boolean));
+  if (targetIds.size && activityId && !targetIds.has(activityId)
+    && (decision === "REPLACE" || decision === "GENERATE" || decision === "KEEP")) {
+    return {
+      activityId,
+      activityTitle: title,
+      weekday: text(planItem?.weekday || activity?.dayOfWeek, 20),
+      field,
+      decision: "PROTECTED_KEEP",
+      reason: "Outside single-activity image target — leave this picture alone.",
+      concept: "",
+      existingUrl,
+      existingMediaAssetId: text(
+        patch?.[assetIdFieldFor(field)] || activity?.[assetIdFieldFor(field)],
+        160,
+      ),
+      status: "pending",
+    };
   }
 
   return {
@@ -1088,9 +1119,19 @@ async function runImagePlanForLesson({
     };
   }
 
+  const keepGoodImages = command?.actions?.keepGoodImages === true
+    || /\bkeep\s+(?:the\s+)?good\b/i.test(String(command?.rawCommand || ""))
+    || /\bkeep\s+everything\s+thats\s+good\b/i.test(String(command?.rawCommand || ""))
+    || /\bkeep\s+the\s+ones\s+that\s+already\s+work\b/i.test(String(command?.rawCommand || ""));
+  const targetActivityIds = schema.asArray(command?.scope?.targetActivityIds)
+    .map((id) => text(id, 160)).filter(Boolean);
   const rawActions = schema.asArray(actionsOverride).length ? schema.asArray(actionsOverride) : buildImageActionsFromAudit(plan, activities, audit, {
     replaceBadImages,
-    auditExistingImages: replaceBadImages === true && touchImages !== false,
+    // Usable KEEP decisions stay KEEP unless forceReplaceAllImages (never default).
+    auditExistingImages: false,
+    keepGoodImages,
+    forceReplaceAllImages: command?.actions?.forceReplaceAllImages === true,
+    targetActivityIds,
     command,
     protectedActivityIds: parseProtectedActivityIds(command || {}),
   });

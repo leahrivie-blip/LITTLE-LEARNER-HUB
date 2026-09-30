@@ -629,6 +629,7 @@ function parseOperatorCommand(rawCommand, options = {}) {
   const result = intentRouter.applyPostSemanticSafety(semanticInterpret.applyToParsedResult(parsed, {
     phase,
     lessonPlans: options.lessonPlans || [],
+    activities: options.activities || [],
     currentlySelectedLessonId: options.currentlySelectedLessonId || null,
     operatorContext: options.operatorContext || null,
     rawCommand: raw,

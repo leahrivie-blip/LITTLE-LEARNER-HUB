@@ -11,9 +11,16 @@ function assetKey(type, action) {
 function failedAssets(sourceJob, lessonId) {
   const lesson = schema.asArray(sourceJob?.lessonResults).find((row) => row.lessonId === lessonId);
   if (!lesson) return [];
+  const coverRows = lesson.coverAction && typeof lesson.coverAction === "object"
+    ? [{ type: "cover", action: {
+      ...lesson.coverAction,
+      idempotencyKey: schema.text(lesson.coverAction.idempotencyKey, 240) || `cover:${lessonId}:generate`,
+    } }]
+    : [];
   return [
     ...schema.asArray(lesson.imageActions).map((action) => ({ type: "image", action })),
     ...schema.asArray(lesson.printableActions).map((action) => ({ type: "printable", action })),
+    ...coverRows,
   ].filter(({ action }) => action?.status === "failed" && action.retryable !== false
     && action.approved !== true && action.approvalStatus !== "approved");
 }
@@ -26,7 +33,7 @@ function validateRequest({ sourceJob, ownerId, sessionId, lessonId, selectedAsse
   if (!lesson) return { ok: false, code: "retry_lesson_mismatch" };
   const ids = [...new Set(schema.asArray(selectedAssetIds).map((id) => schema.text(id, 240)).filter(Boolean))];
   const types = new Set(schema.asArray(selectedAssetTypes).map((type) => schema.text(type, 20)));
-  if (!ids.length || !types.size || [...types].some((type) => !["image", "printable"].includes(type))) {
+  if (!ids.length || !types.size || [...types].some((type) => !["image", "printable", "cover"].includes(type))) {
     return { ok: false, code: "retry_assets_required" };
   }
   if (!schema.text(retryKey, 180)) return { ok: false, code: "retry_key_required" };
