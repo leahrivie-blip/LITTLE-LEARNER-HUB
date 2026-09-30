@@ -26,7 +26,47 @@ function sanitizeOperatorContext(raw) {
       .map((flag) => schema.text(flag, 60)).filter(Boolean).slice(0, 20),
     previousPlanId: schema.text(raw.previousPlanId, 80) || "",
     previousJobId: schema.text(raw.previousJobId, 80) || "",
+    failedAssets: schema.asArray(raw.failedAssets).slice(0, 40),
+    sourceJobId: schema.text(raw.sourceJobId, 80) || "",
   };
+}
+
+function normalizeActivityTitle(value) {
+  return schema.text(value, 180).toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function resolveSingleActivityImageTarget({ signals, lessonIds, lessonPlans, activities }) {
+  if (!signals?.singleActivityImageTarget && !signals?.activityOrdinal && !signals?.activityTitleHint) {
+    return { ok: true, ids: [], ambiguous: false, unresolved: false };
+  }
+  const lessonId = schema.asArray(lessonIds)[0] || "";
+  const plan = schema.asArray(lessonPlans).find((row) => row.id === lessonId) || null;
+  const orderedIds = schema.asArray(plan?.activityIds).map((id) => schema.text(id, 160)).filter(Boolean);
+  const acts = schema.asArray(activities).filter((act) => {
+    const id = schema.text(act?.id || act?.itemId, 160);
+    if (!id) return false;
+    if (orderedIds.length) return orderedIds.includes(id);
+    return schema.text(act?.lessonPlanId || act?.lessonId, 160) === lessonId;
+  });
+  const ordered = orderedIds.length
+    ? orderedIds.map((id) => acts.find((a) => schema.text(a.id || a.itemId, 160) === id)).filter(Boolean)
+    : acts;
+  if (signals.activityOrdinal) {
+    const hit = ordered[signals.activityOrdinal - 1];
+    if (!hit) return { ok: false, ids: [], ambiguous: false, unresolved: true };
+    return { ok: true, ids: [schema.text(hit.id || hit.itemId, 160)], ambiguous: false, unresolved: false };
+  }
+  const hint = normalizeActivityTitle(signals.activityTitleHint);
+  if (!hint) return { ok: false, ids: [], ambiguous: false, unresolved: true };
+  const matches = ordered.filter((act) => {
+    const title = normalizeActivityTitle(act.title);
+    return title === hint || title.includes(hint) || hint.includes(title);
+  });
+  if (matches.length === 1) {
+    return { ok: true, ids: [schema.text(matches[0].id || matches[0].itemId, 160)], ambiguous: false, unresolved: false };
+  }
+  if (matches.length > 1) return { ok: false, ids: [], ambiguous: true, unresolved: false };
+  return { ok: false, ids: [], ambiguous: false, unresolved: true };
 }
 
 function applyToParsedResult(parsed = {}, options = {}) {
@@ -153,7 +193,10 @@ function applyToParsedResult(parsed = {}, options = {}) {
     nextCommand.actions.checkSongs = false;
     nextCommand.actions.checkBooks = false;
     nextCommand.actions.generateImages = true;
+    // replaceBadImages = replace only unjustified/bad/missing — KEEP stays authoritative in refineImageDecision.
     nextCommand.actions.replaceBadImages = true;
+    nextCommand.actions.keepGoodImages = signals.keepGoodImages === true;
+    nextCommand.actions.forceReplaceAllImages = false;
     nextCommand.actions.checkImages = true;
     nextCommand.actions.touchImages = true;
     nextCommand.actions.saveDraft = true;
@@ -163,18 +206,119 @@ function applyToParsedResult(parsed = {}, options = {}) {
     nextCommand.scope.ageBand = signals.ageBand || null;
     if (signals.access) nextCommand.scope.plan = signals.access;
   }
+  if (!isCreate && compiled.primary === "ASSETS_ONLY_WORK") {
+    nextCommand.intent = "finish_images";
+    nextCommand.actions.connectedUpgrade = false;
+    nextCommand.actions.upgradeLesson = false;
+    nextCommand.actions.upgradeActivities = false;
+    nextCommand.actions.generateSongsBooks = false;
+    nextCommand.actions.touchSongs = false;
+    nextCommand.actions.touchBooks = false;
+    nextCommand.actions.keepGoodImages = signals.keepGoodImages === true;
+    nextCommand.actions.forceReplaceAllImages = false;
+    nextCommand.actions.publish = false;
+    nextCommand.actions.saveDraft = true;
+    nextCommand.actions.composeReviewDraft = true;
+    nextCommand.actions.connectedAutoApply = nextCommand.actions.planOnly !== true;
+    nextCommand.completion.mutationsEnabled = true;
+  }
+  if (!isCreate && compiled.primary === "COVER_WORK") {
+    nextCommand.intent = "fix_lesson";
+    nextCommand.actions.touchCover = true;
+    nextCommand.actions.connectedUpgrade = false;
+    nextCommand.actions.generateImages = false;
+    nextCommand.actions.replaceBadImages = false;
+    nextCommand.actions.touchImages = false;
+    nextCommand.actions.publish = false;
+    nextCommand.actions.saveDraft = true;
+    nextCommand.actions.composeReviewDraft = true;
+    nextCommand.actions.connectedAutoApply = nextCommand.actions.planOnly !== true;
+    nextCommand.completion.mutationsEnabled = true;
+  }
+  if (!isCreate && compiled.primary === "RETRY_FAILED_ASSETS") {
+    nextCommand.intent = "finish_images";
+    nextCommand.actions.publish = false;
+    nextCommand.actions.connectedUpgrade = false;
+    nextCommand.actions.upgradeLesson = false;
+    nextCommand.actions.upgradeActivities = false;
+    const failed = schema.asArray(context.failedAssets);
+    const coverFails = failed.filter((row) => row?.type === "cover");
+    const imageFails = failed.filter((row) => row?.type === "image");
+    const printableFails = failed.filter((row) => row?.type === "printable");
+    let selected = [];
+    if (signals.retryCoverOnly) selected = coverFails;
+    else if (signals.activityTitleHint) {
+      const hint = normalizeActivityTitle(signals.activityTitleHint);
+      selected = failed.filter((row) => normalizeActivityTitle(row?.activityTitle || row?.action?.activityTitle).includes(hint)
+        || normalizeActivityTitle(row?.action?.activityTitle || "").includes(hint));
+    } else if (imageFails.length === 1 && !signals.retryCoverOnly) selected = imageFails;
+    else if (failed.length === 1) selected = failed;
+    if (!selected.length) {
+      confirmReasons.push("retry_asset_clarification_required");
+      nextCommand.completion.mutationsEnabled = false;
+      nextCommand.actions.generateImages = false;
+      nextCommand.actions.generatePrintables = false;
+      nextCommand.actions.touchCover = false;
+      nextCommand.parsedNotes = [...schema.asArray(nextCommand.parsedNotes),
+        "Retry needs a specific failed asset from the current job — I will not regenerate successful assets."];
+    } else {
+      nextCommand.actions.retryFailedAssets = true;
+      nextCommand.actions.selectedFailedAssetIds = selected.map((row) => schema.text(row.idempotencyKey || row.action?.idempotencyKey, 240)).filter(Boolean);
+      nextCommand.actions.selectedFailedAssetTypes = [...new Set(selected.map((row) => row.type))];
+      nextCommand.actions.sourceJobId = context.sourceJobId || null;
+      nextCommand.actions.touchCover = selected.some((row) => row.type === "cover");
+      nextCommand.actions.generateImages = selected.some((row) => row.type === "image");
+      nextCommand.actions.generatePrintables = selected.some((row) => row.type === "printable");
+      nextCommand.completion.mutationsEnabled = true;
+      // Unique failed-asset retry is intentionally scoped — not an ambiguous lesson target.
+      parsed.ambiguous = false;
+      if (parsed.ownerIntent && typeof parsed.ownerIntent === "object") {
+        parsed.ownerIntent.needsClarification = false;
+      }
+      const filteredRetry = confirmReasons.filter((r) => r !== "ambiguous_scope" && r !== "multiple_lessons_matched");
+      confirmReasons.length = 0;
+      confirmReasons.push(...filteredRetry);
+    }
+  }
+  // Single-activity image targeting — fail closed if not uniquely resolvable.
+  if (!isCreate && (signals.singleActivityImageTarget || signals.activityOrdinal || signals.activityTitleHint)
+    && (compiled.primary === "ACTIVITY_IMAGE_REPAIR" || compiled.primary === "ASSETS_ONLY_WORK")) {
+    const resolvedActivity = resolveSingleActivityImageTarget({
+      signals,
+      lessonIds: nextCommand.scope?.lessonIds || targets.lessonIds || [],
+      lessonPlans: options.lessonPlans || [],
+      activities: options.activities || [],
+    });
+    if (!resolvedActivity.ok) {
+      confirmReasons.push(resolvedActivity.ambiguous ? "ambiguous_activity_target" : "unresolved_activity_target");
+      nextCommand.completion.mutationsEnabled = false;
+      nextCommand.actions.generateImages = false;
+      nextCommand.actions.replaceBadImages = false;
+    } else if (resolvedActivity.ids.length) {
+      nextCommand.scope.targetActivityIds = resolvedActivity.ids;
+    }
+  }
+  if (signals.keepGoodImages) nextCommand.actions.keepGoodImages = true;
   if (!isCreate && compiled.primary === "FULL_KIT_WORK") {
     nextCommand.intent = "finish_full_kit";
     nextCommand.actions.connectedUpgrade = true;
     nextCommand.actions.connectedAutoApply = nextCommand.actions.planOnly !== true;
     nextCommand.actions.composeReviewDraft = true;
     nextCommand.actions.saveDraft = true;
-    if (signals.replaceBadImages) nextCommand.actions.replaceBadImages = true;
+    if (signals.replaceBadImages || signals.keepGoodImages) nextCommand.actions.replaceBadImages = true;
+    nextCommand.actions.keepGoodImages = signals.keepGoodImages === true;
+    nextCommand.actions.forceReplaceAllImages = false;
     if (signals.coverRequested) nextCommand.actions.touchCover = true;
+    if (signals.exclude.cover) nextCommand.actions.touchCover = false;
     if (signals.exclude.printables) {
       nextCommand.actions.generatePrintables = false;
       nextCommand.actions.touchPrintables = false;
       nextCommand.actions.checkPrintables = false;
+    }
+    if (signals.exclude.songs || signals.exclude.books) {
+      nextCommand.actions.generateSongsBooks = false;
+      nextCommand.actions.touchSongs = false;
+      nextCommand.actions.touchBooks = false;
     }
     nextCommand.actions.publish = false;
     nextCommand.completion.mutationsEnabled = true;

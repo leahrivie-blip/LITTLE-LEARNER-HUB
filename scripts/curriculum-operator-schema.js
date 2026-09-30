@@ -620,6 +620,8 @@ function normalizeOperatorCommand(raw = {}, options = {}) {
         : null,
       requestedActivities: asArray(scopeIn.requestedActivities)
         .map((item) => text(item, 180)).filter(Boolean).slice(0, 24),
+      targetActivityIds: asArray(scopeIn.targetActivityIds)
+        .map((item) => text(item, 160)).filter(Boolean).slice(0, 24),
     },
     actions,
     completion: {

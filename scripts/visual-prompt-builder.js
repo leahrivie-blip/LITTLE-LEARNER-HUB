@@ -143,6 +143,13 @@ function realisticCompositionBlock(ageBand, purpose = "setup") {
   ].join(" ");
 }
 
+function conciseSafetyConstraint(safetyNotes, ageBand) {
+  const note = oneLine(safetyNotes, 220);
+  if (!note) return "";
+  // Keep prompt short — only activity-specific safety constraints, not full lesson prose.
+  return `Safety visual constraint: ${note}. Do not depict unsafe or developmentally inappropriate materials for ${ageBand.label}.`;
+}
+
 function buildRealisticActivityPhoto(input, purpose = "setup") {
   const ageBand = normalizeAgeBand(input.ageBand);
   const title = text(input.activityTitle, 180);
@@ -153,6 +160,7 @@ function buildRealisticActivityPhoto(input, purpose = "setup") {
   const description = oneLine(input.description, 240);
   const action = steps || description || objective;
   const ownerBrief = oneLine(input.ownerBrief, 800);
+  const safety = conciseSafetyConstraint(input.safetyNotes, ageBand);
 
   if (ownerBrief) {
     return [
@@ -162,6 +170,7 @@ function buildRealisticActivityPhoto(input, purpose = "setup") {
       materials ? `Only these materials may appear: ${materials}.` : "",
       setup ? `Setup: ${setup}` : "",
       action ? `Children/teacher action to show: ${action}.` : "",
+      safety,
       realisticCompositionBlock(ageBand, purpose),
       ...ageSafetyRules(ageBand),
       `Exclude: ${REALISTIC_PHOTO_EXCLUSIONS.join("; ")}.`,
@@ -174,6 +183,7 @@ function buildRealisticActivityPhoto(input, purpose = "setup") {
     materials ? `Only these materials visible: ${materials}.` : "",
     action ? `Show what the child/children are doing: ${action}.` : "",
     text(input.lessonTheme, 80) ? `Lesson theme ${text(input.lessonTheme, 80)} — show the activity, not decorative theme art.` : "",
+    safety,
     realisticCompositionBlock(ageBand, purpose),
     ...ageSafetyRules(ageBand),
     `Exclude: ${REALISTIC_PHOTO_EXCLUSIONS.join("; ")}.`,
@@ -183,16 +193,18 @@ function buildRealisticActivityPhoto(input, purpose = "setup") {
 function buildRealisticLessonCover(input) {
   const ageBand = normalizeAgeBand(input.ageBand);
   const title = text(input.lessonTitle, 180);
-  const rep = text(input.representativeActivityTitle || input.activityTitle, 180);
-  const materials = lines(input.materials).slice(0, 6).join(", ");
+  const theme = text(input.lessonTheme || input.theme, 120) || title;
   return [
-    `Realistic warm childcare classroom cover photograph for lesson “${title}” (${ageBand.label}).`,
-    rep ? `Representative activity: “${rep}”.` : "",
-    materials ? `Visible materials from the lesson: ${materials}.` : "",
-    "Candid documentary classroom photography showing a developmentally appropriate hands-on activity.",
+    `Realistic warm childcare classroom cover photograph for the whole lesson theme “${title}” (${ageBand.label}).`,
+    theme && theme !== title ? `Overall theme: ${theme}.` : "",
+    "Represent the lesson theme broadly — inviting early-childhood atmosphere and theme cues.",
+    "Do NOT recreate one specific activity setup, materials tray, or worksheet layout.",
+    "Do NOT prioritize a single activity's props unless the owner asked for that exact scene.",
+    "Candid documentary classroom photography; believable daycare/preschool environment.",
     "Inviting but believable — not generic smiling-child stock art, not cartoon cover art.",
     "No decorative title graphics; no text rendered in the image.",
-    `Exclude: ${REALISTIC_PHOTO_EXCLUSIONS.join("; ")}.`,
+    ...ageSafetyRules(ageBand),
+    `Exclude: ${REALISTIC_PHOTO_EXCLUSIONS.join("; ")}; single-activity close-up product shots.`,
   ].filter(Boolean).join(" ");
 }
 

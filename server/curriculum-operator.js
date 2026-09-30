@@ -206,7 +206,13 @@ function createCurriculumOperatorApi(deps) {
     }
     return allowlistApi.buildMutationAllowlist(job?.command || {}, {
       lessonIds: job?.command?.scope?.lessonIds,
+      targetActivityIds: job?.command?.scope?.targetActivityIds,
     });
+  }
+
+  function wantsCoverExecution(command = {}) {
+    return command?.actions?.touchCover === true
+      || command?.actions?.connectedUpgrade === true;
   }
 
   function appendMutationViolationsToLessonResult(job, lessonId, violations = []) {
@@ -1230,8 +1236,16 @@ function createCurriculumOperatorApi(deps) {
         command: job.command,
       });
       let coverPlan = null;
-      if (job.command.actions?.connectedUpgrade) {
-        coverPlan = connectedUpgradeApi.buildCoverPlan(plan, curriculum, { command: job.command });
+      if (wantsCoverExecution(job.command)) {
+        // COVER_WORK is independently runnable — does not require full connectedUpgrade.
+        const coverOnlyJob = job.command.actions?.touchCover === true
+          && job.command.actions?.connectedUpgrade !== true
+          && job.command.actions?.generateImages !== true
+          && job.command.actions?.upgradeActivities !== true;
+        coverPlan = connectedUpgradeApi.buildCoverPlan(plan, curriculum, {
+          command: job.command,
+          forceReplace: coverOnlyJob === true,
+        });
         workPlan.coverPlan = coverPlan;
         workPlan.cover = coverPlan.decision === "GENERATE"
           ? "GENERATE_REALISTIC_LESSON_COVER"
@@ -1752,8 +1766,9 @@ function createCurriculumOperatorApi(deps) {
         };
       }
 
-      // Connected upgrade: dedicated REALISTIC_LESSON_COVER generation when explicitly requested.
-      if (job.command.actions?.connectedUpgrade && coverPlan?.decision === "GENERATE"
+      // Cover generation/replace runs for connectedUpgrade OR standalone COVER_WORK (touchCover).
+      let coverAction = null;
+      if (wantsCoverExecution(job.command) && coverPlan?.decision === "GENERATE"
         && allowlistApi.phaseAllowed("cover", mutationAllowlist)) {
         const coverCurriculum = readSiteCurriculum(store);
         const crypto = require("crypto");
@@ -1814,8 +1829,32 @@ function createCurriculumOperatorApi(deps) {
             Object.assign(store, readStore());
             workingPlan = schema.asArray(readSiteCurriculum(store).lessonPlans).find((p) => p.id === plan.id)
               || workingPlan;
+            coverAction = {
+              type: "cover",
+              idempotencyKey: `cover:${plan.id}:generate`,
+              status: "success",
+              retryable: false,
+              decision: "GENERATE",
+            };
+          } else {
+            coverAction = {
+              type: "cover",
+              idempotencyKey: `cover:${plan.id}:generate`,
+              status: "failed",
+              retryable: true,
+              decision: "GENERATE",
+              error: schema.text(coverSave?.error || "cover_save_failed", 400),
+            };
           }
         } else {
+          coverAction = {
+            type: "cover",
+            idempotencyKey: `cover:${plan.id}:generate`,
+            status: "failed",
+            retryable: true,
+            decision: "GENERATE",
+            error: schema.text(generatedCover?.error || generatedCover?.code || "cover_generation_failed", 400),
+          };
           jobApi.appendLog(
             job,
             `Dedicated lesson cover generation skipped/failed: ${schema.text(generatedCover?.error || generatedCover?.code, 240)}`,
@@ -1823,7 +1862,7 @@ function createCurriculumOperatorApi(deps) {
             plan.id,
           );
         }
-      } else if (job.command.actions?.connectedUpgrade
+      } else if (wantsCoverExecution(job.command)
         && (coverPlan?.decision === "REPLACE" || coverPlan?.decision === "REPLACE_REQUESTED")
         && allowlistApi.phaseAllowed("cover", mutationAllowlist)) {
         const coverCurriculum = readSiteCurriculum(store);
@@ -1950,6 +1989,7 @@ function createCurriculumOperatorApi(deps) {
         generated: [],
         workPlan,
         coverPlan,
+        coverAction,
         kitScope,
         executionScope: workPlan.executionScope || null,
         lessonReadiness: auditAfter?.lessonReadiness || null,
@@ -2803,10 +2843,11 @@ function createCurriculumOperatorApi(deps) {
             upgradeLesson: false,
             upgradeActivities: false,
             generateSongsBooks: false,
-            touchCover: false,
+            touchCover: validation.selected.some((row) => row.type === "cover"),
             publish: false,
             generateImages: validation.selected.some((row) => row.type === "image"),
             generatePrintables: validation.selected.some((row) => row.type === "printable"),
+            connectedUpgrade: false,
           },
         },
         lessonResults: [sourceResult],
@@ -2816,7 +2857,80 @@ function createCurriculumOperatorApi(deps) {
       const audit = sourceResult.auditAfter || sourceResult.audit || {};
       const imageActions = validation.selected.filter((row) => row.type === "image").map((row) => row.action);
       const printableActions = validation.selected.filter((row) => row.type === "printable").map((row) => row.action);
+      const coverSelected = validation.selected.some((row) => row.type === "cover");
       const outcomes = [];
+      if (coverSelected) {
+        const coverCurriculum = readSiteCurriculum(store);
+        const coverPlan = connectedUpgradeApi.buildCoverPlan(plan, coverCurriculum, {
+          command: retryJob.command,
+          forceReplace: true,
+        });
+        const crypto = require("crypto");
+        const path = require("path");
+        const lessonCoverMedia = require("./lesson-cover-media.js");
+        const persistCoverFn = async ({ buffer, mimeType, fileName }) => {
+          const id = `lesson-cover-${crypto.randomBytes(16).toString("hex")}`;
+          try {
+            if (typeof persistLessonCover === "function") {
+              const persisted = await persistLessonCover({ id, buffer, mimeType, fileName });
+              return { ok: true, id, url: persisted.url };
+            }
+            const provider = String(process.env.DATABASE_PROVIDER || "local-json").toLowerCase();
+            if (provider === "postgres" || provider === "postgresql") {
+              return { ok: false, code: "cover_persist_failed", error: "Persistent Postgres cover storage unavailable." };
+            }
+            const storePath = process.env.LLH_STORE_PATH
+              || path.join(__dirname, "data", "launch-store.json");
+            const dir = lessonCoverMedia.localCoverDirFromStorePath(storePath);
+            lessonCoverMedia.writeLocalLessonCover(dir, id, {
+              mimeType: mimeType || "image/png",
+              buffer,
+              fileName: fileName || "lesson-cover.png",
+            });
+            return { ok: true, id, url: lessonCoverMedia.lessonCoverMediaUrl(id) };
+          } catch (error) {
+            return { ok: false, code: "cover_persist_failed", error: error.message };
+          }
+        };
+        const generatedCover = await connectedUpgradeApi.runDedicatedLessonCoverGeneration({
+          plan,
+          curriculum: coverCurriculum,
+          coverPlan: { ...coverPlan, decision: "GENERATE", generationMode: "REALISTIC_LESSON_COVER" },
+          apiKey: process.env.OPENAI_API_KEY || "",
+          mockGenerate: process.env.VISUAL_PRODUCTION_MOCK_GENERATE === "1",
+          persistCoverFn,
+        });
+        if (generatedCover?.ok) {
+          const currentDraft = plan.enrichmentDraft && typeof plan.enrichmentDraft === "object"
+            ? plan.enrichmentDraft
+            : {};
+          const nextDraft = connectedUpgradeApi.applyCoverToEnrichmentDraft(currentDraft, generatedCover.coverPlan);
+          const coverSave = await saveDraftGuarded({
+            job: retryJob,
+            store,
+            lessonPlanId: plan.id,
+            enrichmentDraft: nextDraft,
+            adminEmail: session.email,
+            beforePlan: plan,
+            stage: "cover.retry.save",
+          });
+          outcomes.push({
+            type: "cover",
+            idempotencyKey: `cover:${plan.id}:generate`,
+            status: coverSave?.ok ? "success" : "failed",
+            retryable: !coverSave?.ok,
+            error: coverSave?.ok ? null : schema.text(coverSave?.error || "cover_retry_save_failed", 400),
+          });
+        } else {
+          outcomes.push({
+            type: "cover",
+            idempotencyKey: `cover:${plan.id}:generate`,
+            status: "failed",
+            retryable: true,
+            error: schema.text(generatedCover?.error || generatedCover?.code || "cover_retry_failed", 400),
+          });
+        }
+      }
       if (imageActions.length) {
         const imageRun = await runImagesForLesson(retryJob, plan, audit, store, session.email, sourceResult, imageActions);
         outcomes.push(...schema.asArray(imageRun.imageRun?.actions));

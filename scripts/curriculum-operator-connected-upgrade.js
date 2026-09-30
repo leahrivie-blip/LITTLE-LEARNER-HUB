@@ -511,18 +511,18 @@ async function runDedicatedLessonCoverGeneration({
   if (!promptBuilder?.buildVisualPrompt || !visualProduction?.generateVisualProductionImage) {
     return { ok: false, code: "cover_generation_unavailable", error: "Cover generation helpers unavailable." };
   }
-  const inspirationAct = schema.asArray(curriculum?.activities)
-    .find((a) => text(a.id, 160) === text(coverPlan.sourceActivityId, 160));
+  // Cover prompts prioritize lesson title/theme — not one arbitrary activity's materials/setup.
   const promptBundle = promptBuilder.buildVisualPrompt({
     assetMode: "REALISTIC_LESSON_COVER",
     lessonTitle: plan?.title,
-    activityTitle: text(coverPlan.sourceActivityTitle || inspirationAct?.title || plan?.title, 180),
+    lessonTheme: plan?.theme || plan?.title,
+    theme: plan?.theme || plan?.title,
     ageBand: plan?.age,
-    theme: plan?.theme,
-    representativeActivityTitle: text(coverPlan.sourceActivityTitle || inspirationAct?.title || plan?.title, 180),
-    materials: inspirationAct?.materials || plan?.weeklyMaterials,
-    setup: inspirationAct?.setup || plan?.weeklyOverview,
-    actionContext: text(inspirationAct?.objective || plan?.objectives || plan?.weeklyOverview, 400),
+    activityTitle: "",
+    representativeActivityTitle: "",
+    materials: "",
+    setup: "",
+    actionContext: text(plan?.weeklyOverview || plan?.objectives || "", 240),
   });
   if (promptBundle?.shouldBlockGeneration && text(plan?.title) && text(plan?.age)) {
     promptBundle.shouldBlockGeneration = false;

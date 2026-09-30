@@ -549,8 +549,9 @@ function resolveCoverIntent(command = {}, options = {}) {
   if (actions.touchCover !== true) return "NO_TOUCH";
   const raw = text(command?.rawCommand || options.rawCommand || "", 4000);
   if (/\bREALISTIC_LESSON_COVER\b/i.test(raw)
-    || /\b(new|replace|make|create|generate).{0,48}(realistic\s+)?(lesson\s+)?cover\b/i.test(raw)
-    || /\b(replace|new).{0,24}cover\b/i.test(raw)) {
+    || /\b(new|replace|make|create|generate|change|fix|update).{0,48}(realistic\s+)?(lesson\s+)?cover\b/i.test(raw)
+    || /\b(replace|new|change|fix).{0,24}cover\b/i.test(raw)
+    || /\bcover\s+(?:picture|photo|image)s?\b/i.test(raw) && /\b(?:only|nothing else|leave)\b/i.test(raw)) {
     return "EXPLICIT_REPLACE";
   }
   if (/\baudit.{0,24}cover\b/i.test(raw)) return "AUDIT_ONLY";

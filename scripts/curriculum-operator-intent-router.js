@@ -571,7 +571,9 @@ function classifyNaturalLanguageIntent(rawCommand, lessonRef = {}) {
   }
   const research = RESEARCH_VERBS.test(raw);
   const hasBroaderWork = /\b(?:full\s+teaching\s+kit|upgrade\s+(?:the\s+)?existing|fill\s+empty|missing\s+(?:teacher\s+tips|book)|books?\s+discussion|vocabulary)\b/i.test(raw);
+  // "cover picture only" is COVER_WORK — do not treat cover photo nouns as activity-image-only.
   const onlyImages = !hasBroaderWork
+    && !isExplicitCoverRequestCommand(raw)
     && (
       /\b(?:only\s+(?:update|change|fix|replace|regenerate|generate)\s+(?:the\s+)?(?:activity\s+)?(?:images?|pictures?|photos?|visuals?)|(?:images?|pictures?|photos?|visuals?)\s+only)\b/i.test(folded)
       || (
@@ -979,6 +981,18 @@ function applyIntentRouting(state, intent) {
 function applyPostSemanticSafety(parsed, intent) {
   const actions = parsed?.command?.actions;
   if (!actions) return parsed;
+  const primary = parsed?.interpretation?.primary
+    || parsed?.command?.interpretation?.primary
+    || "";
+  // Semantic COVER / assets-only / retry / printable winners must not be collapsed by
+  // legacy IMAGE_ONLY / PRINTABLE_ONLY post-locks (e.g. "cover picture only").
+  if (primary === "COVER_WORK"
+    || primary === "ASSETS_ONLY_WORK"
+    || primary === "RETRY_FAILED_ASSETS"
+    || primary === "PRINTABLE_WORK"
+    || primary === "FULL_KIT_WORK") {
+    return parsed;
+  }
   if (intent?.naturalIntent === NATURAL_INTENTS.IMAGE_ONLY_UPDATE) {
     actions.upgradeLesson = false;
     actions.upgradeActivities = false;
