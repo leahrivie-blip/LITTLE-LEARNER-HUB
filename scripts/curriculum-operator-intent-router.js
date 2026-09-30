@@ -135,6 +135,25 @@ function planRowSummary(plan) {
 function matchLessonsFromCatalog(command, lessonPlans = [], options = {}) {
   const normalizedCommand = normalizeTitleKey(command);
   if (!normalizedCommand) return [];
+  // Capability-lexicon fold (picures→pictures, preshool→preschool). Title typos use
+  // high-confidence unique token near-match only — never broad guessing.
+  let lexicon = null;
+  let normalizedFolded = normalizedCommand;
+  try {
+    lexicon = require("./curriculum-operator-semantic-lexicon.js");
+    normalizedFolded = normalizeTitleKey(lexicon.foldCommandText(command)) || normalizedCommand;
+  } catch (_e) {
+    normalizedFolded = normalizedCommand;
+  }
+  const commandTokens = [...new Set(
+    `${normalizedCommand} ${normalizedFolded}`.split(" ").filter((t) => t.length > 2),
+  )];
+  function tokenPresent(titleToken) {
+    if (commandTokens.includes(titleToken)) return true;
+    if (!lexicon || titleToken.length < 5) return false;
+    const maxDist = titleToken.length <= 5 ? 1 : 2;
+    return commandTokens.some((ct) => ct.length >= 5 && lexicon.levenshtein(ct, titleToken) <= maxDist);
+  }
   const explicitIds = extractExplicitLessonIds(command, lessonPlans);
   if (explicitIds.length === 1 && (
     commandSafety.isOneLessonScopeCommand(command)
@@ -145,24 +164,47 @@ function matchLessonsFromCatalog(command, lessonPlans = [], options = {}) {
   }
   const plans = schema.asArray(lessonPlans).filter((p) => p && p.status !== "archived");
   const matches = [];
+  const fuzzyCandidates = [];
   plans.forEach((plan) => {
     const title = text(plan.title, 180);
     const key = normalizeTitleKey(title);
     if (!key || key.length < 4) return;
-    if (normalizedCommand.includes(key)) {
+    if (normalizedCommand.includes(key) || normalizedFolded.includes(key)) {
       matches.push(planRowSummary(plan));
       return;
     }
     const tokens = key.split(" ").filter((t) => t.length > 2 && !/^(the|and|for|with)$/.test(t));
     if (tokens.length < 2) return;
-    const hits = tokens.filter((t) => normalizedCommand.includes(t));
-    if (hits.length >= Math.min(2, tokens.length)) {
+    const exactHits = tokens.filter((t) => normalizedCommand.includes(t) || normalizedFolded.includes(t));
+    if (exactHits.length >= Math.min(2, tokens.length)) {
       matches.push(planRowSummary(plan));
+      return;
+    }
+    // Fuzzy: every significant title token must near-match a command token.
+    if (tokens.every((t) => tokenPresent(t))) {
+      fuzzyCandidates.push(planRowSummary(plan));
     }
   });
   const byId = new Map();
   matches.forEach((row) => { if (row.id) byId.set(row.id, row); });
-  return [...byId.values()];
+  if (byId.size) return [...byId.values()];
+  // Accept fuzzy matches only when uniquely resolvable (optionally age-scoped).
+  if (fuzzyCandidates.length === 1) return fuzzyCandidates;
+  if (fuzzyCandidates.length > 1) {
+    let ageScopedSource = command;
+    try {
+      ageScopedSource = lexicon ? lexicon.foldCommandText(command) : command;
+    } catch (_e) {
+      ageScopedSource = command;
+    }
+    const ageHint = /\b(?:the|a|my|our)\s+(infant|toddler|preschool|school[\s-]?age|mixed)\b/i.exec(ageScopedSource);
+    if (ageHint) {
+      const band = schema.normalizeAgeBand(ageHint[1]);
+      const ageFiltered = fuzzyCandidates.filter((row) => row.ageBand === band);
+      if (ageFiltered.length === 1) return ageFiltered;
+    }
+  }
+  return [];
 }
 
 /**
@@ -242,16 +284,21 @@ function isPrintablesExcludedCommand(rawCommand) {
 function isExplicitCoverRequestCommand(rawCommand) {
   const raw = text(rawCommand);
   if (!raw) return false;
-  if (/\b(?:do\s+not|don['’]?t|never|keep)\s+(?:change|touch|replace|update)?\s*(?:the\s+)?cover\b/i.test(raw)
-    || /\bleave\s+(?:the\s+)?cover\s+(?:unchanged|alone|the\s+same)\b/i.test(raw)) {
+  if (/\bkeep\s+(?:the\s+)?cover\b/i.test(raw)
+    || /\bleave\s+(?:the\s+)?cover\s+(?:unchanged|alone|the\s+same)\b/i.test(raw)
+    || /\b(?:do\s+not|don['’]?t|never)\s+(?:change|touch|replace|update)\s+(?:the\s+)?cover\b/i.test(raw)) {
     return false;
   }
+  // Strip keep/leave-cover clauses so nearby "update …" verbs cannot false-trigger cover work.
+  const affirmative = raw
+    .replace(/\bkeep\s+(?:the\s+)?cover\b/gi, " ")
+    .replace(/\bleave\s+(?:the\s+)?cover\s+(?:unchanged|alone|the\s+same)\b/gi, " ");
   return (
-    /\bREALISTIC_LESSON_COVER\b/i.test(raw)
-    || /\brealistic\s+lesson\s+cover\b/i.test(raw)
-    || /\b(?:create|generate|make|replace|new)\s+(?:a\s+)?(?:realistic\s+)?(?:lesson\s+)?cover\b/i.test(raw)
-    || /\b(?:update|change|replace)\s+(?:the\s+)?cover\b/i.test(raw)
-    || /\band\s+update\s+(?:the\s+)?cover\b/i.test(raw)
+    /\bREALISTIC_LESSON_COVER\b/i.test(affirmative)
+    || /\brealistic\s+lesson\s+cover\b/i.test(affirmative)
+    || /\b(?:create|generate|make|replace|new|update|change|fix)\b[^.!?]{0,48}\bcover(?:\s+(?:picture|photo|image)s?)?\b/i.test(affirmative)
+    || /\bcover\s+(?:picture|photo|image)s?\b/i.test(affirmative)
+    || /\band\s+update\s+(?:the\s+)?cover\b/i.test(affirmative)
   );
 }
 
@@ -301,7 +348,13 @@ function detectExistingLessonReferences(rawCommand, options = {}) {
   const newLessonIntent = detectNewLessonIntent(raw, { existingLessonIntent: false });
   const hasTargetingEvidence = hasExistingLessonTargetingEvidence(raw, options);
 
-  const ageScopedHint = /\b(?:the|a)\s+(infant|toddler|preschool|school[\s-]?age|mixed)\s+lesson\b/i.exec(raw);
+  let ageScopedSource = raw;
+  try {
+    ageScopedSource = require("./curriculum-operator-semantic-lexicon.js").foldCommandText(raw) || raw;
+  } catch (_e) {
+    ageScopedSource = raw;
+  }
+  const ageScopedHint = /\b(?:the|a|my|our)\s+(infant|toddler|preschool|school[\s-]?age|mixed)\b/i.exec(ageScopedSource);
   let ageScopedMatches = [];
   if (ageScopedHint) {
     const band = schema.normalizeAgeBand(ageScopedHint[1]);
@@ -326,9 +379,11 @@ function detectExistingLessonReferences(rawCommand, options = {}) {
   } else if (hasTargetingEvidence) {
     // A named title is always narrower than an age label. Age only
     // disambiguates same-titled lessons; it never selects every age-band lesson.
-    const titleMatches = ageScopedHint && catalogMatches.length
-      ? catalogMatches.filter((row) => ageScopedMatches.some((ageRow) => ageRow.id === row.id))
-      : catalogMatches;
+    let titleMatches = catalogMatches;
+    if (ageScopedHint && catalogMatches.length && ageScopedMatches.length) {
+      const ageFiltered = catalogMatches.filter((row) => ageScopedMatches.some((ageRow) => ageRow.id === row.id));
+      if (ageFiltered.length) titleMatches = ageFiltered;
+    }
     titleMatches.forEach(pushUnique);
   }
 
@@ -421,19 +476,33 @@ function detectNewLessonIntent(rawCommand, context = {}) {
 function hasExplicitResearchOnlyIntent(rawCommand) {
   const raw = text(rawCommand);
   return RESEARCH_VERBS.test(raw) && (
-    /\b(?:do\s+not|don['’]?t)\s+(?:create|make|build)\s+(?:a\s+)?lesson\b/i.test(raw)
+    /\b(?:do\s+not|don['’]?t)\s+(?:create|make|build)\s+(?:a\s+|an\s+)?lesson\b/i.test(raw)
+    || /\b(?:do\s+not|don['’]?t)\s+make\s+or\s+change\b[^.!?]{0,40}\b(?:a\s+|an\s+|any\s+)?lesson\b/i.test(raw)
+    || /\b(?:do\s+not|don['’]?t)\s+(?:make|create|build|change)\s+or\s+(?:make|create|build|change)\b/i.test(raw)
+    || /\b(?:do\s+not|don['’]?t)\s+(?:create|make|build)\s+anything\b/i.test(raw)
+    || /\b(?:do\s+not|don['’]?t)\s+(?:change|update)\s+(?:anything|my\s+existing\s+lesson|an?\s+existing\s+lesson|lessons?)\b/i.test(raw)
     || /\bresearch\s+only\b/i.test(raw)
+    || /\bjust\s+research\b/i.test(raw)
     || /\bjust\s+(?:return|give|show)\s+(?:the\s+)?sources?\b/i.test(raw)
     || /\b(?:do\s+not|don['’]?t)\s+make\s+anything\s+yet\b/i.test(raw)
     || /\bno\s+lessons?\s+or\s+assets?\b/i.test(raw)
   );
 }
 
+function stripNegatedClauses(rawCommand) {
+  return String(rawCommand || "")
+    .replace(/\b(?:do\s+not|don['’]?t|never)\s+[^.!?]{0,100}/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function hasStagedResearchCreateIntent(rawCommand) {
   const raw = text(rawCommand);
-  return !hasExplicitResearchOnlyIntent(raw)
-    && RESEARCH_VERBS.test(raw)
-    && /\b(?:create|make|build|write)\b[^.!?]{0,40}\b(?:lesson(?:\s+plan)?|(?:infant|toddler|preschool)\s+plan)\b/i.test(raw);
+  if (hasExplicitResearchOnlyIntent(raw)) return false;
+  if (!RESEARCH_VERBS.test(raw)) return false;
+  // Negation must be removed before inferring an affirmative create/update stage.
+  const affirmative = stripNegatedClauses(raw);
+  return /\b(?:create|make|build|write)\b[^.!?]{0,40}\b(?:lesson(?:\s+plan)?|(?:infant|toddler|preschool)\s+plan)\b/i.test(affirmative);
 }
 
 function detectAssetCategories(rawCommand, exclusions = {}) {
@@ -494,10 +563,26 @@ function detectAssetCategories(rawCommand, exclusions = {}) {
  */
 function classifyNaturalLanguageIntent(rawCommand, lessonRef = {}) {
   const raw = text(rawCommand);
+  let folded = raw;
+  try {
+    folded = require("./curriculum-operator-semantic-lexicon.js").foldCommandText(raw) || raw;
+  } catch (_e) {
+    folded = raw;
+  }
   const research = RESEARCH_VERBS.test(raw);
   const hasBroaderWork = /\b(?:full\s+teaching\s+kit|upgrade\s+(?:the\s+)?existing|fill\s+empty|missing\s+(?:teacher\s+tips|book)|books?\s+discussion|vocabulary)\b/i.test(raw);
   const onlyImages = !hasBroaderWork
-    && /\b(?:only\s+(?:update|change|fix|replace|regenerate|generate)\s+(?:the\s+)?(?:activity\s+)?(?:images?|pictures?|photos?|visuals?)|(?:images?|pictures?|photos?|visuals?)\s+only)\b/i.test(raw);
+    && (
+      /\b(?:only\s+(?:update|change|fix|replace|regenerate|generate)\s+(?:the\s+)?(?:activity\s+)?(?:images?|pictures?|photos?|visuals?)|(?:images?|pictures?|photos?|visuals?)\s+only)\b/i.test(folded)
+      || (
+        /\b(?:replace|fix)\s+(?:the\s+)?(?:bad\s+|cartoon\s+|generic\s+)*(?:activity\s+)?(?:images?|pictures?|photos?)\b/i.test(folded)
+        && (
+          /\bkeep\s+(?:the\s+)?good\b/i.test(folded)
+          || /\b(?:do\s+not|don['’]?t|dont)\s+(?:change|mess\s+with)\s+anything\s+else\b/i.test(folded)
+          || /\b(?:published\s+)?free\b/i.test(folded)
+        )
+      )
+    );
   const onlyPrintables = /\b(?:only\s+(?:update|change|fix|replace|generate|create)\s+(?:the\s+)?(?:missing\s+)?printables?|printables?\s+only)\b/i.test(raw);
   const onlyActivities = /\b(?:only\s+(?:update|change|fix|add)\s+(?:the\s+)?activities?|activities?\s+only)\b/i.test(raw);
   const create = detectNewLessonIntent(raw, { existingLessonIntent: lessonRef.existingLessonIntent });
@@ -601,10 +686,22 @@ function resolveOwnerIntent(rawCommand, options = {}) {
     lessonRef.resolvedLessons = [];
     lessonRef.titles = [];
     lessonRef.existingLessonIntent = false;
-  } else if (naturalIntent === NATURAL_INTENTS.IMAGE_ONLY_UPDATE && lessonRef.existingLessonIntent) {
+  } else if (naturalIntent === NATURAL_INTENTS.IMAGE_ONLY_UPDATE) {
+    // Single named lesson or intentional Free/published collection — not an ambiguous single target.
     route = ROUTES.EXISTING_IMAGE;
+    if (!lessonRef.existingLessonIntent && (
+      /\b(?:published\s+)?free\b/i.test(raw)
+      || /\ball\s+(?:my\s+|our\s+)?(?:published\s+)?(?:lessons?|plans?)\b/i.test(raw)
+      || /\bpublished\s+(?:preschool\s+|toddler\s+|infant\s+)?(?:lessons?|plans?)\b/i.test(raw)
+    )) {
+      needsClarification = false;
+      clarificationReasons.length = 0;
+    }
   } else if (naturalIntent === NATURAL_INTENTS.PRINTABLE_ONLY_UPDATE && lessonRef.existingLessonIntent) {
     route = ROUTES.EXISTING_PRINTABLE;
+  } else if (naturalIntent === NATURAL_INTENTS.UPDATE_MULTIPLE_LESSONS) {
+    route = assetCategory === "image" ? ROUTES.EXISTING_IMAGE : ROUTES.OPERATOR_GENERIC;
+    needsClarification = false;
   } else if (lessonRef.existingLessonIntent && newLessonIntent) {
     needsClarification = true;
     clarificationReasons.push("conflicting_create_and_existing");
@@ -845,6 +942,17 @@ function applyIntentRouting(state, intent) {
     state.actions.createLesson = false;
     state.actions.touchCover = true;
     state.actions.saveDraft = true;
+    state.actions.composeReviewDraft = true;
+    state.actions.connectedAutoApply = true;
+    state.actions.generateImages = false;
+    state.actions.replaceBadImages = false;
+    state.actions.touchImages = false;
+    state.actions.checkImages = false;
+    state.actions.generatePrintables = false;
+    state.actions.touchPrintables = false;
+    state.actions.generateSongsBooks = false;
+    state.actions.upgradeLesson = false;
+    state.actions.upgradeActivities = false;
     state.intent = "fix_lesson";
     state.notes.push("Cover update explicitly requested for existing lesson.");
   } else if (route === ROUTES.EXISTING_SONGS_BOOKS) {

@@ -363,11 +363,15 @@ function parseOperatorCommand(rawCommand, options = {}) {
       notes.push("New-lesson creation requires Phase 7+; not executed at this phase.");
     }
   }
-  if (/\bpublish\b/i.test(raw)
+  // Affirmative publish only — negated "don't publish it" must never stage publish_requested.
+  const publishAffirmativeSpan = String(raw)
+    .replace(/\b(?:do\s+not|don['’]?t|never)\s+[^.!?]{0,80}/gi, " ");
+  if (/\bpublish\b/i.test(publishAffirmativeSpan)
     && !/\bready\s+to\s+publish\b/i.test(raw)
     && !/\bpublish[\s-]?ready\b/i.test(raw)
-    && !/\bready\s+for\s+(me\s+to\s+)?(review|publish)\b/i.test(raw)
-    && /\b(publish\s+(this\s+)?(lesson|it)|publish\s+it\s+now|go\s+ahead\s+and\s+publish)\b/i.test(raw)) {
+    && !/\bready\s+for\s+(me\s+to\s+)?(review|publish|look\s+over)\b/i.test(raw)
+    && !/\b(?:do\s+not|don['’]?t|never)\b[^.!?]{0,40}\bpublish\b/i.test(raw)
+    && /\b(publish\s+(this\s+)?(lesson|it)|publish\s+it\s+now|go\s+ahead\s+and\s+publish)\b/i.test(publishAffirmativeSpan)) {
     actions.publish = true;
     confirmReasons.push("publish_requested");
     notes.push("READY FOR REVIEW — PUBLISH REQUESTED. AI will finish the draft only; Owner must explicitly confirm Publish in the UI (Phase 8). No automatic publishing.");

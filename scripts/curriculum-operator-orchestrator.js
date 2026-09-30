@@ -470,10 +470,17 @@ function parseExclusionHints(rawCommand) {
     notes.push("Cover locked by exclusion.");
   }
 
-  if (/\b(?:update|change|replace|create|generate|make|new)\s+(?:the\s+)?(?:a\s+)?(?:realistic\s+)?(?:lesson\s+)?cover\b/i.test(raw)
-    || /\bREALISTIC_LESSON_COVER\b/i.test(raw)
-    || /\brealistic\s+lesson\s+cover\b/i.test(raw)
-    || /\band\s+update\s+(?:the\s+)?cover\b/i.test(raw)) {
+  if (!/\bkeep\s+(?:the\s+)?cover\b/i.test(raw)
+    && !/\bleave\s+(?:the\s+)?cover\s+(?:unchanged|alone|the\s+same)\b/i.test(raw)
+    && (
+      /\b(?:update|change|replace|create|generate|make|new|fix)\b[^.!?]{0,48}\bcover(?:\s+(?:picture|photo|image)s?)?\b/i.test(
+        raw.replace(/\bkeep\s+(?:the\s+)?cover\b/gi, " "),
+      )
+      || /\bcover\s+(?:picture|photo|image)s?\b/i.test(raw)
+      || /\bREALISTIC_LESSON_COVER\b/i.test(raw)
+      || /\brealistic\s+lesson\s+cover\b/i.test(raw)
+      || /\band\s+update\s+(?:the\s+)?cover\b/i.test(raw)
+    )) {
     flags.touchCover = true;
     notes.push("Cover update explicitly requested.");
   }

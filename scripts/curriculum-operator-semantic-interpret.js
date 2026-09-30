@@ -105,11 +105,16 @@ function applyToParsedResult(parsed = {}, options = {}) {
   const ageCheck = targetsApi.assertAgeInvariant(targets.rows, signals.ageBand);
   if (!ageCheck.ok) confirmReasons.push(ageCheck.code);
 
-  if (signals.collection && nextScope.plan) {
+  if (signals.collection) {
+    // Intentional multi-target collections are not ambiguous single-target requests.
     parsed.ambiguous = false;
-    const filtered = confirmReasons.filter((r) => r !== "unexpectedly_large_scope");
+    const filtered = confirmReasons.filter((r) =>
+      r !== "unexpectedly_large_scope" && r !== "ambiguous_scope" && r !== "multiple_lessons_matched");
     confirmReasons.length = 0;
     confirmReasons.push(...filtered);
+    if (parsed.ownerIntent && typeof parsed.ownerIntent === "object") {
+      parsed.ownerIntent.needsClarification = false;
+    }
   }
 
   let nextCommand = schema.normalizeOperatorCommand({

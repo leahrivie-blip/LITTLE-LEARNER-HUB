@@ -63,10 +63,21 @@ function resolveRequestedTitles(titles, catalog, exampleSpan) {
 
 function resolveCollection(signals, catalog) {
   if (!signals.collection) return null;
-  let rows = catalog.filter((row) => !row.archived);
+  let rows = catalog.filter((row) => {
+    const status = String(row.status || "").toLowerCase();
+    return !row.archived && status !== "archived";
+  });
   if (signals.access === "Free") rows = rows.filter((row) => row.plan === "Free");
   if (signals.access === "Pro") rows = rows.filter((row) => row.plan === "Pro");
-  rows = rows.filter((row) => row.status === "published" || row.status === "draft" || !row.status);
+  if (signals.publishedOnly) {
+    // Explicit "published" is a hard collection filter — drafts/unpublished copies stay out.
+    rows = rows.filter((row) => String(row.status || "").toLowerCase() === "published");
+  } else {
+    rows = rows.filter((row) => {
+      const status = String(row.status || "").toLowerCase();
+      return status === "published" || status === "draft" || !status;
+    });
+  }
   if (signals.ageBand) rows = rows.filter((row) => row.ageBand === signals.ageBand);
   return rows;
 }
