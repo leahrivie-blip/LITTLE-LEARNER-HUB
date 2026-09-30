@@ -174,6 +174,7 @@
     "verify:curriculum-media-migration": "node scripts/verify-migration-manual-checks.js",
     "test:seo-visibility": "node scripts/test-seo-visibility.js",
     "test:seo-curriculum-hub": "node scripts/test-seo-curriculum-hub.js",
+    "test:daycare-curriculum-cold-nav": "node scripts/test-daycare-curriculum-cold-nav.js",
     "inventory:inline-curriculum-resources": "node scripts/inventory-inline-curriculum-resources.js",
     "migrate:inline-curriculum-resources": "node scripts/migrate-inline-curriculum-resources.js",
     "test:curriculum-collections": "node scripts/test-curriculum-collections.js",
