@@ -73,6 +73,8 @@ async function main() {
   assert.match(nuoJs, /Explore Lesson Plans/);
   assert.match(nuoJs, /free-signup-success|freeChosenAtSignup/);
   assert.match(nuoJs, /explore_lesson_plans_clicked/);
+  assert.match(nuoJs, /read_welcome_message_clicked/);
+  assert.match(nuoJs, /ghost-button[^>]*data-nuo-action="read-welcome-message"/);
   assert.match(appJs, /trackEvent\("signup_landed_free"/);
   assert.doesNotMatch(
     appJs.slice(appJs.indexOf("if (finishFree)")),
@@ -119,9 +121,14 @@ async function main() {
     const welcomeText = await page.locator("#newUserOnboardingBody").innerText();
     assert.match(welcomeText, /Your Free account is ready/i);
     assert.match(welcomeText, /Explore Lesson Plans/i);
-    assert.doesNotMatch(welcomeText, /Read My Message|Show me around/i);
+    assert.match(welcomeText, /Read My Message/i);
+    assert.doesNotMatch(welcomeText, /Show me around/i);
     assert.equal(await page.locator("[data-nuo-action='choose-free']").count(), 0);
     assert.equal(await page.locator("[data-nuo-action='continue']").count(), 0);
+    const exploreBtn = page.locator('[data-nuo-action="explore-lesson-plans"]');
+    const readBtn = page.locator('[data-nuo-action="read-welcome-message"]');
+    assert.match(await exploreBtn.getAttribute("class") || "", /primary-button/);
+    assert.match(await readBtn.getAttribute("class") || "", /ghost-button/);
 
     await page.click('[data-nuo-action="explore-lesson-plans"]');
     await page.waitForFunction(() => !document.querySelector("#newUserOnboardingModal.open"), null, { timeout: 5000 });
@@ -148,6 +155,36 @@ async function main() {
     }));
     assert.equal(afterReload.open, false, "onboarding does not reopen after completion on refresh");
     assert.equal(afterReload.step, "done");
+
+    await page.evaluate(() => {
+      const email = `nuo-read-${Date.now()}@example.com`;
+      localStorage.setItem("llhUser", email);
+      localStorage.setItem("llhPlan", "Free");
+      const accounts = JSON.parse(localStorage.getItem("llhAccounts") || "{}");
+      accounts[email] = {
+        email,
+        plan: "Free",
+        subscriptionStatus: "Free Plan",
+        freeLessonAccessMode: "curated",
+        signupAt: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+      };
+      localStorage.setItem("llhAccounts", JSON.stringify(accounts));
+      if (typeof loadAccountState === "function") loadAccountState(email);
+      beginNewUserOnboardingAfterFreeSignup();
+    });
+    await page.waitForSelector("#newUserOnboardingModal.open", { timeout: 10000 });
+    await page.click('[data-nuo-action="read-welcome-message"]');
+    await page.waitForFunction(() => !document.querySelector("#newUserOnboardingModal.open"), null, { timeout: 5000 });
+    await page.waitForFunction(() => document.querySelector(".active-view")?.id === "view-messages", null, { timeout: 8000 });
+    const readPath = await page.evaluate(() => ({
+      step: NewUserOnboarding.getState().step,
+      open: Boolean(document.querySelector("#newUserOnboardingModal.open")),
+      events: JSON.parse(localStorage.getItem("llhAnalyticsEvents") || "[]").map((e) => e.name),
+    }));
+    assert.equal(readPath.step, "done");
+    assert.equal(readPath.open, false);
+    assert.ok(readPath.events.includes("read_welcome_message_clicked"));
 
     // Trial checkout path still available from the explore chooser (non–signup-Free flow).
     await page.evaluate(() => {

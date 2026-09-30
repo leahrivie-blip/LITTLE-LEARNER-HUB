@@ -416,8 +416,10 @@
         <p class="nuo-emoji" aria-hidden="true">🎉</p>
         <h2 id="newUserOnboardingTitle">Your Free account is ready.</h2>
         <p class="nuo-lead">Your included lesson plans are below — open one to start planning.</p>
+        <p class="muted-copy">I sent you a welcome message with tips on lesson planning, classroom ideas, and center planning.</p>
         <div class="nuo-actions">
           <button type="button" class="primary-button" data-nuo-action="explore-lesson-plans">Explore Lesson Plans</button>
+          <button type="button" class="ghost-button" data-nuo-action="read-welcome-message" aria-label="Read Leah's welcome message">Read My Message</button>
         </div>
       </div>
     `;
@@ -927,9 +929,26 @@
 
   async function onAction(action) {
     if (action === "read-welcome-message" || action === "maybe-later") {
+      const state = getState();
+      const now = new Date().toISOString();
+      if (state.step === "free-signup-success") {
+        if (action === "read-welcome-message") {
+          track("read_welcome_message_clicked", { source: "new_user_onboarding", plan: "Free" });
+        }
+        updateState({
+          welcomeMessagePromptShownAt: now,
+          freeSelectedAt: state.freeSelectedAt || now,
+          deferGenericUpgrades: true,
+        });
+        finishFreePath();
+        if (action === "read-welcome-message" && typeof global.setView === "function") {
+          global.setView("messages", { conversation: true });
+        }
+        return;
+      }
       updateState({
         step: "welcome",
-        welcomeMessagePromptShownAt: new Date().toISOString(),
+        welcomeMessagePromptShownAt: now,
       });
       closeModal();
       if (action === "read-welcome-message" && typeof global.setView === "function") {

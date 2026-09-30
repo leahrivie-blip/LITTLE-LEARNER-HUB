@@ -112,7 +112,8 @@ async function main() {
     const welcome = await page.locator("#newUserOnboardingBody").innerText();
     assert.match(welcome, /Your Free account is ready/i);
     assert.match(welcome, /Explore Lesson Plans/i);
-    assert.doesNotMatch(welcome, /Founding Member|Read My Message|Show me around/i);
+    assert.match(welcome, /Read My Message/i);
+    assert.doesNotMatch(welcome, /Founding Member|Show me around/i);
 
     await page.click('[data-nuo-action="explore-lesson-plans"]');
     await page.waitForFunction(() => !document.querySelector("#newUserOnboardingModal.open"), null, { timeout: 5000 });

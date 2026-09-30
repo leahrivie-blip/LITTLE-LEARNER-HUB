@@ -66,8 +66,10 @@ onboarding.beginAfterFreeSignup();
 assert.equal(onboarding.getState().step, "free-signup-success", "Free signup uses single success step");
 assert.equal(modal.classList.contains("open"), true, "success surface opens after Free signup");
 assert.match(body.innerHTML, /Explore Lesson Plans/);
-assert.doesNotMatch(body.innerHTML, /Read My Message/);
-assert.equal(onboarding.showWelcomeMessagePrompt(), false, "welcome-message prompt never blocks Free signup");
+assert.match(body.innerHTML, /Read My Message/);
+assert.match(body.innerHTML, /primary-button[^>]*data-nuo-action="explore-lesson-plans"/);
+assert.match(body.innerHTML, /ghost-button[^>]*data-nuo-action="read-welcome-message"/);
+assert.equal(onboarding.showWelcomeMessagePrompt(), false, "welcome-message step never blocks Free signup");
 
 listeners.click({
   preventDefault() {},
@@ -82,6 +84,33 @@ assert.ok(
 
 onboarding.beginAfterFreeSignup();
 assert.equal(modal.classList.contains("open"), false, "completed onboarding does not reopen on repeat begin");
+
+sandbox.currentUser = "read-msg@example.com";
+values.delete("llhNewUserOnboardingV1");
+sandbox.lastView = null;
+onboarding.beginAfterFreeSignup();
+const welcomeViewsBeforeRead = (sandbox.events || []).filter((e) => e.name === "welcome_screen_viewed").length;
+listeners.click({
+  preventDefault() {},
+  target: { closest: () => ({ getAttribute: () => "read-welcome-message" }) },
+});
+assert.equal(modal.classList.contains("open"), false, "Read My Message dismisses onboarding");
+assert.equal(onboarding.getState().step, "done");
+assert.notEqual(onboarding.getState().step, "welcome");
+assert.notEqual(onboarding.getState().step, "free-ready");
+assert.ok(onboarding.getState().welcomeMessagePromptShownAt, "read path marks welcome prompt shown");
+assert.equal(sandbox.lastView?.view, "messages");
+assert.equal(sandbox.lastView?.options?.conversation, true);
+assert.ok(
+  (sandbox.events || []).some((e) => e.name === "read_welcome_message_clicked"),
+  "read_welcome_message_clicked tracked",
+);
+assert.equal(
+  (sandbox.events || []).filter((e) => e.name === "welcome_screen_viewed").length,
+  welcomeViewsBeforeRead,
+  "read path does not chain welcome → free-ready modals",
+);
+assert.doesNotMatch(source, /beginAfterFreeSignup[\s\S]{0,400}welcome-message/);
 
 onboarding.clearOnLogout();
 sandbox.currentUser = "legacy-welcome@example.com";
