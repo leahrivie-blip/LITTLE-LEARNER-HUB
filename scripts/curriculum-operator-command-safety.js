@@ -159,12 +159,23 @@ function wantsPositiveImageIntent(rawCommand, exclusions = {}) {
   if (isImagesExcluded(rawCommand, exclusions)) return false;
   const raw = text(rawCommand);
   if (/\bgenerateimages\s*=\s*false\b/i.test(raw) || /\btouchimages\s*=\s*false\b/i.test(raw)) return false;
-  const mentions = /\b(picture|pictures|image|images|photo|photos|visual|visuals)\b/i.test(raw);
+  let folded = raw;
+  try {
+    folded = require("./curriculum-operator-semantic-lexicon.js").foldCommandText(raw) || raw;
+  } catch (_e) {
+    folded = raw;
+  }
+  // Cover picture/photo/image nouns are cover work, not activity-image work.
+  const withoutCoverImageNouns = String(folded)
+    .replace(/\bcover\s+(?:picture|photo|image)s?\b/gi, " ")
+    .replace(/\b(?:picture|photo|image)\s+(?:for\s+(?:the\s+)?)?cover\b/gi, " ")
+    .replace(/\b(?:to|into|with|as)\s+(?:a\s+|an\s+)?realistic\b[^.!?]{0,48}\b(?:picture|photo|image)s?\b/gi, " ");
+  const mentions = /\b(picture|pictures|image|images|photo|photos|visual|visuals|pic|pics)\b/i.test(withoutCoverImageNouns);
   if (!mentions) return false;
-  if (/\b(?:do\s+not|don['’]?t|no)\s+(?:touch|generate|create|mutate)\b[^.\n]{0,80}\b(?:images?|pictures?|photos?|visuals?)\b/i.test(raw)) {
+  if (/\b(?:do\s+not|don['’]?t|no)\s+(?:touch|generate|create|mutate)\b[^.\n]{0,80}\b(?:images?|pictures?|photos?|visuals?)\b/i.test(folded)) {
     return false;
   }
-  return /\b(add|fix|make|generate|create|upgrade|replace|keep|need|finish)\b/i.test(raw);
+  return /\b(add|fix|make|generate|create|upgrade|replace|keep|need|finish|change|update)\b/i.test(withoutCoverImageNouns);
 }
 
 function applyExplicitBooleanConstraints(actions, explicitBooleans = {}) {

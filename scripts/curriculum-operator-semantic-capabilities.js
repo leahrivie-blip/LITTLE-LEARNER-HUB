@@ -61,6 +61,36 @@ function compileCapabilities(signals = {}, context = {}) {
     return pack(CAPABILITIES.VOCABULARY_WORK, "fix_lesson", allowed, forbidden, reasons, notes, true);
   }
 
+  // Printable-only and cover-only outrank generic image-capability inference.
+  if (signals.printablesOnly) {
+    allowed.add("checkPrintables");
+    allowed.add("touchPrintables");
+    allowed.add("generatePrintables");
+    allowed.add("saveDraft");
+    allowed.add("composeReviewDraft");
+    reasons.generatePrintables = ["explicit printable work"];
+    [
+      "upgradeActivities", "generateImages", "replaceBadImages", "touchImages", "checkImages",
+      "generateSongsBooks", "touchSongs", "touchBooks", "touchCover", "publish", "createLesson",
+    ].forEach((flag) => forbidden.add(flag));
+    notes.push("Printables-only capability.");
+    return pack(CAPABILITIES.PRINTABLE_WORK, "finish_printables", allowed, forbidden, reasons, notes, true);
+  }
+
+  if (signals.coverOnly || (signals.coverRequested && !signals.imageWork && !signals.imagesOnly)) {
+    allowed.add("touchCover");
+    allowed.add("saveDraft");
+    allowed.add("composeReviewDraft");
+    reasons.touchCover = ["explicit cover request"];
+    [
+      "upgradeActivities", "upgradeLesson", "generateImages", "replaceBadImages", "touchImages",
+      "checkImages", "generatePrintables", "touchPrintables", "generateSongsBooks",
+      "touchSongs", "touchBooks", "publish", "createLesson",
+    ].forEach((flag) => forbidden.add(flag));
+    notes.push("Cover-only capability — activity images and lesson content stay locked.");
+    return pack(CAPABILITIES.COVER_WORK, "fix_lesson", allowed, forbidden, reasons, notes, true);
+  }
+
   if (signals.imagesOnly || (signals.imageWork && (signals.exclude.text || signals.exclude.activities))) {
     allowed.add("audit");
     allowed.add("checkImages");
@@ -86,21 +116,6 @@ function compileCapabilities(signals = {}, context = {}) {
     if (!signals.coverRequested) forbidden.add("touchCover");
     notes.push("Images-only capability — full Teaching Kit flags remain off.");
     return pack(CAPABILITIES.ACTIVITY_IMAGE_REPAIR, "finish_images", allowed, forbidden, reasons, notes, true);
-  }
-
-  if (signals.printablesOnly) {
-    allowed.add("checkPrintables");
-    allowed.add("touchPrintables");
-    allowed.add("generatePrintables");
-    allowed.add("saveDraft");
-    allowed.add("composeReviewDraft");
-    reasons.generatePrintables = ["explicit printable work"];
-    [
-      "upgradeActivities", "generateImages", "touchImages", "generateSongsBooks",
-      "touchSongs", "touchBooks", "touchCover", "publish",
-    ].forEach((flag) => forbidden.add(flag));
-    notes.push("Printables-only capability.");
-    return pack(CAPABILITIES.PRINTABLE_WORK, "finish_printables", allowed, forbidden, reasons, notes, true);
   }
 
   if (signals.fullKitRequested) {
@@ -140,15 +155,6 @@ function compileCapabilities(signals = {}, context = {}) {
     forbidden.add("publish");
     notes.push("Full Teaching Kit — only capabilities with an explicit reason are enabled.");
     return pack(CAPABILITIES.FULL_KIT_WORK, "finish_full_kit", allowed, forbidden, reasons, notes, true);
-  }
-
-  if (signals.coverRequested && !signals.imageWork) {
-    allowed.add("touchCover");
-    allowed.add("saveDraft");
-    allowed.add("composeReviewDraft");
-    reasons.touchCover = ["explicit cover request"];
-    forbidden.add("publish");
-    return pack(CAPABILITIES.COVER_WORK, "fix_lesson", allowed, forbidden, reasons, notes, true);
   }
 
   if (signals.ambiguousBare && !context.previousIntent) {
@@ -215,6 +221,39 @@ function applyCapabilityFlags(actions = {}, compiled = {}) {
     next.touchSongs = false;
     next.touchBooks = false;
     next.touchPrintables = false;
+    next.touchDraft = true;
+  }
+  if (compiled.primary === CAPABILITIES.PRINTABLE_WORK) {
+    next.connectedUpgrade = false;
+    next.upgradeLesson = false;
+    next.upgradeActivities = false;
+    next.generateImages = false;
+    next.replaceBadImages = false;
+    next.touchImages = false;
+    next.checkImages = false;
+    next.generateSongsBooks = false;
+    next.touchSongs = false;
+    next.touchBooks = false;
+    next.touchCover = false;
+    next.generatePrintables = true;
+    next.touchPrintables = true;
+    next.checkPrintables = true;
+    next.touchDraft = true;
+  }
+  if (compiled.primary === CAPABILITIES.COVER_WORK) {
+    next.connectedUpgrade = false;
+    next.upgradeLesson = false;
+    next.upgradeActivities = false;
+    next.generateImages = false;
+    next.replaceBadImages = false;
+    next.touchImages = false;
+    next.checkImages = false;
+    next.generatePrintables = false;
+    next.touchPrintables = false;
+    next.generateSongsBooks = false;
+    next.touchSongs = false;
+    next.touchBooks = false;
+    next.touchCover = true;
     next.touchDraft = true;
   }
   if (compiled.primary === CAPABILITIES.VOCABULARY_WORK) {
