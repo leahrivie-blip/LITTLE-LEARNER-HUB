@@ -14411,6 +14411,7 @@ async function handleAdminInsights(request, response, url) {
   const source = String(url.searchParams.get("source") || "").trim();
   const stage = String(url.searchParams.get("stage") || "").trim();
   const exitStage = String(url.searchParams.get("exitStage") || "").trim();
+  const cohort = String(url.searchParams.get("cohort") || "all").trim();
   const store = peekStore();
   const analyticsEvents = await loadInsightsAnalyticsEvents(store);
   let marketing = null;
@@ -14438,6 +14439,7 @@ async function handleAdminInsights(request, response, url) {
     source,
     stage,
     exitStage,
+    cohort,
     events: analyticsEvents,
     marketing,
     monitoringSnapshot,
