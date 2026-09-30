@@ -297,6 +297,8 @@
     "test:production-manual-regression": "node scripts/test-production-manual-regression.js",
     "test:production-core-flows": "node scripts/test-production-core-flows.js",
     "test:production-post-merge-smoke": "node scripts/test-production-post-merge-smoke.js",
+    "test:production-admin-funnel": "node scripts/test-production-admin-free-activation-funnel.js",
+    "test:production-admin-funnel:config": "NODE_ENV=test node scripts/test-production-admin-funnel-smoke-config.js",
     "test:production-deep-links": "node scripts/test-production-deep-links-mobile.js",
     "test:server-boot-gate": "NODE_ENV=test node scripts/test-server-boot-gate.js",
     "test:admin-performance-local": "NODE_ENV=test node scripts/test-admin-performance-local.js",

@@ -938,6 +938,16 @@ async function checkAdmin(page) {
     record("admin", "Marketing Funnel loads", /Marketing Funnel|Conversion chart|Visit→paid|Visitors/i.test(funnelText));
     record("admin", "Why They Left loads", /Why They Left/i.test(funnelText));
 
+    try {
+      const { runFreeActivationFunnelChecks } = require("./test-helpers/production-admin-funnel-smoke");
+      await runFreeActivationFunnelChecks(page);
+      record("admin", "Free Activation Funnel UI smoke", true);
+    } catch (activationError) {
+      const { captureFailureArtifacts } = require("./test-helpers/production-admin-funnel-smoke");
+      await captureFailureArtifacts(page, path.join(ARTIFACT_DIR, "free-activation-funnel"));
+      record("admin", "Free Activation Funnel UI smoke", false, activationError.message || String(activationError));
+    }
+
     // Filters
     const range7 = page.locator('#adminInsightsApp [data-insights-range="7d"]').first();
     if (await range7.count()) {
