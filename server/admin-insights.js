@@ -5,6 +5,7 @@
 
 const testAccountGuard = require("./test-account-guard.js");
 const membershipAccess = require("../scripts/membership-access.js");
+const conversionEvents = require("./conversion-events.js");
 
 const HUBS = Object.freeze([
   "advisor",
@@ -1344,6 +1345,366 @@ function buildFreeSignupFunnel(events = [], isTestActor = () => false, { catalog
   };
 }
 
+/** PR #853 single-screen Free onboarding — cohort cutoff for activation analytics (query layer only). */
+const FREE_ACTIVATION_ONBOARDING_COHORT_CUTOFF_ISO = "2026-09-30T18:10:37.000Z";
+const FREE_ACTIVATION_ONBOARDING_COHORT_CUTOFF_MS = new Date(FREE_ACTIVATION_ONBOARDING_COHORT_CUTOFF_ISO).getTime();
+
+const FREE_ACTIVATION_FUNNEL_STAGE_DEFS = Object.freeze([
+  { id: "homepageVisitors", label: "Homepage visitors" },
+  { id: "startFreeClicks", label: "Start Free clicked" },
+  { id: "signupStarted", label: "Signup started" },
+  { id: "accountCreated", label: "Account created" },
+  { id: "freeSignupCompleted", label: "Free signup completed / landed" },
+  { id: "exploreLessonPlansClicked", label: "Explore Lesson Plans clicked" },
+  { id: "firstFreeLessonOpened", label: "First included Free lesson opened" },
+  { id: "twoPlusFreeLessonsOpened", label: "2+ distinct included Free lessons opened" },
+  { id: "returnedAfterSignup", label: "Returned (later session or day)" },
+  { id: "proContentEncountered", label: "Pro content encountered" },
+  { id: "upgradeCtaClicked", label: "Upgrade CTA clicked" },
+  { id: "checkoutStarted", label: "Checkout started" },
+  { id: "paid", label: "Paid subscription" },
+]);
+
+const FREE_ACTIVATION_HISTORICAL_EVENT_GATES = Object.freeze({
+  freeSignupCompleted: "signup_landed_free",
+  exploreLessonPlansClicked: "explore_lesson_plans_clicked",
+});
+
+const FREE_ACTIVATION_LESSON_DEDUPE_MS = 5000;
+
+function normalizeFreeActivationCohort(value) {
+  const key = String(value || "all").trim().toLowerCase();
+  if (key === "pre_pr853" || key === "pre") return "pre_pr853";
+  if (key === "post_pr853" || key === "post") return "post_pr853";
+  return "all";
+}
+
+function signupMsMatchesFreeActivationCohort(signupMs, cohort) {
+  if (cohort === "all") return true;
+  if (!Number.isFinite(signupMs) || signupMs <= 0) return false;
+  if (cohort === "pre_pr853") return signupMs < FREE_ACTIVATION_ONBOARDING_COHORT_CUTOFF_MS;
+  if (cohort === "post_pr853") return signupMs >= FREE_ACTIVATION_ONBOARDING_COHORT_CUTOFF_MS;
+  return true;
+}
+
+function isIncludedFreeLessonAccess(access) {
+  const normalized = String(access || "").trim().toLowerCase();
+  if (!normalized) return false;
+  if (/pro|founding|premium|paid|trial|early/.test(normalized)) return false;
+  return normalized === "free";
+}
+
+function isActivationLessonViewEvent(event) {
+  if (!event) return false;
+  if (event.name === "lesson_plan_view") return true;
+  return conversionEvents.resolveCanonicalEvent(event) === "lesson_viewed";
+}
+
+function isActivationUpgradeClickEvent(event) {
+  return conversionEvents.resolveCanonicalEvent(event) === "upgrade_cta_clicked";
+}
+
+function isActivationProEncounterEvent(event) {
+  return conversionEvents.resolveCanonicalEvent(event) === "pro_content_encountered";
+}
+
+function isActivationCheckoutStartEvent(event) {
+  if (!event) return false;
+  if (event.name === "checkout_start") return true;
+  return conversionEvents.resolveCanonicalEvent(event) === "checkout_started";
+}
+
+function authoritativePaidState(user = {}) {
+  const paidAt = user.firstPaidInvoiceAt || user.metaPurchaseAt || "";
+  if (!paidAt) return { paid: false, paidMs: 0 };
+  const paidMs = new Date(paidAt).getTime();
+  return { paid: Number.isFinite(paidMs) && paidMs > 0, paidMs };
+}
+
+function utcDayKeyFromMs(ms) {
+  if (!Number.isFinite(ms) || ms <= 0) return "";
+  return new Date(ms).toISOString().slice(0, 10);
+}
+
+function buildFreeActivationStageRow(def, count, prevCount, index, firstCount, {
+  dataAvailable = true,
+  prevDataAvailable = true,
+} = {}) {
+  if (dataAvailable === false) {
+    return {
+      key: def.id,
+      label: def.label,
+      count: null,
+      previousStageCount: index === 0 ? null : (prevDataAvailable ? prevCount : null),
+      conversionFromPreviousPct: null,
+      dropoffCount: null,
+      overallConversionPct: null,
+      dataAvailable: false,
+    };
+  }
+  const edgeAvailable = index === 0 || prevDataAvailable;
+  const converted = index === 0 ? count : Math.min(count, prevCount);
+  const dropped = index === 0 ? 0 : Math.max(prevCount - count, 0);
+  return {
+    key: def.id,
+    label: def.label,
+    count,
+    previousStageCount: index === 0 ? null : prevCount,
+    conversionFromPreviousPct: !edgeAvailable ? null : (index === 0 ? null : pct(converted, prevCount)),
+    dropoffCount: !edgeAvailable ? null : dropped,
+    overallConversionPct: firstCount ? pct(count, firstCount) : null,
+    dataAvailable: true,
+  };
+}
+
+function buildActorSignupIndex(scopedEvents, unioner, usersByEmail = new Map()) {
+  const actorSignupMs = new Map();
+  const actorSignupSession = new Map();
+  const setSignup = (actor, ms, sessionId) => {
+    if (!actor || !Number.isFinite(ms) || ms <= 0) return;
+    const prior = actorSignupMs.get(actor);
+    if (prior == null || ms < prior) {
+      actorSignupMs.set(actor, ms);
+      if (sessionId) actorSignupSession.set(actor, sessionId);
+    }
+  };
+  for (const event of scopedEvents) {
+    if (event.name !== "account_signup_complete" || isExplicitPaidOrTrialSignupEvent(event)) continue;
+    const actor = eventActorId(event, unioner);
+    setSignup(actor, eventTime(event), event.sessionId || "");
+  }
+  for (const [email, user] of usersByEmail.entries()) {
+    const ms = new Date(user.signupAt || user.createdAt || 0).getTime();
+    const actor = unioner.find(email);
+    setSignup(actor, ms, "");
+  }
+  return { actorSignupMs, actorSignupSession };
+}
+
+function activationStageUsesCohortFilter(stageIndex) {
+  return stageIndex >= 3;
+}
+
+function buildFreeLessonDepthByActor(scopedEvents, unioner, actorSignupMs, isTestActor) {
+  /** @type {Map<string, Set<string>>} */
+  const freeLessonsByActor = new Map();
+  const seenDedupe = new Set();
+  const sorted = scopedEvents.slice().sort((a, b) => eventTime(a) - eventTime(b));
+  for (const event of sorted) {
+    if (!event || isTestActor(event)) continue;
+    if (!isActivationLessonViewEvent(event)) continue;
+    const access = event.detail?.access || event.detail?.plan || "";
+    if (!isIncludedFreeLessonAccess(access)) continue;
+    const actor = eventActorId(event, unioner);
+    const signupMs = actorSignupMs.get(actor);
+    if (!signupMs || eventTime(event) < signupMs) continue;
+    const resourceId = conversionEvents.extractResourceId(event);
+    if (!resourceId) continue;
+    const bucket = Math.floor(eventTime(event) / FREE_ACTIVATION_LESSON_DEDUPE_MS);
+    const dedupeKey = `${actor}|${resourceId}|${bucket}`;
+    if (seenDedupe.has(dedupeKey)) continue;
+    seenDedupe.add(dedupeKey);
+    if (!freeLessonsByActor.has(actor)) freeLessonsByActor.set(actor, new Set());
+    freeLessonsByActor.get(actor).add(resourceId);
+  }
+  return freeLessonsByActor;
+}
+
+function buildReturnedAfterSignupActors(scopedEvents, unioner, actorSignupMs, actorSignupSession, isTestActor) {
+  const returned = new Set();
+  for (const event of scopedEvents) {
+    if (!event || isTestActor(event)) continue;
+    const actor = eventActorId(event, unioner);
+    const signupMs = actorSignupMs.get(actor);
+    if (!signupMs) continue;
+    const t = eventTime(event);
+    if (t <= signupMs) continue;
+    const signupSession = actorSignupSession.get(actor) || "";
+    const signupDay = utcDayKeyFromMs(signupMs);
+    const eventDay = utcDayKeyFromMs(t);
+    const laterSession = signupSession && event.sessionId && event.sessionId !== signupSession;
+    const laterDay = eventDay && signupDay && eventDay > signupDay;
+    if (laterSession || laterDay) returned.add(actor);
+  }
+  return returned;
+}
+
+/**
+ * Free activation funnel — server-side query layer (no client instrumentation).
+ * @param {Array} events
+ * @param {Map<string, object>} [usersByEmail]
+ * @param {(event: object) => boolean} [isTestActor]
+ * @param {{ catalogEvents?: Array, rangeKey?: string, cohort?: string, rangeStartMs?: number }} [options]
+ */
+function buildFreeActivationFunnel(
+  events = [],
+  usersByEmail = new Map(),
+  isTestActor = () => false,
+  { catalogEvents = null, rangeKey = "", cohort = "all", rangeStartMs = 0 } = {},
+) {
+  const scoped = (events || []).filter((event) => event && !isTestActor(event));
+  const catalog = Array.isArray(catalogEvents) ? catalogEvents : events;
+  const cohortKey = normalizeFreeActivationCohort(cohort);
+  const links = buildActorLinkIndex(scoped);
+  const unioner = buildActorUnionFinder(links);
+  const { actorSignupMs, actorSignupSession } = buildActorSignupIndex(scoped, unioner, usersByEmail);
+
+  const cohortOk = (actor) => {
+    if (cohortKey === "all") return true;
+    return signupMsMatchesFreeActivationCohort(actorSignupMs.get(actor), cohortKey);
+  };
+
+  const withCohort = (predicate, stageIndex) => (event) => {
+    if (!predicate(event)) return false;
+    if (!activationStageUsesCohortFilter(stageIndex)) return true;
+    const actor = eventActorId(event, unioner);
+    return cohortOk(actor);
+  };
+
+  const homepage = uniqueActorSet(scoped, unioner, isHomepageVisitEvent);
+  const startFree = uniqueActorSet(scoped, unioner, isStartFreeClickEvent);
+  const signupStarted = uniqueActorSet(scoped, unioner, (event) => event.name === "signup_start");
+  const accountCreated = uniqueActorSet(
+    scoped,
+    unioner,
+    withCohort(
+      (event) => event.name === "account_signup_complete" && !isExplicitPaidOrTrialSignupEvent(event),
+      3,
+    ),
+  );
+  const freeSignupCompleted = uniqueActorSet(
+    scoped,
+    unioner,
+    withCohort((event) => event.name === "signup_landed_free", 4),
+  );
+  const exploreLessonPlans = uniqueActorSet(
+    scoped,
+    unioner,
+    withCohort((event) => event.name === "explore_lesson_plans_clicked", 5),
+  );
+
+  const freeLessonDepth = buildFreeLessonDepthByActor(scoped, unioner, actorSignupMs, isTestActor);
+  const firstFreeActors = new Set();
+  const twoPlusFreeActors = new Set();
+  for (const [actor, lessons] of freeLessonDepth.entries()) {
+    if (!cohortOk(actor)) continue;
+    if (lessons.size >= 1) firstFreeActors.add(actor);
+    if (lessons.size >= 2) twoPlusFreeActors.add(actor);
+  }
+
+  const returnedActors = buildReturnedAfterSignupActors(
+    scoped,
+    unioner,
+    actorSignupMs,
+    actorSignupSession,
+    isTestActor,
+  );
+  const returnedFiltered = new Set([...returnedActors].filter((actor) => cohortOk(actor)));
+
+  const upgradeSeen = new Set();
+  const upgradeActors = new Set();
+  for (const event of scoped) {
+    if (!isActivationUpgradeClickEvent(event)) continue;
+    const actor = eventActorId(event, unioner);
+    if (!cohortOk(actor)) continue;
+    const bucket = Math.floor(eventTime(event) / 1000);
+    const key = `${actor}|${bucket}|${conversionEvents.extractCtaLocation(event)}`;
+    if (upgradeSeen.has(key)) continue;
+    upgradeSeen.add(key);
+    upgradeActors.add(actor);
+  }
+
+  const proSeen = new Set();
+  const proActors = new Set();
+  for (const event of scoped) {
+    if (!isActivationProEncounterEvent(event)) continue;
+    const actor = eventActorId(event, unioner);
+    if (!cohortOk(actor)) continue;
+    const bucket = Math.floor(eventTime(event) / FREE_ACTIVATION_LESSON_DEDUPE_MS);
+    const key = `${actor}|${bucket}|${conversionEvents.extractProFeatureType(event)}`;
+    if (proSeen.has(key)) continue;
+    proSeen.add(key);
+    proActors.add(actor);
+  }
+
+  const checkoutActors = uniqueActorSet(
+    scoped,
+    unioner,
+    withCohort((event) => isActivationCheckoutStartEvent(event), 11),
+  ).actors;
+
+  const paidActors = new Set();
+  for (const [email, user] of usersByEmail.entries()) {
+    const { paid, paidMs } = authoritativePaidState(user);
+    if (!paid) continue;
+    if (rangeStartMs && paidMs < rangeStartMs) continue;
+    const actor = unioner.find(email);
+    if (!actor || !cohortOk(actor)) continue;
+    if (!actorSignupMs.has(actor)) continue;
+    paidActors.add(actor);
+  }
+
+  const stageSets = [
+    homepage.actors,
+    startFree.actors,
+    signupStarted.actors,
+    accountCreated.actors,
+    freeSignupCompleted.actors,
+    exploreLessonPlans.actors,
+    firstFreeActors,
+    twoPlusFreeActors,
+    returnedFiltered,
+    proActors,
+    upgradeActors,
+    checkoutActors,
+    paidActors,
+  ];
+
+  const stages = FREE_ACTIVATION_FUNNEL_STAGE_DEFS.map((def, index) => {
+    const gateName = FREE_ACTIVATION_HISTORICAL_EVENT_GATES[def.id];
+    const dataAvailable = !gateName || catalogHasEventName(catalog, gateName);
+    const prevGate = index === 0 ? "" : FREE_ACTIVATION_HISTORICAL_EVENT_GATES[FREE_ACTIVATION_FUNNEL_STAGE_DEFS[index - 1].id];
+    const prevDataAvailable = index === 0 || !prevGate || catalogHasEventName(catalog, prevGate);
+    const count = stageSets[index].size;
+    const prevCount = index === 0 ? count : stageSets[index - 1].size;
+    const row = buildFreeActivationStageRow(def, count, prevCount, index, homepage.actors.size, {
+      dataAvailable,
+      prevDataAvailable,
+    });
+    return row;
+  });
+
+  const historicalNotes = [];
+  for (const [stageId, eventName] of Object.entries(FREE_ACTIVATION_HISTORICAL_EVENT_GATES)) {
+    if (!catalogHasEventName(catalog, eventName)) {
+      historicalNotes.push(`${stageId}: ${eventName} not recorded in catalog for this period`);
+    }
+  }
+
+  return {
+    title: "FREE ACTIVATION FUNNEL",
+    rangeKey: String(rangeKey || "").toLowerCase(),
+    rangeLabel: FREE_SIGNUP_RANGE_LABELS[String(rangeKey || "").toLowerCase()] || rangeWindowLabel(rangeKey),
+    cohort: cohortKey,
+    cohortCutoffIso: FREE_ACTIVATION_ONBOARDING_COHORT_CUTOFF_ISO,
+    cohortNote: cohortKey === "all"
+      ? "Cohort filter off. Activation stages from account created onward can be filtered by signup timestamp using pre_pr853 or post_pr853."
+      : `Cohort ${cohortKey}: account-created timestamp ${cohortKey === "pre_pr853" ? "before" : "at or after"} ${FREE_ACTIVATION_ONBOARDING_COHORT_CUTOFF_ISO}. Top-of-funnel stages (homepage → signup started) are not cohort-filtered.`,
+    totalActorsEvaluated: homepage.actors.size,
+    startingPopulation: homepage.actors.size,
+    stages,
+    historicalAvailabilityNotes: historicalNotes,
+    definitions: {
+      firstFreeLessonOpened: "First lesson_plan_view or canonical lesson_viewed after signup where detail.access is included Free (not Pro/locked).",
+      twoPlusFreeLessonsOpened: "Distinct included Free lesson resource IDs per actor after signup; lesson_plan_view + lesson_viewed deduped within 5s buckets per actor/resource.",
+      returnedAfterSignup: "Activity after signup in a different sessionId or on a later UTC calendar day than signup (same-session same-day events excluded).",
+      paid: "Authoritative user.firstPaidInvoiceAt or user.metaPurchaseAt from server user records (Stripe webhook-populated); not inferred from checkout_success alone.",
+      proContentEncountered: "Canonical pro_content_encountered only (upgrade impressions excluded).",
+      upgradeCtaClicked: "Canonical upgrade_cta_clicked with per-second per-location dedupe across legacy aliases.",
+    },
+  };
+}
+
 function pct(part, whole) {
   if (!whole) return 0;
   return Number(((part / whole) * 100).toFixed(1));
@@ -1786,7 +2147,7 @@ function buildFunnelExitInsights({
   };
 }
 
-function buildMarketingFunnel(store, events, range, { source = "", stage = "", exitStage = "" } = {}) {
+function buildMarketingFunnel(store, events, range, { source = "", stage = "", exitStage = "", cohort = "all" } = {}) {
   const sourceFilter = FUNNEL_SOURCES.includes(source) ? source : "";
   const stageFilter = FUNNEL_STAGE_DEFS.some((s) => s.id === stage) ? stage : "";
   const exitStageFilter = FUNNEL_STAGE_DEFS.some((s) => s.id === exitStage) ? exitStage : "";
@@ -2149,6 +2510,12 @@ function buildMarketingFunnel(store, events, range, { source = "", stage = "", e
       catalogEvents: events,
       rangeKey: range.key,
     }),
+    freeActivationFunnel: buildFreeActivationFunnel(scoped, usersByEmail, isTestActor, {
+      catalogEvents: events,
+      rangeKey: range.key,
+      cohort,
+      rangeStartMs: range.startMs,
+    }),
     ctaBreakdown: {
       startFree: ctaKindCounts.start_free || 0,
       startTrial: ctaKindCounts.start_trial || 0,
@@ -2485,6 +2852,7 @@ function buildInsights(store, {
   source = "",
   stage = "",
   exitStage = "",
+  cohort = "all",
   events = null,
   marketing = null,
   monitoringSnapshot = null,
@@ -2507,7 +2875,7 @@ function buildInsights(store, {
     case "marketing-funnel":
       return {
         ...base,
-        data: buildMarketingFunnel(store, analyticsEvents, rangeInfo, { source, stage, exitStage }),
+        data: buildMarketingFunnel(store, analyticsEvents, rangeInfo, { source, stage, exitStage, cohort }),
       };
     case "feature-usage":
       return { ...base, data: buildFeatureUsage(store, analyticsEvents, rangeInfo) };
@@ -2550,6 +2918,10 @@ module.exports = {
   buildFeatureUsage,
   buildMarketingFunnel,
   buildFreeSignupFunnel,
+  buildFreeActivationFunnel,
+  FREE_ACTIVATION_ONBOARDING_COHORT_CUTOFF_ISO,
+  FREE_ACTIVATION_FUNNEL_STAGE_DEFS,
+  normalizeFreeActivationCohort,
   buildUserJourney,
   buildFeatureRequestsCenter,
   buildAdvisor,
