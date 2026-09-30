@@ -1,4 +1,4 @@
-const CACHE_NAME = "llh-shell-v212-free-11-r1";
+const CACHE_NAME = "llh-shell-v213-curriculum-nav-r1";
 const SHELL_VERSION = "20260904-staff-rolelabel-r1";
 const OFFLINE_URL = "/offline.html";
 const NETWORK_TIMEOUT_MS = 2500;
@@ -121,6 +121,41 @@ function isNavigationRequest(request, requestUrl) {
   return path === "/" || path.endsWith(".html");
 }
 
+/** Server-rendered SEO pages (see server/seo.js + server/seo-curriculum.js). Never substitute SPA index.html. */
+const SERVER_RENDERED_PUBLIC_PATHS = new Set([
+  "/about",
+  "/contact",
+  "/faq",
+  "/features",
+  "/how-it-works",
+  "/pricing",
+  "/privacy",
+  "/terms",
+  "/infant-lesson-plans",
+  "/toddler-lesson-plans",
+  "/preschool-lesson-plans",
+  "/childcare-activities",
+  "/circle-time-ideas",
+  "/daycare-curriculum",
+  "/sensory-activities",
+  "/process-art-activities",
+]);
+
+function isServerRenderedPublicPath(pathname) {
+  return SERVER_RENDERED_PUBLIC_PATHS.has(String(pathname || "").replace(/\/+$/, "") || "/");
+}
+
+function respondToServerRenderedNavigation(event) {
+  event.respondWith(
+    fetch(event.request)
+      .then((response) => {
+        if (response && response.ok) putInCache(event.request, response);
+        return response;
+      })
+      .catch(() => caches.match(event.request)),
+  );
+}
+
 function networkWithTimeout(request, timeoutMs) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -180,6 +215,10 @@ self.addEventListener("fetch", (event) => {
 
   // HTML navigations: try network quickly, then fall back to cached shell.
   if (isNavigationRequest(event.request, requestUrl)) {
+    if (isServerRenderedPublicPath(requestUrl.pathname)) {
+      respondToServerRenderedNavigation(event);
+      return;
+    }
     event.respondWith(
       networkWithTimeout(event.request, NETWORK_TIMEOUT_MS)
         .then((response) => {
