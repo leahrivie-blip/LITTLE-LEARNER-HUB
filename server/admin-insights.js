@@ -1358,7 +1358,7 @@ const FREE_ACTIVATION_FUNNEL_STAGE_DEFS = Object.freeze([
   { id: "exploreLessonPlansClicked", label: "Explore Lesson Plans clicked" },
   { id: "firstFreeLessonOpened", label: "First included Free lesson opened" },
   { id: "twoPlusFreeLessonsOpened", label: "2+ distinct included Free lessons opened" },
-  { id: "returnedAfterSignup", label: "Returned (later session or day)" },
+  { id: "returnedAfterSignup", label: "Returned (later calendar day)" },
   { id: "proContentEncountered", label: "Pro content encountered" },
   { id: "upgradeCtaClicked", label: "Upgrade CTA clicked" },
   { id: "checkoutStarted", label: "Checkout started" },
@@ -1429,6 +1429,8 @@ function utcDayKeyFromMs(ms) {
 function buildFreeActivationStageRow(def, count, prevCount, index, firstCount, {
   dataAvailable = true,
   prevDataAvailable = true,
+  cohortContextOnly = false,
+  suppressPreviousConversion = false,
 } = {}) {
   if (dataAvailable === false) {
     return {
@@ -1440,9 +1442,10 @@ function buildFreeActivationStageRow(def, count, prevCount, index, firstCount, {
       dropoffCount: null,
       overallConversionPct: null,
       dataAvailable: false,
+      cohortContextOnly: Boolean(cohortContextOnly),
     };
   }
-  const edgeAvailable = index === 0 || prevDataAvailable;
+  const edgeAvailable = index === 0 || (prevDataAvailable && !cohortContextOnly && !suppressPreviousConversion);
   const converted = index === 0 ? count : Math.min(count, prevCount);
   const dropped = index === 0 ? 0 : Math.max(prevCount - count, 0);
   return {
@@ -1450,11 +1453,34 @@ function buildFreeActivationStageRow(def, count, prevCount, index, firstCount, {
     label: def.label,
     count,
     previousStageCount: index === 0 ? null : prevCount,
-    conversionFromPreviousPct: !edgeAvailable ? null : (index === 0 ? null : pct(converted, prevCount)),
-    dropoffCount: !edgeAvailable ? null : dropped,
-    overallConversionPct: firstCount ? pct(count, firstCount) : null,
+    conversionFromPreviousPct: cohortContextOnly || suppressPreviousConversion || !edgeAvailable
+      ? null
+      : (index === 0 ? null : pct(converted, prevCount)),
+    dropoffCount: cohortContextOnly || !edgeAvailable ? null : dropped,
+    overallConversionPct: cohortContextOnly || !firstCount ? null : pct(count, firstCount),
     dataAvailable: true,
+    cohortContextOnly: Boolean(cohortContextOnly),
   };
+}
+
+function intersectActorSets(a, b) {
+  const out = new Set();
+  for (const id of a) {
+    if (b.has(id)) out.add(id);
+  }
+  return out;
+}
+
+function resolveActorSignupMs(actor, unioner, actorSignupMs) {
+  if (!actor) return 0;
+  const root = unioner.find(actor);
+  return actorSignupMs.get(root) || actorSignupMs.get(actor) || 0;
+}
+
+function isCohortPopulationActor(actor, unioner, actorSignupMs, cohortKey) {
+  if (cohortKey === "all") return true;
+  const signupMs = resolveActorSignupMs(actor, unioner, actorSignupMs);
+  return signupMsMatchesFreeActivationCohort(signupMs, cohortKey);
 }
 
 function buildActorSignupIndex(scopedEvents, unioner, usersByEmail = new Map()) {
@@ -1479,10 +1505,6 @@ function buildActorSignupIndex(scopedEvents, unioner, usersByEmail = new Map()) 
     setSignup(actor, ms, "");
   }
   return { actorSignupMs, actorSignupSession };
-}
-
-function activationStageUsesCohortFilter(stageIndex) {
-  return stageIndex >= 3;
 }
 
 function buildFreeLessonDepthByActor(scopedEvents, unioner, actorSignupMs, isTestActor) {
@@ -1510,21 +1532,18 @@ function buildFreeLessonDepthByActor(scopedEvents, unioner, actorSignupMs, isTes
   return freeLessonsByActor;
 }
 
-function buildReturnedAfterSignupActors(scopedEvents, unioner, actorSignupMs, actorSignupSession, isTestActor) {
+function buildReturnedAfterSignupActors(scopedEvents, unioner, actorSignupMs, isTestActor) {
   const returned = new Set();
   for (const event of scopedEvents) {
     if (!event || isTestActor(event)) continue;
     const actor = eventActorId(event, unioner);
-    const signupMs = actorSignupMs.get(actor);
+    const signupMs = resolveActorSignupMs(actor, unioner, actorSignupMs);
     if (!signupMs) continue;
     const t = eventTime(event);
     if (t <= signupMs) continue;
-    const signupSession = actorSignupSession.get(actor) || "";
     const signupDay = utcDayKeyFromMs(signupMs);
     const eventDay = utcDayKeyFromMs(t);
-    const laterSession = signupSession && event.sessionId && event.sessionId !== signupSession;
-    const laterDay = eventDay && signupDay && eventDay > signupDay;
-    if (laterSession || laterDay) returned.add(actor);
+    if (eventDay && signupDay && eventDay > signupDay) returned.add(unioner.find(actor));
   }
   return returned;
 }
@@ -1547,131 +1566,191 @@ function buildFreeActivationFunnel(
   const cohortKey = normalizeFreeActivationCohort(cohort);
   const links = buildActorLinkIndex(scoped);
   const unioner = buildActorUnionFinder(links);
-  const { actorSignupMs, actorSignupSession } = buildActorSignupIndex(scoped, unioner, usersByEmail);
+  const { actorSignupMs } = buildActorSignupIndex(scoped, unioner, usersByEmail);
 
-  const cohortOk = (actor) => {
-    if (cohortKey === "all") return true;
-    return signupMsMatchesFreeActivationCohort(actorSignupMs.get(actor), cohortKey);
-  };
+  const cohortOk = (actor) => isCohortPopulationActor(actor, unioner, actorSignupMs, cohortKey);
 
-  const withCohort = (predicate, stageIndex) => (event) => {
-    if (!predicate(event)) return false;
-    if (!activationStageUsesCohortFilter(stageIndex)) return true;
-    const actor = eventActorId(event, unioner);
-    return cohortOk(actor);
-  };
-
-  const homepage = uniqueActorSet(scoped, unioner, isHomepageVisitEvent);
-  const startFree = uniqueActorSet(scoped, unioner, isStartFreeClickEvent);
-  const signupStarted = uniqueActorSet(scoped, unioner, (event) => event.name === "signup_start");
-  const accountCreated = uniqueActorSet(
-    scoped,
-    unioner,
-    withCohort(
-      (event) => event.name === "account_signup_complete" && !isExplicitPaidOrTrialSignupEvent(event),
-      3,
-    ),
-  );
-  const freeSignupCompleted = uniqueActorSet(
-    scoped,
-    unioner,
-    withCohort((event) => event.name === "signup_landed_free", 4),
-  );
-  const exploreLessonPlans = uniqueActorSet(
-    scoped,
-    unioner,
-    withCohort((event) => event.name === "explore_lesson_plans_clicked", 5),
-  );
-
-  const freeLessonDepth = buildFreeLessonDepthByActor(scoped, unioner, actorSignupMs, isTestActor);
-  const firstFreeActors = new Set();
-  const twoPlusFreeActors = new Set();
-  for (const [actor, lessons] of freeLessonDepth.entries()) {
-    if (!cohortOk(actor)) continue;
-    if (lessons.size >= 1) firstFreeActors.add(actor);
-    if (lessons.size >= 2) twoPlusFreeActors.add(actor);
+  const cohortSignupActors = new Set();
+  for (const [actor, signupMs] of actorSignupMs.entries()) {
+    if (!signupMsMatchesFreeActivationCohort(signupMs, cohortKey)) continue;
+    cohortSignupActors.add(unioner.find(actor));
   }
 
-  const returnedActors = buildReturnedAfterSignupActors(
+  const linkToCohortPopulation = (actors) => (
+    cohortKey === "all" ? actors : intersectActorSets(actors, cohortSignupActors)
+  );
+
+  const postSignupActorEvent = (event, predicate) => {
+    if (!predicate(event)) return false;
+    const actor = eventActorId(event, unioner);
+    const signupMs = resolveActorSignupMs(actor, unioner, actorSignupMs);
+    if (!signupMs || !cohortOk(actor)) return false;
+    return eventTime(event) >= signupMs;
+  };
+
+  const homepageRaw = linkToCohortPopulation(uniqueActorSet(scoped, unioner, isHomepageVisitEvent).actors);
+  const startFreeRaw = linkToCohortPopulation(uniqueActorSet(scoped, unioner, isStartFreeClickEvent).actors);
+  const signupStartedRaw = linkToCohortPopulation(
+    uniqueActorSet(scoped, unioner, (event) => event.name === "signup_start").actors,
+  );
+
+  const accountCreatedRaw = uniqueActorSet(
     scoped,
     unioner,
-    actorSignupMs,
-    actorSignupSession,
-    isTestActor,
-  );
-  const returnedFiltered = new Set([...returnedActors].filter((actor) => cohortOk(actor)));
+    (event) => {
+      if (event.name !== "account_signup_complete" || isExplicitPaidOrTrialSignupEvent(event)) return false;
+      const actor = eventActorId(event, unioner);
+      return cohortOk(actor);
+    },
+  ).actors;
+
+  const freeSignupCompletedRaw = uniqueActorSet(
+    scoped,
+    unioner,
+    (event) => postSignupActorEvent(event, (e) => e.name === "signup_landed_free"),
+  ).actors;
+
+  const exploreCatalogAvailable = catalogHasEventName(catalog, "explore_lesson_plans_clicked");
+  const exploreUnavailableForCohort = cohortKey === "pre_pr853" || !exploreCatalogAvailable;
+  const exploreLessonPlansRaw = exploreUnavailableForCohort
+    ? new Set()
+    : uniqueActorSet(
+      scoped,
+      unioner,
+      (event) => postSignupActorEvent(event, (e) => e.name === "explore_lesson_plans_clicked"),
+    ).actors;
+
+  const freeLessonDepth = buildFreeLessonDepthByActor(scoped, unioner, actorSignupMs, isTestActor);
+  const firstFreeActorsRaw = new Set();
+  const twoPlusFreeActorsRaw = new Set();
+  for (const [actor, lessons] of freeLessonDepth.entries()) {
+    if (!cohortOk(actor)) continue;
+    if (lessons.size >= 1) firstFreeActorsRaw.add(unioner.find(actor));
+    if (lessons.size >= 2) twoPlusFreeActorsRaw.add(unioner.find(actor));
+  }
+
+  const returnedActorsRaw = buildReturnedAfterSignupActors(scoped, unioner, actorSignupMs, isTestActor);
+  const returnedFilteredRaw = new Set([...returnedActorsRaw].filter((actor) => cohortOk(actor)));
 
   const upgradeSeen = new Set();
-  const upgradeActors = new Set();
+  const upgradeActorsRaw = new Set();
   for (const event of scoped) {
     if (!isActivationUpgradeClickEvent(event)) continue;
+    if (!postSignupActorEvent(event, () => true)) continue;
     const actor = eventActorId(event, unioner);
-    if (!cohortOk(actor)) continue;
     const bucket = Math.floor(eventTime(event) / 1000);
     const key = `${actor}|${bucket}|${conversionEvents.extractCtaLocation(event)}`;
     if (upgradeSeen.has(key)) continue;
     upgradeSeen.add(key);
-    upgradeActors.add(actor);
+    upgradeActorsRaw.add(actor);
   }
 
   const proSeen = new Set();
-  const proActors = new Set();
+  const proActorsRaw = new Set();
   for (const event of scoped) {
     if (!isActivationProEncounterEvent(event)) continue;
+    if (!postSignupActorEvent(event, () => true)) continue;
     const actor = eventActorId(event, unioner);
-    if (!cohortOk(actor)) continue;
     const bucket = Math.floor(eventTime(event) / FREE_ACTIVATION_LESSON_DEDUPE_MS);
     const key = `${actor}|${bucket}|${conversionEvents.extractProFeatureType(event)}`;
     if (proSeen.has(key)) continue;
     proSeen.add(key);
-    proActors.add(actor);
+    proActorsRaw.add(actor);
   }
 
-  const checkoutActors = uniqueActorSet(
+  const checkoutActorsRaw = uniqueActorSet(
     scoped,
     unioner,
-    withCohort((event) => isActivationCheckoutStartEvent(event), 11),
+    (event) => postSignupActorEvent(event, isActivationCheckoutStartEvent),
   ).actors;
 
-  const paidActors = new Set();
+  const paidActorsRaw = new Set();
   for (const [email, user] of usersByEmail.entries()) {
     const { paid, paidMs } = authoritativePaidState(user);
     if (!paid) continue;
     if (rangeStartMs && paidMs < rangeStartMs) continue;
     const actor = unioner.find(email);
     if (!actor || !cohortOk(actor)) continue;
-    if (!actorSignupMs.has(actor)) continue;
-    paidActors.add(actor);
+    const signupMs = resolveActorSignupMs(actor, unioner, actorSignupMs);
+    if (!signupMs || paidMs < signupMs) continue;
+    paidActorsRaw.add(actor);
   }
 
-  const stageSets = [
-    homepage.actors,
-    startFree.actors,
-    signupStarted.actors,
-    accountCreated.actors,
-    freeSignupCompleted.actors,
-    exploreLessonPlans.actors,
-    firstFreeActors,
-    twoPlusFreeActors,
-    returnedFiltered,
-    proActors,
-    upgradeActors,
-    checkoutActors,
-    paidActors,
+  const preSignupContextOnly = cohortKey !== "all";
+  const sequentialSets = [];
+  /** @type {Map<string, Set<string>>} */
+  const sequentialById = new Map();
+  const funnelPriorKey = {
+    homepageVisitors: null,
+    startFreeClicks: "homepageVisitors",
+    signupStarted: "startFreeClicks",
+    accountCreated: "signupStarted",
+    freeSignupCompleted: "accountCreated",
+    exploreLessonPlansClicked: "freeSignupCompleted",
+    firstFreeLessonOpened: "freeSignupCompleted",
+    twoPlusFreeLessonsOpened: "firstFreeLessonOpened",
+    returnedAfterSignup: "accountCreated",
+    proContentEncountered: "accountCreated",
+    upgradeCtaClicked: "accountCreated",
+    checkoutStarted: "upgradeCtaClicked",
+    paid: "accountCreated",
+  };
+  const rawSets = [
+    homepageRaw,
+    startFreeRaw,
+    signupStartedRaw,
+    accountCreatedRaw,
+    freeSignupCompletedRaw,
+    exploreLessonPlansRaw,
+    firstFreeActorsRaw,
+    twoPlusFreeActorsRaw,
+    returnedFilteredRaw,
+    proActorsRaw,
+    upgradeActorsRaw,
+    checkoutActorsRaw,
+    paidActorsRaw,
   ];
 
-  const stages = FREE_ACTIVATION_FUNNEL_STAGE_DEFS.map((def, index) => {
+  for (let index = 0; index < FREE_ACTIVATION_FUNNEL_STAGE_DEFS.length; index += 1) {
+    const def = FREE_ACTIVATION_FUNNEL_STAGE_DEFS[index];
     const gateName = FREE_ACTIVATION_HISTORICAL_EVENT_GATES[def.id];
-    const dataAvailable = !gateName || catalogHasEventName(catalog, gateName);
-    const prevGate = index === 0 ? "" : FREE_ACTIVATION_HISTORICAL_EVENT_GATES[FREE_ACTIVATION_FUNNEL_STAGE_DEFS[index - 1].id];
-    const prevDataAvailable = index === 0 || !prevGate || catalogHasEventName(catalog, prevGate);
-    const count = stageSets[index].size;
-    const prevCount = index === 0 ? count : stageSets[index - 1].size;
-    const row = buildFreeActivationStageRow(def, count, prevCount, index, homepage.actors.size, {
+    let dataAvailable = !gateName || catalogHasEventName(catalog, gateName);
+    if (def.id === "exploreLessonPlansClicked" && cohortKey === "pre_pr853") {
+      dataAvailable = false;
+    }
+    let current = rawSets[index];
+    const priorKey = funnelPriorKey[def.id];
+    const funnelPrior = priorKey ? sequentialById.get(priorKey) : null;
+    if (funnelPrior) {
+      const shouldIntersect = def.id !== "accountCreated" || funnelPrior.size > 0;
+      if (shouldIntersect && dataAvailable) {
+        current = intersectActorSets(current, funnelPrior);
+      }
+    }
+    if (dataAvailable) {
+      sequentialById.set(def.id, current);
+    }
+    sequentialSets.push({ def, actors: current, dataAvailable });
+  }
+
+  const homepageSequential = sequentialSets[0].actors;
+  const accountSequential = sequentialSets[3].actors;
+  const overallDenominator = preSignupContextOnly ? accountSequential.size : homepageSequential.size;
+
+  const stages = sequentialSets.map(({ def, actors, dataAvailable }, index) => {
+    const priorKey = funnelPriorKey[def.id];
+    const prevStage = priorKey
+      ? sequentialSets.find((row) => row.def.id === priorKey)
+      : (index === 0 ? null : sequentialSets[index - 1]);
+    const prevDataAvailable = !priorKey || !prevStage ? true : prevStage.dataAvailable;
+    const prevCount = index === 0 ? actors.size : (prevStage ? prevStage.actors.size : 0);
+    const cohortContextOnly = preSignupContextOnly && index < 3;
+    return buildFreeActivationStageRow(def, actors.size, prevCount, index, overallDenominator, {
       dataAvailable,
       prevDataAvailable,
+      cohortContextOnly,
+      suppressPreviousConversion: preSignupContextOnly && index === 3,
     });
-    return row;
   });
 
   const historicalNotes = [];
@@ -1679,6 +1758,9 @@ function buildFreeActivationFunnel(
     if (!catalogHasEventName(catalog, eventName)) {
       historicalNotes.push(`${stageId}: ${eventName} not recorded in catalog for this period`);
     }
+  }
+  if (cohortKey === "pre_pr853") {
+    historicalNotes.push("exploreLessonPlansClicked: not instrumented before PR #853 (cohort pre_pr853)");
   }
 
   return {
@@ -1688,19 +1770,19 @@ function buildFreeActivationFunnel(
     cohort: cohortKey,
     cohortCutoffIso: FREE_ACTIVATION_ONBOARDING_COHORT_CUTOFF_ISO,
     cohortNote: cohortKey === "all"
-      ? "Cohort filter off. Activation stages from account created onward can be filtered by signup timestamp using pre_pr853 or post_pr853."
-      : `Cohort ${cohortKey}: account-created timestamp ${cohortKey === "pre_pr853" ? "before" : "at or after"} ${FREE_ACTIVATION_ONBOARDING_COHORT_CUTOFF_ISO}. Top-of-funnel stages (homepage → signup started) are not cohort-filtered.`,
-    totalActorsEvaluated: homepage.actors.size,
-    startingPopulation: homepage.actors.size,
+      ? "Full funnel from homepage; all stages use sequential membership for step conversion."
+      : `Cohort ${cohortKey}: signups ${cohortKey === "pre_pr853" ? "before" : "at or after"} ${FREE_ACTIVATION_ONBOARDING_COHORT_CUTOFF_ISO}. Pre-account stages are cohort-linked context only (no step conversion vs mixed populations). Step conversion and overall rates use account created as the cohort denominator.`,
+    totalActorsEvaluated: homepageSequential.size,
+    startingPopulation: homepageSequential.size,
     stages,
     historicalAvailabilityNotes: historicalNotes,
     definitions: {
       firstFreeLessonOpened: "First lesson_plan_view or canonical lesson_viewed after signup where detail.access is included Free (not Pro/locked).",
       twoPlusFreeLessonsOpened: "Distinct included Free lesson resource IDs per actor after signup; lesson_plan_view + lesson_viewed deduped within 5s buckets per actor/resource.",
-      returnedAfterSignup: "Activity after signup in a different sessionId or on a later UTC calendar day than signup (same-session same-day events excluded).",
-      paid: "Authoritative user.firstPaidInvoiceAt or user.metaPurchaseAt from server user records (Stripe webhook-populated); not inferred from checkout_success alone.",
-      proContentEncountered: "Canonical pro_content_encountered only (upgrade impressions excluded).",
-      upgradeCtaClicked: "Canonical upgrade_cta_clicked with per-second per-location dedupe across legacy aliases.",
+      returnedAfterSignup: "Qualifying analytics on a UTC calendar day strictly after signup day (same-day session changes do not count).",
+      paid: "Authoritative user.firstPaidInvoiceAt or user.metaPurchaseAt at or after signup (server billing truth; not checkout_success).",
+      proContentEncountered: "Canonical pro_content_encountered after signup (upgrade impressions excluded).",
+      upgradeCtaClicked: "Canonical upgrade_cta_clicked at or after signup with per-second per-location dedupe.",
     },
   };
 }

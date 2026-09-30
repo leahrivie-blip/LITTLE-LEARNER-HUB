@@ -104,35 +104,52 @@ function testExploreAndLessons() {
   console.log("PASS explore + Free lesson depth + Pro lesson excluded");
 }
 
-function testReturnVisit() {
-  const now = Date.now();
-  const signupAt = iso(20000, now);
+function testReturnVisitNextCalendarDay() {
+  const signupAt = "2026-09-01T10:00:00.000Z";
+  const nextDay = "2026-09-02T09:00:00.000Z";
   const events = [
-    ev("website_visit", { visitorId: "v1", detail: { view: "home" }, createdAt: signupAt }, now),
+    ev("website_visit", { visitorId: "v1", detail: { view: "home" }, createdAt: signupAt }),
     ev("account_signup_complete", {
       visitorId: "v1",
       user: "return@x.com",
       sessionId: "sess-a",
       createdAt: signupAt,
-    }, now),
-    ev("page_view", {
-      visitorId: "v1",
-      user: "return@x.com",
-      sessionId: "sess-a",
-      ago: 15000,
-      detail: { view: "lessons" },
-    }, now),
+    }),
     ev("page_view", {
       visitorId: "v1",
       user: "return@x.com",
       sessionId: "sess-b",
-      ago: 10000,
+      createdAt: nextDay,
       detail: { view: "lessons" },
-    }, now),
+    }),
   ];
   const funnel = insights.buildFreeActivationFunnel(events, usersMap({}), () => false, { catalogEvents: events });
   assert.equal(stageByKey(funnel, "returnedAfterSignup").count, 1);
-  console.log("PASS return requires later session");
+  console.log("PASS return requires later calendar day");
+}
+
+function testNewSessionSameDayNotReturn() {
+  const signupAt = "2026-09-01T10:00:00.000Z";
+  const laterSameDay = "2026-09-01T10:10:00.000Z";
+  const events = [
+    ev("website_visit", { visitorId: "v1", detail: { view: "home" }, createdAt: signupAt }),
+    ev("account_signup_complete", {
+      visitorId: "v1",
+      user: "return@x.com",
+      sessionId: "sess-a",
+      createdAt: signupAt,
+    }),
+    ev("page_view", {
+      visitorId: "v1",
+      user: "return@x.com",
+      sessionId: "sess-b",
+      createdAt: laterSameDay,
+      detail: { view: "lessons" },
+    }),
+  ];
+  const funnel = insights.buildFreeActivationFunnel(events, usersMap({}), () => false, { catalogEvents: events });
+  assert.equal(stageByKey(funnel, "returnedAfterSignup").count, 0);
+  console.log("PASS same-day new session is not a return");
 }
 
 function testSameSessionNotReturn() {
@@ -199,6 +216,7 @@ function testCohorts() {
     ev("account_signup_complete", { visitorId: "pre", user: "pre@x.com", createdAt: preSignup }),
     ev("website_visit", { visitorId: "post", detail: { view: "home" }, createdAt: postSignup }),
     ev("account_signup_complete", { visitorId: "post", user: "post@x.com", createdAt: postSignup }),
+    ev("website_visit", { visitorId: "noise", detail: { view: "home" }, createdAt: postSignup }),
   ];
   const users = usersMap({
     "pre@x.com": { email: "pre@x.com", signupAt: preSignup },
@@ -214,7 +232,96 @@ function testCohorts() {
   });
   assert.equal(stageByKey(pre, "accountCreated").count, 1);
   assert.equal(stageByKey(post, "accountCreated").count, 1);
-  console.log("PASS pre/post cohort filters on account created");
+  assert.equal(stageByKey(post, "homepageVisitors").count, 1);
+  assert.equal(stageByKey(post, "homepageVisitors").cohortContextOnly, true);
+  assert.equal(stageByKey(post, "homepageVisitors").conversionFromPreviousPct, null);
+  assert.equal(stageByKey(post, "accountCreated").conversionFromPreviousPct, null);
+  assert.equal(stageByKey(pre, "exploreLessonPlansClicked").dataAvailable, false);
+  console.log("PASS pre/post cohort filters and context-only pre-signup stages");
+}
+
+function testPostCohortNoMisleadingHomepageConversion() {
+  const postSignup = new Date(CUTOFF_MS + 1000).toISOString();
+  const events = [
+    ev("website_visit", { visitorId: "v1", detail: { view: "home" }, createdAt: postSignup }),
+    ev("website_visit", { visitorId: "v2", detail: { view: "home" }, createdAt: postSignup }),
+    ev("website_visit", { visitorId: "v3", detail: { view: "home" }, createdAt: postSignup }),
+    ev("account_signup_complete", { visitorId: "v1", user: "only@x.com", createdAt: postSignup }),
+  ];
+  const funnel = insights.buildFreeActivationFunnel(events, usersMap({
+    "only@x.com": { email: "only@x.com", signupAt: postSignup },
+  }), () => false, {
+    catalogEvents: events,
+    cohort: "post_pr853",
+  });
+  assert.equal(stageByKey(funnel, "homepageVisitors").count, 1);
+  assert.equal(stageByKey(funnel, "accountCreated").count, 1);
+  assert.equal(stageByKey(funnel, "accountCreated").overallConversionPct, 100);
+  assert.equal(stageByKey(funnel, "homepageVisitors").overallConversionPct, null);
+  console.log("PASS post cohort does not imply 3 visitors → 1 account step conversion");
+}
+
+function testTwoDistinctLessonsWithinFiveSeconds() {
+  const now = Date.now();
+  const events = [
+    ev("account_signup_complete", { visitorId: "v1", user: "two@x.com", ago: 20000 }, now),
+    ev("signup_landed_free", { visitorId: "v1", user: "two@x.com", ago: 19900 }, now),
+    ev("lesson_plan_view", {
+      visitorId: "v1",
+      user: "two@x.com",
+      ago: 15000,
+      detail: { resourceId: "cur-free-a", access: "Free" },
+    }, now),
+    ev("lesson_plan_view", {
+      visitorId: "v1",
+      user: "two@x.com",
+      ago: 14999,
+      detail: { resourceId: "cur-free-b", access: "Free" },
+    }, now),
+  ];
+  const funnel = insights.buildFreeActivationFunnel(events, usersMap({}), () => false, {
+    catalogEvents: events,
+  });
+  assert.equal(stageByKey(funnel, "twoPlusFreeLessonsOpened").count, 1);
+  console.log("PASS two different Free lessons within 5s count as two");
+}
+
+function testPaidBeforeSignupNotCounted() {
+  const now = Date.now();
+  const signupAt = iso(10000, now);
+  const paidBefore = iso(20000, now);
+  const events = [
+    ev("account_signup_complete", { visitorId: "v1", user: "early@x.com", createdAt: signupAt }, now),
+  ];
+  const users = usersMap({
+    "early@x.com": {
+      email: "early@x.com",
+      signupAt: signupAt,
+      firstPaidInvoiceAt: paidBefore,
+    },
+  });
+  const funnel = insights.buildFreeActivationFunnel(events, users, () => false, { catalogEvents: events });
+  assert.equal(stageByKey(funnel, "paid").count, 0);
+  console.log("PASS paid timestamp before signup is excluded");
+}
+
+function testUpgradeBeforeSignupNotCounted() {
+  const signupAt = "2026-09-10T12:00:00.000Z";
+  const beforeSignup = "2026-09-09T12:00:00.000Z";
+  const events = [
+    ev("upgrade_prompt_click", {
+      visitorId: "v1",
+      user: "late@x.com",
+      createdAt: beforeSignup,
+      detail: { promptId: "x" },
+    }),
+    ev("account_signup_complete", { visitorId: "v1", user: "late@x.com", createdAt: signupAt }),
+  ];
+  const funnel = insights.buildFreeActivationFunnel(events, usersMap({
+    "late@x.com": { email: "late@x.com", signupAt: signupAt },
+  }), () => false, { catalogEvents: events });
+  assert.equal(stageByKey(funnel, "upgradeCtaClicked").count, 0);
+  console.log("PASS upgrade before signup not counted");
 }
 
 function testHistoricalUnavailable() {
@@ -266,11 +373,16 @@ function testFreeSignupFunnelUnchanged() {
 function main() {
   testVisitorToAccountProgression();
   testExploreAndLessons();
-  testReturnVisit();
+  testReturnVisitNextCalendarDay();
+  testNewSessionSameDayNotReturn();
   testSameSessionNotReturn();
   testUpgradeAndCheckoutNotPaid();
   testAuthoritativePaid();
   testCohorts();
+  testPostCohortNoMisleadingHomepageConversion();
+  testTwoDistinctLessonsWithinFiveSeconds();
+  testPaidBeforeSignupNotCounted();
+  testUpgradeBeforeSignupNotCounted();
   testHistoricalUnavailable();
   testNoEmailsInResponse();
   testFreeSignupFunnelUnchanged();
