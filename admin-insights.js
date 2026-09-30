@@ -27,6 +27,7 @@
     source: "all",
     selectedStage: "",
     selectedExitStage: "",
+    freeActivationCohort: "all",
     cache: null,
     loading: false,
     loadSeq: 0,
@@ -63,6 +64,8 @@
       if (stage) qs.set("stage", stage);
       const exitStage = params.exitStage || insightsState.selectedExitStage || "";
       if (exitStage) qs.set("exitStage", exitStage);
+      const cohort = params.cohort || insightsState.freeActivationCohort || "all";
+      if (cohort && cohort !== "all") qs.set("cohort", cohort);
     }
     // Bust caches so AI Business Advisor / hubs always reflect the latest activity on open.
     qs.set("_", String(Date.now()));
@@ -192,6 +195,116 @@
           </div>
         `}
         ${funnel.note ? `<p class="muted-copy">${esc(funnel.note)}</p>` : ""}
+      </section>
+    `;
+  }
+
+  function activationFunnelStageDisplay(stage) {
+    if (!stage || typeof stage !== "object") {
+      return {
+        users: "—",
+        stepConversion: "—",
+        overallConversion: "—",
+        availability: "",
+      };
+    }
+    const users = stage.dataAvailable === false
+      ? "Unavailable"
+      : (stage.count == null ? "Unavailable" : String(stage.count));
+
+    let stepConversion = "—";
+    if (stage.dataAvailable === false) {
+      stepConversion = "Unavailable";
+    } else if (stage.cohortContextOnly) {
+      stepConversion = "Context only";
+    } else if (stage.conversionFromPreviousPct == null) {
+      stepConversion = "—";
+    } else {
+      stepConversion = `${stage.conversionFromPreviousPct}%`;
+    }
+
+    let overallConversion = "—";
+    if (stage.dataAvailable === false) {
+      overallConversion = "Unavailable";
+    } else if (stage.cohortContextOnly) {
+      overallConversion = "Context only";
+    } else if (stage.overallConversionPct == null) {
+      overallConversion = "—";
+    } else {
+      overallConversion = `${stage.overallConversionPct}%`;
+    }
+
+    let availability = "";
+    if (stage.dataAvailable === false) {
+      availability = "Unavailable for this cohort";
+    } else if (stage.cohortContextOnly) {
+      availability = "Cohort-linked context only";
+    }
+
+    return { users, stepConversion, overallConversion, availability };
+  }
+
+  function renderFreeActivationFunnel(funnel, { cohort = "all" } = {}) {
+    if (!funnel) {
+      return `
+        <section class="admin-insights-free-activation-funnel" aria-label="Free Activation Funnel">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Free activation</p>
+              <h3>Free Activation Funnel</h3>
+            </div>
+          </div>
+          <p class="muted-copy">Free Activation Funnel data is not available for this range.</p>
+        </section>
+      `;
+    }
+    const stages = Array.isArray(funnel.stages) ? funnel.stages : [];
+    if (!stages.length) {
+      return `
+        <section class="admin-insights-free-activation-funnel" aria-label="Free Activation Funnel">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Free activation · ${esc(funnel.rangeLabel || "Selected range")}</p>
+              <h3>${esc(funnel.title || "FREE ACTIVATION FUNNEL")}</h3>
+            </div>
+          </div>
+          <p class="muted-copy">No activation funnel stages in this range.</p>
+        </section>
+      `;
+    }
+    const cohortValue = cohort || funnel.cohort || "all";
+    const cohortOptions = [
+      ["all", "All"],
+      ["pre_pr853", "Pre PR #853"],
+      ["post_pr853", "Post PR #853"],
+    ].map(([value, label]) => `
+      <option value="${esc(value)}"${cohortValue === value ? " selected" : ""}>${esc(label)}</option>
+    `).join("");
+    const rows = stages.map((stage) => {
+      const cells = activationFunnelStageDisplay(stage);
+      const availability = cells.availability ? ` (${cells.availability})` : "";
+      return [
+        `${stage.label || stage.key || "—"}${availability}`,
+        cells.users,
+        cells.stepConversion,
+        cells.overallConversion,
+      ];
+    });
+    const historical = (funnel.historicalAvailabilityNotes || []).filter(Boolean);
+    return `
+      <section class="admin-insights-free-activation-funnel" aria-label="Free Activation Funnel">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Free activation · ${esc(funnel.rangeLabel || "Selected range")}</p>
+            <h3>${esc(funnel.title || "FREE ACTIVATION FUNNEL")}</h3>
+          </div>
+          <label class="admin-insights-filters">Cohort
+            <select id="insightsActivationCohort" data-activation-cohort>${cohortOptions}</select>
+          </label>
+        </div>
+        ${funnel.cohortNote ? `<p class="muted-copy">${esc(funnel.cohortNote)}</p>` : ""}
+        ${historical.length ? `<p class="form-note admin-insights-pending">${esc(historical.join(" · "))}</p>` : ""}
+        ${table(["Stage", "Users", "From previous step", "Overall conversion"], rows)}
       </section>
     `;
   }
@@ -514,6 +627,19 @@
       </div>
       ${costs.note ? `<p class="muted-copy">${esc(costs.note)}</p>` : ""}
       ${renderFreeSignupFunnel(data.freeSignupFunnel)}
+      ${(() => {
+        try {
+          return renderFreeActivationFunnel(data.freeActivationFunnel, {
+            cohort: insightsState.freeActivationCohort || "all",
+          });
+        } catch {
+          return `
+            <section class="admin-insights-free-activation-funnel" aria-label="Free Activation Funnel">
+              <p class="admin-async-state is-error"><strong>Could not render Free Activation Funnel.</strong></p>
+            </section>
+          `;
+        }
+      })()}
       <section class="admin-insights-funnel-vertical" aria-label="Marketing funnel conversion chart">
         <h4>Conversion chart</h4>
         <p class="muted-copy">Click a stage to see who reached it and where they exited.</p>
@@ -753,6 +879,10 @@
         renderAdminInsights(container, "marketing-funnel");
       });
     });
+    container.querySelector("#insightsActivationCohort")?.addEventListener("change", (event) => {
+      insightsState.freeActivationCohort = event.target.value || "all";
+      renderAdminInsights(container, "marketing-funnel");
+    });
   }
 
   function bindCommon(container) {
@@ -938,5 +1068,11 @@
 
   window.renderAdminInsights = renderAdminInsights;
   window.renderAdminUserJourney = renderUserJourneyInto;
-  window.AdminInsights = { renderAdminInsights, renderUserJourneyInto, fetchInsights };
+  window.AdminInsights = {
+    renderAdminInsights,
+    renderUserJourneyInto,
+    fetchInsights,
+    activationFunnelStageDisplay,
+    renderFreeActivationFunnel,
+  };
 })();

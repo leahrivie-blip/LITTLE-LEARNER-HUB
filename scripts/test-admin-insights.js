@@ -294,6 +294,8 @@ async function wiring() {
   assert.match(adminInsightsUi, /Unavailable/);
   assert.match(adminInsightsUi, /FREE SIGNUP FUNNEL/);
   assert.match(adminInsightsUi, /renderFreeSignupFunnel/);
+  assert.match(adminInsightsUi, /Free Activation Funnel/);
+  assert.match(adminInsightsUi, /renderFreeActivationFunnel/);
   assert.match(fs.readFileSync(path.join(ROOT, "server/index.js"), "utf8"), /\/api\/admin\/insights/);
   assert.match(fs.readFileSync(path.join(ROOT, "server/index.js"), "utf8"), /exitStage/);
   assert.match(fs.readFileSync(path.join(ROOT, "server/index.js"), "utf8"), /analyticsRevenue\.collectRevenueItems/);
