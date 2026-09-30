@@ -552,7 +552,9 @@
     "test:nested-spa-assets": "node scripts/test-nested-spa-assets.js",
     "test:google-consent-accept": "node scripts/test-google-consent-accept.js",
     "test:binder-builder": "NODE_ENV=test node scripts/test-binder-builder.js",
-    "test:binder-builder-ui": "NODE_ENV=test node scripts/test-binder-builder-ui.js"
+    "test:binder-builder-ui": "NODE_ENV=test node scripts/test-binder-builder-ui.js",
+    "test:checkout-status-trial-success": "NODE_ENV=test node scripts/test-checkout-status-trial-success.js",
+    "test:google-ads-paid-subscription-conversion": "NODE_ENV=test node scripts/test-google-ads-paid-subscription-conversion.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",

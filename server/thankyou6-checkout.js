@@ -2,16 +2,18 @@
  * Isolated THANKYOU6 checkout helpers.
  * Does not replace Stripe checkout, price maps, webhooks, or portal logic.
  *
- * Campaign checkout uses the existing Early User $13.99 price
- * (STRIPE_PRICE_EARLY_USER_MONTHLY) so Stripe's ONCE coupon can make
- * the first invoice $7.99 and later cycles $13.99. Regular Pro Monthly
- * ($19.99 / STRIPE_PRICE_PRO_MONTHLY) is never selected for this campaign.
+ * Campaign checkout uses Pro Monthly ($19.99 / STRIPE_PRICE_PRO_MONTHLY).
+ * Early User ($13.99) acquisition is retired for all new customers, including
+ * THANKYOU6. Stripe promotion codes (e.g. THANKYOU6) remain allowed for a
+ * first-month discount on Pro Monthly. Existing Early User subscribers are
+ * recognized via price-ID / billingOffer mapping elsewhere — not here.
  */
 
 const CAMPAIGN_ID = "FREE_USER_THANKYOU6_AUG2026";
-const CHECKOUT_PLAN = "early_user";
-const CHECKOUT_PRICE_ENV = "STRIPE_PRICE_EARLY_USER_MONTHLY";
-const EXCLUDED_PRICE_ENV = "STRIPE_PRICE_PRO_MONTHLY";
+const CHECKOUT_PLAN = "monthly";
+const CHECKOUT_PRICE_ENV = "STRIPE_PRICE_PRO_MONTHLY";
+/** @deprecated Retired Early User acquisition price — kept for historical docs only. */
+const RETIRED_EARLY_USER_PRICE_ENV = "STRIPE_PRICE_EARLY_USER_MONTHLY";
 
 function normalizeCampaignId(value) {
   return String(value || "").trim();
@@ -22,15 +24,18 @@ function isThankYou6CampaignRequest(body = {}) {
 }
 
 /**
- * Preserve Early User ($13.99) for this campaign even when the public
- * EARLY_USER_PRICING_ENABLED flag is off. All other early_user requests
- * still remap to monthly ($19.99) when that flag is off.
+ * Early User ($13.99) is closed for NEW acquisition, including THANKYOU6.
+ * Any early_user checkout request remaps to monthly ($19.99) when Early User
+ * acquisition is unavailable. Existing Early User subscribers are unaffected.
+ *
+ * @param {string} requestedPlan
+ * @param {{ earlyUserAvailable?: boolean, body?: Record<string, unknown> }} [options]
+ * @returns {string}
  */
 function resolveCheckoutPlanKey(requestedPlan, options = {}) {
   const plan = String(requestedPlan || "monthly");
   const earlyUserAvailable = options.earlyUserAvailable === true;
-  const body = options.body || {};
-  if (plan === "early_user" && !earlyUserAvailable && !isThankYou6CampaignRequest(body)) {
+  if (plan === "early_user" && !earlyUserAvailable) {
     return "monthly";
   }
   return plan;
@@ -63,7 +68,9 @@ module.exports = {
   CAMPAIGN_ID,
   CHECKOUT_PLAN,
   CHECKOUT_PRICE_ENV,
-  EXCLUDED_PRICE_ENV,
+  RETIRED_EARLY_USER_PRICE_ENV,
+  /** @deprecated Use RETIRED_EARLY_USER_PRICE_ENV — no longer selected for checkout. */
+  EXCLUDED_PRICE_ENV: RETIRED_EARLY_USER_PRICE_ENV,
   isThankYou6CampaignRequest,
   resolveCheckoutPlanKey,
   applyPromotionCodeCheckoutParams,

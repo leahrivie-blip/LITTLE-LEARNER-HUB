@@ -266,45 +266,44 @@ async function apiTests() {
     if (getStderr().includes("EARLY_USER")) console.log(getStderr().slice(0, 400));
   }
 
-  // Flag ON
+  // Flag ON — acquisition is closed for NEW customers even when the env flag is true.
+  // Existing Early User subscribers remain entitled via price-ID / billingOffer mapping (unitTests).
   fs.writeFileSync(STORE_PATH, JSON.stringify({ users: {}, foundingMembers: [], promoCodes: [], promoRedemptions: [] }, null, 2));
   ({ child, getStderr } = startServer({ EARLY_USER_PRICING_ENABLED: "true" }));
   try {
     await waitForHealth();
     const onStatus = await requestJson("GET", "/api/founding-status");
     const onFounding = onStatus.json?.founding || onStatus.json || {};
-    if (!(onStatus.status === 200 && onFounding.earlyUserPricingEnabled === true)) {
-      console.log("DEBUG founding-status ON:", onStatus.status, JSON.stringify(onStatus.json || onStatus.text).slice(0, 500));
+    if (!(onStatus.status === 200 && onFounding.earlyUserPricingEnabled === false)) {
+      console.log("DEBUG founding-status ON+closed:", onStatus.status, JSON.stringify(onStatus.json || onStatus.text).slice(0, 500));
     }
-    record("flag ON: earlyUserPricingEnabled=true", onStatus.status === 200 && onFounding.earlyUserPricingEnabled === true, onFounding.earlyUserPricingEnabled);
-    record("flag ON: primaryPaidOffer=early_user", onFounding.primaryPaidOffer === "early_user", onFounding.primaryPaidOffer);
-    record("flag ON: primaryMonthlyPrice=$13.99", onFounding.primaryMonthlyPrice === "$13.99/month", onFounding.primaryMonthlyPrice);
-    record("flag ON: regularMonthlyPrice still $19.99", onFounding.regularMonthlyPrice === "$19.99/month", onFounding.regularMonthlyPrice);
-    record("flag ON: Limited-Time Early User Price copy", /Limited-Time Early User Price/i.test(String(onFounding.earlyUserAvailabilityCopy || onFounding.spotsLeftMessage || onFounding.earlyUserOfferName || "")));
+    record("flag ON + acquisition closed: earlyUserPricingEnabled=false", onStatus.status === 200 && onFounding.earlyUserPricingEnabled === false, onFounding.earlyUserPricingEnabled);
+    record("flag ON + acquisition closed: primaryPaidOffer=monthly", onFounding.primaryPaidOffer === "monthly", onFounding.primaryPaidOffer);
+    record("flag ON + acquisition closed: primaryMonthlyPrice=$19.99", onFounding.primaryMonthlyPrice === "$19.99/month", onFounding.primaryMonthlyPrice);
+    record("flag ON + acquisition closed: regularMonthlyPrice still $19.99", onFounding.regularMonthlyPrice === "$19.99/month", onFounding.regularMonthlyPrice);
 
     const euCheckout = await requestJson("POST", "/api/create-checkout-session", {
       email: "early-on@test.local",
       plan: "early_user",
     });
-    record("flag ON: early_user checkout uses $13.99 price", euCheckout.status === 200 && String(euCheckout.json?.url || "").includes("price_sim_early_user_monthly"));
-    record("flag ON: checkout plan=early_user", euCheckout.json?.plan === "early_user");
+    record("flag ON + acquisition closed: early_user remaps to monthly price", euCheckout.status === 200 && String(euCheckout.json?.url || "").includes("price_sim_pro_monthly"));
+    record("flag ON + acquisition closed: checkout plan=monthly", euCheckout.json?.plan === "monthly", euCheckout.json?.plan);
 
     const trialCheckout = await requestJson("POST", "/api/create-checkout-session", {
       email: "early-trial@test.local",
       plan: "early_user",
       trial7day: true,
     });
-    record("flag ON: trial early_user checkout ok", trialCheckout.status === 200 && String(trialCheckout.json?.url || "").includes("price_sim_early_user_monthly"));
-    record("flag ON: trial days present", Boolean(trialCheckout.json?.trial?.applied) || String(trialCheckout.json?.url || "").includes("trial_days=7"));
+    record("flag ON + acquisition closed: trial remaps to monthly price", trialCheckout.status === 200 && String(trialCheckout.json?.url || "").includes("price_sim_pro_monthly"));
+    record("flag ON + acquisition closed: trial days present", Boolean(trialCheckout.json?.trial?.applied) || String(trialCheckout.json?.url || "").includes("trial_days=7"));
 
     const regularStill = await requestJson("POST", "/api/create-checkout-session", {
       email: "regular-still@test.local",
       plan: "monthly",
     });
-    record("flag ON: regular $19.99 checkout still available", regularStill.status === 200 && String(regularStill.json?.url || "").includes("price_sim_pro_monthly"));
-    record("in-flight session embeds early_user price id", String(euCheckout.json?.url || "").includes("price_sim_early_user_monthly"));
+    record("flag ON + acquisition closed: regular $19.99 checkout available", regularStill.status === 200 && String(regularStill.json?.url || "").includes("price_sim_pro_monthly"));
 
-    // Browser UI when enabled
+    // Browser UI when acquisition closed
     const browser = await chromium.launch({ headless: true });
     try {
       const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
@@ -316,21 +315,11 @@ async function apiTests() {
       }).catch(() => {});
       await page.waitForTimeout(800);
       const desktopText = await page.locator("body").innerText();
-      record("UI enabled: does not advertise $13.99", !/\$13\.99/.test(desktopText));
-      record("UI enabled: does not advertise Early User", !/Limited-Time Early User Price|Choose Early User|Upgrade to Early User/i.test(desktopText));
-      record("UI enabled: shows public $19.99", /\$19\.99/.test(desktopText));
-      await page.screenshot({ path: path.join(OUT_DIR, "desktop-pricing-early-user.png"), fullPage: true });
-
-      await page.setViewportSize({ width: 390, height: 844 });
-      await page.waitForTimeout(400);
-      await page.screenshot({ path: path.join(OUT_DIR, "mobile-pricing-early-user.png"), fullPage: true });
-      const mobileOverflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 2);
-      record("UI mobile: no horizontal overflow", mobileOverflow === false);
-
-      // Homepage surfaces
-      await page.evaluate(() => { if (typeof window.setView === "function") window.setView("home"); });
-      await page.waitForTimeout(500);
-      await page.screenshot({ path: path.join(OUT_DIR, "mobile-homepage-early-user.png"), fullPage: true });
+      record("UI closed: does not advertise $13.99", !/\$13\.99/.test(desktopText));
+      record("UI closed: shows $19.99", /\$19\.99/.test(desktopText));
+      const primaryOffer = await page.evaluate(() => (typeof window.primaryPaidOffer === "function" ? window.primaryPaidOffer() : null));
+      record("UI closed: primaryPaidOffer=monthly", primaryOffer === "monthly", String(primaryOffer));
+      await page.screenshot({ path: path.join(OUT_DIR, "early-user-acquisition-closed.png"), fullPage: true }).catch(() => {});
     } finally {
       await browser.close();
     }

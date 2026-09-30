@@ -17,8 +17,8 @@ const {
 const IN_APP_CONFIRM_PHRASE = "SEND_THANKYOU6_IN_APP";
 const IN_APP_TYPE = "feature_update";
 const IN_APP_TITLE = "A little thank-you from Little Learner Hub 💛";
-const IN_APP_BODY = "Thanks for being part of Little Learner Hub while I keep building and improving it for childcare providers like you. For a limited time, you can get your first month of Early User access for $7.99 with code THANKYOU6.";
-const IN_APP_CTA_LABEL = "Upgrade for $7.99";
+const IN_APP_BODY = "Thanks for being part of Little Learner Hub while I keep building and improving it for childcare providers like you. For a limited time, use code THANKYOU6 for $6 off your first month of Pro ($19.99/month).";
+const IN_APP_CTA_LABEL = "Upgrade with THANKYOU6";
 const IN_APP_WARNING = "You are about to create in-app THANKYOU6 messages for N Free users.";
 
 function normalizeEmail(value) {
