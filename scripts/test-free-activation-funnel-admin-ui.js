@@ -13,9 +13,19 @@ const ROOT = path.join(__dirname, "..");
 
 function loadAdminInsightsUi() {
   const src = fs.readFileSync(path.join(ROOT, "admin-insights.js"), "utf8");
+  const fetchLog = [];
   const context = {
     window: {},
     document: {},
+    URLSearchParams,
+    Date,
+    fetch: async (url) => {
+      fetchLog.push(String(url));
+      return {
+        ok: true,
+        json: async () => ({ insights: { hub: "marketing-funnel", data: {} } }),
+      };
+    },
     escapeHtml(value) {
       return String(value ?? "")
         .replace(/&/g, "&amp;")
@@ -26,7 +36,9 @@ function loadAdminInsightsUi() {
   };
   vm.createContext(context);
   vm.runInContext(src, context);
-  return context.window.AdminInsights;
+  const api = context.window.AdminInsights;
+  api._fetchLog = fetchLog;
+  return api;
 }
 
 const EXPECTED_STAGE_KEYS = insights.FREE_ACTIVATION_FUNNEL_STAGE_DEFS.map((d) => d.id);
@@ -78,7 +90,41 @@ function testStageDisplayHelpers() {
   });
   assert.equal(measurable.stepConversion, "50%");
   assert.equal(measurable.overallConversion, "25%");
+
+  const unavailableButZero = ui.activationFunnelStageDisplay({
+    key: "exploreLessonPlansClicked",
+    label: "Explore",
+    count: 0,
+    dataAvailable: false,
+  });
+  assert.equal(unavailableButZero.users, "Unavailable");
+  assert.equal(unavailableButZero.stepConversion, "Unavailable");
   console.log("PASS activationFunnelStageDisplay helpers");
+}
+
+async function testFetchCohortQueryString() {
+  const ui = loadAdminInsightsUi();
+  await ui.fetchInsights({ hub: "marketing-funnel", cohort: "pre_pr853" });
+  assert.match(ui._fetchLog[0], /hub=marketing-funnel/);
+  assert.match(ui._fetchLog[0], /cohort=pre_pr853/);
+  await ui.fetchInsights({ hub: "marketing-funnel", cohort: "all" });
+  assert.doesNotMatch(ui._fetchLog[1], /cohort=/);
+  await ui.fetchInsights({ hub: "marketing-funnel", cohort: "post_pr853" });
+  assert.match(ui._fetchLog[2], /cohort=post_pr853/);
+  console.log("PASS cohort query param on fetchInsights");
+}
+
+function testStageOrderAndCount() {
+  const ui = loadAdminInsightsUi();
+  const funnel = buildFunnelForCohort("all");
+  assert.equal(funnel.stages.length, EXPECTED_STAGE_KEYS.length);
+  funnel.stages.forEach((stage, index) => {
+    assert.equal(stage.key, EXPECTED_STAGE_KEYS[index], `stage order index ${index}`);
+  });
+  const html = ui.renderFreeActivationFunnel(funnel, { cohort: "all" });
+  const rowMatches = html.match(/<tr><td>/g) || [];
+  assert.equal(rowMatches.length, EXPECTED_STAGE_KEYS.length);
+  console.log("PASS stage order and row count");
 }
 
 function testRenderFromApiPayload() {
@@ -131,12 +177,17 @@ function testWiring() {
   console.log("PASS admin UI wiring strings");
 }
 
-function main() {
+async function main() {
   testStageDisplayHelpers();
+  await testFetchCohortQueryString();
+  testStageOrderAndCount();
   testRenderFromApiPayload();
   testMissingFunnelSafe();
   testWiring();
   console.log("\nAll free-activation-funnel admin UI checks passed.");
 }
 
-main();
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
