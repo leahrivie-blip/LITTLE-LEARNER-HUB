@@ -2504,10 +2504,10 @@ const MEMBERSHIP_COPY = Object.freeze({
   trialBeforeExport: "This will use 1 of your 3 trial curriculum exports.",
   unlimitedLabel: "Unlimited curriculum printing and downloads",
   freeStarterSection: "Your Included Free Plans",
-  freeStarterProgress: "11 complete plans included with your Free account.",
+  freeStarterProgress: "Your included Free lesson plans are ready to explore.",
   unlockLibrary: "Want more plans later?",
   lockedFreePlan: "This plan is not included in your Free plans. Upgrade to Pro to unlock the complete plan.",
-  freePolicyNotice: "Your Free account includes 11 complete starter lesson plans across Infant, Toddler and Preschool. Your saved information remains available; additional plans require Pro access.",
+  freePolicyNotice: "Your Free account includes lesson plans across Infant, Toddler, and Preschool. Your saved information remains available; additional plans require Pro access.",
   watermarkTryAgain: "We couldn’t finish this premium curriculum export safely. Please try again.",
 });
 const freePlanAgeGroups = Object.freeze(["Infant", "Toddler", "Preschool"]);
