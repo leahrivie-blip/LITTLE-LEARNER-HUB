@@ -1,11 +1,18 @@
 "use strict";
 
 /**
- * Disposable QA fixtures for Curriculum Operator spring planting E2E.
- * Never targets production curriculum IDs.
+ * Disposable QA scope fixtures for Curriculum Operator spring planting E2E.
  */
 
 const EXACT_COMMAND = "Research spring planting activities for preschoolers, create a complete lesson plan, make the activities age-appropriate, create the matching printable, use realistic activity pictures, keep anything that is already good, fix anything that is wrong, and leave it ready for me to review.";
+
+const FOLLOW_UP_COMMANDS = [
+  "Make Activity 1 easier for younger toddlers.",
+  "Replace only the printable.",
+  "Make the materials more budget-friendly.",
+  "Change only Activity 3’s image.",
+  "Add a family connection without changing the activities.",
+];
 
 const MOCK_RESEARCH_SOURCES = [
   {
@@ -32,55 +39,24 @@ const MOCK_RESEARCH_SOURCES = [
   },
 ];
 
-const GOOD_IMAGE_URL = "/api/media/enrichment-photos/tk-enrich-spring-good?variant=full";
-const BAD_IMAGE_URL = "https://example.com/cartoon-clipart-spring-theme.png";
-
-const SPRING_ACTIVITY_TITLES = [
-  "Seed Sorting Sensory Bin",
-  "Watering Can Pouring Station",
-  "Seed Growth Story Sequence",
-  "Garden Scissor Snip Herbs",
-];
-
-const SAFETY_SNIPPETS = {
-  smallObjects: "choke-safe large seeds",
-  water: "water spill",
-  scissors: "child-safe scissors",
-  allergens: "allergy list",
-  sensory: "sensory bin",
+/** Minimum seed URLs for image audit (not lesson content). */
+const IMAGE_SEED = {
+  GOOD: "/api/media/enrichment-photos/tk-enrich-spring-qa-good?variant=full",
+  BAD: "https://example.com/cartoon-clipart-spring-theme.png",
+  CONTROL: "/api/media/enrichment-photos/tk-enrich-spring-qa-control?variant=full",
 };
 
-function buildSeedGrowthPrintableFixture() {
-  return {
-    title: "Seed Growth Sequencing Cards",
-    resourceType: "sequencing_cards",
-    purpose: "Children order seed-to-plant pictures during the Seed Growth Story Sequence activity.",
-    teacherUse: "Print on letter paper, cut the four seed-growth cards, and use them at the story sequence table.",
-    childUse: "Children place the cards in order from seed to sprout to plant.",
-    ageBand: "Preschool 3–5",
-    pages: [
-      {
-        type: "sequencing",
-        heading: "Seed Growth Sequence",
-        visualMode: "simple_vector",
-        instructions: "Cut out the cards. Child places them in order: seed, sprout, leaves, flower.",
-        items: [
-          { name: "Dry seed in soil", visualConcept: "brown seed in dirt cup" },
-          { name: "Sprout emerging", visualConcept: "small green sprout" },
-          { name: "Growing leaves", visualConcept: "seedling with two leaves" },
-          { name: "Flowering plant", visualConcept: "small flowering garden plant" },
-        ],
-      },
-    ],
-  };
-}
+const DECOY_LESSON_IDS = [
+  "cur-lp-qa-scope-farm-published",
+  "cur-lp-qa-scope-weather-draft",
+];
 
 function seedScopeLibrary() {
   const now = new Date().toISOString();
   return {
     lessonPlans: [
       {
-        id: "cur-lp-qa-scope-farm-published",
+        id: DECOY_LESSON_IDS[0],
         title: "Farm Animals",
         age: "Preschool 3–5",
         theme: "Farm",
@@ -91,114 +67,174 @@ function seedScopeLibrary() {
         coverImageUrl: "/images/lesson-covers/farm-animals.jpg",
         activityIds: ["cur-act-qa-farm-1"],
         resourceIds: ["cur-res-qa-farm-book"],
-        dailyPlans: { monday: { items: [{ itemId: "f1", title: "Farm Circle" }] }, tuesday: { items: [] }, wednesday: { items: [] }, thursday: { items: [] }, friday: { items: [] } },
+        enrichmentDraft: {
+          week: {
+            songs: [{ title: "Farm Song", rightsStatus: "original" }],
+            books: [{ title: "Farm Book", author: "Decoy Author" }],
+            printableIds: [],
+          },
+          activities: {},
+          updatedAt: now,
+        },
+        dailyPlans: {
+          monday: { items: [{ itemId: "f1", title: "Farm Circle", dayOfWeek: "monday" }] },
+          tuesday: { items: [] },
+          wednesday: { items: [] },
+          thursday: { items: [] },
+          friday: { items: [] },
+        },
         createdAt: now,
         updatedAt: now,
       },
       {
-        id: "cur-lp-qa-scope-weather-draft",
+        id: DECOY_LESSON_IDS[1],
         title: "Weather Watchers QA Decoy",
         age: "Toddler 18–24 Months",
         theme: "Weather",
         plan: "Pro",
         status: "draft",
         weeklyOverview: "Unrelated draft decoy.",
+        coverImageUrl: "/images/lesson-covers/weather-decoy.jpg",
         activityIds: ["cur-act-qa-weather-1"],
         resourceIds: ["cur-res-qa-weather-print"],
-        dailyPlans: { monday: { items: [{ itemId: "w1", title: "Wind Dance" }] }, tuesday: { items: [] }, wednesday: { items: [] }, thursday: { items: [] }, friday: { items: [] } },
+        enrichmentDraft: {
+          week: {
+            songs: [{ title: "Weather Song", rightsStatus: "original" }],
+            books: [{ title: "Weather Book", author: "Decoy Author" }],
+            printableIds: ["cur-res-qa-weather-print"],
+          },
+          activities: {},
+          updatedAt: now,
+        },
+        dailyPlans: {
+          monday: { items: [{ itemId: "w1", title: "Wind Dance", dayOfWeek: "monday" }] },
+          tuesday: { items: [] },
+          wednesday: { items: [] },
+          thursday: { items: [] },
+          friday: { items: [] },
+        },
         createdAt: now,
         updatedAt: now,
       },
     ],
     activities: [
-      { id: "cur-act-qa-farm-1", lessonPlanId: "cur-lp-qa-scope-farm-published", title: "Farm Circle", dayOfWeek: "monday", setupImageUrl: "/api/media/farm-circle.png" },
-      { id: "cur-act-qa-weather-1", lessonPlanId: "cur-lp-qa-scope-weather-draft", title: "Wind Dance", dayOfWeek: "monday" },
+      {
+        id: "cur-act-qa-farm-1",
+        lessonPlanId: DECOY_LESSON_IDS[0],
+        title: "Farm Circle",
+        dayOfWeek: "monday",
+        setupImageUrl: "/api/media/farm-circle.png",
+      },
+      {
+        id: "cur-act-qa-weather-1",
+        lessonPlanId: DECOY_LESSON_IDS[1],
+        title: "Wind Dance",
+        dayOfWeek: "monday",
+      },
     ],
     resources: [
-      { id: "cur-res-qa-farm-book", title: "Farm Book Guide", resourceCategory: "Books", status: "published", lessonPlanIds: ["cur-lp-qa-scope-farm-published"] },
-      { id: "cur-res-qa-weather-print", title: "Weather Cards", resourceCategory: "Printables", status: "draft", lessonPlanIds: ["cur-lp-qa-scope-weather-draft"], fileName: "weather.pdf" },
+      {
+        id: "cur-res-qa-farm-book",
+        title: "Farm Book Guide",
+        resourceCategory: "Books",
+        status: "published",
+        lessonPlanIds: [DECOY_LESSON_IDS[0]],
+      },
+      {
+        id: "cur-res-qa-weather-print",
+        title: "Weather Cards",
+        resourceCategory: "Printables",
+        status: "draft",
+        lessonPlanIds: [DECOY_LESSON_IDS[1]],
+        fileName: "weather.pdf",
+        fileData: "data:application/pdf;base64,JVBERi0xLjQK",
+        pageCount: 1,
+      },
     ],
   };
 }
 
-function snapshotScope(curriculum) {
+function orderedActivityIds(curriculum, lessonId) {
+  const plan = curriculum.lessonPlans.find((p) => p.id === lessonId);
+  if (!plan) return [];
+  const order = [];
+  ["monday", "tuesday", "wednesday", "thursday", "friday"].forEach((day) => {
+    const items = plan.dailyPlans?.[day]?.items || [];
+    items.forEach((item) => {
+      const act = curriculum.activities.find((a) => a.lessonPlanId === lessonId && a.itemId === item.itemId);
+      if (act) order.push(act.id);
+    });
+  });
+  if (!order.length) {
+    return curriculum.activities.filter((a) => a.lessonPlanId === lessonId).map((a) => a.id);
+  }
+  return order;
+}
+
+function scopeFingerprint(curriculum) {
   return JSON.stringify({
-    lessonPlans: curriculum.lessonPlans.map((p) => ({
-      id: p.id,
-      status: p.status,
-      title: p.title,
-      weeklyOverview: p.weeklyOverview,
-      coverImageUrl: p.coverImageUrl,
-      resourceIds: p.resourceIds,
+    decoyPlans: DECOY_LESSON_IDS.map((id) => {
+      const p = curriculum.lessonPlans.find((row) => row.id === id);
+      return p ? {
+        id: p.id,
+        status: p.status,
+        title: p.title,
+        weeklyOverview: p.weeklyOverview,
+        coverImageUrl: p.coverImageUrl,
+        resourceIds: p.resourceIds,
+        songs: p.enrichmentDraft?.week?.songs,
+        books: p.enrichmentDraft?.week?.books,
+        printableIds: p.enrichmentDraft?.week?.printableIds,
+      } : null;
+    }),
+    decoyResources: ["cur-res-qa-farm-book", "cur-res-qa-weather-print"].map((id) => {
+      const r = curriculum.resources.find((row) => row.id === id);
+      return r ? { id: r.id, title: r.title, fileName: r.fileName, fileData: r.fileData } : null;
+    }),
+    decoyActivities: ["cur-act-qa-farm-1", "cur-act-qa-weather-1"].map((id) => {
+      const a = curriculum.activities.find((row) => row.id === id);
+      return a ? { id: a.id, setupImageUrl: a.setupImageUrl, title: a.title } : null;
+    }),
+  });
+}
+
+function lessonSnapshot(curriculum, lessonId) {
+  const plan = curriculum.lessonPlans.find((p) => p.id === lessonId);
+  const acts = curriculum.activities.filter((a) => a.lessonPlanId === lessonId);
+  const resources = curriculum.resources.filter((r) => (r.lessonPlanIds || []).includes(lessonId));
+  return JSON.stringify({
+    plan: {
+      weeklyOverview: plan?.weeklyOverview,
+      objectives: plan?.objectives,
+      weeklyMaterials: plan?.weeklyMaterials,
+      teacherPreparation: plan?.teacherPreparation,
+      familyConnection: plan?.familyConnection,
+      mixedAgeAdaptations: plan?.mixedAgeAdaptations,
+      budgetSubstitutions: plan?.budgetSubstitutions,
+      coverImageUrl: plan?.coverImageUrl,
+      enrichmentDraft: plan?.enrichmentDraft,
+    },
+    activities: acts.map((a) => ({
+      id: a.id,
+      title: a.title,
+      objective: a.objective,
+      materials: a.materials,
+      steps: a.steps,
+      setupImageUrl: a.setupImageUrl,
+      relatedPrintableId: a.relatedPrintableId,
     })),
-    resources: curriculum.resources.map((r) => ({ id: r.id, title: r.title, fileName: r.fileName })),
-    activities: curriculum.activities.map((a) => ({ id: a.id, lessonPlanId: a.lessonPlanId, title: a.title, setupImageUrl: a.setupImageUrl })),
+    resources: resources.map((r) => ({ id: r.id, title: r.title, fileName: r.fileName, pageCount: r.pageCount })),
   });
-}
-
-function assertLessonSectionContract(plan, activities) {
-  const issues = [];
-  const blob = [
-    plan.weeklyOverview,
-    plan.objectives,
-    plan.weeklyMaterials,
-    plan.teacherPreparation,
-    plan.familyConnection,
-    plan.mixedAgeAdaptations,
-    plan.budgetSubstitutions,
-  ].join("\n");
-  if (!String(plan.objectives || "").trim()) issues.push("missing_weekly_objectives");
-  if (!String(plan.weeklyMaterials || "").trim()) issues.push("missing_materials");
-  if (!String(plan.teacherPreparation || "").trim()) issues.push("missing_preparation");
-  if (!String(plan.familyConnection || "").trim()) issues.push("missing_family_connection");
-  if (!String(plan.mixedAgeAdaptations || "").trim()) issues.push("missing_mixed_age");
-  if (!String(plan.budgetSubstitutions || "").trim()) issues.push("missing_budget_substitutions");
-  const checks = [
-    [/setup|prepar|stage|tray/i, "teacher setup"],
-  ];
-  checks.forEach(([re, label]) => {
-    if (!re.test(blob)) issues.push(`missing_${label.replace(/\s+/g, "_")}`);
-  });
-  const actCount = activities.length;
-  if (actCount < 3) issues.push(`activity_count_lt_3:${actCount}`);
-  activities.slice(0, Math.max(3, actCount)).forEach((act, idx) => {
-    const text = [act.objective, act.steps, act.materials, act.safetyNotes, act.teacherLanguage, act.cleanupTips].join("\n");
-    if (!act.objective || String(act.objective).length < 20) issues.push(`activity_${idx}_objective`);
-    if (!act.steps || String(act.steps).length < 20) issues.push(`activity_${idx}_steps`);
-    if (!act.materials || String(act.materials).length < 10) issues.push(`activity_${idx}_materials`);
-    if (!/safety|supervis|allerg|choke|scissor|water/i.test(text)) issues.push(`activity_${idx}_safety`);
-    if (!/\?/.test(String(act.teacherLanguage || act.steps || ""))) issues.push(`activity_${idx}_open_questions`);
-  });
-  return { ok: issues.length === 0, issues };
-}
-
-function assertSafetyThemes(activities) {
-  const combined = activities.map((a) => [a.title, a.materials, a.steps, a.safetyNotes].join(" ")).join("\n").toLowerCase();
-  const required = Object.keys(SAFETY_SNIPPETS);
-  const missing = required.filter((key) => !new RegExp(SAFETY_SNIPPETS[key].split(/\s+/).slice(0, 2).join("|"), "i").test(combined)
-    && !combined.includes(key.replace(/([A-Z])/g, " $1").trim().toLowerCase().split(" ")[0]));
-  // Looser check: themes by keyword
-  const themes = {
-    smallObjects: /choke|small object|bead|seed/i.test(combined),
-    water: /water/i.test(combined),
-    scissors: /scissor/i.test(combined),
-    allergens: /allerg|food|taste/i.test(combined),
-    sensory: /sensory|bin|texture/i.test(combined),
-  };
-  const missingThemes = Object.entries(themes).filter(([, ok]) => !ok).map(([k]) => k);
-  return { ok: missingThemes.length === 0, missingThemes, themes };
 }
 
 module.exports = {
   EXACT_COMMAND,
+  FOLLOW_UP_COMMANDS,
   MOCK_RESEARCH_SOURCES,
-  GOOD_IMAGE_URL,
-  BAD_IMAGE_URL,
-  SAFETY_SNIPPETS,
-  SPRING_ACTIVITY_TITLES,
-  buildSeedGrowthPrintableFixture,
+  IMAGE_SEED,
+  DECOY_LESSON_IDS,
   seedScopeLibrary,
-  snapshotScope,
-  assertLessonSectionContract,
-  assertSafetyThemes,
+  orderedActivityIds,
+  scopeFingerprint,
+  lessonSnapshot,
 };

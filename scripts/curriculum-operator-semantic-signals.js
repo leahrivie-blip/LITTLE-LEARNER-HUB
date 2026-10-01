@@ -75,6 +75,11 @@ function extractActivityImageTarget(folded) {
     activityOrdinal = ordinalWords[token] || Number(token) || null;
     if (!Number.isFinite(activityOrdinal) || activityOrdinal < 1) activityOrdinal = null;
   }
+  if (!activityOrdinal) {
+    const numberedActivity = folded.match(/\bactivity\s+(\d{1,2})\s*(?:'s|s)?\s+(?:picture|photo|image)\b/);
+    if (numberedActivity) activityOrdinal = Number(numberedActivity[1]);
+    if (!Number.isFinite(activityOrdinal) || activityOrdinal < 1) activityOrdinal = null;
+  }
   let activityTitleHint = "";
   const titled = folded.match(
     /\b(?:fix|replace|update|regenerate)\s+(?:the\s+)?(?:picture|photo|image)\s+for\s+(.+?)\s+only\b/,
@@ -87,7 +92,8 @@ function extractActivityImageTarget(folded) {
   const singleActivityOnly = Boolean(activityOrdinal)
     || Boolean(activityTitleHint)
     || /\bonly\s+(?:the\s+)?(?:one\s+)?(?:activity\s+)?(?:picture|photo|image)\b/.test(folded)
-    || /\b(?:picture|photo|image)\s+only\b/.test(folded) && /\bactivity\b/.test(folded);
+    || (/\b(?:picture|photo|image)\s+only\b/.test(folded) && /\bactivity\b/.test(folded))
+    || (/\bchange\s+only\s+activity\s+\d{1,2}\b/.test(folded) && /\b(?:picture|photo|image)\b/.test(folded));
   return { activityOrdinal, activityTitleHint, singleActivityOnly };
 }
 
@@ -208,6 +214,7 @@ function extractSignals(rawCommand) {
       || /\bactually\s+look\s+like\s+the\s+activities\b/.test(folded));
   const imagesOnly = hasExclusiveOnly(folded, imageTopic.source)
     || impliedImageRepair
+    || /\bchange\s+only\s+activity\s+\d{1,2}\s*(?:'s|s)?\s+(?:picture|photo|image)\b/.test(folded)
     || (activityImageMentions
       && (/\b(?:nothing|anything)\s+else\b/.test(folded)
         || /\b(?:dont|do not|never)\s+change\s+anything\s+else\b/.test(folded)

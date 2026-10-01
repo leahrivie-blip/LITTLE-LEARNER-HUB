@@ -550,6 +550,28 @@ function buildOperatorPrintableAiFixtureResponse(userPrompt) {
         },
       ],
     };
+  } else if (/seed|growth|sequenc|planting/i.test(lower)) {
+    pack = {
+      title: "Seed Growth Sequencing Cards",
+      resourceType: "sequencing_cards",
+      purpose: "Children order seed-to-plant pictures during the planting activity.",
+      teacherUse: "Print on letter paper, cut the seed-growth cards, and use them at the story sequence table.",
+      childUse: "Children place the cards in order from seed to sprout to plant.",
+      pages: [
+        {
+          type: "sequencing",
+          heading: "Seed Growth Sequence",
+          visualMode: "simple_vector",
+          instructions: "Cut out the cards. Child places them in order: seed, sprout, leaves, flower.",
+          items: [
+            { name: "Dry seed in soil", visualConcept: "brown seed in dirt cup" },
+            { name: "Sprout emerging", visualConcept: "small green sprout" },
+            { name: "Growing leaves", visualConcept: "seedling with two leaves" },
+            { name: "Flowering plant", visualConcept: "small flowering garden plant" },
+          ],
+        },
+      ],
+    };
   } else if (/sort|color/i.test(lower)) {
     pack = {
       title: `${title} Sorting Pack`,

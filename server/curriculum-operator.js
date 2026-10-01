@@ -890,8 +890,10 @@ function createCurriculumOperatorApi(deps) {
       }
     }
 
+    const plannedBrief = job.planSummary?.creationBrief || lr.creationBrief || null;
     const briefResult = createApi.parseCreationBrief(job.command?.rawCommand || "", {
-      defaultAccessPlan: "Free",
+      defaultAccessPlan: plannedBrief?.accessPlan === "Pro" ? "Pro" : "Free",
+      researchSources: schema.asArray(plannedBrief?.researchContext),
     });
     if (!briefResult.ok) {
       return {
