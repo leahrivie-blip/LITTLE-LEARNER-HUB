@@ -1,0 +1,191 @@
+[
+  {
+    "lessonId": "cur-lp-infant-animal-sounds-discovery",
+    "title": "Animal Sounds Discovery",
+    "age": "Infant 0–12 Months",
+    "theme": "Animal Sounds",
+    "role": "required + infant",
+    "weeklyOverview": "Infants will explore animal sounds through music, stories, sensory play, visual discovery, movement, and communication activities. Children will listen to familiar animal sounds, observe animal pictures, and engage in playful experiences that support early language development and auditory awareness.",
+    "sampleActivities": [
+      "Animal Discovery Basket",
+      "Animal Song Circle",
+      "Animal Story Time",
+      "Dog Bark Listening Fun",
+      "Animal Mirror Play",
+      "Animal Movement Fun",
+      "Farm Animal Discovery",
+      "Moo & Quack Listening"
+    ],
+    "stagedFilename": "animal-sounds-discovery.jpg",
+    "prompt": "STYLE LOCK (must match Little Learner Hub KEEP covers): polished children's picture-book illustration, soft watercolor / warm digital painting, gentle brush texture, soft edges, bright natural light, cheerful but calm, professional paid-curriculum quality. Clearly cartoon/illustrated — NOT photograph, NOT photorealistic, NOT 3D render, NOT anime, NOT flat clip-art, NOT Canva collage. No text, letters, words, signs, logos, watermarks, or titles anywhere in the image. Leave quiet open space in the upper third for UI title overlay. Keep faces and key subjects away from extreme edges for card cropping. Landscape composition suitable for a lesson-plan cover card.\nSUBJECT: Infant lesson cover for \"Animal Sounds Discovery\" (ages 0–12 months).\nShow a warm nursery floor-play scene: a diverse caregiver sitting on a soft rug with a baby on tummy time / sitting with support, exploring soft animal sound toys — a plush cow, duck, kitten, and puppy rattles (simple friendly illustrated toys, not hyper-realistic). Baby reaching/grasping. Soft window light, pastel nursery. Communicate animal sounds + sensory discovery for INFANTS — babies and caregiver only, NO preschool children, NO band of anthropomorphic animals playing instruments.\nTheme must read instantly: baby + animal toys + listening/sounds.",
+    "productionAttach": false
+  },
+  {
+    "lessonId": "cur-lp-19fb35928244ffc2f1f",
+    "title": "Welcome, Baby!",
+    "age": "Infant 0–6 Months",
+    "theme": "Back to School: Safety and Belonging",
+    "role": "infant age-mismatch (was all-about-me.jpg)",
+    "weeklyOverview": "Young infants build trust through predictable greetings, responsive caregiving, face-to-face interaction, gentle movement, supervised tummy time, and calm sensory experiences.",
+    "sampleActivities": [
+      "Teacher Face Tracking",
+      "Welcome Name Song",
+      "High-Contrast Hello Cards",
+      "Mirror Tummy Greeting",
+      "Copy My Sound Conversation",
+      "Slow Scarf Tracking",
+      "Classroom Sound Walk",
+      "Soft Texture Panels"
+    ],
+    "stagedFilename": "welcome-baby.jpg",
+    "prompt": "STYLE LOCK (must match Little Learner Hub KEEP covers): polished children's picture-book illustration, soft watercolor / warm digital painting, gentle brush texture, soft edges, bright natural light, cheerful but calm, professional paid-curriculum quality. Clearly cartoon/illustrated — NOT photograph, NOT photorealistic, NOT 3D render, NOT anime, NOT flat clip-art, NOT Canva collage. No text, letters, words, signs, logos, watermarks, or titles anywhere in the image. Leave quiet open space in the upper third for UI title overlay. Keep faces and key subjects away from extreme edges for card cropping. Landscape composition suitable for a lesson-plan cover card.\nSUBJECT: Infant lesson cover for \"Welcome, Baby!\" (ages 0–6 months) — Back to School: Safety and Belonging.\nSoft infant classroom welcome: diverse caregiver gently holding or cradling a young baby near a cozy floor mat; soft toys, mirrored baby-safe tray optional, warm pastel nursery corners. Convey belonging, calm welcome, and infant care. Babies and caregivers only — DO NOT show preschool classroom cubbies, handprint walls, or preschool-age children. Floor-level, intimate, soothing.",
+    "productionAttach": false
+  },
+  {
+    "lessonId": "cur-lp-19fb3849d087888afe5",
+    "title": "Fall Colors, Leaves and Movement",
+    "age": "Infant 6–12 Months",
+    "theme": "September Infant 6–12: First Days of Fall",
+    "role": "infant seasonal",
+    "weeklyOverview": "Mobile infants explore the first days of fall through large leaf pictures, warm-color choices, crawling, posting, outdoor observation, and sealed texture play. Loose leaves, acorns, pinecones, and other choking hazards are not used.",
+    "sampleActivities": [
+      "Choose a Fall Color",
+      "Color Drop Basket",
+      "Leaf Card Posting",
+      "Up-and-Down Scarf Dance",
+      "Crawl to the Leaf Trail",
+      "Wind Pause Game",
+      "Sealed Fall Texture Bags",
+      "Outdoor Tree Watch"
+    ],
+    "stagedFilename": "fall-colors-leaves-movement.jpg",
+    "prompt": "STYLE LOCK (must match Little Learner Hub KEEP covers): polished children's picture-book illustration, soft watercolor / warm digital painting, gentle brush texture, soft edges, bright natural light, cheerful but calm, professional paid-curriculum quality. Clearly cartoon/illustrated — NOT photograph, NOT photorealistic, NOT 3D render, NOT anime, NOT flat clip-art, NOT Canva collage. No text, letters, words, signs, logos, watermarks, or titles anywhere in the image. Leave quiet open space in the upper third for UI title overlay. Keep faces and key subjects away from extreme edges for card cropping. Landscape composition suitable for a lesson-plan cover card.\nSUBJECT: Infant lesson cover for \"Fall Colors, Leaves and Movement\" (ages 6–12 months).\nAutumn infant sensory play outdoors or by a sunny window: mobile baby (crawling/sitting) exploring large soft fabric leaves and real-looking illustrated autumn leaves in red, orange, yellow; gentle caregiver nearby; soft scarves for movement. Fall only (not all four seasons). Warm golden autumn light. INFANT developmental stage clearly visible — no preschool kids raking leaves independently.",
+    "productionAttach": false
+  },
+  {
+    "lessonId": "cur-lp-toddler-classroom-helpers",
+    "title": "Classroom Helpers",
+    "age": "Toddler",
+    "theme": "August: Back to School & Belonging",
+    "role": "toddler REVIEW→REPLACE",
+    "weeklyOverview": "Classroom Helpers introduces toddlers to simple classroom responsibilities while building confidence, independence, and teamwork. Throughout the week, children will learn that everyone has an important role in keeping the classroom safe, clean, and welcoming. Through hands-on activities, dramatic play, songs, and cooperative experiences, children will practice helping others, caring for classroom materials, following routines, and working together as a classroom family.",
+    "sampleActivities": [
+      "Meet Our Helper Jobs",
+      "Toy Helper Challenge",
+      "My Helper Badge",
+      "Helper Parade",
+      "Toy Organizer",
+      "Wipe and Shine",
+      "My Helping Hands Poster",
+      "Clean Up Dance Party"
+    ],
+    "stagedFilename": "classroom-helpers.jpg",
+    "prompt": "STYLE LOCK (must match Little Learner Hub KEEP covers): polished children's picture-book illustration, soft watercolor / warm digital painting, gentle brush texture, soft edges, bright natural light, cheerful but calm, professional paid-curriculum quality. Clearly cartoon/illustrated — NOT photograph, NOT photorealistic, NOT 3D render, NOT anime, NOT flat clip-art, NOT Canva collage. No text, letters, words, signs, logos, watermarks, or titles anywhere in the image. Leave quiet open space in the upper third for UI title overlay. Keep faces and key subjects away from extreme edges for card cropping. Landscape composition suitable for a lesson-plan cover card.\nSUBJECT: Toddler lesson cover for \"Classroom Helpers\" (toddlers ~1–3 years).\nYoung TODDLERS (shorter, toddler proportions — not preschool 4–5 year olds) helping in a simple classroom: putting large blocks in a bin, wiping a low table, watering a small plant with a tiny watering can. Diverse toddlers. Bright, uncluttered classroom. Theme: helpful classroom jobs for toddlers. Soft watercolor picture-book style matching LLH KEEP covers.",
+    "productionAttach": false
+  },
+  {
+    "lessonId": "cur-lp-toddler-making-new-friends",
+    "title": "Making New Friends",
+    "age": "Toddler",
+    "theme": "August: Back to School & Belonging",
+    "role": "toddler REVIEW→REPLACE",
+    "weeklyOverview": "Making New Friends helps toddlers develop positive social skills as they continue adjusting to the classroom. Throughout the week, children will practice greeting classmates, sharing materials, taking turns, working together during play, and using kind words. Activities encourage cooperation, communication, empathy, and building friendships while helping children feel connected and confident in their classroom community.",
+    "sampleActivities": [
+      "Hello, Friend!",
+      "Friends Build Together",
+      "Friendship Heart Craft",
+      "Friendship Freeze Dance",
+      "Sharing Basket",
+      "Playdough Friends",
+      "Friendship Puzzle",
+      "Pass the Smile"
+    ],
+    "stagedFilename": "making-new-friends.jpg",
+    "prompt": "STYLE LOCK (must match Little Learner Hub KEEP covers): polished children's picture-book illustration, soft watercolor / warm digital painting, gentle brush texture, soft edges, bright natural light, cheerful but calm, professional paid-curriculum quality. Clearly cartoon/illustrated — NOT photograph, NOT photorealistic, NOT 3D render, NOT anime, NOT flat clip-art, NOT Canva collage. No text, letters, words, signs, logos, watermarks, or titles anywhere in the image. Leave quiet open space in the upper third for UI title overlay. Keep faces and key subjects away from extreme edges for card cropping. Landscape composition suitable for a lesson-plan cover card.\nSUBJECT: Toddler lesson cover for \"Making New Friends\" (toddlers ~1–3 years).\nTwo or three diverse young TODDLERS on a colorful rug parallel-playing / gently sharing large toys (blocks or soft dolls), friendly smiles, a warm teacher nearby at toddler height. Clearly toddler-age faces and bodies (not preschoolers). Theme: friendship and belonging. Clean composition, no crowded 8-child scene. Correct hands and faces, no AI artifacts.",
+    "productionAttach": false
+  },
+  {
+    "lessonId": "cur-lp-preschool-construction-engineers",
+    "title": "Construction Engineers",
+    "age": "Preschool",
+    "theme": "Construction & Engineering",
+    "role": "preschool STEM/dramatic play",
+    "weeklyOverview": "Children will become construction engineers as they design buildings, test structures, operate construction sites, explore tools, and solve engineering challenges. Through hands-on building experiences and STEM investigations, children will develop creativity, problem-solving, and teamwork skills.",
+    "sampleActivities": [
+      "Construction Site Setup",
+      "Blueprint Drawing",
+      "Construction Story Time",
+      "Tower Building Challenge",
+      "Dump Truck Relay",
+      "Tool Exploration",
+      "Bridge Engineering Challenge",
+      "Measure the Building"
+    ],
+    "stagedFilename": "construction-engineers.jpg",
+    "prompt": "STYLE LOCK (must match Little Learner Hub KEEP covers): polished children's picture-book illustration, soft watercolor / warm digital painting, gentle brush texture, soft edges, bright natural light, cheerful but calm, professional paid-curriculum quality. Clearly cartoon/illustrated — NOT photograph, NOT photorealistic, NOT 3D render, NOT anime, NOT flat clip-art, NOT Canva collage. No text, letters, words, signs, logos, watermarks, or titles anywhere in the image. Leave quiet open space in the upper third for UI title overlay. Keep faces and key subjects away from extreme edges for card cropping. Landscape composition suitable for a lesson-plan cover card.\nSUBJECT: Preschool lesson cover for \"Construction Engineers\" (ages ~3–5).\nPreschool-age children in hard hats (illustrated, playful) building with large blocks, cardboard tubes, and toy tools at a construction dramatic-play area; blueprints or measuring tape as simple props. Clear STEM / construction engineering theme. Diversity. Soft watercolor picture-book style like LLH farm-animals and construction-crew KEEP covers. No text on blueprints.",
+    "productionAttach": false
+  },
+  {
+    "lessonId": "cur-lp-preschool-ice-cream-shop-entrepreneurs",
+    "title": "Ice Cream Shop Entrepreneurs",
+    "age": "Preschool",
+    "theme": "Ice Cream Shop Business",
+    "role": "preschool dramatic play",
+    "weeklyOverview": "Children will become ice cream shop owners as they create menus, take customer orders, count money, build ice cream creations, and operate their own classroom ice cream business. Through dramatic play, math activities, literacy experiences, and teamwork, children will learn early business concepts while having summer fun.",
+    "sampleActivities": [
+      "Open the Ice Cream Shop",
+      "Design a Shop Sign",
+      "Ice Cream Story Time",
+      "Create a Menu",
+      "Flavor Sorting Challenge",
+      "Ice Cream Dance Party",
+      "Take Customer Orders",
+      "Count the Coins"
+    ],
+    "stagedFilename": "ice-cream-shop-entrepreneurs.jpg",
+    "prompt": "STYLE LOCK (must match Little Learner Hub KEEP covers): polished children's picture-book illustration, soft watercolor / warm digital painting, gentle brush texture, soft edges, bright natural light, cheerful but calm, professional paid-curriculum quality. Clearly cartoon/illustrated — NOT photograph, NOT photorealistic, NOT 3D render, NOT anime, NOT flat clip-art, NOT Canva collage. No text, letters, words, signs, logos, watermarks, or titles anywhere in the image. Leave quiet open space in the upper third for UI title overlay. Keep faces and key subjects away from extreme edges for card cropping. Landscape composition suitable for a lesson-plan cover card.\nSUBJECT: Preschool lesson cover for \"Ice Cream Shop Entrepreneurs\" (ages ~3–5).\nPreschool dramatic-play ice cream shop: children scooping illustrated ice cream into cones/cups behind a colorful play counter, pretend money jar, cheerful pastel parlor. Theme instantly reads ice cream shop / pretend business. Soft picture-book watercolor. No written menus or price signs with readable text — blank chalkboard or color dots only if needed.",
+    "productionAttach": false
+  },
+  {
+    "lessonId": "cur-lp-toddler-farm-friends",
+    "title": "Farm Friends",
+    "age": "Toddler",
+    "theme": "Farm Friends",
+    "role": "toddler theme (SVG)",
+    "weeklyOverview": "Toddlers will explore life on the farm through hands-on activities, animal sounds, movement games, books, songs, sensory play, and dramatic play experiences. Children will learn about farm animals, their sounds, where they live, and how they help people while building language, social, cognitive, and motor skills.",
+    "sampleActivities": [
+      "Farm Animal Discovery Basket",
+      "Old MacDonald Sing Along",
+      "Farm Animal Walk",
+      "Feed the Farm Animals",
+      "Muddy Pig Sensory Bin",
+      "Barnyard Animal Freeze Dance",
+      "Muddy Pig Sensory Bin",
+      "Feeding Time at the Barn"
+    ],
+    "stagedFilename": "farm-friends.jpg",
+    "prompt": "STYLE LOCK (must match Little Learner Hub KEEP covers): polished children's picture-book illustration, soft watercolor / warm digital painting, gentle brush texture, soft edges, bright natural light, cheerful but calm, professional paid-curriculum quality. Clearly cartoon/illustrated — NOT photograph, NOT photorealistic, NOT 3D render, NOT anime, NOT flat clip-art, NOT Canva collage. No text, letters, words, signs, logos, watermarks, or titles anywhere in the image. Leave quiet open space in the upper third for UI title overlay. Keep faces and key subjects away from extreme edges for card cropping. Landscape composition suitable for a lesson-plan cover card.\nSUBJECT: Toddler lesson cover for \"Farm Friends\" (toddlers ~1–3 years).\nYoung toddlers at a friendly farm meeting gentle illustrated farm animals (cow, pig, chicken, sheep) — petting or observing at child height, red barn soft in background, sunny grass. Toddler proportions (not preschool). Warm picture-book style similar to KEEP farm-animals.jpg but centered on toddler–animal interaction. No text.",
+    "productionAttach": false
+  },
+  {
+    "lessonId": "cur-lp-preschool-easter-eggs-chicks-spring-science",
+    "title": "Easter Eggs, Chicks & Spring Science",
+    "age": "Preschool",
+    "theme": "Easter & Spring",
+    "role": "preschool seasonal",
+    "weeklyOverview": "Preschoolers will explore Easter and spring through life cycle investigations, egg experiments, nature studies, literacy activities, engineering challenges, art projects, and outdoor exploration. Children will develop scientific thinking while learning about growth, change, and new beginnings.",
+    "sampleActivities": [
+      "Egg Investigation Station",
+      "Egg Measurement Challenge",
+      "Spring Circle Time",
+      "Life Cycle of a Chick",
+      "Chick Name Craft",
+      "Chick Story Time",
+      "Egg Drop Engineering Challenge",
+      "Spring Flower Painting"
+    ],
+    "stagedFilename": "easter-eggs-chicks-spring-science.jpg",
+    "prompt": "STYLE LOCK (must match Little Learner Hub KEEP covers): polished children's picture-book illustration, soft watercolor / warm digital painting, gentle brush texture, soft edges, bright natural light, cheerful but calm, professional paid-curriculum quality. Clearly cartoon/illustrated — NOT photograph, NOT photorealistic, NOT 3D render, NOT anime, NOT flat clip-art, NOT Canva collage. No text, letters, words, signs, logos, watermarks, or titles anywhere in the image. Leave quiet open space in the upper third for UI title overlay. Keep faces and key subjects away from extreme edges for card cropping. Landscape composition suitable for a lesson-plan cover card.\nSUBJECT: Preschool lesson cover for \"Easter Eggs, Chicks & Spring Science\" (ages ~3–5).\nPreschool spring science investigation: children observing illustrated baby chicks and colorful Easter eggs with a magnifying glass on a nature table; soft spring flowers, warm daylight. Science + Easter/spring theme clear. Picture-book watercolor, not photo. No text on eggs or signs.",
+    "productionAttach": false
+  }
+]
