@@ -1,0 +1,1381 @@
+{
+  "batch": "priority-1",
+  "lessonId": "cur-lp-toddler-camping-under-the-stars",
+  "title": "Camping Under the Stars",
+  "age": "Toddler",
+  "masterPasteValidated": true,
+  "draftChannel": "enrichment_draft",
+  "liveReplaceForbiddenWhilePublished": true,
+  "week": {
+    "weeklyOverview": "This week toddlers go on a pretend camping adventure under the stars—no real fire. They build blanket tents, pack backpacks, explore woodland textures, follow a gentle bear hunt, and use battery flashlights with eye-safe habits. Days stay short and sensory: nature treasures, star stickers, owl flight movement, and campfire stories around battery lanterns or red/yellow tissue “flames.” Teachers expect parallel play, brief attention, and lots of repetition with tent, hike, star, and gentle night words.",
+    "objectives": "Social-emotional: Practice cooperative camping roles, turn-taking, and cozy group story moments.\nLanguage: Hear and try camping words such as tent, campfire (pretend), flashlight, trail, stars, owl, bear, and hike.\nCognitive: Notice nature treasures and follow simple exploration sequences.\nFine motor: Pack large items, stamp tracks, place star stickers, and collage with big nature props.\nGross motor: Crawl into tents, follow obstacle trails, and soar like owls in short movement games.\nSensory: Explore woodland bins, glow-star play, and safe flashlight light/dark contrast.\nCreative: Process nature collages, camping badges, and open-ended campsite building.",
+    "weeklyMaterials": "Everyday: blankets, chairs/clips for tent, backpacks, large nature props (pinecones, leaves), stuffed forest animals, blocks, boxes, painter’s tape, smocks, towels\nLight/safety: battery flashlights/lanterns only (no candles/real fire); red/yellow tissue or LED tea lights for pretend campfire\nArt: washable paint, paper, large star stickers, stampers, glue sticks, pre-cut badge circles\nSensory: shallow tubs, leaves, pinecones (large), scoops, optional safe glow items\nDramatic play: pretend fishing poles (soft), binoculars, explorer badges, camp dishes\nLiteracy: Pete the Cat Goes Camping; We’re Going on a Bear Hunt; Curious George Goes Camping; Twinkle Twinkle Little Star board book; optional Llama Llama Loves Camping\nOptional printables: trail signs; day/night cards",
+    "teacherPreparation": "Before Monday: stage a reusable blanket tent; test battery lights; remove real-fire props.\nPrep woodland sensory filler and large nature props (no tiny sticks).\nCreate a pretend campfire from tissue/LED only.\nChoose 2–3 camping books.\nPrint trail/campsite signs if using.\nReview flashlight eye-safety: never shine in eyes; model pointing at floor/walls.",
+    "prepChecklist": [
+      "Build/test blanket tent structure",
+      "Check battery flashlights/lanterns (no real flame)",
+      "Prep pretend campfire (tissue/LED only)",
+      "Sanitize forest animals and nature props",
+      "Allergy check for leaves/outdoor materials",
+      "Select 2–3 camping/night books",
+      "Prepare explorer/camping badges"
+    ],
+    "observationFocus": "Willingness to enter cozy tent spaces\nCamping vocabulary attempts\nFlashlight safety habits with support\nTurn-taking on trails and sensory bins\nSensory preferences with nature textures\nListening during bear hunt/story cues",
+    "familyConnection": "Invite families to make a blanket fort at home or look for stars/moon from a window and name one camping word together (tent, star, hike). Optional backyard picnic—no homework required.",
+    "adaptations": "Offer watching-first entry to tents, dim-not-dark rooms, dry alternatives to messy nature play, shorter trails, and picture supports. Never force dark spaces or flashlight use.",
+    "vocabularyWords": "camping\ntent\ncampfire\nflashlight\nforest\ntrail\nstars\nnight\nexplore\nhike\nfish\nowl\nbear\nnature\npack\ngentle",
+    "books": [
+      {
+        "title": "Pete the Cat Goes Camping",
+        "author": "James Dean",
+        "prompts": [
+          "Where is Pete going?",
+          "What does he pack?",
+          "Can you find the tent?"
+        ]
+      },
+      {
+        "title": "We're Going on a Bear Hunt",
+        "author": "Michael Rosen",
+        "prompts": [
+          "What do we see?",
+          "Can we go through?",
+          "Oh no—a bear! Can we tip-toe back?"
+        ]
+      },
+      {
+        "title": "Curious George Goes Camping",
+        "author": "Margret and H. A. Rey",
+        "prompts": [
+          "What does George find?",
+          "Is he being careful?",
+          "Where is the campsite?"
+        ]
+      },
+      {
+        "title": "Twinkle, Twinkle, Little Star",
+        "author": "Traditional; illustrated board book versions (e.g., Caroline Jayne Church or similar)",
+        "prompts": [
+          "Where is the star?",
+          "Can you twinkle your fingers?",
+          "Is it night time?"
+        ]
+      },
+      {
+        "title": "Llama Llama Loves Camping",
+        "author": "Anna Dewdney",
+        "prompts": [
+          "Who is camping?",
+          "What makes Llama feel cozy?",
+          "Can you find the sleeping bag?"
+        ]
+      }
+    ],
+    "songs": [
+      {
+        "title": "Twinkle Twinkle Little Star",
+        "notes": "Traditional; finger twinkles; do not require full lyrics memorization."
+      },
+      {
+        "title": "The Bear Went Over the Mountain",
+        "notes": "Traditional movement song; gentle marching."
+      },
+      {
+        "title": "Going on a Camping Trip",
+        "notes": "Simple original/known camp chant style; pack motions."
+      },
+      {
+        "title": "LLH Campfire Glow Chant",
+        "notes": "Original chant: “Glow glow little light, battery safe and shining bright.” (no real fire)"
+      }
+    ],
+    "teacherToolkit": {
+      "prepChecklist": [
+        "Stage blanket tent",
+        "Test battery lights",
+        "Prep nature/sensory rotations",
+        "Pull books/songs card"
+      ],
+      "observationFocus": [
+        "Tent comfort",
+        "Camping words",
+        "Flashlight safety",
+        "Nature sensory tolerance"
+      ],
+      "reusableCenters": [
+        "Blanket tent campsite",
+        "Woodland sensory bin",
+        "Explorer trail path"
+      ]
+    },
+    "printableIdeas": [
+      {
+        "title": "Trail Signs",
+        "reason": "Simple arrows/pictures for hike obstacle clarity"
+      },
+      {
+        "title": "Day and Night Cards",
+        "reason": "Visual supports for flashlight/star play timing"
+      }
+    ],
+    "researchSources": [
+      "NAEYC Developmentally Appropriate Practice — outdoor-inspired dramatic play indoors",
+      "ZERO TO THREE guidance on toddler sensory exploration and safe light/dark play",
+      "Practical toddler camping setups emphasizing blanket tents, battery lights only, and large nature props"
+    ],
+    "coverStatus": "COVER IMAGE PENDING",
+    "proposedCoverActivity": "Set Up the Campsite"
+  },
+  "activities": [
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "imageBriefExample": "",
+      "imageBriefSetup": "Toddler blanket tent campsite with cushions and battery lantern pretend campfire tray. Footer: littlelearnershubbyleah.com",
+      "title": "Set Up the Campsite",
+      "dayOfWeek": "monday",
+      "activityCategory": "Dramatic Play",
+      "durationMinutes": 15,
+      "objective": "Collaborate to arrange a toddler campsite with a blanket tent, pretend campfire, and cozy sitting spots.",
+      "description": "Toddlers help drape blankets, place cushions, and arrange a battery lantern or tissue-flame campfire ring—building the home base for the week.",
+      "materials": "2 chairs or low table + clips\nBlankets/sheets\nCushions\nBattery lantern or LED tea lights\nRed/yellow tissue paper “flames”\nStuffed forest friends\nBasket of camp dishes",
+      "preparation": "Test blanket stability\nConfirm NO real flame props\nStage materials in a basket",
+      "setup": "Clear corner. Chairs stable. Fire ring on a tray away from blanket edges.",
+      "steps": "1. Show the camping picture or chant: “We’re setting up camp!”\n2. Invite toddlers to help spread the blanket tent.\n3. Place cushions inside/outside.\n4. Build pretend campfire on a tray (tissue/LED only).\n5. Sit together and say “Campsite ready!”\n6. Practice gentle entry/exit from the tent.",
+      "teacherLanguage": "Can you help with the blanket?\nIs the tent cozy?\nGlow light — battery safe.\nSit by the pretend fire.\nOur campsite is ready!",
+      "observationOpportunities": "Helping behaviors, willingness to enter tent, spatial arranging, and camping vocabulary.",
+      "safetyNotes": "No real fire/candles/matches. Stable chairs. Supervise tent play—keep exits clear. Battery lights only.",
+      "cleanupTips": "Fold blankets loosely for reuse; collect lanterns; reset fire tray.",
+      "indoorAlternatives": "Table tent with a sheet if chairs are limited.",
+      "outdoorAlternatives": "Shade-structure tent with blankets under a tree.",
+      "teacherTips": [
+        "Keep tent tall enough to sit, not a closed cave.",
+        "Rehearse “door” exit language."
+      ],
+      "substitutions": [
+        {
+          "need": "Chairs for tent",
+          "use": "Crib sheet over a low table with open sides"
+        }
+      ],
+      "adaptations": "Offer a peek-in first. Keep one side fully open. Dim room rather than dark.",
+      "extensions": "Add a backpack landing spot beside the tent.",
+      "mixedAgeAdaptations": "Older toddlers clip blankets; younger place cushions.",
+      "observationPrompts": [
+        "Did the child help place a campsite item?",
+        "Did they enter or sit near the tent?"
+      ],
+      "vocabulary": [
+        "camp",
+        "tent",
+        "blanket",
+        "fire",
+        "cozy",
+        "help",
+        "ready"
+      ],
+      "imageRequirement": "setup_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "imageBriefExample": "",
+      "imageBriefSetup": "Open-sided blanket tent with cushions and toddler stuffed animal inside. Footer: littlelearnershubbyleah.com",
+      "title": "Tent Exploration",
+      "dayOfWeek": "monday",
+      "activityCategory": "Open-Ended Exploration",
+      "durationMinutes": 10,
+      "objective": "Explore the tent space freely—look, crawl, sit, and notice in/out and light/cozy feelings.",
+      "description": "Toddlers crawl in and out of the open blanket tent, carry a stuffed friend inside, and notice how the space feels different from the open room.",
+      "materials": "Prepared blanket tent (open sides)\n1–2 stuffed animals\nSoft flashlight optional (battery)\nCushions",
+      "preparation": "Ensure open exit\nSanitize cushions\nSet “open” visual on tent door",
+      "setup": "Tent with clear doorway; teacher seated nearby at toddler level.",
+      "steps": "1. Invite: “Want to visit the tent?”\n2. Model crawling in with a stuffed friend.\n3. Allow free in/out exploration.\n4. Offer words: in, out, cozy, dark/light.\n5. Wave flashlight on the ceiling/floor only if used.\n6. Come out for a stretch.",
+      "teacherLanguage": "In the tent?\nIs it cozy?\nYour bear can come too.\nLight on the floor — not eyes.\nOut we go!",
+      "observationOpportunities": "Comfort with enclosed spaces, spatial language, and peer proximity in small spaces.",
+      "safetyNotes": "Keep exits clear. No overcrowding (1–2 children). Flashlight never in eyes. Continuous supervision.",
+      "cleanupTips": "Fluff cushions; air out blankets.",
+      "indoorAlternatives": "Chair fort if tent is busy—second cozy spot.",
+      "outdoorAlternatives": "Play tunnel on grass as a tent alternative.",
+      "teacherTips": [
+        "Never pressure entry.",
+        "Narrate for watchers outside the tent."
+      ],
+      "substitutions": [
+        {
+          "need": "Blanket tent",
+          "use": "Large cardboard box house with open door"
+        }
+      ],
+      "adaptations": "Sit at the doorway together. Keep lights brighter for sensitive children.",
+      "extensions": "Deliver a “mail” leaf to someone inside the tent.",
+      "mixedAgeAdaptations": "Infants peek with caregiver; older toddlers host a friend.",
+      "observationPrompts": [
+        "Did the child enter, peek, or play nearby?",
+        "Did they use in/out or cozy words?"
+      ],
+      "vocabulary": [
+        "tent",
+        "in",
+        "out",
+        "cozy",
+        "look",
+        "bear",
+        "soft"
+      ],
+      "imageRequirement": "setup_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "imageBriefExample": "",
+      "imageBriefSetup": "",
+      "title": "Campfire Songs",
+      "dayOfWeek": "monday",
+      "activityCategory": "Music & Movement",
+      "durationMinutes": 8,
+      "objective": "Share short camping songs around a pretend campfire with finger twinkles and gentle sway movements.",
+      "description": "Toddlers sit near the tissue/LED campfire and sing Twinkle Twinkle and a simple camping chant with scarf sways—no real fire heat.",
+      "materials": "Pretend campfire tray\nScarves\nSong card prompts\nOptional battery lantern",
+      "preparation": "Set fire tray safely\nChoose 2 songs max\nPlan seated movements",
+      "setup": "Semi-circle of cushions facing the pretend fire.",
+      "steps": "1. Gather at the glow.\n2. Twinkle fingers to Twinkle Twinkle.\n3. Sway scarves like night wind.\n4. Soft camping chant with pack motions.\n5. Blow a pretend “goodnight” to the glow (LED stays on teacher control).",
+      "teacherLanguage": "Twinkle fingers!\nGlow, glow little light.\nSway like the trees.\nQuiet campfire voices.\nGoodnight, glow.",
+      "observationOpportunities": "Song participation, imitation of gestures, and calm group attention.",
+      "safetyNotes": "Battery/LED only. Scarves away from faces if mouthing. Seated bodies near tray.",
+      "cleanupTips": "Collect scarves; store lantern.",
+      "indoorAlternatives": "Same songs without props if fire tray is put away.",
+      "outdoorAlternatives": "Evening-feel shade songs outdoors with lantern.",
+      "teacherTips": [
+        "Keep volume soft.",
+        "Offer silent finger twinkles for shy singers."
+      ],
+      "substitutions": [
+        {
+          "need": "Scarves",
+          "use": "Paper plate “moons” on sticks to sway"
+        }
+      ],
+      "adaptations": "Lap sitting with caregiver. Humming instead of singing.",
+      "extensions": "Let a child hold the lantern (teacher-supervised) for one verse.",
+      "mixedAgeAdaptations": "Older toddlers suggest the next song; younger sway.",
+      "observationPrompts": [
+        "Did the child attempt twinkle motions?",
+        "Did they remain near the group for a song?"
+      ],
+      "vocabulary": [
+        "twinkle",
+        "star",
+        "sing",
+        "glow",
+        "sway",
+        "night",
+        "soft"
+      ],
+      "imageRequirement": "not_needed"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "imageBriefExample": "",
+      "imageBriefSetup": "Packing station with open toddler tote, cup, blanket square, and stuffed animal. Footer: littlelearnershubbyleah.com",
+      "title": "Pack the Backpack",
+      "dayOfWeek": "monday",
+      "activityCategory": "Fine Motor",
+      "durationMinutes": 10,
+      "objective": "Practice packing and unpacking large camping items to build bilateral coordination and care routines.",
+      "description": "Toddlers fit a cup, soft blanket square, and stuffed animal into an open backpack or tote, then unpack at the campsite.",
+      "materials": "Toddler backpacks or open totes\nCup\nSmall soft blanket\nStuffed animal\nOptional picture packing list (3 icons)",
+      "preparation": "Use wide-mouth bags\nLimit to 3 large items\nStage unpack spot",
+      "setup": "Packing station table + campsite unpack cushion.",
+      "steps": "1. Show picture list: cup, blanket, friend.\n2. Model pack one item.\n3. Child packs remaining items.\n4. Carry bag to campsite (short walk).\n5. Unpack and check the list.\n6. Repack for the next friend.",
+      "teacherLanguage": "What do we pack?\nCup in!\nBlanket in!\nIs Bear ready?\nUnpack at camp.\nYou packed it!",
+      "observationOpportunities": "Fitting objects, sequencing with pictures, carrying, and unpacking follow-through.",
+      "safetyNotes": "No tiny packing items. Soft materials. Supervise straps (no neck wrapping).",
+      "cleanupTips": "Return items to supply basket; hang bags.",
+      "indoorAlternatives": "Pack a basket instead of backpack.",
+      "outdoorAlternatives": "Pack and walk a short outdoor loop.",
+      "teacherTips": [
+        "Wide totes beat complicated zippers for 12–18 months.",
+        "Celebrate any item that goes in."
+      ],
+      "substitutions": [
+        {
+          "need": "Backpack",
+          "use": "Paper grocery bag with handles or beach tote"
+        }
+      ],
+      "adaptations": "Offer one item only. Hand-under-hand packing.",
+      "extensions": "Add a fourth item for older toddlers (hat).",
+      "mixedAgeAdaptations": "Preschoolers zip; toddlers choose what goes in.",
+      "observationPrompts": [
+        "Did the child place at least one item in the bag?",
+        "Did they unpack at camp?"
+      ],
+      "vocabulary": [
+        "pack",
+        "bag",
+        "cup",
+        "blanket",
+        "in",
+        "carry",
+        "ready"
+      ],
+      "imageRequirement": "setup_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "imageBriefExample": "",
+      "imageBriefSetup": "",
+      "title": "Camping Story Corner",
+      "dayOfWeek": "monday",
+      "activityCategory": "Literacy",
+      "durationMinutes": 10,
+      "objective": "Build camping vocabulary and cozy listening through a short tent-side read-aloud.",
+      "description": "Teacher reads Pete the Cat Goes Camping or Curious George Goes Camping beside the tent with a lantern glow and pausing for pointing.",
+      "materials": "Pete the Cat Goes Camping and/or Curious George Goes Camping\nLantern (battery)\nCushions\n1 camping prop (cup or hat)",
+      "preparation": "Preview pages\nKeep group small\nPlan 2–3 prompts",
+      "setup": "Cushions by tent door; lantern on floor lighting pages (not eyes).",
+      "steps": "1. Show cover and prop.\n2. Read slowly with pauses.\n3. Invite pointing to tent/pack pictures.\n4. Connect to your classroom tent.\n5. Close book and pat the tent “goodnight.”",
+      "teacherLanguage": "Where is the tent?\nWhat did they pack?\nOur tent looks cozy too.\nYour turn to point.\nGoodnight, story.",
+      "observationOpportunities": "Joint attention, pointing, book interest, and connections to the campsite.",
+      "safetyNotes": "Battery light only. Stable seating. Board books preferred.",
+      "cleanupTips": "Return books; power off lantern.",
+      "indoorAlternatives": "Lap reading away from tent if space is busy.",
+      "outdoorAlternatives": "Shade story with the same book.",
+      "teacherTips": [
+        "Short sessions beat finishing every page.",
+        "Hold book low for toddler sightlines."
+      ],
+      "substitutions": [
+        {
+          "need": "Pete the Cat Goes Camping",
+          "use": "Any sturdy camping board book"
+        }
+      ],
+      "adaptations": "One-on-one reading. Photo cards if book is overstimulating.",
+      "extensions": "Match a story prop to the real campsite item.",
+      "mixedAgeAdaptations": "Older toddlers turn pages; younger point and listen.",
+      "observationPrompts": [
+        "Did the child point to a picture?",
+        "Did they connect story to the classroom tent?"
+      ],
+      "vocabulary": [
+        "story",
+        "tent",
+        "pack",
+        "camp",
+        "book",
+        "night",
+        "cozy"
+      ],
+      "imageRequirement": "not_needed"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "imageBriefExample": "",
+      "imageBriefSetup": "Green fabric forest rug with basket of large stuffed forest animals. Footer: littlelearnershubbyleah.com",
+      "title": "Forest Animal Discovery",
+      "dayOfWeek": "tuesday",
+      "activityCategory": "Open-Ended Exploration",
+      "durationMinutes": 10,
+      "objective": "Meet forest animals through touch and naming—bear, owl, raccoon, deer—as camping neighbors.",
+      "description": "Toddlers explore a basket of large stuffed/plastic forest animals on a “forest rug,” choosing favorites and practicing gentle touch.",
+      "materials": "4–6 large forest animals\nGreen rug or fabric “forest”\nBasket\nOptional animal photo cards",
+      "preparation": "Sanitize animals\nLimit set size\nRemove tiny accessories",
+      "setup": "Forest fabric on floor with open basket.",
+      "steps": "1. Greet one animal: “Hello, bear.”\n2. Invite choosing/holding.\n3. Model gentle pats.\n4. Offer simple sounds if children initiate.\n5. Rest animals in the forest basket.",
+      "teacherLanguage": "Who lives in the forest?\nGentle bear.\nOwl soft wings?\nWhich friend will you hold?\nAnimals rest now.",
+      "observationOpportunities": "Animal preference, naming attempts, gentle touch, and approach/avoid patterns.",
+      "safetyNotes": "Large animals only. Sanitize after mouthing. Supervise.",
+      "cleanupTips": "Basket animals; shake forest fabric.",
+      "indoorAlternatives": "Tabletop discovery if floor is crowded.",
+      "outdoorAlternatives": "Forest animal picnic on an outdoor blanket.",
+      "teacherTips": [
+        "Fewer animals for younger toddlers.",
+        "Accept watching as participation."
+      ],
+      "substitutions": [
+        {
+          "need": "Forest stuffed animals",
+          "use": "Laminated large photos + soft blankets"
+        }
+      ],
+      "adaptations": "Hand-under-hand gentle touch. Identical pairs if sharing is hard.",
+      "extensions": "Walk animals to the tent for a visit.",
+      "mixedAgeAdaptations": "Older toddlers introduce animals by name to younger friends.",
+      "observationPrompts": [
+        "Did the child choose an animal?",
+        "Did they attempt a name or gentle touch?"
+      ],
+      "vocabulary": [
+        "forest",
+        "bear",
+        "owl",
+        "soft",
+        "gentle",
+        "animal",
+        "friend"
+      ],
+      "imageRequirement": "setup_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "imageBriefExample": "",
+      "imageBriefSetup": "Woodland sensory tub with leaves, large pinecones, scoops, and forest animals. Footer: littlelearnershubbyleah.com",
+      "title": "Woodland Sensory Bin",
+      "dayOfWeek": "tuesday",
+      "activityCategory": "Sensory Play",
+      "durationMinutes": 12,
+      "objective": "Explore woodland textures—leaves, large pinecones, scoops—while finding hidden forest animals.",
+      "description": "Toddlers dig in a shallow bin of leaves/paper leaves and large pinecones to scoop and discover animals.",
+      "materials": "Shallow tub\nLarge leaves (real clean or faux) / paper leaves\nLarge pinecones\n2–3 animals\nScoops\nSmocks\nTowel",
+      "preparation": "Allergy check (pollen/mold on real leaves)\nUse large pinecones only\nHide animals",
+      "setup": "Tub on towel; 2 children; wipe station ready.",
+      "steps": "1. Feel a leaf together.\n2. Scoop and pour.\n3. Find a hidden animal.\n4. Name textures: dry, bumpy, soft.\n5. Wash/wipe hands.",
+      "teacherLanguage": "What do you feel?\nBumpy pinecone.\nCan you find the owl?\nScoop the leaves.\nWipe hands — all done.",
+      "observationOpportunities": "Sensory tolerance, scooping, searching, and texture vocabulary.",
+      "safetyNotes": "No tiny sticks/berries. Supervise pinecones (no mouthing sharp scales—redirect). Floor slip control.",
+      "cleanupTips": "Dispose of dirty real leaves; sanitize animals; sweep.",
+      "indoorAlternatives": "Paper leaves + fabric scraps only.",
+      "outdoorAlternatives": "Nature table outdoors with fresh large treasures (teacher-vetted).",
+      "teacherTips": [
+        "Offer a dry alternative tray.",
+        "Keep filler shallow."
+      ],
+      "substitutions": [
+        {
+          "need": "Pinecones",
+          "use": "Cork pieces or large wooden rings"
+        }
+      ],
+      "adaptations": "Tools-only play. Separate personal tray.",
+      "extensions": "Sort leaves vs pinecones into two bowls.",
+      "mixedAgeAdaptations": "Older hide animals; younger find.",
+      "observationPrompts": [
+        "Did the child scoop or dig?",
+        "Did they notice a texture word with support?"
+      ],
+      "vocabulary": [
+        "woodland",
+        "leaf",
+        "pinecone",
+        "bumpy",
+        "scoop",
+        "find",
+        "forest"
+      ],
+      "imageRequirement": "setup_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "imageBriefExample": "",
+      "imageBriefSetup": "",
+      "title": "Bear Hunt Adventure",
+      "dayOfWeek": "tuesday",
+      "activityCategory": "Gross Motor",
+      "durationMinutes": 10,
+      "objective": "Follow a simple bear-hunt path with movement cues inspired by We’re Going on a Bear Hunt—keeping the adventure playful, not scary.",
+      "description": "Toddlers tip-toe through “grass,” step on cushions “mud,” crawl under a scarf “cave,” then tip-toe back when they spot the bear (stuffed).",
+      "materials": "We’re Going on a Bear Hunt (optional cue)\nPainter’s tape path\nGrass scarves\nCushions\nScarf cave\nStuffed bear\nOpen space",
+      "preparation": "Keep story playful\nSet 3 stations only\nPlace bear visibly at end (not jump-scare)",
+      "setup": "Linear path: grass → mud → cave → bear wave → tip-toe home.",
+      "steps": "1. Chant softly: going on a bear hunt.\n2. Swish through scarf grass.\n3. Step on cushion mud.\n4. Crawl under cave.\n5. Wave to bear — “Hi, bear!”\n6. Tip-toe back to camp.",
+      "teacherLanguage": "Going on a bear hunt!\nSwish, swish grass.\nSquish mud.\nUnder the cave.\nHi, bear!\nTip-toe home.",
+      "observationOpportunities": "Path following, movement imitation, bravery with support, and listening to cues.",
+      "safetyNotes": "No scary hides. Soft obstacles. Spot crawlers. Walking feet.",
+      "cleanupTips": "Collect scarves/cushions; return bear to forest basket.",
+      "indoorAlternatives": "Seated hand motions version of the hunt.",
+      "outdoorAlternatives": "Outdoor landmark hunt between trees.",
+      "teacherTips": [
+        "Friendly bear only.",
+        "Offer hand-holding for cave."
+      ],
+      "substitutions": [
+        {
+          "need": "Book cues",
+          "use": "Picture cards for grass/mud/cave/bear"
+        }
+      ],
+      "adaptations": "Skip cave for hesitant children. Watcher role with chanting.",
+      "extensions": "Child places the bear for the next group.",
+      "mixedAgeAdaptations": "Older toddlers lead chant; younger move with teacher.",
+      "observationPrompts": [
+        "Did the child attempt the path?",
+        "Did they greet the bear or tip-toe back?"
+      ],
+      "vocabulary": [
+        "bear",
+        "hunt",
+        "grass",
+        "mud",
+        "cave",
+        "tiptoe",
+        "home"
+      ],
+      "imageRequirement": "not_needed"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "imageBriefExample": "Toddler paper trail with large painted animal track stamps. Footer: littlelearnershubbyleah.com",
+      "imageBriefSetup": "",
+      "title": "Animal Track Stamping",
+      "dayOfWeek": "tuesday",
+      "activityCategory": "Fine Motor",
+      "durationMinutes": 10,
+      "objective": "Make large animal tracks with stampers or plastic animal feet—process printmaking, not worksheets.",
+      "description": "Toddlers press large stampers or plastic animal feet into washable paint and stamp tracks across paper “trails.”",
+      "materials": "Large paper\nWashable paint on trays\nTrack stampers or plastic animals with flat feet\nSmocks\nWipes",
+      "preparation": "Pour thin paint\nTape paper\nChoose large stampers only",
+      "setup": "Art table for 2; trail paper long enough for walking hands.",
+      "steps": "1. Show a track sample.\n2. Model dip and press.\n3. Invite stamping anywhere on the trail.\n4. Name animals if child is interested.\n5. Wash hands.",
+      "teacherLanguage": "Dip and press!\nTracks on the trail.\nMore stamps?\nWhose tracks?\nYou made footprints!",
+      "observationOpportunities": "Press force, bilateral use, interest in trails, and animal talk.",
+      "safetyNotes": "Non-toxic paint. Supervise plastic animals. Smocks.",
+      "cleanupTips": "Wash stampers; dry art; wipe table.",
+      "indoorAlternatives": "Stamp on coffee filters if paper is short.",
+      "outdoorAlternatives": "Water stamp tracks on sidewalk (wet prints).",
+      "teacherTips": [
+        "Process over matching exact animals.",
+        "Offer hand-under-hand for first press."
+      ],
+      "substitutions": [
+        {
+          "need": "Stampers",
+          "use": "Fists/sponges as “big paw” prints"
+        }
+      ],
+      "adaptations": "One color only. Pre-loaded stamper.",
+      "extensions": "Follow the tracks with a finger hike.",
+      "mixedAgeAdaptations": "Older toddlers make a path story; younger stamp freely.",
+      "observationPrompts": [
+        "Did the child stamp intentionally?",
+        "Did they notice tracks as footprints?"
+      ],
+      "vocabulary": [
+        "track",
+        "stamp",
+        "press",
+        "trail",
+        "paw",
+        "print",
+        "more"
+      ],
+      "imageRequirement": "example_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "imageBriefExample": "",
+      "imageBriefSetup": "",
+      "title": "Forest Animal Pretend Play",
+      "dayOfWeek": "tuesday",
+      "activityCategory": "Dramatic Play",
+      "durationMinutes": 12,
+      "objective": "Act out simple forest animal roles—sleeping bears, flying owls—in short pretend scenes near the tent.",
+      "description": "Toddlers choose an animal friend and act out sleep, eat, or fly using blankets and the tent as a den.",
+      "materials": "Forest animals\nBlankets\nTent\nBowls for pretend food\nOptional ear headbands (soft, large)",
+      "preparation": "Limit props\nStage den and eating spots\nSanitize headbands if used",
+      "setup": "Den blanket nest, pretend eating spot, and open fly space near the tent.",
+      "steps": "1. Choose an animal role.\n2. Bear sleeps in den.\n3. Wake and pretend eat.\n4. Owl arm-flaps in fly space.\n5. Animals rest together.",
+      "teacherLanguage": "Is your bear sleepy?\nNight-night in the den.\nTime to eat.\nOwl wings flap!\nRest, forest friends.",
+      "observationOpportunities": "Role play attempts, sequence play, peer awareness, and animal vocabulary.",
+      "safetyNotes": "Soft headbands only; supervise. No small costume parts.",
+      "cleanupTips": "Fold den blankets; return animals.",
+      "indoorAlternatives": "Table den under a sheet.",
+      "outdoorAlternatives": "Tree-shade dens outdoors.",
+      "teacherTips": [
+        "Parallel play is success.",
+        "Join briefly as a co-animal then step back."
+      ],
+      "substitutions": [
+        {
+          "need": "Headbands",
+          "use": "Scarves as ears/wings"
+        }
+      ],
+      "adaptations": "One action only (sleep). Watching with narration.",
+      "extensions": "Visit another child’s den with a gentle knock.",
+      "mixedAgeAdaptations": "Older toddlers assign roles; younger follow one action.",
+      "observationPrompts": [
+        "Did the child act out at least one animal action?",
+        "Did they use den/sleep/fly words?"
+      ],
+      "vocabulary": [
+        "den",
+        "sleep",
+        "eat",
+        "fly",
+        "owl",
+        "bear",
+        "pretend"
+      ],
+      "imageRequirement": "not_needed"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "imageBriefExample": "",
+      "imageBriefSetup": "Treasure basket with large leaves and pinecones beside picture cards on a short trail. Footer: littlelearnershubbyleah.com",
+      "title": "Nature Treasure Hunt",
+      "dayOfWeek": "wednesday",
+      "activityCategory": "Open-Ended Exploration",
+      "durationMinutes": 12,
+      "objective": "Search for large nature treasures on a short indoor/outdoor hunt and collect them in a basket.",
+      "description": "Toddlers hunt for teacher-placed large leaves, pinecones, and smooth stones (too big to choke), placing finds in a treasure basket.",
+      "materials": "Basket\nLarge leaves\nLarge pinecones\nSmooth large stones (optional)\nPicture treasure cards\nTrail markers",
+      "preparation": "Vet all treasures for size/safety\nPlace 5–6 items visibly\nAllergy awareness outdoors",
+      "setup": "Short loop with obvious treasures; teacher spots along the path.",
+      "steps": "1. Show a treasure card.\n2. Hunt with eyes and fingers.\n3. Place find in basket.\n4. Name color/texture.\n5. Return to camp to admire the collection.",
+      "teacherLanguage": "Can you find a leaf?\nTreasure!\nIn the basket.\nBumpy or smooth?\nLook at our nature treasures.",
+      "observationOpportunities": "Searching persistence, matching to pictures, carrying, and nature vocabulary.",
+      "safetyNotes": "Treasures larger than choke tube. No berries/fungi. Wash hands after outdoor hunt.",
+      "cleanupTips": "Sort keepers vs compost; wash stones; sanitize baskets.",
+      "indoorAlternatives": "Hide treasures around the classroom “forest.”",
+      "outdoorAlternatives": "Playground edge hunt with teacher-vetted items only.",
+      "teacherTips": [
+        "Hide in plain sight for toddlers.",
+        "Celebrate each find equally."
+      ],
+      "substitutions": [
+        {
+          "need": "Natural items",
+          "use": "Faux leaves and wooden discs"
+        }
+      ],
+      "adaptations": "Offer a paired hunt with teacher pointing. One treasure goal.",
+      "extensions": "Sort treasures by color on a towel.",
+      "mixedAgeAdaptations": "Older toddlers hide for younger finders.",
+      "observationPrompts": [
+        "Did the child find and collect an item?",
+        "Did they use look/find words?"
+      ],
+      "vocabulary": [
+        "treasure",
+        "find",
+        "leaf",
+        "basket",
+        "look",
+        "nature",
+        "collect"
+      ],
+      "imageRequirement": "setup_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "imageBriefExample": "",
+      "imageBriefSetup": "Investigation trays with leaves, large pinecones, and plastic magnifier. Footer: littlelearnershubbyleah.com",
+      "title": "Leaf and Pinecone Investigation",
+      "dayOfWeek": "wednesday",
+      "activityCategory": "Sensory Play",
+      "durationMinutes": 10,
+      "objective": "Investigate nature props with looking, touching, and simple comparing (big/little, bumpy/smooth).",
+      "description": "Toddlers examine leaves and large pinecones on trays, using fingers and optional plastic magnifiers while teachers narrate features.",
+      "materials": "Trays\nLeaves\nLarge pinecones\nPlastic magnifiers\nSorting bowls\nWipes",
+      "preparation": "Clean props\nSelect varied leaf sizes\nSanitize magnifiers",
+      "setup": "Side-by-side investigation trays with leaves, pinecones, and optional magnifiers for 2 toddlers.",
+      "steps": "1. Feel a leaf — “thin.”\n2. Feel pinecone — “bumpy.”\n3. Look with magnifier (optional).\n4. Sort into two bowls.\n5. Wash hands.",
+      "teacherLanguage": "What do you feel?\nBumpy pinecone.\nBig leaf or little leaf?\nLook closely.\nTwo piles — sort!",
+      "observationOpportunities": "Tactile exploration, comparing language, sorting attempts, and attention span.",
+      "safetyNotes": "Large props only. Supervise magnifiers. No tasting nature props.",
+      "cleanupTips": "Wipe trays; store dry props.",
+      "indoorAlternatives": "Fabric leaf set if real leaves unavailable.",
+      "outdoorAlternatives": "Investigate on a park bench with teacher-selected items.",
+      "teacherTips": [
+        "One comparison at a time.",
+        "Follow the child’s interest."
+      ],
+      "substitutions": [
+        {
+          "need": "Magnifiers",
+          "use": "Empty picture frames as “lookers”"
+        }
+      ],
+      "adaptations": "Tools-only. Pre-sorted starting piles.",
+      "extensions": "Make a leaf sound by gentle crumpling (over a bin).",
+      "mixedAgeAdaptations": "Older toddlers describe; younger feel and sort with cues.",
+      "observationPrompts": [
+        "Did the child touch and compare props?",
+        "Did they attempt bumpy/smooth or big/little?"
+      ],
+      "vocabulary": [
+        "leaf",
+        "pinecone",
+        "bumpy",
+        "smooth",
+        "big",
+        "little",
+        "look"
+      ],
+      "imageRequirement": "setup_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "imageBriefExample": "",
+      "imageBriefSetup": "",
+      "title": "Hiking Trail Obstacle Course",
+      "dayOfWeek": "wednesday",
+      "activityCategory": "Gross Motor",
+      "durationMinutes": 10,
+      "objective": "Hike a short obstacle trail—step, crawl, and balance—building gross-motor confidence for explorers.",
+      "description": "Toddlers follow trail signs along a path: over a cushion hill, under a scarf bridge, and around a cone tree, then rest at a lookout.",
+      "materials": "Trail arrow signs\nCushions\nScarves\nCone\nBackpack optional\nFinish lookout cushion",
+      "preparation": "Clear hazards\nKeep obstacles low\nMark one-way trail",
+      "setup": "One-way 3-station trail ending at a lookout cushion with arrow signs visible.",
+      "steps": "1. Put on pretend hiking feet.\n2. Follow arrows.\n3. Step over hill.\n4. Crawl under bridge.\n5. Walk around tree cone.\n6. Sit at lookout and “see the forest.”",
+      "teacherLanguage": "Hiking time!\nFollow the arrow.\nOver the hill.\nUnder the bridge.\nAround the tree.\nLookout rest!",
+      "observationOpportunities": "Balance, climbing-over, directional following, and stamina for short courses.",
+      "safetyNotes": "Spot children. No running. Soft obstacles only.",
+      "cleanupTips": "Collect signs and scarves.",
+      "indoorAlternatives": "Hallway hike with tape arrows.",
+      "outdoorAlternatives": "Playground hike between landmarks.",
+      "teacherTips": [
+        "Three stations max.",
+        "Offer a wagon for tired hikers’ backpacks."
+      ],
+      "substitutions": [
+        {
+          "need": "Trail signs",
+          "use": "Chalk arrows or tape arrows"
+        }
+      ],
+      "adaptations": "Hand-holding. Skip crawl station. Shorter trail.",
+      "extensions": "Child places the next arrow.",
+      "mixedAgeAdaptations": "Older toddlers add a balance beam line of tape; younger walk the path.",
+      "observationPrompts": [
+        "Did the child complete at least two stations?",
+        "Did they follow an arrow cue?"
+      ],
+      "vocabulary": [
+        "hike",
+        "trail",
+        "over",
+        "under",
+        "around",
+        "lookout",
+        "go"
+      ],
+      "imageRequirement": "not_needed"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "imageBriefExample": "Toddler nature collage with large leaves and paper shapes on cardboard. Footer: littlelearnershubbyleah.com",
+      "imageBriefSetup": "",
+      "title": "Nature Collage Creation",
+      "dayOfWeek": "wednesday",
+      "activityCategory": "Art",
+      "durationMinutes": 12,
+      "objective": "Create process nature collages with large leaves, paper shapes, and glue sticks—no tiny crafts or worksheets.",
+      "description": "Toddlers stick large nature props and paper shapes onto cardboard to make open-ended forest collages.",
+      "materials": "Cardboard sheets\nGlue sticks\nLarge leaves (faux/real clean)\nPre-cut paper shapes\nSmocks\nOptional large stickers",
+      "preparation": "Pre-cut shapes\nPrep glue sticks loosened\nTape cardboard to table",
+      "setup": "Art table for 2 with cardboard taped down and nature pieces in easy-reach bowls.",
+      "steps": "1. Choose cardboard.\n2. Glue a leaf or shape.\n3. Add more freely.\n4. Talk about sticky/press.\n5. Admire and set to dry.",
+      "teacherLanguage": "Sticky glue!\nPress the leaf.\nAnother shape?\nYour forest collage.\nAll done?",
+      "observationOpportunities": "Glue-stick control, creative placement, persistence, and nature talk.",
+      "safetyNotes": "Large materials only. Non-toxic glue. Supervise real leaves.",
+      "cleanupTips": "Cap glue; dry flat; discard crumbling leaves.",
+      "indoorAlternatives": "Sticker-only nature collage.",
+      "outdoorAlternatives": "Contact-paper nature catchers outdoors (teacher holds sticky side).",
+      "teacherTips": [
+        "Process over pretty.",
+        "Offer contact paper sticky-side up for easier sticking."
+      ],
+      "substitutions": [
+        {
+          "need": "Leaves",
+          "use": "Fabric leaf cutouts"
+        }
+      ],
+      "adaptations": "Pre-dotted glue spots to press onto. Fewer choices.",
+      "extensions": "Add a star sticker night sky after drying.",
+      "mixedAgeAdaptations": "Older toddlers tear paper shapes; younger press ready pieces.",
+      "observationPrompts": [
+        "Did the child stick at least one item?",
+        "Did they press/glue with intent?"
+      ],
+      "vocabulary": [
+        "collage",
+        "glue",
+        "leaf",
+        "press",
+        "stick",
+        "forest",
+        "make"
+      ],
+      "imageRequirement": "example_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "imageBriefExample": "",
+      "imageBriefSetup": "Explorer station with badges, toy binoculars, picture map, and backpack. Footer: littlelearnershubbyleah.com",
+      "title": "Explorer Station",
+      "dayOfWeek": "wednesday",
+      "activityCategory": "Dramatic Play",
+      "durationMinutes": 12,
+      "objective": "Role-play explorers using binoculars, maps (picture), and backpacks for short discovery missions.",
+      "description": "Toddlers wear explorer badges, look through toy binoculars, point on a simple picture map, and take a two-step mission to find a nature treasure.",
+      "materials": "Explorer badges\nToy binoculars\nPicture map (tent + tree icons)\nBackpacks\n1 treasure item\nClipboard with icons (no writing)",
+      "preparation": "Remove binocular straps that can tighten; use short straps\nStage mission start at tent",
+      "setup": "Explorer table + short mission path to treasure.",
+      "steps": "1. Put on badge.\n2. Check the picture map.\n3. Look through binoculars at the “tree.”\n4. Walk to find the treasure.\n5. Return to report: “Found it!”",
+      "teacherLanguage": "Are you an explorer?\nCheck the map.\nLook through binoculars.\nFind the treasure!\nYou did the mission.",
+      "observationOpportunities": "Role language, map pointing, mission follow-through, and carrying.",
+      "safetyNotes": "Binocular cords short/supervised. No small compass parts. Clear floors.",
+      "cleanupTips": "Hang binoculars; return badges.",
+      "indoorAlternatives": "Window “safari” looking for outdoor trees.",
+      "outdoorAlternatives": "Real playground explorer mission.",
+      "teacherTips": [
+        "Two-step missions only.",
+        "Maps are pictures, not literacy tests."
+      ],
+      "substitutions": [
+        {
+          "need": "Binoculars",
+          "use": "Two toilet-paper tubes taped as lookers (supervise)"
+        }
+      ],
+      "adaptations": "One-step find only. Teacher carries backpack.",
+      "extensions": "Draw an X on the map with a large crayon (optional).",
+      "mixedAgeAdaptations": "Older toddlers create missions; younger complete finds.",
+      "observationPrompts": [
+        "Did the child use binoculars or badge in play?",
+        "Did they complete a simple find mission?"
+      ],
+      "vocabulary": [
+        "explorer",
+        "map",
+        "look",
+        "find",
+        "mission",
+        "badge",
+        "treasure"
+      ],
+      "imageRequirement": "setup_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "imageBriefExample": "",
+      "imageBriefSetup": "Dim classroom corner with toddler flashlight pointed at wall stars—not faces. Footer: littlelearnershubbyleah.com",
+      "title": "Flashlight Exploration",
+      "dayOfWeek": "thursday",
+      "activityCategory": "Open-Ended Exploration",
+      "durationMinutes": 10,
+      "objective": "Explore light and dark safely with battery flashlights—pointing at walls/floors and noticing spots of light.",
+      "description": "In a dim (not pitch-dark) room, toddlers shine battery flashlights on walls, ceilings, and teacher-placed paper stars—practicing eye-safe habits.",
+      "materials": "Battery flashlights (toddler-friendly)\nPaper stars on walls\nDim light source still available\nBlanket tent optional",
+      "preparation": "Test batteries\nDim lights but keep safety lighting\nReview “lights on walls/floors, not faces”",
+      "setup": "Clear floor; stars at toddler height; teacher models first.",
+      "steps": "1. Model: light on the wall — not eyes.\n2. Give flashlight to one toddler at a time (or pairs with space).\n3. Find a star with the light.\n4. Make light dance on the floor.\n5. Power off and praise safe shining.",
+      "teacherLanguage": "Light on the wall.\nNot in eyes — safe light.\nCan you find a star?\nDance the light.\nFlashlight off — thank you.",
+      "observationOpportunities": "Safe aiming with support, visual tracking, turn-taking with popular tools, and night vocabulary.",
+      "safetyNotes": "Battery only. Never shine in eyes. Dim not dark. Supervise cords/buttons. Limit group size.",
+      "cleanupTips": "Collect flashlights; check batteries; restore room lights.",
+      "indoorAlternatives": "Light table or LED tap lights if flashlights are too stimulating.",
+      "outdoorAlternatives": "Dusk outdoor flashlight walk on school grounds with high ratios.",
+      "teacherTips": [
+        "Practice the rule before dimming.",
+        "Offer a teacher-shared flashlight for hesitant children."
+      ],
+      "substitutions": [
+        {
+          "need": "Flashlights",
+          "use": "Battery lanterns or glow cubes"
+        }
+      ],
+      "adaptations": "Keep room brighter. Teacher holds light while child points where to shine.",
+      "extensions": "Trace a circle of light around a stuffed owl.",
+      "mixedAgeAdaptations": "Older toddlers help younger aim at stars.",
+      "observationPrompts": [
+        "Did the child aim at wall/floor with support?",
+        "Did they follow the eye-safety reminder?"
+      ],
+      "vocabulary": [
+        "flashlight",
+        "light",
+        "dark",
+        "star",
+        "wall",
+        "safe",
+        "off"
+      ],
+      "imageRequirement": "setup_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "imageBriefExample": "",
+      "imageBriefSetup": "Dark-paper sensory bin with large star cutouts, scoops, and lantern nearby. Footer: littlelearnershubbyleah.com",
+      "title": "Glow Star Sensory Play",
+      "dayOfWeek": "thursday",
+      "activityCategory": "Sensory Play",
+      "durationMinutes": 12,
+      "objective": "Explore glow-in-the-dark or shiny star sensory materials with scooping in a shallow night-sky bin.",
+      "description": "Toddlers scoop large star shapes, shiny foil pieces, and soft pom-poms in a dark-blue paper-lined bin—optionally with a gentle lantern glow nearby.",
+      "materials": "Shallow tub lined with dark paper\nLarge star cutouts / star ice cubes (water play alternate)\nLarge shiny foil pieces\nScoops\nBattery lantern\nSmocks",
+      "preparation": "No tiny glitter\nLarge stars only\nTest lantern glow",
+      "setup": "Shallow night-sky bin for 2 toddlers with lantern glowing beside (not inside) the bin.",
+      "steps": "1. Notice the “night sky” bin.\n2. Scoop stars.\n3. Crinkle shiny pieces.\n4. Use words: shiny, star, night.\n5. Clean hands.",
+      "teacherLanguage": "Night sky bin!\nScoop a star.\nShiny!\nGlow lantern beside us.\nAll done scooping?",
+      "observationOpportunities": "Sensory preference for shiny/soft, scooping, and night vocabulary.",
+      "safetyNotes": "No loose glitter. Large pieces only. Supervise foil (no mouthing large amounts).",
+      "cleanupTips": "Flatten foil for reuse; store stars; wipe bin.",
+      "indoorAlternatives": "Dry star sticker peeling station if bin is too much.",
+      "outdoorAlternatives": "Water table star floating outdoors.",
+      "teacherTips": [
+        "Skip true glow powder.",
+        "Lantern ambiance beats darkness."
+      ],
+      "substitutions": [
+        {
+          "need": "Glow stars",
+          "use": "Yellow paper stars and aluminum foil moons"
+        }
+      ],
+      "adaptations": "Personal tray. Tools-only.",
+      "extensions": "Stick one wet star on a window overnight (teacher).",
+      "mixedAgeAdaptations": "Older toddlers count stars casually; younger scoop.",
+      "observationPrompts": [
+        "Did the child scoop or explore shiny textures?",
+        "Did they use star/night words?"
+      ],
+      "vocabulary": [
+        "glow",
+        "star",
+        "shiny",
+        "night",
+        "scoop",
+        "sky",
+        "soft"
+      ],
+      "imageRequirement": "setup_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "imageBriefExample": "",
+      "imageBriefSetup": "",
+      "title": "Owl Flight Movement Game",
+      "dayOfWeek": "thursday",
+      "activityCategory": "Music & Movement",
+      "durationMinutes": 8,
+      "objective": "Move like owls—arm wing flaps, quiet tip-toe flights, and freeze perches—to build listening and body control.",
+      "description": "Toddlers flap “wings,” tip-toe fly across a path, and freeze on cushion “perches” when the owl call stops.",
+      "materials": "Open space\nCushion perches\nSoft owl call cue (voice or shaker)\nOptional owl picture",
+      "preparation": "Place 3–4 perches\nClear path\nPractice soft cue",
+      "setup": "Path between perches with space to flap.",
+      "steps": "1. Show owl wings (arms).\n2. Flap and tip-toe fly.\n3. Freeze on a perch when cue stops.\n4. Quiet owl eyes look around.\n5. Fly back to the nest rug.",
+      "teacherLanguage": "Flap your owl wings!\nQuiet tip-toe flight.\nPerch — freeze!\nBig owl eyes.\nBack to the nest.",
+      "observationOpportunities": "Imitation, freeze listening, balance on cushions, and gentle movement control.",
+      "safetyNotes": "Space out. Soft landings. No jumping from heights.",
+      "cleanupTips": "Stack cushions.",
+      "indoorAlternatives": "Seated wing flaps if energy is high.",
+      "outdoorAlternatives": "Owl flights across the playground.",
+      "teacherTips": [
+        "Keep flights short.",
+        "Offer a nest watcher role."
+      ],
+      "substitutions": [
+        {
+          "need": "Cushions",
+          "use": "Tape circles as perches"
+        }
+      ],
+      "adaptations": "Hand-holding flights. Sit-to-flap option.",
+      "extensions": "Child makes the freeze call.",
+      "mixedAgeAdaptations": "Infants watch wing flaps; older toddlers lead.",
+      "observationPrompts": [
+        "Did the child flap or tip-toe?",
+        "Did they attempt to freeze on cue?"
+      ],
+      "vocabulary": [
+        "owl",
+        "flap",
+        "fly",
+        "perch",
+        "quiet",
+        "freeze",
+        "nest"
+      ],
+      "imageRequirement": "not_needed"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "imageBriefExample": "Dark paper with large toddler-placed star stickers. Footer: littlelearnershubbyleah.com",
+      "imageBriefSetup": "",
+      "title": "Star Sticker Art",
+      "dayOfWeek": "thursday",
+      "activityCategory": "Art",
+      "durationMinutes": 10,
+      "objective": "Strengthen fine-motor peeling and placing by decorating night paper with large star stickers.",
+      "description": "Toddlers peel large star stickers and place them on dark paper skies—process placement, not precise constellations.",
+      "materials": "Dark construction paper\nLarge star stickers\nOptional crayon for moon scribbles\nWipes",
+      "preparation": "Loosen sticker corners\nPre-cut paper\nAvoid tiny star confetti",
+      "setup": "Art table; sticker sheets shared carefully.",
+      "steps": "1. Show night paper.\n2. Model peel and stick.\n3. Invite free star placement.\n4. Optional moon scribble.\n5. Count stars casually if interest.",
+      "teacherLanguage": "Peel the star.\nStick on the night!\nMore stars?\nYellow star.\nYour sky is shiny.",
+      "observationOpportunities": "Pincer peel attempts, sticker placement, persistence, and night talk.",
+      "safetyNotes": "Large stickers only. Supervise mouthing. No glitter glue.",
+      "cleanupTips": "Collect backing paper; store extras; display art.",
+      "indoorAlternatives": "Star stamps if stickers frustrate.",
+      "outdoorAlternatives": "Chalk stars on pavement.",
+      "teacherTips": [
+        "Start stickers for children who can’t peel yet.",
+        "Celebrate any stick."
+      ],
+      "substitutions": [
+        {
+          "need": "Star stickers",
+          "use": "Star foam shapes with glue dots"
+        }
+      ],
+      "adaptations": "Pre-peeled stickers to press. Hand-under-hand peel.",
+      "extensions": "Add a flashlight glow to admire art in dim light.",
+      "mixedAgeAdaptations": "Older toddlers make patterns; younger place freely.",
+      "observationPrompts": [
+        "Did the child place a sticker?",
+        "Did they attempt peeling?"
+      ],
+      "vocabulary": [
+        "star",
+        "stick",
+        "peel",
+        "night",
+        "sky",
+        "more",
+        "paper"
+      ],
+      "imageRequirement": "example_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "imageBriefExample": "",
+      "imageBriefSetup": "Cushion circle around pretend campfire tray with battery lantern and book. Footer: littlelearnershubbyleah.com",
+      "title": "Campfire Story Time",
+      "dayOfWeek": "thursday",
+      "activityCategory": "Dramatic Play",
+      "durationMinutes": 12,
+      "objective": "Combine cozy pretend campfire gathering with storytelling roles—listener, teller, and lantern helper.",
+      "description": "Toddlers sit by the pretend campfire with a battery lantern while the teacher tells a short camping tale or reads We’re Going on a Bear Hunt excerpts, inviting toddlers to add sounds.",
+      "materials": "Pretend campfire tray\nBattery lantern\nWe’re Going on a Bear Hunt or short oral story\nCushions\nOptional sound props (rain stick soft)",
+      "preparation": "Keep story gentle\nCharge/check lantern\nLimit group size for coziness",
+      "setup": "Campfire circle; lantern center; book ready.",
+      "steps": "1. Gather with soft voices.\n2. Turn lantern glow on.\n3. Tell/read short story with sound cues.\n4. Invite toddlers to swish/splash sounds.\n5. End with quiet twinkle fingers.\n6. Lantern off — bedtime for camp.",
+      "teacherLanguage": "Campfire story time.\nSoft voices.\nWhat sound do we hear?\nSwish through grass.\nTwinkle goodnight.\nLantern off.",
+      "observationOpportunities": "Listening, sound participation, comfort in group circle, and pretend camping engagement.",
+      "safetyNotes": "Battery lantern only. No real fire. Soft seating. Supervise props.",
+      "cleanupTips": "Power off lantern; reset cushions.",
+      "indoorAlternatives": "Story without lantern if overstimulating.",
+      "outdoorAlternatives": "Shade campfire circle outdoors.",
+      "teacherTips": [
+        "Participation beats perfect retell.",
+        "Keep scary elements out."
+      ],
+      "substitutions": [
+        {
+          "need": "Bear Hunt book",
+          "use": "Teacher-made simple camping picture sequence"
+        }
+      ],
+      "adaptations": "Lap seating. Shorter oral story only.",
+      "extensions": "Child holds lantern for the final twinkle (supervised).",
+      "mixedAgeAdaptations": "Older toddlers add story lines; younger make sounds.",
+      "observationPrompts": [
+        "Did the child attend to part of the story?",
+        "Did they add a sound or gesture?"
+      ],
+      "vocabulary": [
+        "story",
+        "campfire",
+        "listen",
+        "glow",
+        "swish",
+        "night",
+        "quiet"
+      ],
+      "imageRequirement": "setup_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "imageBriefExample": "",
+      "imageBriefSetup": "Pretend blue pond with large fish, toddler scoop/pole, and catch basket. Footer: littlelearnershubbyleah.com",
+      "title": "Pretend Fishing Adventure",
+      "dayOfWeek": "friday",
+      "activityCategory": "Open-Ended Exploration",
+      "durationMinutes": 12,
+      "objective": "Practice scooping and catching with toddler fishing poles or cups at a pretend pond—large fish only.",
+      "description": "Toddlers “fish” in a blue fabric/water bin pond using magnetic or scoop poles to catch large foam/plastic fish, then place catches in a basket.",
+      "materials": "Blue fabric or shallow water bin\nLarge fish props\nToddler fishing poles or scoops/cups\nCatch basket\nTowels if water used",
+      "preparation": "Choose catch method that works (scoop often easier than magnets for 12–18 mo)\nLarge fish only\nDecide dry vs wet pond",
+      "setup": "Blue pond on a towel with catch basket; limit to 2 fishers at a time.",
+      "steps": "1. Show the pond.\n2. Model scoop/catch.\n3. Catch a fish.\n4. Put fish in basket.\n5. Throw fish back for friends (or keep for count).\n6. Dry hands if wet.",
+      "teacherLanguage": "Going fishing!\nScoop the fish.\nYou caught one!\nIn the basket.\nFish go back — splash!",
+      "observationOpportunities": "Hand-eye coordination, persistence, turn-taking, and fishing vocabulary.",
+      "safetyNotes": "No hooks. Large fish. Supervise water. Poles soft and short.",
+      "cleanupTips": "Dump water; dry fish; store poles.",
+      "indoorAlternatives": "Dry fabric pond with scoop cups.",
+      "outdoorAlternatives": "Water table fishing outdoors.",
+      "teacherTips": [
+        "Scoops beat hooks for toddlers.",
+        "Keep waiting basket of poles limited."
+      ],
+      "substitutions": [
+        {
+          "need": "Fishing poles",
+          "use": "Cups and spoons as catchers"
+        }
+      ],
+      "adaptations": "Hand-under-hand scooping. Pre-catch fish to place in basket.",
+      "extensions": "Sort big/little fish.",
+      "mixedAgeAdaptations": "Older toddlers use magnetic poles; younger scoop.",
+      "observationPrompts": [
+        "Did the child catch or scoop a fish?",
+        "Did they place it in the basket?"
+      ],
+      "vocabulary": [
+        "fish",
+        "pond",
+        "catch",
+        "scoop",
+        "basket",
+        "water",
+        "splash"
+      ],
+      "imageRequirement": "setup_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "imageBriefExample": "",
+      "imageBriefSetup": "Floor campground with blocks, box tents, tape paths, and forest animals. Footer: littlelearnershubbyleah.com",
+      "title": "Campground Building Challenge",
+      "dayOfWeek": "friday",
+      "activityCategory": "STEM/Discovery",
+      "durationMinutes": 15,
+      "objective": "Build an expanded campground with blocks, tents, and paths—open-ended construction celebrating the week.",
+      "description": "Toddlers add block paths, box tents, and animal visitors to create a whole campground map on the floor.",
+      "materials": "Blocks\nSmall boxes\nBlankets scraps\nAnimals\nTape paths\nLantern prop",
+      "preparation": "Clear large floor space\nSort blocks\nKeep paths wide",
+      "setup": "Large floor build zone with blocks and boxes staged around the edges for easy access.",
+      "steps": "1. Recall the week’s campsite.\n2. Build more tents/paths.\n3. Place animals as campers.\n4. Add a fishing pond fabric.\n5. Take a visitor walk.\n6. Clean-up song.",
+      "teacherLanguage": "Can you build another tent?\nPath to the pond!\nWho is camping here?\nBlock on block.\nOur campground is big!",
+      "observationOpportunities": "Construction ideas, spatial language, peer collaboration, and thematic connection.",
+      "safetyNotes": "Stable builds only. No tall towers. Supervise box tents.",
+      "cleanupTips": "Sort blocks; fold scraps; basket animals.",
+      "indoorAlternatives": "Tabletop campground for smaller groups.",
+      "outdoorAlternatives": "Chalk campground map outdoors.",
+      "teacherTips": [
+        "Photo before cleanup.",
+        "Accept parallel building."
+      ],
+      "substitutions": [
+        {
+          "need": "Blocks",
+          "use": "Cushions and shoe boxes"
+        }
+      ],
+      "adaptations": "Pre-built tent to furnish. One building goal.",
+      "extensions": "Add ticket booth for parade later.",
+      "mixedAgeAdaptations": "Preschoolers plan layout; toddlers place campers.",
+      "observationPrompts": [
+        "Did the child add a structure or path?",
+        "Did they place a camper animal?"
+      ],
+      "vocabulary": [
+        "campground",
+        "build",
+        "path",
+        "tent",
+        "block",
+        "map",
+        "big"
+      ],
+      "imageRequirement": "setup_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "imageBriefExample": "",
+      "imageBriefSetup": "",
+      "title": "Nature Dance Party",
+      "dayOfWeek": "friday",
+      "activityCategory": "Music & Movement",
+      "durationMinutes": 8,
+      "objective": "Celebrate nature and camping with a joyful dance party using scarves, stomps, and freeze dances.",
+      "description": "Toddlers dance with leaf scarves to upbeat nature-themed music, freeze like trees, then sway like wind.",
+      "materials": "Scarves\nMusic player\nOptional leaf props\nOpen space",
+      "preparation": "Clear space\nChoose 2 songs\nPlan freeze cues",
+      "setup": "Open dance zone with scarves in a center basket and clear freeze-space markers.",
+      "steps": "1. Scarves out — leaf dance.\n2. Stomp like hiking boots.\n3. Freeze like tall trees.\n4. Sway in the wind.\n5. Rest on the rug.",
+      "teacherLanguage": "Dance like leaves!\nStomp, stomp hike.\nFreeze — tall tree!\nSway in the wind.\nResting dancers.",
+      "observationOpportunities": "Rhythmic movement, freeze control, scarf play, and celebration joy.",
+      "safetyNotes": "Space out. Scarves off necks. Walking stomps indoors.",
+      "cleanupTips": "Collect scarves.",
+      "indoorAlternatives": "Seated scarf dances.",
+      "outdoorAlternatives": "Outdoor dance party on grass.",
+      "teacherTips": [
+        "Keep under 8 minutes.",
+        "Offer watcher clapping roles."
+      ],
+      "substitutions": [
+        {
+          "need": "Music",
+          "use": "Drum beat and nature sounds playlist-free clapping"
+        }
+      ],
+      "adaptations": "Lap bouncing dances. Slow music option.",
+      "extensions": "Child chooses freeze or dance.",
+      "mixedAgeAdaptations": "Older toddlers lead moves; younger scarf sway.",
+      "observationPrompts": [
+        "Did the child dance or sway with a scarf?",
+        "Did they attempt freeze?"
+      ],
+      "vocabulary": [
+        "dance",
+        "leaf",
+        "stomp",
+        "freeze",
+        "tree",
+        "sway",
+        "music"
+      ],
+      "imageRequirement": "not_needed"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "imageBriefExample": "Toddler-decorated camping badge with star stickers and crayon marks. Footer: littlelearnershubbyleah.com",
+      "imageBriefSetup": "",
+      "title": "Make a Camping Badge",
+      "dayOfWeek": "friday",
+      "activityCategory": "Art",
+      "durationMinutes": 10,
+      "objective": "Create a large camping explorer badge with stickers and scribbles—wear or keep as a souvenir.",
+      "description": "Toddlers decorate pre-cut cardboard badge circles with star stickers, crayons, and glue-on paper tents—teacher attaches tape/pin-free sticky backs or yarn loops.",
+      "materials": "Pre-cut cardboard circles\nLarge stickers\nCrayons\nPaper tent shapes\nGlue sticks\nMasking tape to attach to shirts (no sharp pins)",
+      "preparation": "Pre-cut badges\nAvoid pins/sharp fasteners\nLoosen stickers",
+      "setup": "Art table; name labels ready for teacher to write.",
+      "steps": "1. Choose a badge.\n2. Decorate freely.\n3. Add a star or tent shape.\n4. Teacher tapes badge to shirt or offers to hold.\n5. Proud explorer pose.",
+      "teacherLanguage": "Your camping badge!\nStick a star.\nColor the badge.\nYou are an explorer.\nShow your badge!",
+      "observationOpportunities": "Decorating choices, fine motor, pride in sharing, and theme connection.",
+      "safetyNotes": "No pins. Large stickers. Tape attachments only. Supervise yarn loops.",
+      "cleanupTips": "Cap glue; label badges; store extras.",
+      "indoorAlternatives": "Paper badges if cardboard is scarce.",
+      "outdoorAlternatives": "Decorate outdoors then parade.",
+      "teacherTips": [
+        "Holding badge is fine if wearing bothers.",
+        "Teacher writes names—no worksheets."
+      ],
+      "substitutions": [
+        {
+          "need": "Cardboard",
+          "use": "Paper plate centers"
+        }
+      ],
+      "adaptations": "Pre-decorated badge to add one sticker. Hand-under-hand.",
+      "extensions": "Use badges as parade tickets.",
+      "mixedAgeAdaptations": "Older toddlers choose symbols; younger sticker freely.",
+      "observationPrompts": [
+        "Did the child decorate the badge?",
+        "Did they show or wear it proudly?"
+      ],
+      "vocabulary": [
+        "badge",
+        "explorer",
+        "star",
+        "sticker",
+        "make",
+        "proud",
+        "camp"
+      ],
+      "imageRequirement": "example_only"
+    },
+    {
+      "ageModifications": "Toddler 12–24 Months",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite",
+      "imageBriefExample": "",
+      "imageBriefSetup": "",
+      "title": "Camping Adventure Parade",
+      "dayOfWeek": "friday",
+      "activityCategory": "Dramatic Play",
+      "durationMinutes": 10,
+      "objective": "Close the week with a camping parade—backpacks, badges, and favorite animals marching the trail back to camp.",
+      "description": "Toddlers wear badges, carry backpacks or animals, and parade along the tape trail to the tent for a final campfire glow goodbye.",
+      "materials": "Badges\nBackpacks/animals\nTape parade path\nLantern\nPretend campfire\nMusic optional",
+      "preparation": "Clear path\nPower lantern\nInvite clappers if desired",
+      "setup": "Path from rug to tent; glow ready at end.",
+      "steps": "1. Gear up with badge/animal.\n2. Start parade march.\n3. Wave to forest friends.\n4. Arrive at tent glow.\n5. Soft goodbye twinkle.\n6. Unpack gear to baskets.",
+      "teacherLanguage": "Parade to camp!\nMarch, march.\nWave to the forest!\nGlow goodbye.\nTwinkle fingers.\nWhat a camping week!",
+      "observationOpportunities": "Group participation, carrying gear, celebration closure, and theme recall.",
+      "safetyNotes": "Walking feet. Battery glow only. Space backpacks.",
+      "cleanupTips": "Collect gear; power off lights; fold tent for weekend or leave if reusing.",
+      "indoorAlternatives": "Seated parade passing animals hand-to-hand.",
+      "outdoorAlternatives": "Outdoor loop parade ending at shade tent.",
+      "teacherTips": [
+        "Keep goodbye short and warm.",
+        "Photo the group if families allow."
+      ],
+      "substitutions": [
+        {
+          "need": "Badges",
+          "use": "Stickers on shirts as parade tickets"
+        }
+      ],
+      "adaptations": "Wagon riders as parade VIPs. Watcher waving role.",
+      "extensions": "Share one favorite memory word as children unpack.",
+      "mixedAgeAdaptations": "Older toddlers lead; younger hold animals and follow.",
+      "observationPrompts": [
+        "Did the child join the parade path?",
+        "Did they participate in the goodbye glow?"
+      ],
+      "vocabulary": [
+        "parade",
+        "march",
+        "goodbye",
+        "glow",
+        "camp",
+        "week",
+        "friend"
+      ],
+      "imageRequirement": "not_needed"
+    }
+  ]
+}
