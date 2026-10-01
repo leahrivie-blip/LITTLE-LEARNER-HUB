@@ -1,0 +1,42 @@
+{
+  "at": "2026-08-20T16:51:36.990Z",
+  "limit": 5,
+  "report": [
+    {
+      "lessonId": "cur-lp-toddler-pet-vet-clinic",
+      "title": "Pet Vet Clinic",
+      "enrichmentPublished": false,
+      "targets": 5,
+      "results": [
+        {
+          "title": "Veterinarian Dramatic Play Center",
+          "ok": false,
+          "error": "approve failed: 400/400 {\"error\":\"Cannot move from NEEDS_REVIEW to APPROVED.\",\"card\":{\"id\":\"vb-f56c683b19d435d9\",\"lessonId\":\"cur-lp-toddler-pet-vet-clinic\",\"activityId\":\"cur-act-a1908f7c53217a18\",\"activityName\":\"Veterinarian Dramatic Play Center\",\"activityLinkStatus\":\"linked\",\"assetType\":\"ACTIVITY_IMAGE\",\"visualStyle\":\"REALISTIC_PHOTO\",\"originalInstruction\":\"Veterinarian Dramatic Play Center:\\nActivity image.\\nRealistic "
+        },
+        {
+          "title": "Feed the Pets",
+          "ok": false,
+          "error": "approve failed: 400/400 {\"error\":\"Cannot move from NEEDS_REVIEW to APPROVED.\",\"card\":{\"id\":\"vb-c02c8156dc371620\",\"lessonId\":\"cur-lp-toddler-pet-vet-clinic\",\"activityId\":\"cur-act-0f7c570752a6d275\",\"activityName\":\"Feed the Pets\",\"activityLinkStatus\":\"linked\",\"assetType\":\"ACTIVITY_IMAGE\",\"visualStyle\":\"REALISTIC_PHOTO\",\"originalInstruction\":\"Feed the Pets:\\nActivity image.\\nRealistic photo.\\nShow a real daycare or preschool"
+        },
+        {
+          "title": "Vet Examination Station",
+          "ok": false,
+          "error": "approve failed: 400/400 {\"error\":\"Cannot move from NEEDS_REVIEW to APPROVED.\",\"card\":{\"id\":\"vb-1e62d18a22c1ec42\",\"lessonId\":\"cur-lp-toddler-pet-vet-clinic\",\"activityId\":\"cur-act-b2b1ddee2ce87623\",\"activityName\":\"Vet Examination Station\",\"activityLinkStatus\":\"linked\",\"assetType\":\"ACTIVITY_IMAGE\",\"visualStyle\":\"REALISTIC_PHOTO\",\"originalInstruction\":\"Vet Examination Station:\\nActivity image.\\nRealistic photo.\\nShow a real "
+        },
+        {
+          "title": "Pet Adoption Center",
+          "ok": false,
+          "error": "approve failed: 400/400 {\"error\":\"Cannot move from NEEDS_REVIEW to APPROVED.\",\"card\":{\"id\":\"vb-a69b6957138c26fe\",\"lessonId\":\"cur-lp-toddler-pet-vet-clinic\",\"activityId\":\"cur-act-e846238cdf5098fe\",\"activityName\":\"Pet Adoption Center\",\"activityLinkStatus\":\"linked\",\"assetType\":\"ACTIVITY_IMAGE\",\"visualStyle\":\"REALISTIC_PHOTO\",\"originalInstruction\":\"Pet Adoption Center:\\nActivity image.\\nRealistic photo.\\nShow a real daycare "
+        },
+        {
+          "title": "Pet Bath Sensory Station",
+          "ok": false,
+          "error": "approve failed: 400/400 {\"error\":\"Cannot move from NEEDS_REVIEW to APPROVED.\",\"card\":{\"id\":\"vb-f82c90f4f62b2c58\",\"lessonId\":\"cur-lp-toddler-pet-vet-clinic\",\"activityId\":\"cur-act-4bd10cc0e28f34eb\",\"activityName\":\"Pet Bath Sensory Station\",\"activityLinkStatus\":\"linked\",\"assetType\":\"ACTIVITY_IMAGE\",\"visualStyle\":\"REALISTIC_PHOTO\",\"originalInstruction\":\"Pet Bath Sensory Station:\\nActivity image.\\nRealistic photo.\\nShow a rea"
+        }
+      ],
+      "draftActivitiesWithImages": 0,
+      "printableIds": [],
+      "publishStatus": "NOT PUBLISHED / REVIEW NEEDED"
+    }
+  ]
+}

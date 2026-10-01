@@ -1,0 +1,1122 @@
+{
+  "batch": "priority-1",
+  "lessonId": "cur-lp-toddler-apples-in-the-kitchen",
+  "title": "Apples in the Kitchen",
+  "age": "Toddler",
+  "masterPasteValidated": true,
+  "draftChannel": "enrichment_draft",
+  "liveReplaceForbiddenWhilePublished": true,
+  "week": {
+    "weeklyOverview": "This week toddlers explore how apples become familiar kitchen foods through smell, touch, mash, pour, and pretend cooking—never knives or stoves. They play as little apple chefs: mash soft cooked apple pieces, stir pretend applesauce, pour and measure with large cups, and run a simple Apple Juice Café and pie bakery. The week stays short-turn, sensory, and play-based with allergy-aware tasting that is always optional. Expect parallel play, brief attention bursts, and lots of repetition with the same kitchen props.",
+    "objectives": "Social-emotional: Practice turn-taking at kitchen centers and try new smells/tastes without pressure.\nLanguage: Hear and try kitchen words such as mix, stir, measure, pour, mash, chef, and recipe.\nCognitive: Notice before/after apple changes and follow simple 2–3 step pretend recipes.\nFine motor: Scoop, pour, stir, stamp, and collage with large toddler tools.\nGross motor: March, dance, and carry props during bakery and chef parades.\nSensory: Explore apple smell/taste (optional), wet/dry mash play, and dough textures.\nCreative: Make process chef hats, jar crafts, cartons, and open-ended recipe books.",
+    "weeklyMaterials": "Everyday: play kitchen, bowls, large measuring cups/spoons, wooden spoons, muffin tins, pie pans, aprons, baskets, smocks, towels, trays\nFood (allergy-aware, optional tasting): whole apples for looking, pre-cooked cooled soft apple pieces, store-bought applesauce, apple juice for smelling/pouring demos\nArt: washable paint, paper, glue sticks, pre-cut shapes, stickers, recycled clean jars/cartons, dot markers\nSensory: soft cooked apple pieces, potato mashers, play dough “pie dough,” shallow tubs\nDramatic play: chef hats, café cups, menus with pictures, trays\nLiteracy: Ten Red Apples; Apple Farmer Annie; Apple Pie ABC; The Apple Pie Tree\nOptional printables: picture recipe cards; café/bakery zone signs",
+    "teacherPreparation": "Before Monday: allergy survey for apple/cinnamon; decide tasting vs smell-only plan.\nCook and fully cool soft apple pieces for mash/taste stations (teacher-only knife/stove work).\nSanitize play kitchen tools; remove tiny utensils.\nPre-cut hat bands, jar labels, carton shapes, and recipe-book pages.\nStage reusable kitchen zones (Wash / Mix / Serve) that can stay all week.\nChoose 2–3 apple books for the reading basket.",
+    "prepChecklist": [
+      "Complete apple allergy check with families",
+      "Teacher-cook and cool soft apple pieces (no child knives/stoves)",
+      "Sanitize bowls, mashers, cups, and play kitchen",
+      "Remove choking-size kitchen utensils",
+      "Pre-cut craft shapes and hat bands",
+      "Stage Wash / Mix / Serve zones",
+      "Select 2–3 apple kitchen books",
+      "Prepare optional tasting cups (small, cool)"
+    ],
+    "observationFocus": "Willingness to smell/taste with choice\nKitchen vocabulary attempts\nTurn-taking at popular centers\nPouring/stirring control\nSensory preferences during mash/dough play\nEngagement in pretend chef roles",
+    "familyConnection": "Invite families to notice an apple food at home (sauce, juice, pie, or fresh apple) and name one kitchen action together—wash, stir, or pour. Optional: share a favorite family apple recipe photo—no required homework. Remind families tasting at school is always optional.",
+    "adaptations": "Offer watching-first entry, smell-only alternatives to tasting, larger handles, picture recipe cards, and shorter turns. Never force tasting. Provide dry mash alternatives for children who dislike wet textures.",
+    "vocabularyWords": "apple\nkitchen\nchef\nrecipe\nmix\nstir\nmeasure\npour\nmash\napplesauce\njuice\npie\nhealthy\nsnack\nwash\ncook\ncool\ntaste",
+    "books": [
+      {
+        "title": "Ten Red Apples",
+        "author": "Pat Hutchins",
+        "prompts": [
+          "Where are the apples?",
+          "Who takes an apple?",
+          "Can you clap for each apple?"
+        ]
+      },
+      {
+        "title": "Apple Farmer Annie",
+        "author": "Monica Wellington",
+        "prompts": [
+          "What is Annie making?",
+          "Can you find the applesauce?",
+          "What would you cook with apples?"
+        ]
+      },
+      {
+        "title": "Apple Pie ABC",
+        "author": "Alison Murray",
+        "prompts": [
+          "What letter do you see?",
+          "Where is the pie?",
+          "Can you point to an apple?"
+        ]
+      },
+      {
+        "title": "The Apple Pie Tree",
+        "author": "Zoe Hall",
+        "prompts": [
+          "What happens to the tree?",
+          "When do we pick apples?",
+          "What can we bake?"
+        ]
+      }
+    ],
+    "songs": [
+      {
+        "title": "Apples and Bananas",
+        "notes": "Traditional vowel-play song; keep short rounds."
+      },
+      {
+        "title": "The Muffin Man",
+        "notes": "Traditional; swap in “apple pie baker” verses as a title/use suggestion only—do not reproduce copyrighted lyrics."
+      },
+      {
+        "title": "Way Up High in the Apple Tree",
+        "notes": "Traditional fingerplay; great warm-up before kitchen play."
+      },
+      {
+        "title": "LLH Stir the Applesauce Chant",
+        "notes": "Original chant: “Stir, stir, applesauce, round and round we go.”"
+      }
+    ],
+    "teacherToolkit": {
+      "prepChecklist": [
+        "Allergy check + tasting plan",
+        "Cool cooked apple pieces ready",
+        "Stage kitchen zones",
+        "Prep art/sensory rotations",
+        "Pull books/songs card"
+      ],
+      "observationFocus": [
+        "Optional tasting comfort",
+        "Kitchen words",
+        "Turn-taking",
+        "Pour/stir control"
+      ],
+      "reusableCenters": [
+        "Little Apple Kitchen",
+        "Mash station",
+        "Apple Juice Café",
+        "Pie bakery tray"
+      ]
+    },
+    "printableIdeas": [
+      {
+        "title": "Picture Recipe Cards",
+        "reason": "Visual 2–3 step supports for mash/stir/pour without worksheets"
+      },
+      {
+        "title": "Kitchen Zone Signs",
+        "reason": "Labels Wash / Mix / Serve for dramatic play clarity"
+      },
+      {
+        "title": "Café Menu Picture Cards",
+        "reason": "Toddlers point to applesauce/juice/pie choices"
+      }
+    ],
+    "researchSources": [
+      "NAEYC Developmentally Appropriate Practice — play-based cooking and sensory exploration for toddlers",
+      "Allergy-aware tasting guidance: offer, never force; teacher-only knife/stove work",
+      "ZERO TO THREE / early toddler sensory feeding language inspiration (not copied)"
+    ],
+    "coverStatus": "COVER IMAGE PENDING",
+    "proposedCoverActivity": "Little Apple Kitchen"
+  },
+  "activities": [
+    {
+      "title": "Make Homemade Applesauce",
+      "dayOfWeek": "monday",
+      "activityCategory": "Open-Ended Exploration",
+      "ageModifications": "Toddler 12–24 Months",
+      "durationMinutes": 12,
+      "objective": "Explore how soft cooked apples become applesauce through smell, optional taste, and supervised mashing—without knives or stoves.",
+      "description": "Teacher provides fully cooled soft apple pieces. Toddlers smell, look, and may mash with a potato masher or wooden spoon. Optional tiny tastes of cooled applesauce or mash; never forced. Pretend cooking is equally valued.",
+      "materials": "Pre-cooked, fully cooled soft apple pieces (teacher-prepared)\nPotato mashers or sturdy wooden spoons\nBowls and trays\nOptional: store-bought cooled applesauce for tasting cups\nSmocks; wipes; handwashing station\nPicture card: apple → mash → sauce",
+      "preparation": "Allergy check. Cook/cool apples before children arrive. Portion small amounts. Set smell-only cups for children who decline tasting.",
+      "setup": "Low table with smocks, one bowl per 1–2 children, mashers, and a clear “cool food only” cue card.",
+      "steps": "1. Wash hands together.\n2. Show whole apple, then cooled soft pieces—name smell and soft.\n3. Model one gentle mash; invite toddlers to mash.\n4. Offer optional smell or tiny taste; accept “no thank you.”\n5. Narrate change: chunky → mashy → sauce-like.\n6. All done: wipe hands and rest tools.",
+      "teacherLanguage": "Smell the apple—mm, sweet!\nCan you mash, mash?\nIs it soft or hard?\nWould you like a tiny taste, or just smell?\nNo thank you is okay.\nWe made applesauce together!",
+      "observationOpportunities": "Approach/avoidance to food textures, willingness to mash, language for soft/mash/sauce, and comfort declining taste.",
+      "safetyNotes": "NO child knives, peelers, or stove use. Food must be fully cool. Allergy awareness. Supervise mashers. Never force tasting. Sanitize after mouthing.",
+      "cleanupTips": "Compost scraps if allowed; wash bowls/mashers; wipe table; change smocks.",
+      "indoorAlternatives": "Default indoor mash table.",
+      "outdoorAlternatives": "Mash at an outdoor sensory table with the same cooled pieces.",
+      "teacherTips": [
+        "Keep portions tiny to reduce waste and overwhelm.",
+        "Celebrate pretend stirring as success equal to tasting."
+      ],
+      "substitutions": [
+        {
+          "need": "Cooked apple pieces",
+          "use": "Store-bought applesauce to stir (cool) or brown play-dough “apples” for full pretend"
+        }
+      ],
+      "adaptations": "Offer spoon-stir only; provide dry oatmeal “pretend sauce” for texture-sensitive children; allow watching first.",
+      "extensions": "Compare chunky vs smooth samples side by side (smell/look).",
+      "mixedAgeAdaptations": "Older toddlers mash; younger hold a spoon and feel steam-free warm (not hot) bowls if used—prefer fully cool.",
+      "observationPrompts": [
+        "Did the child mash with intent?",
+        "Did they use a food word?",
+        "How did they respond to optional tasting?"
+      ],
+      "vocabulary": [
+        "apple",
+        "mash",
+        "soft",
+        "sauce",
+        "smell",
+        "taste",
+        "cool",
+        "chef"
+      ],
+      "imageRequirement": "setup_only",
+      "imageBriefSetup": "Realistic daycare table with cooled soft apple pieces in bowls, toddler-sized potato mashers, smocks, and a teacher nearby. No knives or stove. Footer: littlelearnershubbyleah.com",
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite"
+    },
+    {
+      "title": "Chef Hat Decorating",
+      "dayOfWeek": "monday",
+      "activityCategory": "Art",
+      "ageModifications": "Toddler 12–24 Months",
+      "durationMinutes": 10,
+      "objective": "Create process-art chef hats that toddlers can wear during kitchen play, focusing on sticking and stamping—not a perfect product.",
+      "description": "Toddlers decorate pre-formed paper chef hats or bands with stickers, stamps, and large crayon marks. Process art only; no template matching.",
+      "materials": "Pre-formed paper chef hats or sturdy paper bands\nLarge apple stickers\nWashable stampers\nCrayons/dot markers\nGlue sticks\nSmocks",
+      "preparation": "Pre-size hats/bands for toddler heads. Portion stickers. Remove tiny embellishments.",
+      "setup": "Art tray with one hat per child and limited open-ended materials.",
+      "steps": "1. Try on a plain hat and name “chef.”\n2. Invite sticking, stamping, and marking anywhere.\n3. Narrate choices without correcting placement.\n4. Help tape/fit hats loosely.\n5. Wear hats to the play kitchen.",
+      "teacherLanguage": "You are a kitchen chef!\nWhere will your sticker go?\nStamp, stamp.\nYour hat is ready for cooking.",
+      "observationOpportunities": "Fine-motor sticking, creative choices, interest in role dress-up.",
+      "safetyNotes": "Large stickers only. Supervise glue. Hats should not cover eyes; no strings that cinch tightly.",
+      "cleanupTips": "Cap markers; save unused stickers; store hats on named hooks if reusing same day.",
+      "indoorAlternatives": "Default art table.",
+      "outdoorAlternatives": "Decorate on a shaded picnic table.",
+      "teacherTips": [
+        "Offer blank hats for children who prefer less decoration.",
+        "Replace activity framing: process identity play, not craft perfection."
+      ],
+      "substitutions": [
+        {
+          "need": "Paper chef hats",
+          "use": "Paper plate bands or tea towels as aprons"
+        }
+      ],
+      "adaptations": "Pre-stick one starter sticker; hand-under-hand support; allow apron-only option.",
+      "extensions": "Add a picture name card on the band.",
+      "mixedAgeAdaptations": "Infants decorate a paper plate “hat” on the table without wearing.",
+      "observationPrompts": [
+        "Did the child choose materials independently?",
+        "Did wearing the hat spark kitchen play?"
+      ],
+      "vocabulary": [
+        "chef",
+        "hat",
+        "sticky",
+        "stamp",
+        "make",
+        "wear"
+      ],
+      "imageRequirement": "setup_only",
+      "imageBriefSetup": "Process-art table with paper chef hats, large stickers, and stampers—no sample-to-copy. Realistic daycare. Footer: littlelearnershubbyleah.com",
+      "imageBriefExample": "",
+      "decision": "replace",
+      "decisionNote": "Replace thin craft product focus with process-art chef identity play"
+    },
+    {
+      "title": "Measure the Ingredients",
+      "dayOfWeek": "monday",
+      "activityCategory": "STEM/Discovery",
+      "ageModifications": "Toddler 12–24 Months",
+      "durationMinutes": 10,
+      "objective": "Practice filling and dumping large measuring cups with safe dry fillers to build early measure/pour vocabulary.",
+      "description": "Toddlers scoop dry oats, rice, or crumpled paper “ingredients” into large cups and bowls, hearing words full, empty, more, and all done.",
+      "materials": "Large measuring cups and spoons\nBowls\nDry oats OR rice OR crumpled paper\nTray with sides\nSmocks\nPicture cards: full / empty",
+      "preparation": "Allergy check for oats. Choose paper filler if mouthing is heavy. Pre-portion filler.",
+      "setup": "Tray table for 2–3 toddlers with cups and one shared filler bin.",
+      "steps": "1. Show empty cup and full cup.\n2. Scoop together—count playfully “one scoop” without drills.\n3. Pour into a bowl.\n4. Notice full/empty.\n5. Dump and repeat.",
+      "teacherLanguage": "Is it full or empty?\nScoop, scoop.\nPour carefully.\nMore or all done?",
+      "observationOpportunities": "Scoop control, bilateral pouring attempts, vocabulary echoes for full/empty.",
+      "safetyNotes": "Supervise dry goods for mouthing. No small measuring spoons that are choking hazards. Allergy awareness.",
+      "cleanupTips": "Sweep filler; wash cups; recycle paper.",
+      "indoorAlternatives": "Use paper filler for easiest cleanup.",
+      "outdoorAlternatives": "Water measuring with large cups outdoors (weather permitting).",
+      "teacherTips": [
+        "Keep math playful—no accurate measuring expectations.",
+        "One filler type reduces overwhelm."
+      ],
+      "substitutions": [
+        {
+          "need": "Oats",
+          "use": "Torn paper, cotton balls, or water play outdoors"
+        }
+      ],
+      "adaptations": "Larger scoops; pre-filled cups to dump only; seated pouring over a tub.",
+      "extensions": "Match cup size: big cup / little cup.",
+      "mixedAgeAdaptations": "Younger dump; older scoop and pour.",
+      "observationPrompts": [
+        "Did the child attempt pour?",
+        "Did they respond to full/empty?"
+      ],
+      "vocabulary": [
+        "measure",
+        "scoop",
+        "pour",
+        "full",
+        "empty",
+        "cup",
+        "more"
+      ],
+      "imageRequirement": "setup_only",
+      "imageBriefSetup": "Toddler measuring station with large cups, bowls, and dry filler on a tray. Realistic. Footer: littlelearnershubbyleah.com",
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite"
+    },
+    {
+      "title": "Little Apple Kitchen",
+      "dayOfWeek": "monday",
+      "activityCategory": "Dramatic Play",
+      "ageModifications": "Toddler 12–24 Months",
+      "durationMinutes": 15,
+      "objective": "Engage in toddler kitchen dramatic play with a few clear apple-cooking props and short role turns.",
+      "description": "Toddlers wash pretend apples, stir bowls, serve on plates, and take turns as chef and customer in a simple play kitchen.",
+      "materials": "Play kitchen or low table\nToy/plastic apples or red pom stand-ins (large)\nBowls, spoons, plates\nAprons/chef hats\nDish tub with damp cloth “wash”\nPicture menu: sauce / juice / pie",
+      "preparation": "Limit props to 6–8 items. Stage Wash / Mix / Serve signs. Sanitize toys.",
+      "setup": "Three clear zones: Wash, Mix, Serve. Keep walkways clear.",
+      "steps": "1. Tour the three zones.\n2. Model: wash apple → stir bowl → serve plate.\n3. Invite 2–3 toddlers to play.\n4. Narrate chef language; rotate roles.\n5. Close kitchen: wash tools and rest.",
+      "teacherLanguage": "Who is the chef today?\nWash the apple.\nStir, stir.\nOrder please—applesauce?\nThank you, chef!",
+      "observationOpportunities": "Role-taking, sequencing 2–3 steps, peer turn-taking, kitchen vocabulary.",
+      "safetyNotes": "Large props only. Damp cloth wash—not standing water if splash risk. No real knives.",
+      "cleanupTips": "Sort props into zone bins; wipe surfaces.",
+      "indoorAlternatives": "Default dramatic-play corner all week.",
+      "outdoorAlternatives": "Blanket picnic kitchen outdoors with the same three zones.",
+      "teacherTips": [
+        "Less is best for younger toddlers.",
+        "Join briefly as customer, then step back."
+      ],
+      "substitutions": [
+        {
+          "need": "Play kitchen",
+          "use": "Low table + dish tub + basket of bowls"
+        }
+      ],
+      "adaptations": "One-step jobs (“put apple in bowl”). Picture sequence cards. Parallel play welcome.",
+      "extensions": "Add a waiting stool for “customers.”",
+      "mixedAgeAdaptations": "Preschoolers can take orders; toddlers stay on wash/stir.",
+      "observationPrompts": [
+        "Did the child attempt more than one kitchen step?",
+        "Did they use chef/cook words?"
+      ],
+      "vocabulary": [
+        "kitchen",
+        "chef",
+        "wash",
+        "stir",
+        "serve",
+        "order",
+        "apple"
+      ],
+      "imageRequirement": "setup_only",
+      "imageBriefSetup": "Realistic toddler dramatic-play kitchen with plastic apples, bowls, aprons, and Wash/Mix/Serve zones. Cover candidate. Footer: littlelearnershubbyleah.com",
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Primary cover candidate activity"
+    },
+    {
+      "title": "Mash the Apples",
+      "dayOfWeek": "tuesday",
+      "activityCategory": "Open-Ended Exploration",
+      "ageModifications": "Toddler 12–24 Months",
+      "durationMinutes": 10,
+      "objective": "Build arm strength and sensory curiosity by mashing soft cooled apple pieces with large tools.",
+      "description": "Focused mash invitation: toddlers press and mash cooled soft apples (or applesauce) in sturdy bowls, noticing sound and texture.",
+      "materials": "Cooled soft apple pieces or thick applesauce\nPotato mashers / thick spoons\nBowls; trays; smocks\nOptional cinnamon smell jar (closed) for sniffing only",
+      "preparation": "Allergy check including cinnamon if used for smell. Cool food fully. Set smell-only option.",
+      "setup": "Standing or seated mash station for 2 toddlers at a time.",
+      "steps": "1. Hands washed.\n2. Listen to mash sounds together.\n3. Mash freely.\n4. Optional smell of cinnamon jar.\n5. Optional taste; accept declines.\n6. Clean hands.",
+      "teacherLanguage": "Mash, mash—what do you hear?\nSquishy or smooth?\nYour arms are working hard!\nAll done mashing?",
+      "observationOpportunities": "Persistence, sensory tolerance, grip strength, word attempts for soft/squish.",
+      "safetyNotes": "Fully cool. No knives. Allergy awareness. Never force tasting. Supervise tools.",
+      "cleanupTips": "Wash tools immediately; wipe sticky floors.",
+      "indoorAlternatives": "Default.",
+      "outdoorAlternatives": "Outdoor sensory table mashing.",
+      "teacherTips": [
+        "If children tire, switch to spoon stir.",
+        "Keep group tiny for hygiene."
+      ],
+      "substitutions": [
+        {
+          "need": "Real apple mash",
+          "use": "Yellow play dough balls to smash"
+        }
+      ],
+      "adaptations": "Hand-over-hand mash; dry beanbag “apples” to press for non-food version.",
+      "extensions": "Compare mashed vs unmashed piece (look only).",
+      "mixedAgeAdaptations": "Younger poke with spoon; older mash with masher.",
+      "observationPrompts": [
+        "How long did they persist?",
+        "Any texture refusal cues?"
+      ],
+      "vocabulary": [
+        "mash",
+        "squish",
+        "soft",
+        "bowl",
+        "strong",
+        "listen"
+      ],
+      "imageRequirement": "setup_only",
+      "imageBriefSetup": "Close-up realistic mash station with potato masher in a bowl of soft apple pieces. Footer: littlelearnershubbyleah.com",
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite"
+    },
+    {
+      "title": "Before and After Apples",
+      "dayOfWeek": "tuesday",
+      "activityCategory": "STEM/Discovery",
+      "ageModifications": "Toddler 12–24 Months",
+      "durationMinutes": 8,
+      "objective": "Notice simple before/after changes using whole apples, soft cooked pieces, and applesauce as look/smell samples.",
+      "description": "Toddlers explore three samples—whole apple, soft cooked piece, and applesauce—pointing to which changed and describing with teacher language.",
+      "materials": "Whole apple\nCooled cooked apple piece\nApplesauce in clear cup\nTray; magnifying glasses (optional)\nBefore/After picture cards",
+      "preparation": "Prep samples (teacher-cooked). Label trays with picture icons.",
+      "setup": "Small group at a discovery tray; samples behind a look-first boundary if needed.",
+      "steps": "1. Show whole apple—hard, round.\n2. Show cooked piece—soft.\n3. Show sauce—mashy.\n4. Invite pointing: before/after.\n5. Optional smell; optional taste of sauce only.",
+      "teacherLanguage": "What changed?\nHard or soft?\nWhich one is applesauce?\nBefore… after!",
+      "observationOpportunities": "Attention to differences, pointing, vocabulary for hard/soft/change.",
+      "safetyNotes": "Allergy check. Cool foods. No hot items. Optional tasting only.",
+      "cleanupTips": "Discard tasted samples; sanitize tray.",
+      "indoorAlternatives": "Default science tray.",
+      "outdoorAlternatives": "Shade-table investigation.",
+      "teacherTips": [
+        "Keep science language concrete.",
+        "Avoid long lectures—show and play."
+      ],
+      "substitutions": [
+        {
+          "need": "Cooked apple",
+          "use": "Photos of before/after plus applesauce to smell"
+        }
+      ],
+      "adaptations": "Two samples only; hand-over-hand pointing; watching allowed.",
+      "extensions": "Add juice cup as another “after” food made from apples.",
+      "mixedAgeAdaptations": "Older toddlers sort cards; younger match objects to pictures.",
+      "observationPrompts": [
+        "Did the child point to a difference?",
+        "Did they echo hard/soft?"
+      ],
+      "vocabulary": [
+        "before",
+        "after",
+        "hard",
+        "soft",
+        "change",
+        "apple",
+        "sauce"
+      ],
+      "imageRequirement": "setup_only",
+      "imageBriefSetup": "Discovery tray with whole apple, soft cooked piece, and applesauce cup labeled before/after. Footer: littlelearnershubbyleah.com",
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite"
+    },
+    {
+      "title": "Applesauce Jar Craft",
+      "dayOfWeek": "tuesday",
+      "activityCategory": "Art",
+      "ageModifications": "Toddler 12–24 Months",
+      "durationMinutes": 10,
+      "objective": "Make an open-ended process collage on a jar shape or clean recycled jar—process art, not a look-alike product.",
+      "description": "Toddlers glue tissue, paper scraps, and stickers onto jar cutouts or clean plastic jars to make “applesauce jars” their own way.",
+      "materials": "Jar-shaped paper OR clean plastic jars\nTissue paper scraps\nGlue sticks\nApple stickers\nBrown crayon for “lid” marks\nSmocks",
+      "preparation": "Pre-cut jar shapes. Remove glass—use plastic only. Portion glue.",
+      "setup": "Art table with limited collage materials.",
+      "steps": "1. Show a jar shape—say “applesauce jar.”\n2. Glue and stick freely.\n3. Optional scribble lid.\n4. Display at child height.",
+      "teacherLanguage": "What color goes on your jar?\nSticky glue.\nYour jar is unique!\nApplesauce ready?",
+      "observationOpportunities": "Glue control, material choices, pride in display.",
+      "safetyNotes": "Plastic jars only (no glass). Large scraps. Supervise glue caps.",
+      "cleanupTips": "Close glue; dry flat; recycle scraps.",
+      "indoorAlternatives": "Default.",
+      "outdoorAlternatives": "Collage outdoors with weighted papers.",
+      "teacherTips": [
+        "No model to copy.",
+        "Accept minimal sticking as complete."
+      ],
+      "substitutions": [
+        {
+          "need": "Jar shapes",
+          "use": "Paper cups to collage as jars"
+        }
+      ],
+      "adaptations": "Pre-glue dots; sticker-only option; seated with tray boundaries.",
+      "extensions": "Fill jar picture with torn brown paper “sauce.”",
+      "mixedAgeAdaptations": "Younger stickers only; older add torn paper layers.",
+      "observationPrompts": [
+        "Did the child engage with glue or stickers?",
+        "Did they name jar/sauce?"
+      ],
+      "vocabulary": [
+        "jar",
+        "glue",
+        "sticky",
+        "sauce",
+        "make",
+        "mine"
+      ],
+      "imageRequirement": "setup_only",
+      "imageBriefSetup": "Process collage jars with tissue and stickers—no identical samples. Footer: littlelearnershubbyleah.com",
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite"
+    },
+    {
+      "title": "Stir the Applesauce",
+      "dayOfWeek": "tuesday",
+      "activityCategory": "Music & Movement",
+      "ageModifications": "Toddler 12–24 Months",
+      "durationMinutes": 8,
+      "objective": "Move arms and bodies to a stirring chant, connecting music with kitchen actions.",
+      "description": "Toddlers pretend to stir giant invisible (or bowl) applesauce to a simple chant, changing slow/fast and freeze.",
+      "materials": "Optional empty bowls and spoons\nMusic player (soft)\nOpen floor space\nLLH Stir the Applesauce Chant",
+      "preparation": "Clear space. Practice slow/fast cues.",
+      "setup": "Circle or scattered standing spots with room to stir arms.",
+      "steps": "1. Show stirring motion.\n2. Chant and stir slowly.\n3. Stir fast—then freeze.\n4. Stir low / stir high.\n5. Sit and rest spoons.",
+      "teacherLanguage": "Stir, stir, round and round.\nSlow… fast!\nFreeze—hot sauce cooling!\nOne more stir!",
+      "observationOpportunities": "Imitation, speed changes, stopping on freeze, joy in group rhythm.",
+      "safetyNotes": "Space children out. No running with spoons. Soft volume.",
+      "cleanupTips": "Collect bowls/spoons.",
+      "indoorAlternatives": "Default.",
+      "outdoorAlternatives": "Stirring dance on the playground.",
+      "teacherTips": [
+        "Keep under 8 minutes.",
+        "Offer seated stirring for balance needs."
+      ],
+      "substitutions": [
+        {
+          "need": "Bowls",
+          "use": "Hands only stirring motions"
+        }
+      ],
+      "adaptations": "Hand-over-hand stir; scarves as stir ribbons.",
+      "extensions": "Let a child be the “chef” who says slow/fast.",
+      "mixedAgeAdaptations": "Infants bounce on laps with stir motions; toddlers stand.",
+      "observationPrompts": [
+        "Did the child match slow/fast?",
+        "Could they freeze?"
+      ],
+      "vocabulary": [
+        "stir",
+        "slow",
+        "fast",
+        "round",
+        "freeze",
+        "sauce"
+      ],
+      "imageRequirement": "not_needed",
+      "imageBriefSetup": "",
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite"
+    },
+    {
+      "title": "Apple Juice Investigation",
+      "dayOfWeek": "wednesday",
+      "activityCategory": "STEM/Discovery",
+      "ageModifications": "Toddler 12–24 Months",
+      "durationMinutes": 10,
+      "objective": "Investigate apple juice with look/smell/optional sip, noticing color and wetness compared with water.",
+      "description": "Toddlers explore small cups of water and apple juice: look through, smell, tip gently, and talk about same/different. Tasting is optional.",
+      "materials": "Clear cups\nWater\nApple juice (allergy-aware)\nTrays; paper towels\nPicture cards: water / juice\nSmocks",
+      "preparation": "Allergy check. Pour tiny amounts. Plan smell-only cups.",
+      "setup": "Discovery table with paired cups for 2–3 children.",
+      "steps": "1. Wash hands.\n2. Look: which is yellow/brown?\n3. Smell each.\n4. Optional tiny sip; accept no.\n5. Tip on tray to see wet (teacher-controlled pour demo if needed).\n6. Wipe and done.",
+      "teacherLanguage": "What color do you see?\nSmell—sweet juice?\nSame or different?\nSip or no thank you?",
+      "observationOpportunities": "Sensory curiosity, comparison language, comfort with choice.",
+      "safetyNotes": "Allergy awareness. Tiny amounts. No choking gulps—slow sips. Wipe spills to prevent slips.",
+      "cleanupTips": "Wash cups; sanitize table; mop spills.",
+      "indoorAlternatives": "Default.",
+      "outdoorAlternatives": "Investigate at water table with juice smell jar + water play separated.",
+      "teacherTips": [
+        "Separate tasting cups from exploration cups.",
+        "Keep science playful."
+      ],
+      "substitutions": [
+        {
+          "need": "Apple juice",
+          "use": "Apple juice concentrate smell on cotton in a jar + water look cups"
+        }
+      ],
+      "adaptations": "Smell-only pathway; sealed look bottles; watching first.",
+      "extensions": "Add applesauce cup as a third “apple food.”",
+      "mixedAgeAdaptations": "Younger look/smell; older help pour with two hands into a tub.",
+      "observationPrompts": [
+        "Did the child compare the two liquids?",
+        "Did they exercise a tasting choice?"
+      ],
+      "vocabulary": [
+        "juice",
+        "water",
+        "smell",
+        "color",
+        "wet",
+        "sip",
+        "different"
+      ],
+      "imageRequirement": "setup_only",
+      "imageBriefSetup": "Clear cups of water and apple juice on a toddler tray for look/smell investigation. Footer: littlelearnershubbyleah.com",
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite"
+    },
+    {
+      "title": "Pour and Measure",
+      "dayOfWeek": "wednesday",
+      "activityCategory": "STEM/Discovery",
+      "ageModifications": "Toddler 12–24 Months",
+      "durationMinutes": 10,
+      "objective": "Practice two-handed pouring between large cups to build coordination and kitchen measure words.",
+      "description": "Toddlers pour water or dry filler from pitcher to cup using large tools over a tub, hearing pour, careful, full, and stop.",
+      "materials": "Large plastic pitchers\nLarge cups\nShallow tub\nWater OR dry filler\nSmocks; towels\nFunnel (optional large)",
+      "preparation": "Fill pitchers halfway. Set towels. Choose water day or dry day.",
+      "setup": "Pouring station over a tub for 2 children.",
+      "steps": "1. Model two hands on pitcher.\n2. Pour to a line or until “stop.”\n3. Child pours.\n4. Switch pourer/helper.\n5. Squeeze towels—all done.",
+      "teacherLanguage": "Two hands.\nPour carefully.\nStop!\nFull cup.\nYou did it!",
+      "observationOpportunities": "Two-hand control, stopping response, frustration tolerance with spills.",
+      "safetyNotes": "Wipe spills. No glass. Supervise to prevent drinking non-potable water if reused; use clean water for tasting-free play.",
+      "cleanupTips": "Dump water; dry floor; wash tools.",
+      "indoorAlternatives": "Dry filler pouring indoors.",
+      "outdoorAlternatives": "Water pouring outdoors preferred.",
+      "teacherTips": [
+        "Celebrate spills as practice.",
+        "Start with very little liquid."
+      ],
+      "substitutions": [
+        {
+          "need": "Pitchers",
+          "use": "Large cups pouring into bowls"
+        }
+      ],
+      "adaptations": "Teacher holds pitcher while child tips; use squeeze bottles for easier control.",
+      "extensions": "Pour to fill two cups for a café order.",
+      "mixedAgeAdaptations": "Younger dump cups; older use pitcher.",
+      "observationPrompts": [
+        "Did they try two hands?",
+        "Did they stop when asked?"
+      ],
+      "vocabulary": [
+        "pour",
+        "measure",
+        "full",
+        "stop",
+        "careful",
+        "cup",
+        "pitcher"
+      ],
+      "imageRequirement": "setup_only",
+      "imageBriefSetup": "Toddler pouring station with large pitcher, cups, and tub. Realistic daycare. Footer: littlelearnershubbyleah.com",
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite"
+    },
+    {
+      "title": "Apple Juice Carton Craft",
+      "dayOfWeek": "wednesday",
+      "activityCategory": "Art",
+      "ageModifications": "Toddler 12–24 Months",
+      "durationMinutes": 10,
+      "objective": "Transform a clean recycled carton or carton shape into process-art “apple juice” packaging.",
+      "description": "Toddlers paint, sticker, and collage clean empty juice cartons or cardboard carton cutouts. Process art only.",
+      "materials": "Clean empty juice cartons OR cardboard carton shapes\nWashable paint + large brushes\nStickers; glue; paper scraps\nSmocks; newspaper",
+      "preparation": "Rinse cartons; tape sharp edges. Pre-cut shapes if not using cartons.",
+      "setup": "Painting/collage table with one carton per child.",
+      "steps": "1. Name “juice carton.”\n2. Paint or collage freely.\n3. Add stickers if desired.\n4. Dry on rack.\n5. Use later in café play.",
+      "teacherLanguage": "What color is your juice carton?\nBrush up and down.\nSticky sticker!\nYour juice for the café!",
+      "observationOpportunities": "Brush grip, covering choices, connection to dramatic play props.",
+      "safetyNotes": "Clean food-safe exterior only; no drinking from craft cartons. Supervise paint.",
+      "cleanupTips": "Dry cartons; wash brushes; trash liners.",
+      "indoorAlternatives": "Default.",
+      "outdoorAlternatives": "Paint cartons outdoors.",
+      "teacherTips": [
+        "Plan café reuse the same afternoon.",
+        "Offer sponge painting for variety."
+      ],
+      "substitutions": [
+        {
+          "need": "Cartons",
+          "use": "Paper bags taped as cartons"
+        }
+      ],
+      "adaptations": "Sticker-only; sponge stamps; seated with tray.",
+      "extensions": "Add a picture “apple” label children choose.",
+      "mixedAgeAdaptations": "Younger stickers; older paint broader surfaces.",
+      "observationPrompts": [
+        "Did the child engage in process covering?",
+        "Did they bring carton to café later?"
+      ],
+      "vocabulary": [
+        "carton",
+        "juice",
+        "paint",
+        "brush",
+        "sticky",
+        "make"
+      ],
+      "imageRequirement": "setup_only",
+      "imageBriefSetup": "Process-painted juice cartons drying on a rack in a classroom. Footer: littlelearnershubbyleah.com",
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite"
+    },
+    {
+      "title": "Apple Juice Café",
+      "dayOfWeek": "wednesday",
+      "activityCategory": "Dramatic Play",
+      "ageModifications": "Toddler 12–24 Months",
+      "durationMinutes": 15,
+      "objective": "Practice simple café roles—customer and server—with picture menus and pretend or optional real juice service.",
+      "description": "Toddlers run a tiny Apple Juice Café: point to a menu picture, “pour” pretend juice, serve on a tray, and say please/thank you.",
+      "materials": "Low table café\nPicture menus (juice / sauce / water)\nCups; trays\nCarton props from craft\nChairs; apron\nOptional: tiny cooled juice tasting cups (allergy-aware)",
+      "preparation": "Allergy plan. Limit to 2 seats. Stage menu photos large.",
+      "setup": "Counter + 2 customer seats. Server apron ready.",
+      "steps": "1. Open café—show menu pictures.\n2. Customer points to order.\n3. Server pours pretend juice.\n4. Optional real tiny taste in separate cups.\n5. Thank you; rotate roles.\n6. Closed sign—clean up.",
+      "teacherLanguage": "Welcome to the café!\nWhat would you like?\nPour, pour.\nHere’s your juice.\nThank you!",
+      "observationOpportunities": "Role exchange, pointing communication, courtesy words, pouring in context.",
+      "safetyNotes": "Allergy awareness. Separate pretend cups from tasting cups. Wipe spills.",
+      "cleanupTips": "Wash tasting cups; sort props; wipe table.",
+      "indoorAlternatives": "Default café corner.",
+      "outdoorAlternatives": "Picnic café on blankets.",
+      "teacherTips": [
+        "Picture menus reduce verbal pressure.",
+        "Keep café open in short bursts."
+      ],
+      "substitutions": [
+        {
+          "need": "Trays",
+          "use": "Paper plates as servers"
+        }
+      ],
+      "adaptations": "Teacher as co-server; nonverbal pointing only; one-role day.",
+      "extensions": "Add a “to-go” basket.",
+      "mixedAgeAdaptations": "Older take orders with clipboard pictures; toddlers serve/pour.",
+      "observationPrompts": [
+        "Did the child take both roles over time?",
+        "Did they use please/thank you with support?"
+      ],
+      "vocabulary": [
+        "café",
+        "juice",
+        "menu",
+        "please",
+        "thank you",
+        "serve",
+        "pour"
+      ],
+      "imageRequirement": "setup_only",
+      "imageBriefSetup": "Toddler café table with picture menus, cups, trays, and carton props. Footer: littlelearnershubbyleah.com",
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite"
+    },
+    {
+      "title": "Pretend Apple Pie Bakers",
+      "dayOfWeek": "thursday",
+      "activityCategory": "Open-Ended Exploration",
+      "ageModifications": "Toddler 12–24 Months",
+      "durationMinutes": 12,
+      "objective": "Explore pretend pie baking with pie pans, dough, and apple fillers using safe toddler tools only.",
+      "description": "Toddlers press play-dough crusts into pans, add red pom or paper apple pieces, and “bake” in a play oven or box oven—no real heat.",
+      "materials": "Pie pans\nPlay dough\nLarge red poms or paper apple shapes\nPlay oven or cardboard box oven\nAprons; rolling pins (large)\nPicture recipe: press → fill → bake",
+      "preparation": "Soften dough. Remove tiny cutters. Check pom size (too large to choke).",
+      "setup": "Bakery tray for 2–3 bakers.",
+      "steps": "1. Press dough in pan.\n2. Add apple fillers.\n3. Carry to pretend oven.\n4. Ding—cool pie!\n5. Serve pretend slices.",
+      "teacherLanguage": "Press the crust.\nApples in the pie.\nInto the oven!\nDing—careful, cooling.\nWant a pretend slice?",
+      "observationOpportunities": "Sequencing with pictures, pretend oven use, peer sharing of pans.",
+      "safetyNotes": "No real oven/heat. Large poms only. Supervise dough mouthing.",
+      "cleanupTips": "Store dough; sort fillers; wipe pans.",
+      "indoorAlternatives": "Default.",
+      "outdoorAlternatives": "Blanket bakery outdoors.",
+      "teacherTips": [
+        "Emphasize pretend heat safety language.",
+        "Keep recipe to 3 pictures."
+      ],
+      "substitutions": [
+        {
+          "need": "Play dough",
+          "use": "Damp sand crusts outdoors or flattened brown clay"
+        }
+      ],
+      "adaptations": "Pre-pressed crusts; fill-only job; watching bakers.",
+      "extensions": "Add cinnamon smell jar to “season” pies.",
+      "mixedAgeAdaptations": "Younger fill pans; older roll dough.",
+      "observationPrompts": [
+        "Did the child follow 2+ recipe steps?",
+        "Did they use bake/pie words?"
+      ],
+      "vocabulary": [
+        "pie",
+        "dough",
+        "press",
+        "bake",
+        "oven",
+        "cool",
+        "apple"
+      ],
+      "imageRequirement": "setup_only",
+      "imageBriefSetup": "Toddler bakery tray with pie pans, dough, and apple fillers beside a play oven. Footer: littlelearnershubbyleah.com",
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite"
+    },
+    {
+      "title": "Apple Pie Dough",
+      "dayOfWeek": "thursday",
+      "activityCategory": "Sensory Play",
+      "ageModifications": "Toddler 12–24 Months",
+      "durationMinutes": 10,
+      "objective": "Explore soft dough textures through squish, pat, and roll with large tools.",
+      "description": "Open sensory dough play themed as pie dough—toddlers squash, poke, and roll without a required product.",
+      "materials": "Soft play dough or safe salt dough\nLarge rolling pins\nPie pans\nSmocks; wipes\nOptional: safe apple scent (very light) mixed by teacher",
+      "preparation": "Allergy check for wheat if using flour dough; offer gluten-free dough alternative. Soften dough.",
+      "setup": "Sensory table or trays for 3 children.",
+      "steps": "1. Offer dough—feel soft.\n2. Squish and poke.\n3. Roll if interested.\n4. Optional press into pan.\n5. Store dough balls for next time.",
+      "teacherLanguage": "Soft dough.\nSquish!\nRoll, roll.\nPat, pat.\nHow does it feel?",
+      "observationOpportunities": "Texture tolerance, tool use, calming sensory engagement.",
+      "safetyNotes": "Supervise mouthing; replace dough if mouthed heavily. Allergy awareness for flour.",
+      "cleanupTips": "Wipe table; store dough sealed; wash hands.",
+      "indoorAlternatives": "Default.",
+      "outdoorAlternatives": "Dough play outdoors on trays.",
+      "teacherTips": [
+        "No required pie outcome today.",
+        "Offer tools and hands-only options."
+      ],
+      "substitutions": [
+        {
+          "need": "Play dough",
+          "use": "Cloud dough or soft kinetic sand if safe for age"
+        }
+      ],
+      "adaptations": "Tools only for touch-sensitive children; smaller dough ball; seated support.",
+      "extensions": "Hide a large pom “apple” in dough to find.",
+      "mixedAgeAdaptations": "Infants explore a sealed dough bag; toddlers open play.",
+      "observationPrompts": [
+        "Did they tolerate dough touch?",
+        "Did they use a tool?"
+      ],
+      "vocabulary": [
+        "dough",
+        "soft",
+        "squish",
+        "roll",
+        "pat",
+        "feel"
+      ],
+      "imageRequirement": "setup_only",
+      "imageBriefSetup": "Sensory trays with soft dough, rolling pins, and pie pans. Footer: littlelearnershubbyleah.com",
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite"
+    },
+    {
+      "title": "Measure the Pie Ingredients",
+      "dayOfWeek": "thursday",
+      "activityCategory": "STEM/Discovery",
+      "ageModifications": "Toddler 12–24 Months",
+      "durationMinutes": 10,
+      "objective": "Scoop and dump pretend pie ingredients with large cups while hearing measure words in a bakery context.",
+      "description": "Toddlers measure “flour,” “apples,” and “sugar” using large cups into a mixing bowl—playful dumping, not accurate recipes.",
+      "materials": "Large measuring cups\nMixing bowl\nWhite paper scrap “flour”\nRed paper/pom “apples”\nOptional oats “sugar” (allergy check)\nSpoons; tray",
+      "preparation": "Portion fillers in separate bins with picture labels.",
+      "setup": "Bakery measure station for 2 toddlers.",
+      "steps": "1. Point to ingredient pictures.\n2. Scoop one ingredient.\n3. Dump into bowl.\n4. Stir pretend batter/pie mix.\n5. All done—dump back to bins.",
+      "teacherLanguage": "What do we need for pie?\nOne scoop of flour.\nApples in!\nMix, mix.\nAll done measuring.",
+      "observationOpportunities": "Picture matching, scooping, simple choice-making.",
+      "safetyNotes": "Allergy check. Large pieces only. Supervise mouthing of oats.",
+      "cleanupTips": "Sort fillers back; wipe bowl.",
+      "indoorAlternatives": "Default.",
+      "outdoorAlternatives": "Measure station outdoors.",
+      "teacherTips": [
+        "Keep counts playful (“one scoop”), not skill drills.",
+        "Picture labels matter more than numbers."
+      ],
+      "substitutions": [
+        {
+          "need": "Multiple fillers",
+          "use": "Single filler + picture cards naming pretend ingredients"
+        }
+      ],
+      "adaptations": "One ingredient only; teacher scoops while child dumps.",
+      "extensions": "Carry measured bowl to pretend oven.",
+      "mixedAgeAdaptations": "Younger dump; older choose ingredients by picture.",
+      "observationPrompts": [
+        "Did the child scoop and dump?",
+        "Did they reference a picture ingredient?"
+      ],
+      "vocabulary": [
+        "measure",
+        "ingredient",
+        "flour",
+        "apple",
+        "mix",
+        "bowl",
+        "scoop"
+      ],
+      "imageRequirement": "setup_only",
+      "imageBriefSetup": "Measuring cups and ingredient bins labeled with pictures for pie play. Footer: littlelearnershubbyleah.com",
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite"
+    },
+    {
+      "title": "Bakery Dance Party",
+      "dayOfWeek": "thursday",
+      "activityCategory": "Music & Movement",
+      "ageModifications": "Toddler 12–24 Months",
+      "durationMinutes": 8,
+      "objective": "Celebrate bakery play with joyful movement—knead, sprinkle, and march to music.",
+      "description": "Toddlers dance bakery actions: knead feet/hands, sprinkle arms, and march like delivering pies, freezing when the music pauses.",
+      "materials": "Open space\nMusic player\nOptional scarves\nPicture action cards: knead / sprinkle / march",
+      "preparation": "Clear path. Choose 2–3 short tracks or chant.",
+      "setup": "Scatter spots; show action cards.",
+      "steps": "1. Knead the dough—push arms.\n2. Sprinkle sugar—fingers flutter.\n3. March deliver pies.\n4. Freeze—pies cooling.\n5. Bow to customers—done.",
+      "teacherLanguage": "Knead, knead!\nSprinkle!\nMarch, march—pies ready!\nFreeze!\nHooray bakers!",
+      "observationOpportunities": "Imitation, rhythm, stop/start listening, group joy.",
+      "safetyNotes": "No running. Soft landings. Clear toys from floor.",
+      "cleanupTips": "Collect scarves/cards.",
+      "indoorAlternatives": "Default.",
+      "outdoorAlternatives": "Dance party on playground.",
+      "teacherTips": [
+        "Keep actions big and few.",
+        "Offer seated dance options."
+      ],
+      "substitutions": [
+        {
+          "need": "Music player",
+          "use": "Teacher clap/chant only"
+        }
+      ],
+      "adaptations": "Hand-holding march; scarf only for children who avoid stomping.",
+      "extensions": "Child chooses next bakery action card.",
+      "mixedAgeAdaptations": "Infants bounce; toddlers dance.",
+      "observationPrompts": [
+        "Did the child try two actions?",
+        "Did they freeze?"
+      ],
+      "vocabulary": [
+        "knead",
+        "sprinkle",
+        "march",
+        "dance",
+        "freeze",
+        "baker"
+      ],
+      "imageRequirement": "not_needed",
+      "imageBriefSetup": "",
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite"
+    },
+    {
+      "title": "Apple Recipe Review",
+      "dayOfWeek": "friday",
+      "activityCategory": "Open-Ended Exploration",
+      "ageModifications": "Toddler 12–24 Months",
+      "durationMinutes": 10,
+      "objective": "Review the week’s apple foods with pictures and props, inviting toddlers to choose favorites and retell simple kitchen actions.",
+      "description": "Toddlers visit a review tray with pictures/props for applesauce, juice, and pie, acting out wash/mash/pour/bake briefly.",
+      "materials": "Picture cards: sauce, juice, pie\nRelated props (masher, cup, pie pan)\nBasket\nOptional favorite tasting (allergy-aware, optional)",
+      "preparation": "Gather week props. Plan optional tasting cups.",
+      "setup": "Circle or small-group review rug.",
+      "steps": "1. Show three apple foods.\n2. Children choose a favorite picture.\n3. Act the matching action briefly.\n4. Optional smell/taste.\n5. Cheer: “Apple chefs!”",
+      "teacherLanguage": "Which apple food do you like?\nMash for sauce?\nPour for juice?\nBake for pie?\nYou remember!",
+      "observationOpportunities": "Recall of week experiences, preference expression, action imitation.",
+      "safetyNotes": "Optional tasting only; allergy check. Keep review short.",
+      "cleanupTips": "Return props to theme basket.",
+      "indoorAlternatives": "Default.",
+      "outdoorAlternatives": "Review picnic outdoors.",
+      "teacherTips": [
+        "Accept pointing as a full answer.",
+        "No quiz pressure."
+      ],
+      "substitutions": [
+        {
+          "need": "Picture cards",
+          "use": "Real empty sauce jar, juice carton, pie pan as cues"
+        }
+      ],
+      "adaptations": "Two choices only; adult narrates child’s action.",
+      "extensions": "Family note with three pictures to talk about at home.",
+      "mixedAgeAdaptations": "Younger hold prop; older tell a two-word retell.",
+      "observationPrompts": [
+        "Did the child indicate a favorite?",
+        "Did they attempt a related action?"
+      ],
+      "vocabulary": [
+        "recipe",
+        "favorite",
+        "sauce",
+        "juice",
+        "pie",
+        "remember",
+        "chef"
+      ],
+      "imageRequirement": "not_needed",
+      "imageBriefSetup": "",
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite"
+    },
+    {
+      "title": "My Favorite Apple Recipe Book",
+      "dayOfWeek": "friday",
+      "activityCategory": "Art",
+      "ageModifications": "Toddler 12–24 Months",
+      "durationMinutes": 12,
+      "objective": "Assemble a simple process-art “recipe book” with stickers and marks—no writing required.",
+      "description": "Toddlers make 2–3 page paper books: glue apple pictures, stick stickers, and scribble as their recipe marks.",
+      "materials": "Pre-stapled 3-page booklets\nApple magazine cutouts or pre-cut apples\nGlue sticks; stickers; crayons\nSmocks",
+      "preparation": "Pre-make blank booklets. Pre-cut large images. Write child’s name if desired.",
+      "setup": "Art table with booklets and open-ended collage materials.",
+      "steps": "1. Show a blank book—“my recipes.”\n2. Glue/stick on pages freely.\n3. Scribble recipe marks.\n4. “Read” book to a friend or stuffed animal.\n5. Take home or display.",
+      "teacherLanguage": "What’s on this page?\nSticky apple.\nYour marks are your recipe!\nCan you show your book?",
+      "observationOpportunities": "Page turning, collage engagement, emergent “reading” pretend.",
+      "safetyNotes": "Large cutouts. Supervise staples on finished books (pre-stapled by teacher).",
+      "cleanupTips": "Dry pages; stack books with names visible.",
+      "indoorAlternatives": "Default.",
+      "outdoorAlternatives": "Collage on clipboards outdoors.",
+      "teacherTips": [
+        "Process over product—scribbles count.",
+        "No tracing or copy-the-recipe worksheets."
+      ],
+      "substitutions": [
+        {
+          "need": "Booklets",
+          "use": "Single folded paper card"
+        }
+      ],
+      "adaptations": "Sticker-only book; adult turns pages while child sticks.",
+      "extensions": "Add a photo of the child as chef on the cover.",
+      "mixedAgeAdaptations": "Younger one-page placemat; older three-page book.",
+      "observationPrompts": [
+        "Did the child engage across pages?",
+        "Did they pretend to read?"
+      ],
+      "vocabulary": [
+        "book",
+        "recipe",
+        "page",
+        "glue",
+        "favorite",
+        "read"
+      ],
+      "imageRequirement": "setup_only",
+      "imageBriefSetup": "Toddler process-art recipe booklets with apple stickers and scribbles. Footer: littlelearnershubbyleah.com",
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite"
+    },
+    {
+      "title": "Kitchen Measuring Relay",
+      "dayOfWeek": "friday",
+      "activityCategory": "STEM/Discovery",
+      "ageModifications": "Toddler 12–24 Months",
+      "durationMinutes": 10,
+      "objective": "Carry and deliver measuring cups along a short path to build gross-motor control and kitchen teamwork.",
+      "description": "Toddlers walk a short relay path carrying a cup of dry filler or a lightweight bowl to a “kitchen” basket—playful delivery, not racing pressure.",
+      "materials": "Large measuring cups\nLightweight filler or beanbags\nStart/finish markers\nKitchen basket\nOptional aprons",
+      "preparation": "Clear path. Mark start/kitchen. Practice walking feet.",
+      "setup": "Short straight path indoors or outdoors.",
+      "steps": "1. Scoop or place item in cup.\n2. Walk to kitchen basket.\n3. Dump gently.\n4. Walk back.\n5. Cheer each delivery.",
+      "teacherLanguage": "Walking feet, chef!\nCarry careful.\nTo the kitchen!\nDump—thank you!\nYour turn!",
+      "observationOpportunities": "Balance while carrying, waiting for turns, path following.",
+      "safetyNotes": "No running. Soft floors clear of toys. Lightweight loads only.",
+      "cleanupTips": "Collect cups; sweep filler.",
+      "indoorAlternatives": "Hallway walking delivery.",
+      "outdoorAlternatives": "Sidewalk kitchen relay.",
+      "teacherTips": [
+        "Call it a delivery walk, not a race.",
+        "One child moving at a time if crowded."
+      ],
+      "substitutions": [
+        {
+          "need": "Filler",
+          "use": "Carry empty pie pan or plastic apple"
+        }
+      ],
+      "adaptations": "Push a cart/wagon; shorter path; hand-in-hand walk.",
+      "extensions": "Two-step delivery: wash station then kitchen.",
+      "mixedAgeAdaptations": "Younger carry a stuffed apple; older scoop and deliver.",
+      "observationPrompts": [
+        "Did the child carry without dumping early?",
+        "How did they wait?"
+      ],
+      "vocabulary": [
+        "carry",
+        "deliver",
+        "measure",
+        "kitchen",
+        "walk",
+        "careful",
+        "turn"
+      ],
+      "imageRequirement": "not_needed",
+      "imageBriefSetup": "",
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite"
+    },
+    {
+      "title": "Little Apple Chef Parade",
+      "dayOfWeek": "friday",
+      "activityCategory": "Music & Movement",
+      "ageModifications": "Toddler 12–24 Months",
+      "durationMinutes": 8,
+      "objective": "Close the week with a joyful chef parade that celebrates kitchen helpers and review words.",
+      "description": "Toddlers wear hats/aprons, carry a favorite kitchen prop, and parade to a simple chant before a group cheer.",
+      "materials": "Chef hats/aprons\nProps: spoons, pans, plastic apples\nParade path markers\nSong/chant\nOptional stickers",
+      "preparation": "Clear parade loop. Stage props basket.",
+      "setup": "Line-up spots; music ready.",
+      "steps": "1. Choose a prop.\n2. Parade slowly around the loop.\n3. Freeze and show prop.\n4. Name one kitchen word together.\n5. Cheer “Little apple chefs!” + sticker optional.",
+      "teacherLanguage": "Chefs in a line!\nWhat are you carrying?\nStir? Pour? Mash?\nHooray apple chefs!",
+      "observationOpportunities": "Pride, recall of props/words, group participation comfort.",
+      "safetyNotes": "Walking feet. Props large and soft-edged. No forced speaking.",
+      "cleanupTips": "Collect props and hats.",
+      "indoorAlternatives": "Classroom loop.",
+      "outdoorAlternatives": "Playground parade.",
+      "teacherTips": [
+        "Keep parade one or two loops only.",
+        "Spotlight actions from the week."
+      ],
+      "substitutions": [
+        {
+          "need": "Hats",
+          "use": "Aprons or sticker badges"
+        }
+      ],
+      "adaptations": "Wagon riders parade; nonverbal prop show; adult partner.",
+      "extensions": "Family photo opportunity if permitted.",
+      "mixedAgeAdaptations": "Infants watch and wave; toddlers parade.",
+      "observationPrompts": [
+        "Did the child join the parade path?",
+        "Did they show a prop or word with support?"
+      ],
+      "vocabulary": [
+        "parade",
+        "chef",
+        "apple",
+        "proud",
+        "helper",
+        "march"
+      ],
+      "imageRequirement": "not_needed",
+      "imageBriefSetup": "",
+      "imageBriefExample": "",
+      "decision": "rewrite",
+      "decisionNote": "Priority 1 substantial rewrite"
+    }
+  ]
+}
