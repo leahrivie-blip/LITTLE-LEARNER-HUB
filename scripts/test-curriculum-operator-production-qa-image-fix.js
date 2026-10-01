@@ -177,6 +177,48 @@ console.log("\nSemantic match adversarial cases");
     "/api/media/enrichment-photos/tk-enrich-aabbccddeeff00112233445566778899?variant=full",
   );
   ok(opaqueJarCloudKeep.matches === true, "opaque tk-enrich without evidence does not auto-replace jar+cloud");
+  ok(opaqueJarCloudKeep.needsOwnerReview === true, "opaque keep without evidence flags owner review");
+
+  const paintMirrorUrl = imageMatch.assessActivityImageSemanticMatch(
+    { title: "Color Mixing Tray", materials: "paint trays", setup: "mix paint" },
+    {},
+    "/api/media/mirror-toddlers-reflection",
+  );
+  ok(paintMirrorUrl.matches === false, "color mixing + mirror URL evidence → REPLACE");
+
+  const paintMirrorFixture = imageMatch.assessActivityImageSemanticMatch(
+    { title: "Color Mixing Tray", materials: "paint trays", setup: "mix paint" },
+    {},
+    "/api/media/enrichment-photos/tk-enrich-9e63542c80aaea9aa6ac48bb3f517c12?variant=full",
+    {
+      semanticFixtures: {
+        "/api/media/enrichment-photos/tk-enrich-9e63542c80aaea9aa6ac48bb3f517c12?variant=full": {
+          depicts: ["mirror"],
+        },
+      },
+    },
+  );
+  ok(paintMirrorFixture.matches === false, "color mixing + mirror fixture evidence → REPLACE");
+
+  const weakOpaquePaint = imageMatch.assessActivityImageSemanticMatch(
+    { title: "Color Mixing Tray", materials: "paint trays", setup: "mix paint" },
+    {},
+    "/api/media/enrichment-photos/tk-enrich-9e63542c80aaea9aa6ac48bb3f517c12?variant=full",
+  );
+  ok(weakOpaquePaint.matches === true, "usable opaque image without mismatch evidence stays KEEP");
+  ok(weakOpaquePaint.needsOwnerReview === true, "weak opaque keep asks for owner review, not silent certainty");
+
+  const multiMaterialOpaqueKeep = imageMatch.assessActivityImageSemanticMatch(
+    {
+      title: "Sensory Bin Scoop and Pour",
+      materials: "bin\nscoops\ncups\nrice",
+      setup: "scoop and pour station",
+      steps: ["Scoop", "Pour", "Compare"],
+    },
+    {},
+    "/api/media/enrichment-photos/tk-enrich-11223344556677889900aabbccddeeff?variant=full",
+  );
+  ok(multiMaterialOpaqueKeep.matches === true, "valid opaque image for multi-material activity is not broadly replaced");
 }
 
 console.log("\nDraft-owned image URL precedence");
