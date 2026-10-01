@@ -17,6 +17,7 @@ const CAPABILITIES = Object.freeze({
   SONG_WORK: "SONG_WORK",
   BOOK_WORK: "BOOK_WORK",
   FULL_KIT_WORK: "FULL_KIT_WORK",
+  CONSERVATIVE_FULL_AUDIT: "CONSERVATIVE_FULL_AUDIT",
   AUDIT_ONLY: "AUDIT_ONLY",
   META_INSTRUCTION: "META_INSTRUCTION",
   RETRY_FAILED_ASSETS: "RETRY_FAILED_ASSETS",
@@ -180,6 +181,37 @@ function compileCapabilities(signals = {}, context = {}) {
     if (!signals.coverRequested) forbidden.add("touchCover");
     notes.push("Images-only capability — full Teaching Kit flags remain off.");
     return pack(CAPABILITIES.ACTIVITY_IMAGE_REPAIR, "finish_images", allowed, forbidden, reasons, notes, true);
+  }
+
+  if (signals.carefulFullAudit && !signals.fullKitRequested) {
+    allowed.add("upgradeLesson");
+    allowed.add("upgradeActivities");
+    allowed.add("saveDraft");
+    allowed.add("composeReviewDraft");
+    allowed.add("validate");
+    allowed.add("audit");
+    reasons.upgradeLesson = ["conservative full audit — repair weak required lesson content only"];
+    reasons.upgradeActivities = ["conservative full audit — repair weak required activity content only"];
+    allowed.add("checkImages");
+    allowed.add("touchImages");
+    allowed.add("generateImages");
+    allowed.add("replaceBadImages");
+    reasons.checkImages = ["audit activity images for exact-activity match"];
+    reasons.generateImages = ["generate missing activity images"];
+    reasons.replaceBadImages = signals.keepGoodImages
+      ? ["replace bad/wrong images; keep good exact-match images"]
+      : ["replace unjustified activity images"];
+    allowed.add("connectedUpgrade");
+    allowed.add("connectedAutoApply");
+    reasons.connectedUpgrade = ["compose repairs into owner review draft without optional kit churn"];
+    reasons.connectedAutoApply = ["approved changes save into the lesson draft — no separate Apply step"];
+    [
+      "generatePrintables", "touchPrintables", "checkPrintables",
+      "generateSongsBooks", "touchSongs", "touchBooks", "checkSongs", "checkBooks",
+      "touchCover", "publish", "createLesson",
+    ].forEach((flag) => forbidden.add(flag));
+    notes.push("Conservative full audit — fix defects and images; optional enrichment stays untouched.");
+    return pack(CAPABILITIES.CONSERVATIVE_FULL_AUDIT, "finish_review", allowed, forbidden, reasons, notes, true);
   }
 
   if (signals.fullKitRequested) {
@@ -388,6 +420,30 @@ function applyCapabilityFlags(actions = {}, compiled = {}) {
     next.composeReviewDraft = true;
     if (compiled.allowed.includes("replaceBadImages")) next.replaceBadImages = true;
     if (compiled.allowed.includes("touchCover")) next.touchCover = true;
+  }
+  if (compiled.primary === CAPABILITIES.CONSERVATIVE_FULL_AUDIT) {
+    next.connectedUpgrade = true;
+    next.connectedAutoApply = next.planOnly !== true;
+    next.composeReviewDraft = true;
+    next.conservativeFullAudit = true;
+    next.generateSongsBooks = false;
+    next.touchSongs = false;
+    next.touchBooks = false;
+    next.checkSongs = false;
+    next.checkBooks = false;
+    next.generatePrintables = false;
+    next.touchPrintables = false;
+    next.checkPrintables = false;
+    next.touchCover = false;
+    if (compiled.allowed.includes("replaceBadImages")) next.replaceBadImages = true;
+    if (compiled.allowed.includes("generateImages")) {
+      next.generateImages = true;
+      next.touchImages = true;
+      next.checkImages = true;
+    }
+    next.upgradeLesson = true;
+    next.upgradeActivities = true;
+    next.touchDraft = true;
   }
   if (compiled.primary === CAPABILITIES.META_INSTRUCTION || compiled.mutationsEnabled === false) {
     next.saveDraft = false;

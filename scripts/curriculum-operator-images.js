@@ -9,6 +9,7 @@
 "use strict";
 
 const schema = require("./curriculum-operator-schema.js");
+const imageMatch = require("./curriculum-operator-existing-image-match.js");
 
 const IMAGE_FIELDS = Object.freeze(["setupImageUrl", "exampleImageUrl"]);
 const WRITE_DECISIONS = Object.freeze(["GENERATE", "REPLACE"]);
@@ -309,6 +310,14 @@ function refineImageDecision(planItem, activity, patch = {}, options = {}) {
       nextReason = looksBroken
         ? "Existing image URL looks broken or placeholder; safe to replace after successful attach."
         : "Existing image looks like generic theme art rather than the real activity setup.";
+    } else if (options.auditExistingImages === true || options.keepGoodImages === true) {
+      const semantic = imageMatch.assessActivityImageSemanticMatch(activity, patch, existingUrl, {
+        semanticFixtures: options.semanticFixtures,
+      });
+      if (!semantic.matches) {
+        decision = "REPLACE";
+        nextReason = semantic.reason || "Existing image does not depict this activity.";
+      }
     } else if (options.forceReplaceAllImages === true && options.keepGoodImages !== true) {
       decision = "REPLACE";
       nextReason = "Owner explicitly requested regeneration of existing activity images.";
@@ -1128,7 +1137,7 @@ async function runImagePlanForLesson({
   const rawActions = schema.asArray(actionsOverride).length ? schema.asArray(actionsOverride) : buildImageActionsFromAudit(plan, activities, audit, {
     replaceBadImages,
     // Usable KEEP decisions stay KEEP unless forceReplaceAllImages (never default).
-    auditExistingImages: false,
+    auditExistingImages: replaceBadImages === true,
     keepGoodImages,
     forceReplaceAllImages: command?.actions?.forceReplaceAllImages === true,
     targetActivityIds,

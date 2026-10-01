@@ -441,6 +441,15 @@
     return text(publishedValue);
   }
 
+  /** Owned draft image URL: explicit null/"" in draft must not fall back to live image. */
+  function pickOwnedDraftImageUrl(draftObj, key, publishedValue) {
+    if (draftObj && typeof draftObj === "object" && Object.prototype.hasOwnProperty.call(draftObj, key)) {
+      if (draftObj[key] === null || draftObj[key] === undefined) return "";
+      return text(draftObj[key]);
+    }
+    return text(publishedValue);
+  }
+
   /**
    * Master-paste seeds enrichmentDraft.activities by itemId. After persist, store
    * activities are keyed by cur-act-* ids. Merge both so editor hydration cannot
@@ -821,10 +830,10 @@
       recommendedImageRequirementLabel: imageRequirementLabel(recommendedImageRequirement),
       ownerClassified,
       imageRequirementAiSuggestion,
-      setupImageUrl: text(d.setupImageUrl) || text(activity?.setupImageUrl || activity?.setupPhotoUrl),
-      exampleImageUrl: text(d.exampleImageUrl) || text(activity?.exampleImageUrl || activity?.examplePhotoUrl),
-      setupImageThumbUrl: text(d.setupImageThumbUrl) || text(d.setupImageUrl) || text(activity?.setupImageUrl || activity?.setupPhotoUrl),
-      exampleImageThumbUrl: text(d.exampleImageThumbUrl) || text(d.exampleImageUrl) || text(activity?.exampleImageUrl || activity?.examplePhotoUrl),
+      setupImageUrl: pickOwnedDraftImageUrl(d, "setupImageUrl", activity?.setupImageUrl || activity?.setupPhotoUrl),
+      exampleImageUrl: pickOwnedDraftImageUrl(d, "exampleImageUrl", activity?.exampleImageUrl || activity?.examplePhotoUrl),
+      setupImageThumbUrl: text(d.setupImageThumbUrl) || pickOwnedDraftImageUrl(d, "setupImageUrl", activity?.setupImageUrl || activity?.setupPhotoUrl),
+      exampleImageThumbUrl: text(d.exampleImageThumbUrl) || pickOwnedDraftImageUrl(d, "exampleImageUrl", activity?.exampleImageUrl || activity?.examplePhotoUrl),
       setupMediaAssetId: text(d.setupMediaAssetId),
       exampleMediaAssetId: text(d.exampleMediaAssetId),
       teacherTips: tips,

@@ -28,7 +28,9 @@ function buildOwnerSummary({
         ? "Repair printables"
         : compiled.primary === "FULL_KIT_WORK"
           ? "Finish Teaching Kit (draft only)"
-          : compiled.primary === "META_INSTRUCTION"
+          : compiled.primary === "CONSERVATIVE_FULL_AUDIT"
+            ? "Conservative lesson review (draft only)"
+            : compiled.primary === "META_INSTRUCTION"
             ? "Not a curriculum job"
             : (command.intent || "Review request");
 

@@ -990,7 +990,8 @@ function applyPostSemanticSafety(parsed, intent) {
     || primary === "ASSETS_ONLY_WORK"
     || primary === "RETRY_FAILED_ASSETS"
     || primary === "PRINTABLE_WORK"
-    || primary === "FULL_KIT_WORK") {
+    || primary === "FULL_KIT_WORK"
+    || primary === "CONSERVATIVE_FULL_AUDIT") {
     return parsed;
   }
   if (intent?.naturalIntent === NATURAL_INTENTS.IMAGE_ONLY_UPDATE) {

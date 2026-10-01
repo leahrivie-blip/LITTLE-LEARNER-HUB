@@ -388,7 +388,6 @@ function extractSignals(rawCommand) {
     || /\bupgrade\s+the\s+whole\s+teaching\s+kit\b/.test(folded)
     || /\bupgrade\s+the\s+existing\b/.test(folded)
     || /\beverything\s+missing\b/.test(folded)
-    || carefulFullAudit
     || (multiCapability && /\bsave\s+directly\s+to\s+the\s+editable\s+draft\b/.test(folded)))
     && !imagesOnlyResolved
     && !vocabOnly
@@ -438,6 +437,7 @@ function extractSignals(rawCommand) {
     publishRequested,
     publishConflict,
     fullKitRequested,
+    carefulFullAudit,
     collection,
     publishedOnly,
     sameAsPrevious,

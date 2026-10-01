@@ -323,6 +323,33 @@ function applyToParsedResult(parsed = {}, options = {}) {
     nextCommand.actions.publish = false;
     nextCommand.completion.mutationsEnabled = true;
   }
+  if (!isCreate && compiled.primary === "CONSERVATIVE_FULL_AUDIT") {
+    nextCommand.intent = "finish_review";
+    nextCommand.actions.conservativeFullAudit = true;
+    nextCommand.actions.connectedUpgrade = true;
+    nextCommand.actions.connectedAutoApply = nextCommand.actions.planOnly !== true;
+    nextCommand.actions.composeReviewDraft = true;
+    nextCommand.actions.saveDraft = true;
+    nextCommand.actions.upgradeLesson = true;
+    nextCommand.actions.upgradeActivities = true;
+    nextCommand.actions.generateImages = true;
+    nextCommand.actions.touchImages = true;
+    nextCommand.actions.checkImages = true;
+    nextCommand.actions.replaceBadImages = true;
+    nextCommand.actions.keepGoodImages = signals.keepGoodImages === true;
+    nextCommand.actions.forceReplaceAllImages = false;
+    nextCommand.actions.generateSongsBooks = false;
+    nextCommand.actions.touchSongs = false;
+    nextCommand.actions.touchBooks = false;
+    nextCommand.actions.checkSongs = false;
+    nextCommand.actions.checkBooks = false;
+    nextCommand.actions.generatePrintables = false;
+    nextCommand.actions.touchPrintables = false;
+    nextCommand.actions.checkPrintables = false;
+    nextCommand.actions.touchCover = false;
+    nextCommand.actions.publish = false;
+    nextCommand.completion.mutationsEnabled = true;
+  }
   if (compiled.primary === "META_INSTRUCTION" || signals.ambiguousBare && !context.previousIntent) {
     nextCommand.completion.mutationsEnabled = false;
     nextCommand.actions.saveDraft = false;
