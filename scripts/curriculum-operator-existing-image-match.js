@@ -39,11 +39,40 @@ function tokenize(value) {
     .filter((w) => w.length > 2);
 }
 
-function detectVisualGroups(tokens) {
+/** @param {string} token @param {string} hint @param {string} group */
+function tokenMatchesVisualHint(token, hint, group) {
+  const t = String(token || "").toLowerCase();
+  const h = String(hint || "").toLowerCase();
+  if (!t || !h) return false;
+  if (group === "wash" && t === "washable") return false;
+  if (t === h) return true;
+  if (group === "wash") {
+    return false;
+  }
+  if (h.length >= 4 && t.startsWith(h)) return true;
+  if (h.length >= 4 && t.includes(h)) return true;
+  if (t.length >= 4 && h.includes(t)) return true;
+  return false;
+}
+
+/**
+ * @param {string[]} tokens
+ * @param {{ omitGroups?: Set<string> }} [options]
+ */
+function detectVisualGroups(tokens, options = {}) {
+  const omitGroups = options.omitGroups instanceof Set ? options.omitGroups : new Set();
   const found = new Set();
   tokens.forEach((token) => {
+    if (token === "washable") {
+      return;
+    }
+    if (["wash", "washing", "scrub", "soap"].includes(token)) {
+      found.add("wash");
+    }
     Object.entries(VISUAL_GROUPS).forEach(([group, hints]) => {
-      if (hints.some((hint) => token.includes(hint) || hint.includes(token))) {
+      if (omitGroups.has(group)) return;
+      if (group === "wash") return;
+      if (hints.some((hint) => tokenMatchesVisualHint(token, hint, group))) {
         found.add(group);
       }
     });
@@ -69,9 +98,24 @@ function activityContextBlob(activity = {}, patch = {}) {
 }
 
 function requiredActivityGroups(activity, patch = {}) {
-  const tokens = tokenize(activityContextBlob(activity, patch));
-  const groups = detectVisualGroups(tokens);
   const title = text(activity.title, 180).toLowerCase();
+  const titleTokens = tokenize([
+    activity.title,
+    patch.objective,
+    patch.description,
+  ].map((p) => text(p, 1200)).filter(Boolean).join("\n"));
+  const bodyTokens = tokenize([
+    activity.objective,
+    activity.description,
+    activity.materials,
+    activity.setup,
+    activity.steps,
+    patch.materials,
+    patch.setup,
+    patch.steps,
+  ].map((p) => text(p, 1200)).filter(Boolean).join("\n"));
+  const groups = detectVisualGroups(titleTokens);
+  detectVisualGroups(bodyTokens, { omitGroups: new Set(["texture"]) }).forEach((g) => groups.add(g));
   if (/\bsort/.test(title) || /\bgroup/.test(title)) groups.add("sort");
   if (/\banimal/.test(title) || /\bstuffed/.test(title) || /\bplush/.test(title)) groups.add("animal");
   if (/\bpaint/.test(title) || /\bcolor/.test(title) || /\bmix/.test(title)) groups.add("paint");
@@ -173,12 +217,15 @@ function finishMatch(activityGroupsSet, imageGroupsSet, mode, context = {}) {
     };
   }
   if (!imageGroups.length) {
-    const strictSubjects = activityGroups.filter((g) => g !== "paint");
-    if (context.opaqueEnrichmentUrl && strictSubjects.length >= 2) {
+    if (
+      context.opaqueEnrichmentUrl
+      && activityGroups.includes("sort")
+      && activityGroups.includes("animal")
+    ) {
       return {
         matches: false,
         reason:
-          "Teaching-kit enrichment URL has no readable subject hints; cannot verify it depicts this multi-subject activity.",
+          "Teaching-kit enrichment URL has no readable subject hints; cannot verify animal-sorting depiction.",
         activityGroups,
         imageGroups,
       };

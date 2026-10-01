@@ -31,8 +31,8 @@ const activities = [
     lessonPlanId: LESSON_ID,
     setupImageUrl:
       "/api/media/enrichment-photos/tk-enrich-7fb9e73c1f07b7837458d02ff2bba506?variant=full",
-    materials: "Paint trays\nPrimary colors",
-    setup: "Low table with paint trays for mixing",
+    materials: "Paper tray\nWashable red and yellow tempera\nLarge brushes\nSmocks",
+    setup: "One tray per child or pair at a low table with smocks ready.",
     steps: ["Squeeze paint", "Mix colors"],
   },
   {
@@ -152,6 +152,31 @@ console.log("\nSemantic match adversarial cases");
     },
   );
   ok(registryRelevant.matches === true, "registry fileName animal+sort hints → keep");
+
+  const washablePaintKeep = imageMatch.assessActivityImageSemanticMatch(
+    {
+      title: "Color Mixing Tray",
+      materials: "Paper tray\nWashable red and yellow tempera\nLarge brushes\nSmocks",
+      setup: "One tray per child or pair at a low table with smocks ready.",
+    },
+    {},
+    "/api/media/enrichment-photos/tk-enrich-7fb9e73c1f07b7837458d02ff2bba506?variant=full",
+  );
+  ok(washablePaintKeep.matches === true, "washable tempera materials do not force wash/texture mismatch");
+
+  const groupsPaint = [...imageMatch.requiredActivityGroups({
+    title: "Color Mixing Tray",
+    materials: "Paper tray\nWashable red and yellow tempera\nLarge brushes\nSmocks",
+  })];
+  ok(!groupsPaint.includes("wash"), "washable does not create wash group");
+  ok(!groupsPaint.includes("texture"), "paint materials do not create texture group from body");
+
+  const opaqueJarCloudKeep = imageMatch.assessActivityImageSemanticMatch(
+    { title: "Rain Cloud in a Jar", materials: "jar\nwater", setup: "cloud in jar" },
+    {},
+    "/api/media/enrichment-photos/tk-enrich-aabbccddeeff00112233445566778899?variant=full",
+  );
+  ok(opaqueJarCloudKeep.matches === true, "opaque tk-enrich without evidence does not auto-replace jar+cloud");
 }
 
 console.log("\nDraft-owned image URL precedence");
