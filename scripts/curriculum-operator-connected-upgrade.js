@@ -9,6 +9,10 @@ const orchestrator = require("./curriculum-operator-orchestrator.js");
 const auditApi = require("./curriculum-operator-audit.js");
 const lessonRead = require("./curriculum-operator-lesson-read.js");
 
+function loadEnrichment() {
+  try { return require("./teaching-kit-enrichment.js"); } catch (_e) { return null; }
+}
+
 const COVER_QUALITY_GENERIC = /default\.svg|generic-infant|generic-toddler|generic-preschool/i;
 
 function text(value, max = 400) {
@@ -39,10 +43,17 @@ function isUsableActivityImageUrl(url) {
 }
 
 function activityImageUrl(plan, act, draftActs = {}) {
+  const enrich = loadEnrichment();
   const key = text(act.id) || text(act.itemId);
   const patch = draftActs[key] || draftActs[text(act.itemId)] || {};
-  const setup = text(patch.setupImageUrl || act.setupImageUrl, 600);
-  const example = text(patch.exampleImageUrl || act.exampleImageUrl, 600);
+  const view = enrich?.activityEnrichmentView
+    ? enrich.activityEnrichmentView(act, patch)
+    : {
+      setupImageUrl: patch.setupImageUrl || act.setupImageUrl,
+      exampleImageUrl: patch.exampleImageUrl || act.exampleImageUrl,
+    };
+  const setup = text(view.setupImageUrl, 600);
+  const example = text(view.exampleImageUrl, 600);
   const url = isUsableActivityImageUrl(setup) ? setup : (isUsableActivityImageUrl(example) ? example : "");
   return url;
 }

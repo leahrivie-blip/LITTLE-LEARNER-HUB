@@ -1191,6 +1191,8 @@ function createCurriculumOperatorApi(deps) {
         command: job.command,
         weeklyFieldScope: job.command?.actions?.weeklyFieldScope,
         explicitVocabularyRepair: lessonRead.commandRequestsVocabularyRepair(job.command),
+        conservativeOptionalEnrichment: job.command?.actions?.conservativeFullAudit === true,
+        connectedOperatorPath: job.command?.actions?.connectedUpgrade === true,
       };
       const before = auditOneLesson(plan, curriculum, auditOptions);
       if (!before.verification.ok) {
@@ -1924,6 +1926,7 @@ function createCurriculumOperatorApi(deps) {
         command: job.command,
         weeklyFieldScope: job.command?.actions?.weeklyFieldScope,
         explicitVocabularyRepair: lessonRead.commandRequestsVocabularyRepair(job.command),
+        conservativeOptionalEnrichment: job.command?.actions?.conservativeFullAudit === true,
       };
       const finalKitAudit = auditOneLesson(workingPlan, readSiteCurriculum(store), finalAuditOptions);
       auditAfter = finalKitAudit.audit;

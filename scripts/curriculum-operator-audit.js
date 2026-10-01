@@ -13,6 +13,7 @@
 
 const schema = require("./curriculum-operator-schema.js");
 const lessonRead = require("./curriculum-operator-lesson-read.js");
+const imageMatch = require("./curriculum-operator-existing-image-match.js");
 
 function loadStandards() {
   try { return require("./curriculum-standards.js"); } catch (_e) { return null; }
@@ -115,6 +116,8 @@ function isWeeklyFieldInScope(field, scope) {
 function classifyWeeklyFields(plan, draft, options = {}) {
   const week = draft?.week || {};
   const weeklyFieldScope = schema.asArray(options.weeklyFieldScope).map((field) => mapWeeklyFieldScope(field)).filter(Boolean);
+  const preserveOptionalEmpty = options.conservativeOptionalEnrichment === true
+    || options.command?.actions?.conservativeFullAudit === true;
   const explicitVocabularyRepair = options.explicitVocabularyRepair === true
     || lessonRead.commandRequestsVocabularyRepair(options.command || {});
   const defs = [
@@ -148,8 +151,8 @@ function classifyWeeklyFields(plan, draft, options = {}) {
       const cls = count >= 2
         ? { decision: "KEEP", reason: "Learning domains are present." }
         : (count === 1
-          ? { decision: "IMPROVE", reason: "Only one learning domain selected." }
-          : { decision: "FILL", reason: "Learning domains are empty." });
+          ? { decision: preserveOptionalEmpty ? "KEEP" : "IMPROVE", reason: preserveOptionalEmpty ? "Optional learning domains left as-is for conservative audit." : "Only one learning domain selected." }
+          : { decision: preserveOptionalEmpty ? "KEEP" : "FILL", reason: preserveOptionalEmpty ? "Optional learning domains empty — not auto-filled." : "Learning domains are empty." });
       return schema.normalizeFieldDecision({
         field: def.field,
         label: def.label,
@@ -164,9 +167,9 @@ function classifyWeeklyFields(plan, draft, options = {}) {
       if (quality.state === "VALID") {
         cls = { decision: "KEEP", reason: "Valid structured vocabulary present." };
       } else if (quality.state === "SYNC_NEEDED") {
-        cls = { decision: "FILL", reason: quality.reason };
+        cls = { decision: (preserveOptionalEmpty && !explicitVocabularyRepair) ? "KEEP" : "FILL", reason: quality.reason };
       } else if (quality.state === "THIN") {
-        cls = { decision: explicitVocabularyRepair ? "FILL" : "IMPROVE", reason: quality.reason };
+        cls = { decision: explicitVocabularyRepair ? "FILL" : (preserveOptionalEmpty ? "KEEP" : "IMPROVE"), reason: quality.reason };
       } else if (quality.state === "MALFORMED") {
         cls = { decision: "REPLACE", reason: quality.reason };
       } else {
@@ -310,11 +313,25 @@ function planImageDecision(act, patch = {}) {
         existingUrl: schema.text(view.setupImageUrl || view.exampleImageUrl, 500),
       };
     }
+    const existingUrl = schema.text(view.setupImageUrl || view.exampleImageUrl, 500);
+    const semantic = imageMatch.assessActivityImageSemanticMatch(act, patch, existingUrl);
+    if (!semantic.matches) {
+      return {
+        decision: "REPLACE",
+        reason: semantic.reason || "Existing image does not depict this activity.",
+        concept: [
+          `Realistic childcare classroom photo for ${schema.text(act.age || "the age group", 40)}.`,
+          title ? `Clearly showing “${title}”.` : "",
+          "Show the actual materials, setup, and child actions for this exact activity.",
+        ].filter(Boolean).join(" "),
+        existingUrl,
+      };
+    }
     return {
       decision: "KEEP_EXISTING",
-      reason: "An activity image is already linked and looks usable.",
+      reason: semantic.reason || "An activity image is already linked and matches this activity.",
       concept: "",
-      existingUrl: schema.text(view.setupImageUrl || view.exampleImageUrl, 500),
+      existingUrl,
     };
   }
   if (isSongLike
@@ -439,7 +456,9 @@ function planPrintableDecision(act, patch = {}, linkedResources = []) {
   };
 }
 
-function songsByWeekday(plan, draft) {
+function songsByWeekday(plan, draft, options = {}) {
+  const preserveOptionalEmpty = options.conservativeOptionalEnrichment === true
+    || options.command?.actions?.conservativeFullAudit === true;
   const week = draft?.week || {};
   const songs = schema.asArray(week.songs).length ? schema.asArray(week.songs) : schema.asArray(plan?.songs);
   const days = ["monday", "tuesday", "wednesday", "thursday", "friday"];
@@ -479,8 +498,10 @@ function songsByWeekday(plan, draft) {
     return schema.normalizeFieldDecision({
       field: `song.${day}`,
       label: day.charAt(0).toUpperCase() + day.slice(1),
-      decision: "MISSING",
-      reason: "No song linked for this weekday.",
+      decision: preserveOptionalEmpty ? "KEEP" : "MISSING",
+      reason: preserveOptionalEmpty
+        ? "Optional weekday song empty — not auto-filled in conservative audit."
+        : "No song linked for this weekday.",
       preview: "",
     });
   });
@@ -646,11 +667,15 @@ function auditLesson(plan, curriculum = {}, options = {}) {
     };
   });
 
-  const songs = songsByWeekday(plan, draft);
+  const auditConservative = options.conservativeOptionalEnrichment === true
+    || options.command?.actions?.conservativeFullAudit === true;
+  const songs = songsByWeekday(plan, draft, options);
   const booksList = schema.asArray(draft.week?.books).length
     ? schema.asArray(draft.week.books)
     : schema.asArray(plan.books);
-  let booksDecision = { decision: "FILL", reason: "No books listed." };
+  let booksDecision = auditConservative
+    ? { decision: "KEEP", reason: "Optional books section empty — not auto-filled in conservative audit." }
+    : { decision: "FILL", reason: "No books listed." };
   if (booksList.length) {
     const libraryPrompts = booksList.filter((b) => lessonRead.classifyBookRecord(b) === "CLASSROOM_LIBRARY_PROMPT");
     const needsGuide = booksList.filter((b) => lessonRead.bookNeedsDiscussionGuide(b));

@@ -306,7 +306,8 @@ console.log("\nTest 10 — full natural keep-good workflow");
   const cmd = "Go through this lesson, keep everything that's good, fix what looks bad, make the pictures actually look like the activities, and leave it ready for me to review.";
   const p = parse(cmd);
   const a = actions(p);
-  ok(p.interpretation?.primary === "FULL_KIT_WORK", "full natural command → careful full kit");
+  ok(p.interpretation?.primary === "CONSERVATIVE_FULL_AUDIT", "full natural command → conservative full audit");
+  ok(a.generateSongsBooks !== true && a.touchBooks !== true, "full natural no songs/books churn");
   ok(a.keepGoodImages === true, "full natural keepGoodImages");
   ok(a.replaceBadImages === true, "full natural replaceBadImages");
   ok(a.forceReplaceAllImages !== true, "full natural does not forceReplaceAllImages");
@@ -337,7 +338,7 @@ console.log("\nMatrix remainder");
   ok(actions(weather).keepGoodImages === true, "Test3 keep good");
   ok(actions(weather).touchCover === false, "Test3 cover off");
   const colors = parse("Check Colors All Around Us completely. Don't redo things just because you can. Keep what's already good and only fix what's actually weak, missing, broken, or doesn't match.");
-  ok(colors.interpretation?.primary === "FULL_KIT_WORK", "Test4 careful full audit");
+  ok(colors.interpretation?.primary === "CONSERVATIVE_FULL_AUDIT", "Test4 careful full audit");
   ok(actions(colors).keepGoodImages === true, "Test4 keep good");
   ok(actions(colors).publish === false, "Test4 no publish");
 }
