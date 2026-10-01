@@ -100,15 +100,24 @@ function parseCreationBrief(rawCommand, options = {}) {
   else accessPlan = options.defaultAccessPlan === "Pro" ? "Pro" : "Free";
 
   const countMatch = raw.match(/\b(\d{1,2})\s+activit/i);
+  const compactCompletePlan = !countMatch && /\bcomplete lesson plan\b/i.test(raw) && ageBand;
   const activityTarget = countMatch
     ? schema.clampInt(countMatch[1], 4, 24, null)
-    : (ageBand ? defaultActivityTarget(ageBand) : null);
+    : (compactCompletePlan
+      ? 4
+      : (ageBand ? defaultActivityTarget(ageBand) : null));
   const requestedActivities = extractRequestedActivities(raw);
   const materialCostMode = instructionProfile.resolveMaterialCostMode(raw, options.lessonInstructions || []);
 
   let title = "";
   const quoted = raw.match(/[“"]([^”"]{2,120})[”"]/);
   if (quoted) title = quoted[1].trim();
+  if (!title) {
+    const researchTheme = raw.match(/\bresearch\s+(.+?)\s+activities?\s+for\b/i);
+    if (researchTheme) {
+      title = researchTheme[1].replace(/\s+/g, " ").trim();
+    }
+  }
   if (!title) {
     const m = raw.match(
       /\b(?:create|make|build)\s+(?:me\s+)?(?:a\s+|an\s+)?(?:new\s+)?(?:(?:infant|toddler|preschool|school[\s-]?age|pro|free)\s+)*(.+?)(?:\s+lesson|\s+week|\s+kit|\s+teaching\s+kit)\b/i,

@@ -46,6 +46,7 @@
     "test:curriculum-operator-asset-retry": "NODE_ENV=test node scripts/test-curriculum-operator-asset-retry.js",
     "test:curriculum-operator-production-qa-prep-verify": "NODE_ENV=test node scripts/test-curriculum-operator-production-qa-prep-verify.js",
     "test:curriculum-operator-production-qa-live": "node scripts/run-curriculum-operator-production-qa-live.js",
+    "test:curriculum-operator-spring-planting-e2e": "NODE_ENV=test LLH_OPERATOR_AI_FIXTURE=1 LLH_OPERATOR_SONGS_BOOKS_FIXTURE=1 LLH_OPERATOR_PRINTABLE_FIXTURE=1 VISUAL_PRODUCTION_MOCK_GENERATE=1 LLH_OPERATOR_IMAGE_FIXTURE=1 node scripts/test-curriculum-operator-spring-planting-e2e.js",
     "test:curriculum-operator-instruction-profile": "NODE_ENV=test node scripts/test-curriculum-operator-instruction-profile.js",
     "test:curriculum-operator-nl-smoke-blockers": "NODE_ENV=test node scripts/test-curriculum-operator-nl-smoke-blockers.js",
     "test:curriculum-operator-nl-bugfix-qa": "NODE_ENV=test node scripts/test-curriculum-operator-nl-bugfix-qa.js",

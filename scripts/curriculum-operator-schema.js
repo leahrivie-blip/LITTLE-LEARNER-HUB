@@ -655,7 +655,7 @@ function normalizePlanFilter(value) {
 }
 
 function normalizeAgeBand(value) {
-  const key = text(value, 40).toLowerCase().replace(/[_-]+/g, " ");
+  const key = text(value, 4000).toLowerCase().replace(/[_-]+/g, " ");
   if (/infant|baby|0\s*[-–]\s*12/.test(key)) return "infant";
   if (/toddler|1\s*[-–]\s*2|2\s*[-–]\s*3/.test(key)) return "toddler";
   if (/preschool|pre.?k|3\s*[-–]\s*5|4\s*[-–]\s*5/.test(key)) return "preschool";
