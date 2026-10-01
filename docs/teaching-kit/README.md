@@ -4,24 +4,18 @@
 
 - Slice 1A–1F **done**
 - Phase 1 final QA **complete** — see [PHASE1_QA_READINESS_REPORT.md](./PHASE1_QA_READINESS_REPORT.md)
-- Teaching Kit flags remain **disabled** (`false`) by default
-- Product design **v4 approved** as the build target
-- Slice 1G (attachments) **optional / not started**
-- **Enrichment Editor Slice 1** approved
-- **Enrichment Editor Slice 2** approved
-- **Enrichment Editor Slice 3** approved
-- **Enrichment Editor Slice 4** approved
-- **Enrichment Editor Slice 5** approved
-- **Enrichment Editor Slice 6** approved
-- **Enrichment Editor Slice 7** approved as final implementation slice
+- **Customer launch enabled (2026-08-07)** — `teachingKitViewer` + `teachingKitPrintCenter` **true** in production; see [CUSTOMER_LAUNCH.md](./CUSTOMER_LAUNCH.md)
+- Code defaults remain **fail-closed** (`false`) until the production site-content flags are set
+- Slice 1G (attachments) **optional / not started** — keep `teachingKitAttachments` **false**
+- **Enrichment Editor Slice 1–7** approved; owner authoring flags may be enabled independently for Upgrade Lesson work
 - **Preservation remediation** approved
-- **Complete Teaching Kit binder authoring** ready for review — see [COMPLETE_TEACHING_KIT_AUTHORING.md](./COMPLETE_TEACHING_KIT_AUTHORING.md) (`teachingKitAuthoring` default **false**; Enrichment Editor remains off)
-- **AI Teacher Assistant** ready for review — see [AI_TEACHER_ASSISTANT.md](./AI_TEACHER_ASSISTANT.md) (Reusable Library + Make This Better + Teacher Chat; flags remain **false**)
-- **AI Curriculum Director** ready for review — see [AI_CURRICULUM_DIRECTOR.md](./AI_CURRICULUM_DIRECTOR.md) (library-wide intelligence + masters; `teachingKitCurriculumDirector` default **false**)
-- **AI Curriculum Quality Review** ready for review — see [AI_CURRICULUM_QUALITY_REVIEW.md](./AI_CURRICULUM_QUALITY_REVIEW.md) (specialist readiness + library health; `teachingKitQualityReview` default **false**)
-- **Curriculum Production** ready for review — see [CURRICULUM_PRODUCTION.md](./CURRICULUM_PRODUCTION.md) (upgrade highest-traffic lessons draft-only; flags remain **false**)
+- **Complete Teaching Kit binder authoring** — see [COMPLETE_TEACHING_KIT_AUTHORING.md](./COMPLETE_TEACHING_KIT_AUTHORING.md)
+- **AI Teacher Assistant** — see [AI_TEACHER_ASSISTANT.md](./AI_TEACHER_ASSISTANT.md)
+- **AI Curriculum Director** — see [AI_CURRICULUM_DIRECTOR.md](./AI_CURRICULUM_DIRECTOR.md)
+- **AI Curriculum Quality Review** — see [AI_CURRICULUM_QUALITY_REVIEW.md](./AI_CURRICULUM_QUALITY_REVIEW.md)
+- **Curriculum Production** — see [CURRICULUM_PRODUCTION.md](./CURRICULUM_PRODUCTION.md)
 - **Integrated Release Review** — see [INTEGRATED_RELEASE.md](./INTEGRATED_RELEASE.md) (`npm run test:teaching-kit-integrated-release`)
-- **No customer enablement** until owner personal review (Viewer / Print Center stay **false**)
+- **Customer enablement record** — [CUSTOMER_LAUNCH.md](./CUSTOMER_LAUNCH.md)
 
 ## Start here
 
@@ -44,6 +38,7 @@
 | **Curriculum Production** | [CURRICULUM_PRODUCTION.md](./CURRICULUM_PRODUCTION.md) |
 | **Integrated Release Review** | [INTEGRATED_RELEASE.md](./INTEGRATED_RELEASE.md) |
 | **Phase 1 QA readiness report** | [PHASE1_QA_READINESS_REPORT.md](./PHASE1_QA_READINESS_REPORT.md) |
+| **Customer launch record** | [CUSTOMER_LAUNCH.md](./CUSTOMER_LAUNCH.md) |
 | Clickable companion mockup | [mockups/gold-standard.html](./mockups/gold-standard.html) |
 | Technical architecture | [../TEACHING_KIT_PHASE1_ARCHITECTURE.md](../TEACHING_KIT_PHASE1_ARCHITECTURE.md) |
 | Print Center (Slice 1E/1F) | `scripts/teaching-kit-print.js` |
