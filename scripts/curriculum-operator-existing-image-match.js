@@ -93,6 +93,46 @@ function imageUrlGroups(imageUrl) {
   return detectVisualGroups(tokens);
 }
 
+function assetIdFromEnrichmentMediaUrl(value) {
+  const raw = text(value, 800);
+  if (!raw) return "";
+  try {
+    const u = raw.startsWith("/") ? new URL(raw, "http://local.invalid") : new URL(raw);
+    const id = decodeURIComponent(String(u.pathname.split("/").pop() || "").trim());
+    return /^tk-enrich-[a-f0-9]{16,64}$/i.test(id) ? id : "";
+  } catch {
+    return "";
+  }
+}
+
+function imageGroupsFromEnrichmentRegistry(assetId, options = {}) {
+  const registry = options.enrichmentMediaRegistry;
+  if (!assetId || !registry || typeof registry !== "object") return new Set();
+  const entry = registry[assetId];
+  if (!entry || typeof entry !== "object") return new Set();
+  const hintBlob = [
+    entry.fileName,
+    entry.originalFileName,
+    entry.localPath,
+    entry.activityKey,
+    entry.field,
+  ]
+    .map((p) => text(p, 400))
+    .filter(Boolean)
+    .join(" ");
+  if (!hintBlob) return new Set();
+  return detectVisualGroups(tokenize(hintBlob));
+}
+
+function mergeImageGroupSets(...sets) {
+  const merged = new Set();
+  sets.forEach((set) => {
+    if (!set) return;
+    [...set].forEach((g) => merged.add(g));
+  });
+  return merged;
+}
+
 /**
  * @returns {{ matches: boolean, reason: string, activityGroups: string[], imageGroups: string[] }}
  */
@@ -111,11 +151,15 @@ function assessActivityImageSemanticMatch(activity, patch = {}, imageUrl, option
   }
 
   const activityGroups = requiredActivityGroups(activity, patch);
-  const imageGroups = imageUrlGroups(url);
-  return finishMatch(activityGroups, imageGroups, "heuristic");
+  const urlGroups = imageUrlGroups(url);
+  const assetId = assetIdFromEnrichmentMediaUrl(url);
+  const registryGroups = imageGroupsFromEnrichmentRegistry(assetId, options);
+  const imageGroups = mergeImageGroupSets(urlGroups, registryGroups);
+  const opaqueEnrichmentUrl = Boolean(assetId) && !urlGroups.size;
+  return finishMatch(activityGroups, imageGroups, "heuristic", { opaqueEnrichmentUrl });
 }
 
-function finishMatch(activityGroupsSet, imageGroupsSet, mode) {
+function finishMatch(activityGroupsSet, imageGroupsSet, mode, context = {}) {
   const activityGroups = [...activityGroupsSet];
   const imageGroups = [...imageGroupsSet];
   if (!activityGroups.length) {
@@ -129,6 +173,16 @@ function finishMatch(activityGroupsSet, imageGroupsSet, mode) {
     };
   }
   if (!imageGroups.length) {
+    const strictSubjects = activityGroups.filter((g) => g !== "paint");
+    if (context.opaqueEnrichmentUrl && strictSubjects.length >= 2) {
+      return {
+        matches: false,
+        reason:
+          "Teaching-kit enrichment URL has no readable subject hints; cannot verify it depicts this multi-subject activity.",
+        activityGroups,
+        imageGroups,
+      };
+    }
     return {
       matches: true,
       reason: "Image URL has no conflicting subject hints; assuming match pending visual QA.",
