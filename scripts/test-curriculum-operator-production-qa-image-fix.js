@@ -29,7 +29,8 @@ const activities = [
     id: ACT_GOOD,
     title: "Color Mixing Tray",
     lessonPlanId: LESSON_ID,
-    setupImageUrl: "/api/media/enrichment-photos/tk-enrich-paint-tray-mixing?variant=full",
+    setupImageUrl:
+      "/api/media/enrichment-photos/tk-enrich-7fb9e73c1f07b7837458d02ff2bba506?variant=full",
     materials: "Paint trays\nPrimary colors",
     setup: "Low table with paint trays for mixing",
     steps: ["Squeeze paint", "Mix colors"],
@@ -38,7 +39,8 @@ const activities = [
     id: ACT_BAD,
     title: "Soft Animal Sorting",
     lessonPlanId: LESSON_ID,
-    setupImageUrl: "/api/media/enrichment-photos/mirror-toddlers-reflection?variant=full",
+    setupImageUrl:
+      "/api/media/enrichment-photos/tk-enrich-9e63542c80aaea9aa6ac48bb3f517c12?variant=full",
     materials: "Soft stuffed animals\nSorting bins",
     setup: "Bins labeled by animal type",
     steps: ["Sort animals into bins"],
@@ -106,6 +108,50 @@ console.log("\nSemantic match adversarial cases");
     "/api/media/paint-tray-mixing-colors",
   );
   ok(goodPaint.matches === true, "color mixing + paint tray → match");
+
+  const hashedMirrorWrong = imageMatch.assessActivityImageSemanticMatch(
+    { title: "Soft Animal Sorting", materials: "stuffed animals\nsorting bins", setup: "sort into bins" },
+    {},
+    "/api/media/enrichment-photos/tk-enrich-9e63542c80aaea9aa6ac48bb3f517c12?variant=full",
+  );
+  ok(hashedMirrorWrong.matches === false, "animal sorting + opaque tk-enrich mirror asset → mismatch");
+
+  const hashedPaintKeep = imageMatch.assessActivityImageSemanticMatch(
+    { title: "Color Mixing Tray", materials: "paint trays", setup: "mix paint" },
+    {},
+    "/api/media/enrichment-photos/tk-enrich-7fb9e73c1f07b7837458d02ff2bba506?variant=full",
+  );
+  ok(hashedPaintKeep.matches === true, "color mixing + opaque tk-enrich paint asset → keep");
+
+  const registryMirror = imageMatch.assessActivityImageSemanticMatch(
+    { title: "Soft Animal Sorting", materials: "stuffed animals\nsorting bins", setup: "sort into bins" },
+    {},
+    "/api/media/enrichment-photos/tk-enrich-deadbeefdeadbeefdeadbeefdeadbeef?variant=full",
+    {
+      enrichmentMediaRegistry: {
+        "tk-enrich-deadbeefdeadbeefdeadbeefdeadbeef": {
+          fileName: "mirror-me.png",
+          lessonPlanId: LESSON_ID,
+          activityKey: "other-activity",
+        },
+      },
+    },
+  );
+  ok(registryMirror.matches === false, "registry fileName mirror-me → mismatch for animal sorting");
+
+  const registryRelevant = imageMatch.assessActivityImageSemanticMatch(
+    { title: "Soft Animal Sorting", materials: "stuffed animals\nsorting bins", setup: "sort into bins" },
+    {},
+    "/api/media/enrichment-photos/tk-enrich-cafebabecafebabecafebabecafebabe?variant=full",
+    {
+      enrichmentMediaRegistry: {
+        "tk-enrich-cafebabecafebabecafebabecafebabe": {
+          fileName: "soft-animal-sorting-bins.png",
+        },
+      },
+    },
+  );
+  ok(registryRelevant.matches === true, "registry fileName animal+sort hints → keep");
 }
 
 console.log("\nDraft-owned image URL precedence");
