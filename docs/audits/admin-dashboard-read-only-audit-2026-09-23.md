@@ -87,6 +87,12 @@ No production store was read in this audit, so there is no live-account or live-
 
 “TK persona” wording alone is not currently an explicit safe account classifier and should be manually reviewed, not excluded from business metrics. Unusual names, unfamiliar domains, or email style alone are not test evidence.
 
+## Post-deployment Stripe configuration verification
+
+Read-only production checks confirmed that `/api/build-version` reports commit `a215339a801129d38b80a80d618940a71704201c`. Stripe readiness, checkout readiness, and webhook configuration all report `true`; the configured webhook endpoint is `/api/webhooks/stripe`. No secret values were read or exposed.
+
+No checkout request was repeated because the endpoint may perform server-side housekeeping before rejecting invalid input, which conflicts with the no-data-change requirement. Consequently, valid checkout creation, payment completion, signed webhook delivery, and production entitlement persistence remain unverified. This records Stripe as configuration-ready, not payment-verified.
+
 ## Required approval / follow-up
 
 Leah's approval is required before inspecting live provider logs, changing production configuration, modifying any production user/message/subscription/payment record, or performing a Stripe reconciliation/backfill. None is part of this change.
