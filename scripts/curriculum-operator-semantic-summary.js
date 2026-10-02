@@ -20,7 +20,15 @@ function buildOwnerSummary({
   const actions = command.actions || {};
   const scope = command.scope || {};
   const rows = schema.asArray(targets.rows);
-  const operation = compiled.primary === "ACTIVITY_IMAGE_REPAIR"
+  const researchOperation = command.intent;
+  const researchIntent = [
+    "research_only",
+    "research_then_create",
+    "research_then_update",
+  ].includes(researchOperation);
+  const operation = researchIntent
+    ? researchOperation
+    : compiled.primary === "ACTIVITY_IMAGE_REPAIR"
     ? "Repair activity images"
     : compiled.primary === "VOCABULARY_WORK"
       ? "Repair vocabulary"
@@ -34,7 +42,9 @@ function buildOwnerSummary({
             ? "Not a curriculum job"
             : (command.intent || "Review request");
 
-  const targetLine = scope.plan === "Free" && (targets.mode === "collection" || signals.collection)
+  const targetLine = researchIntent && !scope.lessonIds?.length && !scope.titles?.length
+    ? "No curriculum target"
+    : scope.plan === "Free" && (targets.mode === "collection" || signals.collection)
     ? "All currently matching FREE lessons"
     : rows.length === 1
       ? rows[0].title
@@ -44,6 +54,7 @@ function buildOwnerSummary({
 
   const included = [];
   const excluded = [];
+  if (researchIntent) included.push("research sources only");
   if (actions.checkImages || actions.generateImages) included.push("audit activity images");
   if (signals.keepGoodImages) included.push("keep good images");
   if (actions.replaceBadImages) included.push("replace bad/cartoon/generic images");
@@ -74,8 +85,16 @@ function buildOwnerSummary({
     ...excluded.map((item) => `✗ ${item}`),
     "",
     "Publishing: OFF",
-    "Save behavior: Successful approved AI changes will be saved directly into the lesson draft for your review.",
-    "Final action: When the job is ready, open the lesson, review the draft, and click Publish.",
+    researchIntent
+      ? "Save behavior: No curriculum changes are planned."
+      : "Save behavior: Successful approved AI changes will be saved directly into the lesson draft for your review.",
+    researchOperation === "research_then_create"
+      ? "Final action: Confirm before creating a new lesson."
+      : researchOperation === "research_then_update"
+        ? "Final action: Confirm before updating the existing lesson."
+        : researchIntent
+          ? "Final action: No curriculum job will run."
+          : "Final action: When the job is ready, open the lesson, review the draft, and click Publish.",
     `Cover image: ${actions.touchCover ? "INCLUDED" : "unchanged"}`,
     "",
     `Resolved targets: ${rows.length || (scope.plan ? "filtered collection" : 0)}`,
