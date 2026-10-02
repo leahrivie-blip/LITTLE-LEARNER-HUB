@@ -127,12 +127,16 @@ function probeAuditImageDecision(plan, curriculum, activityId, setupImageUrl) {
   const planProbe = JSON.parse(JSON.stringify(plan));
   const curriculumProbe = JSON.parse(JSON.stringify(curriculum));
   const actProbe = curriculumProbe.activities.find((a) => a.id === activityId);
-  if (actProbe) actProbe.setupImageUrl = setupImageUrl;
+  if (actProbe) {
+    actProbe.setupImageUrl = setupImageUrl;
+    actProbe.imageRequirement = "setup_only";
+  }
   if (!planProbe.enrichmentDraft) planProbe.enrichmentDraft = { activities: {} };
   if (!planProbe.enrichmentDraft.activities) planProbe.enrichmentDraft.activities = {};
   planProbe.enrichmentDraft.activities[activityId] = {
     ...(planProbe.enrichmentDraft.activities[activityId] || {}),
     setupImageUrl,
+    imageRequirement: "setup_only",
   };
   const audit = auditApi.auditLesson(planProbe, curriculumProbe, {
     command: {
@@ -147,32 +151,48 @@ function probeAuditImageDecision(plan, curriculum, activityId, setupImageUrl) {
 function writeActivityImageSeed(curriculum, lessonId, activityId, url) {
   const act = curriculum.activities.find((a) => a.id === activityId);
   const plan = curriculum.lessonPlans.find((p) => p.id === lessonId);
-  if (act) act.setupImageUrl = url;
+  if (act) {
+    act.setupImageUrl = url;
+    act.imageRequirement = "setup_only";
+  }
   if (plan?.enrichmentDraft?.activities) {
     if (!plan.enrichmentDraft.activities[activityId]) plan.enrichmentDraft.activities[activityId] = {};
     plan.enrichmentDraft.activities[activityId].setupImageUrl = url;
+    plan.enrichmentDraft.activities[activityId].imageRequirement = "setup_only";
   }
 }
 
 function seedImageUrlsOnly(store, lessonId) {
   const curriculum = store.siteContent.curriculum;
-  const ids = fixture.orderedActivityIds(curriculum, lessonId);
+  const ids = fixture.orderedActivityIds(curriculum, lessonId).filter((id) => {
+    const title = curriculum.activities.find((a) => a.id === id)?.title || "";
+    return !/seed\s*growth/i.test(title);
+  });
   ok(ids.length >= 4, "lesson has at least four activities for image audit seed");
   const plan = curriculum.lessonPlans.find((p) => p.id === lessonId);
+  ids.forEach((id) => {
+    const act = curriculum.activities.find((a) => a.id === id);
+    if (act) act.imageRequirement = "setup_only";
+    if (plan?.enrichmentDraft?.activities) {
+      if (!plan.enrichmentDraft.activities[id]) plan.enrichmentDraft.activities[id] = {};
+      plan.enrichmentDraft.activities[id].imageRequirement = "setup_only";
+    }
+  });
   const used = new Set();
-  const generateId = ids.find((id) => probeAuditImageDecision(plan, curriculum, id, "") === "GENERATE") || ids[0];
-  used.add(generateId);
-  const goodId = ids.find((id) => !used.has(id)
-    && probeAuditImageDecision(plan, curriculum, id, fixture.IMAGE_SEED.GOOD) === "KEEP")
-    || ids.find((id) => !used.has(id)) || ids[0];
+  const goodId = ids.find((id) => probeAuditImageDecision(plan, curriculum, id, fixture.IMAGE_SEED.GOOD) === "KEEP");
+  ok(goodId, "audit KEEP candidate for good image seed");
   used.add(goodId);
   const badId = ids.find((id) => !used.has(id)
-    && probeAuditImageDecision(plan, curriculum, id, fixture.IMAGE_SEED.BAD) === "REPLACE")
-    || ids.find((id) => !used.has(id)) || ids[1];
+    && probeAuditImageDecision(plan, curriculum, id, fixture.IMAGE_SEED.BAD) === "REPLACE");
+  ok(badId, "audit REPLACE candidate for bad image seed");
   used.add(badId);
+  const generateId = ids.find((id) => !used.has(id)
+    && probeAuditImageDecision(plan, curriculum, id, "") === "GENERATE");
+  ok(generateId, "audit GENERATE candidate for missing image seed");
+  used.add(generateId);
   const controlId = ids.find((id) => !used.has(id)
-    && probeAuditImageDecision(plan, curriculum, id, fixture.IMAGE_SEED.CONTROL) === "KEEP")
-    || ids.find((id) => !used.has(id)) || ids[3];
+    && probeAuditImageDecision(plan, curriculum, id, fixture.IMAGE_SEED.CONTROL) === "KEEP");
+  ok(controlId, "audit KEEP candidate for control image seed");
   writeActivityImageSeed(curriculum, lessonId, goodId, fixture.IMAGE_SEED.GOOD);
   writeActivityImageSeed(curriculum, lessonId, badId, fixture.IMAGE_SEED.BAD);
   writeActivityImageSeed(curriculum, lessonId, generateId, "");
@@ -279,7 +299,7 @@ async function main() {
       action: "run",
       phase: 7,
       confirm: true,
-      command: fixture.EXACT_COMMAND,
+      command: fixture.EXPLICIT_CREATE_COMMAND,
       operatorSessionId: SESSION,
     }, auth);
     ok(createRun.status === 200, "confirmed create run succeeds");

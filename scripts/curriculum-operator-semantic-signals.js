@@ -249,6 +249,7 @@ function extractSignals(rawCommand) {
     || /\btarget\s*:\s*vocab/.test(folded)
     || (vocabWork && /\b(?:nothing|anything)\s+else\b/.test(folded) && !/\b(?:images?|pictures?|photos?|cover|printables?)\b/.test(affirmativeAssetFolded));
   const printablesOnly = /\bprintables?\s+only\b/.test(folded)
+    || /\breplace\s+only\s+(?:the\s+)?[\w'’\-\s]+\s+printables?\b/.test(folded)
     || /\bonly\s+(?:the\s+|fix\s+(?:the\s+)?)?printables?\b/.test(folded)
     || /\bjust\s+(?:fix|update|make|improve)\s+(?:the\s+)?printables?\b/.test(folded)
     || (/\bprintables?\b/.test(folded) && /\b(?:dont|do not)\s+change\s+(?:the\s+)?(?:lesson\s+)?text\b/.test(folded)

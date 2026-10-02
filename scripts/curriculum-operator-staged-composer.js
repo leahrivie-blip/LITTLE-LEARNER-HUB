@@ -1039,6 +1039,12 @@ function buildStage1UserPrompt(brief, repairIssues, previousBlueprint) {
       accessPlan: brief.accessPlan,
       activityTarget,
       exclusions: brief.exclusions || {},
+      ...(schema.asArray(brief.requestedActivities).length
+        ? { requestedActivities: brief.requestedActivities }
+        : {}),
+      ...(schema.asArray(brief.explicitPrintables).length
+        ? { explicitPrintables: brief.explicitPrintables }
+        : {}),
     },
     requiredActivityCount: activityTarget,
     requiredWeekdays: architect.requiredWeekdays(),
@@ -1787,6 +1793,12 @@ function buildExpansionUserPrompt(brief, blueprint, outlineIds, options = {}) {
       ageBand: brief.ageBand,
       ageLabel: brief.ageLabel,
       accessPlan: brief.accessPlan,
+      ...(schema.asArray(brief.requestedActivities).length
+        ? { requestedActivities: brief.requestedActivities }
+        : {}),
+      ...(schema.asArray(brief.explicitPrintables).length
+        ? { explicitPrintables: brief.explicitPrintables }
+        : {}),
     },
     weeklyBlueprint: {
       title: blueprint.lesson.title,
@@ -3020,6 +3032,11 @@ function buildStagedFixtureResponse(userPrompt) {
   }
 
   // Stage 1 blueprint fixture (default)
+  const explicitPrintableHint = text(
+    schema.asArray(brief.explicitPrintables)[0]?.activityHint
+    || schema.asArray(brief.requestedActivities)[0],
+    120,
+  );
   const outlines = [];
   for (let i = 0; i < target; i += 1) {
     const day = WEEKDAYS[i % WEEKDAYS.length];
@@ -3027,7 +3044,13 @@ function buildStagedFixtureResponse(userPrompt) {
     const outlineId = outlineIdFor(theme, day, indexOnDay);
     const uniqueNoun = ["station", "invitation", "workshop", "lab", "trail", "studio", "circle", "hunt", "table", "corner", "path", "basket", "mat", "nook", "yard"][i % 15];
     const titleVerb = ["mix", "roll", "measure", "serve", "frost", "knead", "sift", "taste", "shape", "share", "count", "pour", "pack", "deliver", "celebrate"][i % 15];
-    const name = `${theme} ${titleVerb} ${uniqueNoun}`;
+    let name = `${theme} ${titleVerb} ${uniqueNoun}`;
+    if (i === 0 && explicitPrintableHint) {
+      const cleaned = explicitPrintableHint.replace(/\bactivity\b/gi, "").trim();
+      name = cleaned
+        ? `${cleaned.charAt(0).toUpperCase()}${cleaned.slice(1)} Activity`
+        : explicitPrintableHint;
+    }
     outlines.push({
       outlineId,
       name,
@@ -3035,11 +3058,19 @@ function buildStagedFixtureResponse(userPrompt) {
       domain: ["Sensory", "Math", "Dramatic Play", "Science / STEM", "Art / Creative", "Early Literacy", "Gross Motor", "Fine Motor", "Social-Emotional", "Music / Movement", "Outdoor", "Circle / Group", "STEM", "Language", "Practical Life"][i % 15],
       concept: `Children ${titleVerb} with ${theme.toLowerCase()} materials at the ${uniqueNoun} during ${progression[day]}.`,
       developmentalPurpose: `Build vocabulary, fine-motor control, and turn-taking tied to ${progression[day]}.`,
-      expectedAssetIntent: {
-        image: i % 3 === 0 ? "GENERATE" : "NOT_NEEDED",
-        printable: i % 4 === 0 ? "CREATE" : "NOT_NEEDED",
-        reason: "Only when modeling recognition helps.",
-      },
+      expectedAssetIntent: i === 0 && explicitPrintableHint
+        ? {
+          image: "GENERATE",
+          printable: "CREATE",
+          reason: "Owner requested an explicit activity-linked printable.",
+        }
+        : {
+          image: i % 3 === 0 ? "GENERATE" : "NOT_NEEDED",
+          printable: explicitPrintableHint ? "NOT_NEEDED" : (i % 4 === 0 ? "CREATE" : "NOT_NEEDED"),
+          reason: explicitPrintableHint
+            ? "Explicit owner printable targets another activity."
+            : "Only when modeling recognition helps.",
+        },
     });
   }
 

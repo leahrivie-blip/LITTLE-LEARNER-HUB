@@ -377,6 +377,66 @@ function planImageDecision(act, patch = {}) {
   };
 }
 
+function activityMatchesExplicitPrintableHint(act, patch = {}, activityHint = "") {
+  const hint = schema.text(activityHint, 120).toLowerCase();
+  if (!hint) return false;
+  const title = schema.text(act.title, 180).toLowerCase();
+  const blob = activityBlob(act, patch).toLowerCase();
+  if (title.includes(hint) || blob.includes(hint)) return true;
+  const tokens = hint.split(/\s+/).filter((word) => word.length > 2);
+  return tokens.length > 0 && tokens.every((word) => title.includes(word) || blob.includes(word));
+}
+
+function applyExplicitOwnerPrintableDecision(act, patch, printable, explicitPrintables = []) {
+  const requests = schema.asArray(explicitPrintables);
+  if (!requests.length) return printable;
+  const hit = requests.find((req) => activityMatchesExplicitPrintableHint(act, patch, req.activityHint));
+  if (!hit) return printable;
+  const resourceType = schema.text(hit.resourceType, 40)
+    || (/\bsequenc/i.test(hit.title) ? "sequencing_cards" : schema.text(printable.type, 40));
+  return {
+    decision: hit.replaceOnly ? "REPLACE" : "CREATE",
+    reason: "Owner explicitly requested a printable for this activity.",
+    type: resourceType || "sequencing_cards",
+    title: schema.text(hit.title, 180),
+    contents: schema.asArray(printable.contents).length
+      ? printable.contents
+      : ["clearly labeled stages from seed to sprout to plant"],
+    purpose: `Children use ${schema.text(hit.title, 180)} during ${schema.text(act.title, 180)}.`,
+    existingResourceIds: schema.asArray(printable.existingResourceIds),
+    ownerExplicitPrintable: true,
+  };
+}
+
+/**
+ * When the owner names explicit printable(s), defer heuristic CREATE/REPLACE on other activities
+ * so the job stays within printable budget and only the requested pack is generated.
+ * @param {object[]} assetPlan
+ * @param {object[]} explicitPrintables
+ */
+function constrainAssetPlanForExplicitOwnerPrintables(assetPlan, explicitPrintables = []) {
+  if (!schema.asArray(explicitPrintables).length) return assetPlan;
+  return schema.asArray(assetPlan).map((item) => {
+    if (item.printable?.ownerExplicitPrintable) return item;
+    const decision = schema.text(item.printable?.decision, 40);
+    if (decision !== "CREATE" && decision !== "REPLACE") return item;
+    return schema.normalizeAssetPlanItem({
+      ...item,
+      printable: {
+        ...item.printable,
+        decision: "NOT_NEEDED",
+        reason: "Owner named explicit printable scope; deferring other auto-generated printables.",
+        type: null,
+        title: "",
+        contents: [],
+        purpose: "",
+        existingResourceIds: schema.asArray(item.printable?.existingResourceIds),
+        ownerExplicitPrintable: false,
+      },
+    });
+  });
+}
+
 function planPrintableDecision(act, patch = {}, linkedResources = []) {
   const title = schema.text(act.title);
   const blob = activityBlob(act, patch);
@@ -638,7 +698,13 @@ function auditLesson(plan, curriculum = {}, options = {}) {
     const key = schema.text(act.id || act.itemId);
     const patch = draftActs[key] || {};
     const image = planImageDecision(act, patch);
-    const printable = planPrintableDecision(act, patch, linkedByActivity.get(key) || []);
+    let printable = planPrintableDecision(act, patch, linkedByActivity.get(key) || []);
+    printable = applyExplicitOwnerPrintableDecision(
+      act,
+      patch,
+      printable,
+      options.explicitPrintables || options.creationBrief?.explicitPrintables,
+    );
     return schema.normalizeAssetPlanItem({
       activityId: key,
       activityTitle: act.title,
@@ -647,6 +713,17 @@ function auditLesson(plan, curriculum = {}, options = {}) {
       printable,
     });
   });
+  const explicitPrintableRequests = schema.asArray(
+    options.explicitPrintables || options.creationBrief?.explicitPrintables,
+  );
+  const constrainedAssetPlan = constrainAssetPlanForExplicitOwnerPrintables(
+    assetPlan,
+    explicitPrintableRequests,
+  );
+  if (constrainedAssetPlan !== assetPlan) {
+    assetPlan.length = 0;
+    constrainedAssetPlan.forEach((row) => assetPlan.push(row));
+  }
 
   // Lesson-level printable recommendations for orphan/generic resources
   const lessonPrintableNotes = planResources.map((r) => {
@@ -864,6 +941,9 @@ module.exports = {
   classifyActivity,
   planImageDecision,
   planPrintableDecision,
+  applyExplicitOwnerPrintableDecision,
+  constrainAssetPlanForExplicitOwnerPrintables,
+  activityMatchesExplicitPrintableHint,
   recommendedFutureActions,
   estimateJobScope,
 };
