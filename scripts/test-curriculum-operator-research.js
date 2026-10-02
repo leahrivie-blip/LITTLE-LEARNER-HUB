@@ -209,8 +209,39 @@ function assertNoResearchMutationActions(parsed, label) {
     const springBrief = createApi.parseCreationBrief(fixture.EXACT_COMMAND).brief;
     const focusedQuery = research.buildResearchQuery(fixture.EXACT_COMMAND, springBrief);
     assert.match(focusedQuery, /spring planting/i, "spring query keeps theme");
+    assert.match(focusedQuery, /NAEYC/i, "spring query adds bounded NAEYC garden refinement");
+    assert.match(focusedQuery, /planting|seed/i, "spring query names planting/seed research");
     assert.doesNotMatch(focusedQuery, /complete lesson plan/i, "spring query drops create tail");
     assert.doesNotMatch(focusedQuery, /fix anything/i, "spring query drops operator execution tail");
+
+    const providerFixtures = require("./curriculum-operator-research-provider-fixtures.js");
+    const liveShapeSources = research.normalizeSources(providerFixtures.LIVE_WEB_SEARCH_MESSAGE_SHAPE, "probe");
+    assert.equal(liveShapeSources.length, 2, "live web_search message shape dedupes duplicate citations");
+    assert.equal(liveShapeSources.every((s) => s.url.startsWith("https://")), true, "accepted sources are https");
+
+    let retryCalls = 0;
+    const retried = await research.requestResearch({
+      query: focusedQuery,
+      brief: springBrief,
+      enabled: true,
+      apiKey: "test-key",
+      fetchImpl: async () => {
+        retryCalls += 1;
+        if (retryCalls === 1) {
+          return {
+            ok: true,
+            text: async () => JSON.stringify({ output: [{ content: [{ annotations: [] }] }] }),
+          };
+        }
+        return {
+          ok: true,
+          text: async () => JSON.stringify(providerFixtures.NAEYC_CONTROL_MESSAGE_SHAPE),
+        };
+      },
+    });
+    assert.equal(retryCalls, 2, "empty first pass triggers one bounded retry");
+    assert.equal(retried.ok, true, "retry can succeed without fabricating sources");
+    assert.equal(retried.sources.length, 4, "retry uses provider citations when present");
 
     let springProviderInput = "";
     globalThis.fetch = async (_url, init) => {
@@ -256,7 +287,8 @@ function assertNoResearchMutationActions(parsed, label) {
     });
     assert.equal(springParse.body.researchStatus, "ready", "compound spring research succeeds");
     assert.equal(springParse.body.conversationContext.researchSources.length, 1, "spring research stores sources");
-    assert.match(springProviderInput, /spring planting/i, "provider sees focused spring query");
+    assert.match(springProviderInput, /NAEYC/i, "provider sees refined spring planting research query");
+    assert.match(springProviderInput, /spring planting/i, "provider query stays faithful to spring planting theme");
     assert.equal(/create a complete lesson plan/i.test(springProviderInput), false, "provider input omits create tail");
     const withContext = createApi.parseCreationBrief(fixture.EXACT_COMMAND, {
       researchSources: springParse.body.conversationContext.researchSources,

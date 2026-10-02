@@ -31,6 +31,7 @@ async function handleParseRequest({
   const research = creationBrief.brief.researchRequested
     ? await researchApi.requestResearch({
       query: researchApi.buildResearchQuery(rawText, creationBrief.brief),
+      brief: creationBrief.brief,
       ...(dependencies.researchConfig || {}),
     })
     : null;

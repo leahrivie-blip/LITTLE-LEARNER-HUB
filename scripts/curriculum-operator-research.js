@@ -25,12 +25,40 @@ function resolveResearchTimeoutMs(options = {}) {
  * @param {string} rawCommand
  * @param {{ title?: string, theme?: string, ageBand?: string, ageLabel?: string }} [brief]
  */
+function formatThemeAgeResearchQuery(theme, age) {
+  const normalizedTheme = String(theme || "").trim();
+  const normalizedAge = String(age || "").trim();
+  const lower = normalizedTheme.toLowerCase();
+  if (/\bspring\b/.test(lower) && /\bplant/.test(lower)) {
+    return `Research NAEYC preschool spring garden planting and seed activities (${normalizedTheme}) for ${normalizedAge}`;
+  }
+  return `Research ${normalizedTheme} activities for ${normalizedAge}`;
+}
+
+/**
+ * Deterministic retry query when the provider returns zero citations (research-only).
+ * @param {string} primaryQuery
+ * @param {{ theme?: string, title?: string, ageLabel?: string, ageBand?: string }} [brief]
+ */
+function buildResearchRetryQuery(primaryQuery, brief = null) {
+  const theme = String(brief?.theme || brief?.title || "").trim();
+  const age = String(brief?.ageLabel || brief?.ageBand || "").trim();
+  const primary = String(primaryQuery || "").trim();
+  if (!theme || !age) return "";
+  const lower = `${theme} ${primary}`.toLowerCase();
+  if (/\bspring\b/.test(lower) && /\bplant/.test(lower)) {
+    const retry = `Research NAEYC playful garden planting seeds and spring activities for ${age}`;
+    return retry === primary ? "" : retry.slice(0, 800);
+  }
+  return "";
+}
+
 function buildResearchQuery(rawCommand, brief = null) {
   const raw = String(rawCommand || "").trim();
   const theme = String(brief?.theme || brief?.title || "").trim();
   const age = String(brief?.ageLabel || brief?.ageBand || "").trim();
   if (theme && age) {
-    return `Research ${theme} activities for ${age}`.slice(0, 800);
+    return formatThemeAgeResearchQuery(theme, age).slice(0, 800);
   }
   const commaCreate = raw.split(/\s*,\s*(?=create\b)/i);
   if (commaCreate.length > 1 && /\bresearch\b/i.test(commaCreate[0])) {
@@ -102,18 +130,13 @@ function normalizeSources(response = {}, query = "", retrievedAt = new Date().to
   }).filter(Boolean).slice(0, MAX_RESULTS);
 }
 
-async function requestResearch({
-  query = "",
-  apiKey = "",
-  enabled = false,
-  fetchImpl = globalThis.fetch,
-  now = () => Date.now(),
+async function callResearchProvider({
+  normalizedQuery,
+  apiKey,
+  fetchImpl,
+  now,
   timeoutMs,
-} = {}) {
-  const normalizedQuery = String(query || "").slice(0, 800);
-  if (!enabled) return researchUnavailable(normalizedQuery);
-  if (!String(apiKey || "").trim()) return { ...researchUnavailable(normalizedQuery), code: "research_api_key_missing" };
-  if (typeof fetchImpl !== "function") return { ...researchUnavailable(normalizedQuery), code: "research_provider_unavailable" };
+}) {
   const controller = new AbortController();
   const budgetMs = resolveResearchTimeoutMs({ timeoutMs });
   const timer = setTimeout(() => controller.abort(), budgetMs);
@@ -132,17 +155,59 @@ async function requestResearch({
     });
     if (!response.ok) return { ...researchUnavailable(normalizedQuery), code: "research_provider_error" };
     const raw = await response.text();
-    if (Buffer.byteLength(raw, "utf8") > MAX_RESPONSE_BYTES) return { ...researchUnavailable(normalizedQuery), code: "research_response_too_large" };
+    if (Buffer.byteLength(raw, "utf8") > MAX_RESPONSE_BYTES) {
+      return { ...researchUnavailable(normalizedQuery), code: "research_response_too_large" };
+    }
     let parsed;
-    try { parsed = JSON.parse(raw); } catch (_error) { return { ...researchUnavailable(normalizedQuery), code: "research_malformed_response" }; }
+    try {
+      parsed = JSON.parse(raw);
+    } catch (_error) {
+      return { ...researchUnavailable(normalizedQuery), code: "research_malformed_response" };
+    }
     const sources = normalizeSources(parsed, normalizedQuery, new Date(now()).toISOString());
     if (!sources.length) return { ...researchUnavailable(normalizedQuery), code: "research_empty_results" };
     return { ok: true, available: true, query: normalizedQuery, sources, provider: "openai_web_search" };
   } catch (error) {
-    return { ...researchUnavailable(normalizedQuery), code: error?.name === "AbortError" ? "research_timeout" : "research_provider_error" };
+    return {
+      ...researchUnavailable(normalizedQuery),
+      code: error?.name === "AbortError" ? "research_timeout" : "research_provider_error",
+    };
   } finally {
     clearTimeout(timer);
   }
+}
+
+async function requestResearch({
+  query = "",
+  apiKey = "",
+  enabled = false,
+  fetchImpl = globalThis.fetch,
+  now = () => Date.now(),
+  timeoutMs,
+  brief = null,
+} = {}) {
+  const normalizedQuery = String(query || "").slice(0, 800);
+  if (!enabled) return researchUnavailable(normalizedQuery);
+  if (!String(apiKey || "").trim()) return { ...researchUnavailable(normalizedQuery), code: "research_api_key_missing" };
+  if (typeof fetchImpl !== "function") return { ...researchUnavailable(normalizedQuery), code: "research_provider_unavailable" };
+  const first = await callResearchProvider({
+    normalizedQuery,
+    apiKey,
+    fetchImpl,
+    now,
+    timeoutMs,
+  });
+  if (first.ok || first.code !== "research_empty_results") return first;
+  const retryQuery = buildResearchRetryQuery(normalizedQuery, brief);
+  if (!retryQuery) return first;
+  const second = await callResearchProvider({
+    normalizedQuery: retryQuery,
+    apiKey,
+    fetchImpl,
+    now,
+    timeoutMs,
+  });
+  return second.ok ? second : first;
 }
 
 module.exports = {
@@ -154,6 +219,8 @@ module.exports = {
   MAX_TIMEOUT_MS,
   resolveResearchTimeoutMs,
   buildResearchQuery,
+  buildResearchRetryQuery,
+  formatThemeAgeResearchQuery,
   readiness,
   researchUnavailable,
   normalizeSources,
