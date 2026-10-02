@@ -711,6 +711,7 @@ function normalizeAssetPlanItem(raw = {}) {
         .map((id) => text(id, 160))
         .filter(Boolean)
         .slice(0, 20),
+      ownerExplicitPrintable: input.printable?.ownerExplicitPrintable === true,
     },
   };
 }

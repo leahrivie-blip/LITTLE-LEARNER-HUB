@@ -6,9 +6,11 @@
 
 const EXACT_COMMAND = "Research spring planting activities for preschoolers, create a complete lesson plan, make the activities age-appropriate, create the matching printable, use realistic activity pictures, keep anything that is already good, fix anything that is wrong, and leave it ready for me to review.";
 
+const EXPLICIT_CREATE_COMMAND = "Create a complete spring planting lesson for preschoolers. For the seed growth activity, make a printable Seed Growth Sequencing Cards PDF. It must be letter-size, child-friendly, printable in black and white or color, include clearly labeled stages from seed to sprout to plant, and be linked to the seed growth activity. Keep the lesson unpublished and ready for me to review.";
+
 const FOLLOW_UP_COMMANDS = [
   "Make Activity 1 easier for younger toddlers.",
-  "Replace only the printable.",
+  "Replace only the seed growth printable with a letter-size Seed Growth Sequencing Cards PDF. Do not change the lesson, activities, images, cover, books, songs, or any other printable.",
   "Make the materials more budget-friendly.",
   "Change only Activity 3’s image.",
   "Add a family connection without changing the activities.",
@@ -229,6 +231,7 @@ function lessonSnapshot(curriculum, lessonId) {
 
 module.exports = {
   EXACT_COMMAND,
+  EXPLICIT_CREATE_COMMAND,
   FOLLOW_UP_COMMANDS,
   MOCK_RESEARCH_SOURCES,
   IMAGE_SEED,

@@ -88,6 +88,10 @@ function printableImportance(action) {
   const title = text(action?.activityTitle || action?.spec?.title, 180).toLowerCase();
   const blob = `${type} ${reason} ${title}`;
 
+  if (action?.spec?.ownerExplicitPrintable === true) {
+    return PRINTABLE_IMPORTANCE.REQUIRED;
+  }
+
   if (/counting_mats|matching_cards|sorting_cards|sequencing_cards/.test(type)
     || /needs usable pieces|card\/sorting\/matching activity needs/i.test(blob)) {
     return PRINTABLE_IMPORTANCE.REQUIRED;
@@ -376,6 +380,7 @@ function buildPrintableSpec({
     brandingRequired: true,
     reason: text(planItem?.printable?.reason, 600),
     existingResourceIds: existingIds,
+    ...(planItem?.printable?.ownerExplicitPrintable === true ? { ownerExplicitPrintable: true } : {}),
   };
   return spec;
 }

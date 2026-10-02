@@ -36,7 +36,7 @@ function checkContradictions({
   if (signals.ageBand && scope.ageBand && scope.ageBand !== signals.ageBand) {
     block("age_band_mismatch", "scope.ageBand", `Command requested ${signals.ageBand} but plan uses ${scope.ageBand}.`);
   }
-  if ((signals.imagesOnly || signals.exclude.printables) && (
+  if (!signals.printablesOnly && (signals.imagesOnly || signals.exclude.printables) && (
     actions.touchPrintables === true || actions.generatePrintables === true
   )) {
     block("semantic_contradiction", "generatePrintables", "Images-only / printables-excluded command enabled printable mutation.");
