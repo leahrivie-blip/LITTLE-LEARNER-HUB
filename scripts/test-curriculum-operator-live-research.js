@@ -30,6 +30,19 @@ async function fetchOk() {
   assert.equal(malformed.code, "research_malformed_response", "malformed provider response rejected");
   const unsafe = await research.requestResearch({ query: "x", enabled: true, apiKey: "test-key", fetchImpl: async () => ({ ok: true, text: async () => JSON.stringify({ output: [{ content: [{ annotations: [{ url: "javascript:alert(1)", title: "Bad" }] }] }] }) }) });
   assert.equal(unsafe.code, "research_empty_results", "unsafe URLs rejected");
+  const urlCitation = research.normalizeSources({
+    output: [{
+      content: [{
+        annotations: [{
+          type: "url_citation",
+          url_citation: { url: "https://extension.umn.edu/family/child-development/scissor-skills", title: "Scissor Skills" },
+          text: "Practice cutting safely.",
+        }],
+      }],
+    }],
+  }, "probe");
+  assert.equal(urlCitation.length, 1, "url_citation annotations normalize");
+  assert.equal(urlCitation[0].url.includes("extension.umn.edu"), true, "url_citation url preserved");
   const providerError = await research.requestResearch({ query: "x", enabled: true, apiKey: "test-key", fetchImpl: async () => ({ ok: false, text: async () => "" }) });
   assert.equal(providerError.code, "research_provider_error", "provider errors do not fabricate research");
   console.log("Curriculum operator live research adapter checks passed.");

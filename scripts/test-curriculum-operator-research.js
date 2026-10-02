@@ -203,6 +203,130 @@ function assertNoResearchMutationActions(parsed, label) {
     assert.equal(first.body.conversationContext.researchSources[0].summary, "A concise, provider-supplied source summary.", "provider summary is preserved");
     assert.equal(duplicate.body.idempotent, true, "duplicate request is idempotent");
     assert.equal(providerCalls, 1, "duplicate request does not repeat the provider call");
+
+    const fixture = require("./curriculum-operator-spring-planting-e2e-fixture.js");
+    const createApi = require("./curriculum-operator-create.js");
+    const springBrief = createApi.parseCreationBrief(fixture.EXACT_COMMAND).brief;
+    const focusedQuery = research.buildResearchQuery(fixture.EXACT_COMMAND, springBrief);
+    assert.match(focusedQuery, /spring planting/i, "spring query keeps theme");
+    assert.doesNotMatch(focusedQuery, /complete lesson plan/i, "spring query drops create tail");
+    assert.doesNotMatch(focusedQuery, /fix anything/i, "spring query drops operator execution tail");
+
+    let springProviderInput = "";
+    globalThis.fetch = async (_url, init) => {
+      springProviderInput = JSON.parse(init.body).input;
+      return {
+        ok: true,
+        text: async () => JSON.stringify({
+          output: [{
+            type: "message",
+            content: [{
+              type: "output_text",
+              text: "Garden play ideas for preschool.",
+              annotations: [{
+                type: "url_citation",
+                url_citation: {
+                  url: "https://www.naeyc.org/resources/topics/play/garden-play-preschool",
+                  title: "Garden Play for Preschool",
+                },
+                text: "Sensory planting play guidance.",
+              }],
+            }],
+          }],
+        }),
+      };
+    };
+    const springStore = {};
+    const springParse = await boundary.handleParseRequest({
+      body: {
+        command: fixture.EXACT_COMMAND,
+        operatorSessionId: "spring-research-regression",
+        requestId: "spring-reg-1",
+      },
+      session: { email: "leah@example.test" },
+      store: springStore,
+      curriculum: { lessonPlans: [] },
+      dependencies: {
+        conversationStore: conversation,
+        parseCommand: command.parseOperatorCommand,
+        profileStore: { read: () => ({ version: 1, instructions: [] }) },
+        researchConfig: { enabled: true, apiKey: "test-key" },
+        now: () => Date.UTC(2026, 0, 1),
+      },
+    });
+    assert.equal(springParse.body.researchStatus, "ready", "compound spring research succeeds");
+    assert.equal(springParse.body.conversationContext.researchSources.length, 1, "spring research stores sources");
+    assert.match(springProviderInput, /spring planting/i, "provider sees focused spring query");
+    assert.equal(/create a complete lesson plan/i.test(springProviderInput), false, "provider input omits create tail");
+    const withContext = createApi.parseCreationBrief(fixture.EXACT_COMMAND, {
+      researchSources: springParse.body.conversationContext.researchSources,
+    });
+    assert.equal(withContext.brief.researchContext.length, 1, "confirmed create brief can carry researchContext");
+
+    const timedOut = await research.requestResearch({
+      query: "timeout probe",
+      enabled: true,
+      apiKey: "test-key",
+      timeoutMs: 100,
+      fetchImpl: (_url, init) => new Promise((resolve, reject) => {
+        const onAbort = () => reject(Object.assign(new Error("Aborted"), { name: "AbortError" }));
+        if (init?.signal?.aborted) {
+          onAbort();
+          return;
+        }
+        init?.signal?.addEventListener("abort", onAbort);
+        setTimeout(() => resolve({ ok: true, text: async () => "{}" }), 200);
+      }),
+    });
+    assert.equal(timedOut.ok, false, "timeout does not succeed");
+    assert.equal(timedOut.code, "research_timeout", "timeout code is explicit");
+    assert.equal(timedOut.sources.length, 0, "timeout never fabricates sources");
+
+    const empty = await research.requestResearch({
+      query: "empty probe",
+      enabled: true,
+      apiKey: "test-key",
+      fetchImpl: async () => ({
+        ok: true,
+        text: async () => JSON.stringify({ output: [{ content: [{ annotations: [] }] }] }),
+      }),
+    });
+    assert.equal(empty.ok, false, "empty annotations fail closed");
+    assert.equal(empty.code, "research_empty_results", "empty code is explicit");
+    assert.equal(empty.sources.length, 0, "empty never fabricates sources");
+
+    const controlCommand = "Research NAEYC playful garden activities for preschoolers only. Do not create a lesson.";
+    globalThis.fetch = async () => ({
+      ok: true,
+      text: async () => JSON.stringify({
+        output: [{ content: [{ annotations: [
+          { url: "https://example.edu/a", title: "A", text: "one" },
+          { url: "https://example.edu/b", title: "B", text: "two" },
+          { url: "https://example.edu/c", title: "C", text: "three" },
+          { url: "https://example.edu/d", title: "D", text: "four" },
+        ] }] }],
+      }),
+    });
+    const controlStore = {};
+    const controlParse = await boundary.handleParseRequest({
+      body: {
+        command: controlCommand,
+        operatorSessionId: "control-research",
+        requestId: "control-1",
+      },
+      session: { email: "leah@example.test" },
+      store: controlStore,
+      curriculum: { lessonPlans: [] },
+      dependencies: {
+        conversationStore: conversation,
+        parseCommand: command.parseOperatorCommand,
+        profileStore: { read: () => ({ version: 1, instructions: [] }) },
+        researchConfig: { enabled: true, apiKey: "test-key" },
+        now: () => Date.UTC(2026, 0, 1),
+      },
+    });
+    assert.equal(controlParse.body.researchStatus, "ready", "shorter control research still works");
+    assert.equal(controlParse.body.conversationContext.researchSources.length, 4, "control returns four sources");
   } finally {
     globalThis.fetch = originalFetch;
   }

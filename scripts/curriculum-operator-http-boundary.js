@@ -27,8 +27,12 @@ async function handleParseRequest({
     };
   }
   const correction = conversation.parseSemanticCorrection(rawText);
-  const research = createApi.parseCreationBrief(rawText).brief.researchRequested
-    ? await researchApi.requestResearch({ query: rawText, ...(dependencies.researchConfig || {}) })
+  const creationBrief = createApi.parseCreationBrief(rawText);
+  const research = creationBrief.brief.researchRequested
+    ? await researchApi.requestResearch({
+      query: researchApi.buildResearchQuery(rawText, creationBrief.brief),
+      ...(dependencies.researchConfig || {}),
+    })
     : null;
   if (correction.type === "start_over" && sessionId) {
     conversation.clearTemporaryConversation(store, ownerId, sessionId);

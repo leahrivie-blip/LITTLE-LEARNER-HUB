@@ -3,8 +3,48 @@
 const UNAVAILABLE_MESSAGE = "Live research is not connected yet. I can continue without current web research, or you can add an approved research provider.";
 const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
 const MAX_RESULTS = 5;
-const TIMEOUT_MS = 8000;
+/** Default live-research budget (web search often exceeds 8s on compound owner prompts). */
+const TIMEOUT_MS = 22000;
+const MIN_TIMEOUT_MS = 3000;
+const MAX_TIMEOUT_MS = 45000;
 const MAX_RESPONSE_BYTES = 120000;
+
+function resolveResearchTimeoutMs(options = {}) {
+  if (Number.isFinite(options.timeoutMs) && options.timeoutMs > 0) {
+    return Math.min(Math.max(options.timeoutMs, 50), MAX_TIMEOUT_MS);
+  }
+  const fromEnv = Number(process.env.CURRICULUM_OPERATOR_RESEARCH_TIMEOUT_MS);
+  if (Number.isFinite(fromEnv) && fromEnv >= MIN_TIMEOUT_MS) {
+    return Math.min(fromEnv, MAX_TIMEOUT_MS);
+  }
+  return TIMEOUT_MS;
+}
+
+/**
+ * Narrow owner compound prompts to a search-friendly query (research slice only).
+ * @param {string} rawCommand
+ * @param {{ title?: string, theme?: string, ageBand?: string, ageLabel?: string }} [brief]
+ */
+function buildResearchQuery(rawCommand, brief = null) {
+  const raw = String(rawCommand || "").trim();
+  const theme = String(brief?.theme || brief?.title || "").trim();
+  const age = String(brief?.ageLabel || brief?.ageBand || "").trim();
+  if (theme && age) {
+    return `Research ${theme} activities for ${age}`.slice(0, 800);
+  }
+  const commaCreate = raw.split(/\s*,\s*(?=create\b)/i);
+  if (commaCreate.length > 1 && /\bresearch\b/i.test(commaCreate[0])) {
+    return commaCreate[0].trim().slice(0, 800);
+  }
+  const thenCreate = raw.split(/\s+then\s+(?=create\b)/i);
+  if (thenCreate.length > 1 && /\bresearch\b/i.test(thenCreate[0])) {
+    return thenCreate[0].trim().slice(0, 800);
+  }
+  if (/\bresearch\b/i.test(raw) && /\bcreate\b/i.test(raw)) {
+    return raw.replace(/\s*,\s*create[\s\S]*$/i, "").trim().slice(0, 800);
+  }
+  return raw.slice(0, 800);
+}
 
 // Live research is opt-in: OPENAI_API_KEY and CURRICULUM_OPERATOR_LIVE_RESEARCH_ENABLED=true.
 function readiness({ enabled = false, apiKey = "" } = {}) {
@@ -36,6 +76,7 @@ function safeUrl(value) {
 function normalizeSources(response = {}, query = "", retrievedAt = new Date().toISOString()) {
   const annotations = [];
   for (const item of Array.isArray(response.output) ? response.output : []) {
+    if (Array.isArray(item?.annotations)) annotations.push(...item.annotations);
     for (const content of Array.isArray(item?.content) ? item.content : []) {
       annotations.push(...(Array.isArray(content?.annotations) ? content.annotations : []));
     }
@@ -43,7 +84,8 @@ function normalizeSources(response = {}, query = "", retrievedAt = new Date().to
   const seen = new Set();
   return annotations.map((annotation) => {
     const url = safeUrl(annotation?.url || annotation?.url_citation?.url);
-    const title = String(annotation?.title || annotation?.url_citation?.title || "").trim().slice(0, 240);
+    const title = String(annotation?.title || annotation?.url_citation?.title || "").trim().slice(0, 240)
+      || (url ? url.hostname : "");
     if (!url || !title || seen.has(url.href)) return null;
     seen.add(url.href);
     return {
@@ -60,13 +102,21 @@ function normalizeSources(response = {}, query = "", retrievedAt = new Date().to
   }).filter(Boolean).slice(0, MAX_RESULTS);
 }
 
-async function requestResearch({ query = "", apiKey = "", enabled = false, fetchImpl = globalThis.fetch, now = () => Date.now() } = {}) {
+async function requestResearch({
+  query = "",
+  apiKey = "",
+  enabled = false,
+  fetchImpl = globalThis.fetch,
+  now = () => Date.now(),
+  timeoutMs,
+} = {}) {
   const normalizedQuery = String(query || "").slice(0, 800);
   if (!enabled) return researchUnavailable(normalizedQuery);
   if (!String(apiKey || "").trim()) return { ...researchUnavailable(normalizedQuery), code: "research_api_key_missing" };
   if (typeof fetchImpl !== "function") return { ...researchUnavailable(normalizedQuery), code: "research_provider_unavailable" };
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  const budgetMs = resolveResearchTimeoutMs({ timeoutMs });
+  const timer = setTimeout(() => controller.abort(), budgetMs);
   try {
     const response = await fetchImpl(OPENAI_RESPONSES_URL, {
       method: "POST",
@@ -95,4 +145,17 @@ async function requestResearch({ query = "", apiKey = "", enabled = false, fetch
   }
 }
 
-module.exports = { UNAVAILABLE_MESSAGE, OPENAI_RESPONSES_URL, MAX_RESULTS, TIMEOUT_MS, readiness, researchUnavailable, normalizeSources, requestResearch };
+module.exports = {
+  UNAVAILABLE_MESSAGE,
+  OPENAI_RESPONSES_URL,
+  MAX_RESULTS,
+  TIMEOUT_MS,
+  MIN_TIMEOUT_MS,
+  MAX_TIMEOUT_MS,
+  resolveResearchTimeoutMs,
+  buildResearchQuery,
+  readiness,
+  researchUnavailable,
+  normalizeSources,
+  requestResearch,
+};
