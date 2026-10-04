@@ -62,6 +62,48 @@ function creationIdempotencyKey(brief) {
   return `create:${title}:${age}:${plan}`;
 }
 
+function normalizeExplicitPrintableTitle(titleRaw) {
+  return text(titleRaw, 180)
+    .replace(/\s+pdf$/i, "")
+    .replace(/^letter[- ]size\s+/i, "")
+    .trim();
+}
+
+function extractExplicitPrintableRequests(rawCommand) {
+  const raw = text(rawCommand, 4000);
+  if (!/\bprintable\b/i.test(raw)) return [];
+  const requests = [];
+  const seen = new Set();
+  const push = (activityHint, titleRaw, replaceOnly = false) => {
+    const activityHintClean = text(activityHint, 120).trim();
+    const title = normalizeExplicitPrintableTitle(titleRaw);
+    if (!activityHintClean || !title) return;
+    const key = `${activityHintClean.toLowerCase()}::${title.toLowerCase()}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    requests.push({
+      activityHint: activityHintClean,
+      title,
+      resourceType: /\bsequenc/i.test(title) ? "sequencing_cards" : "other",
+      ownerExplicitPrintable: true,
+      replaceOnly: replaceOnly === true,
+    });
+  };
+  const forActivityRe = /\bfor\s+the\s+([^,]+?)\s+activit(?:y|ies)\b[^.]{0,220}?\b(?:make|create)\s+(?:a\s+)?printable\s+(.+?)\s+pdf\b/gi;
+  let match = forActivityRe.exec(raw);
+  while (match) {
+    push(match[1], match[2], false);
+    match = forActivityRe.exec(raw);
+  }
+  const replaceOnlyRe = /\breplace\s+only\s+the\s+([^,]+?)\s+printable\b[^.]{0,200}?\bwith\s+(?:a\s+)?(?:letter[- ]size\s+)?(.+?)\s+pdf\b/gi;
+  match = replaceOnlyRe.exec(raw);
+  while (match) {
+    push(match[1], match[2], true);
+    match = replaceOnlyRe.exec(raw);
+  }
+  return requests;
+}
+
 function extractRequestedActivities(rawCommand) {
   const raw = text(rawCommand, 4000);
   const match = raw.match(/\busing\s+([^.!?]{3,700})/i)
@@ -106,7 +148,16 @@ function parseCreationBrief(rawCommand, options = {}) {
     : (compactCompletePlan
       ? 4
       : (ageBand ? defaultActivityTarget(ageBand) : null));
-  const requestedActivities = extractRequestedActivities(raw);
+  let requestedActivities = extractRequestedActivities(raw);
+  const explicitPrintables = extractExplicitPrintableRequests(raw);
+  explicitPrintables.forEach((req) => {
+    const hint = text(req.activityHint, 120);
+    if (!hint) return;
+    const exists = requestedActivities.some((item) => item.toLowerCase().includes(hint.toLowerCase())
+      || hint.toLowerCase().includes(item.toLowerCase()));
+    if (!exists) requestedActivities.push(hint);
+  });
+  requestedActivities = requestedActivities.slice(0, 24);
   const materialCostMode = instructionProfile.resolveMaterialCostMode(raw, options.lessonInstructions || []);
 
   let title = "";
@@ -145,6 +196,11 @@ function parseCreationBrief(rawCommand, options = {}) {
   const needsOwnerInput = [];
   if (!title && !theme) needsOwnerInput.push("title_or_theme");
   if (!ageBand) needsOwnerInput.push("age_band");
+  if (/\bfor\s+the\s+[^,]{2,80}\s+activit(?:y|ies)\b/i.test(raw)
+    && /\bprintable\b/i.test(raw)
+    && !explicitPrintables.length) {
+    needsOwnerInput.push("explicit_printable");
+  }
 
   const brief = {
     title: title || theme,
@@ -154,6 +210,7 @@ function parseCreationBrief(rawCommand, options = {}) {
     accessPlan,
     activityTarget: activityTarget || (ageBand ? defaultActivityTarget(ageBand) : 12),
     requestedActivities,
+    explicitPrintables,
     materialCostMode,
     effectiveInstructions: options.effectiveInstructions || null,
     researchContext: schema.asArray(options.researchSources).filter((source) => source && typeof source === "object").slice(0, 5),
@@ -567,6 +624,7 @@ module.exports = {
   DEFAULT_ACTIVITY_TARGETS,
   parseCreationBrief,
   extractRequestedActivities,
+  extractExplicitPrintableRequests,
   creationIdempotencyKey,
   findCreationDuplicates,
   similarityScore,

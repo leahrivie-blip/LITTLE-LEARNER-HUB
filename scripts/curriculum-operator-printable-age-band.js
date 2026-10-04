@@ -146,6 +146,12 @@ function isPrintableExistingLessonCommand(rawCommand) {
   if (/\bnew\s+(draft\s+)?(lesson|week)\b/i.test(raw)) return false;
   if (/\bmake\s+me\s+a\s+new\b/i.test(raw)) return false;
   if (/\bcreate\s+an?\s+new\b/i.test(raw)) return false;
+  if (
+    /\b(?:create|make|build)\s+(?:me\s+)?(?:a\s+|an\s+)?complete\b/i.test(raw)
+    && /\blesson\b/i.test(raw)
+  ) {
+    return false;
+  }
   return true;
 }
 

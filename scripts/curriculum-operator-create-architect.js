@@ -190,6 +190,9 @@ function buildArchitectUserPrompt(brief, { revisionIssues, previousContent, prev
       ...(schema.asArray(brief.requestedActivities).length
         ? ["Include every requestedActivities item as a complete activity; do not replace it with an unrelated activity."]
         : []),
+      ...(schema.asArray(brief.explicitPrintables).length
+        ? ["Include a complete activity for every explicitPrintables.activityHint so the owner-requested printable can link to that activity."]
+        : []),
       "researchRequested is informational only; do not claim web research occurred.",
     ],
   };

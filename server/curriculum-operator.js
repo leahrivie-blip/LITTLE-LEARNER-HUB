@@ -1195,6 +1195,7 @@ function createCurriculumOperatorApi(deps) {
         explicitVocabularyRepair: lessonRead.commandRequestsVocabularyRepair(job.command),
         conservativeOptionalEnrichment: job.command?.actions?.conservativeFullAudit === true,
         connectedOperatorPath: job.command?.actions?.connectedUpgrade === true,
+        explicitPrintables: schema.asArray(lr.creationBrief?.explicitPrintables),
       };
       const before = auditOneLesson(plan, curriculum, auditOptions);
       if (!before.verification.ok) {
@@ -1648,7 +1649,11 @@ function createCurriculumOperatorApi(deps) {
         } else {
         printablesRan = true;
         job.progress.currentAction = "printable.plan";
-        const printableAuditSource = auditOneLesson(workingPlan, readSiteCurriculum(store));
+        const printableAuditSource = auditOneLesson(workingPlan, readSiteCurriculum(store), {
+          command: job.command,
+          weeklyFieldScope: job.command?.actions?.weeklyFieldScope,
+          explicitPrintables: schema.asArray(workingLr.creationBrief?.explicitPrintables),
+        });
         const printableResult = await runPrintablesForLesson(
           job,
           workingPlan,

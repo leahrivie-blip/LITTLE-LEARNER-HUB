@@ -467,6 +467,13 @@ function detectNewLessonIntent(rawCommand, context = {}) {
     return true;
   }
   if (
+    /\b(?:create|make|build)\s+(?:me\s+)?(?:a\s+|an\s+)?complete\b/i.test(raw)
+    && /\blesson\b/i.test(raw)
+    && !/\b(?:fix|upgrade|improve|edit|replace)\s+(?:the\s+)?(?:my\s+)?/i.test(raw)
+  ) {
+    return true;
+  }
+  if (
     /\bi\s+need\s+(?:a\s+|an\s+)?(?:infant|toddler|preschool|school[\s-]?age)\s+lesson\b/i.test(raw)
     && /\b(?:about|with|for)\b/i.test(raw)
   ) return true;
