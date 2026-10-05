@@ -1431,9 +1431,13 @@ async function main() {
       brief15,
       thinV.issues,
     );
-    ok(mergedGeneric.ok === false
-      && mergedGeneric.issues.some((i) => /safetyNotes/i.test(i)),
-      "repaired generic safetyNotes remains BLOCKED");
+    ok(
+      mergedGeneric.ok === true
+      && mergedGeneric.activities.slice(0, 3).every((a) => (
+        !staged.rejectGeneric(`${a.title}.safetyNotes`, a.safetyNotes)
+      )),
+      "generic safetyNotes AI repair is replaced via activity-specific synthesis (validation unchanged)",
+    );
 
     let expandN = 0;
     let repairN = 0;
@@ -1462,14 +1466,14 @@ async function main() {
         return staged.buildStagedFixtureResponse(user);
       },
     });
-    ok(blockedSafety.ok === false && blockedSafety.code === "AI_CREATION_FAILED",
-      "no lesson.create on failed safety repair");
-    ok(repairN === 1 && expandN === 1, "no second quality repair on safety failure");
-    const b1Fail = schema.asArray(blockedSafety.stagedDiagnostics?.batches).find((b) => b.batchNumber === 1);
-    ok(schema.asArray(b1Fail?.initialSafetyFailures).length >= 1, "diagnostics initialSafetyFailures present");
-    ok(schema.asArray(b1Fail?.safetyRepairOutlineIds).length >= 1, "diagnostics safetyRepairOutlineIds present");
-    ok(schema.asArray(b1Fail?.postRepairSafetyFailures).length >= 1, "diagnostics postRepairSafetyFailures present");
-    ok(b1Fail?.finalBatchPass === false, "diagnostics finalBatchPass false after failed safety repair");
+    ok(blockedSafety.ok === true,
+      "generic safetyNotes AI repair is recovered via activity-specific synthesis before lesson.create");
+    const b1Recovered = schema.asArray(blockedSafety.stagedDiagnostics?.batches).find((b) => b.batchNumber === 1);
+    ok(Number(b1Recovered?.activityRepairCalls) === 1,
+      "one quality repair on batch 1 before synthesis recovery");
+    ok(schema.asArray(b1Recovered?.initialSafetyFailures).length >= 1, "diagnostics initialSafetyFailures present");
+    ok(schema.asArray(b1Recovered?.safetyRepairOutlineIds).length >= 1, "diagnostics safetyRepairOutlineIds present");
+    ok(b1Recovered?.finalBatchPass === true, "diagnostics finalBatchPass true after synthesis recovery");
 
     expandN = 0;
     repairN = 0;
@@ -3280,13 +3284,13 @@ async function main() {
         return staged.buildStagedFixtureResponse(user);
       },
     });
-    ok(badRepair === 1, "failed safety repair still uses exactly one quality repair");
-    ok(stillGeneric.ok === false && !stillGeneric.content,
-      "failed safety repair still blocks batch / create");
-    const failBatch = schema.asArray(stillGeneric.stagedDiagnostics?.batches).find((b) => b.batchNumber === 1);
-    ok(schema.asArray(failBatch?.genericSafetyAfter).length >= 1
-      || schema.asArray(failBatch?.postRepairSafetyFailures).some((i) => /safetyNotes/i.test(String(i))),
-      "genericSafetyAfter / postRepairSafetyFailures record remaining failure");
+    const paraphraseBatch = schema.asArray(stillGeneric.stagedDiagnostics?.batches).find((b) => b.batchNumber === 1);
+    ok(Number(paraphraseBatch?.activityRepairCalls) === 1,
+      "paraphrased generic safety repair still uses exactly one quality repair");
+    ok(stillGeneric.ok === true,
+      "paraphrased generic safetyNotes is recovered via activity-specific synthesis");
+    ok(paraphraseBatch?.finalBatchPass === true,
+      "batch passes after synthesis replaces paraphrased generic safety");
 
     let continueRepair = 0;
     let expandN = 0;
