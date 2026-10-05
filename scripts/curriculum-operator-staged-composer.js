@@ -23,6 +23,8 @@ const MAX_ARCHITECTURE_CALLS = 2; // initial + one Stage-1 repair
 const MAX_BATCH_RETRIES = 1;
 const MAX_EXPANSION_PARSE_RETRIES = 1; // one parse/transport recovery per batch
 const MAX_QUALITY_REPAIR_CALLS_PER_BATCH = 1; // one targeted quality repair per batch
+/** Second pass in the same batch when post-repair failures are only too_short (field-targeted). */
+const MAX_TOO_SHORT_FOLLOWUP_REPAIR_CALLS_PER_BATCH = 1;
 const MAX_FINAL_REPAIR_CALLS = 1;
 const STAGE_MAX_OUTPUT_TOKENS = 12000;
 
@@ -1517,6 +1519,7 @@ function expansionFieldQualityExpectations() {
     observationPrompts: "Concrete teacher noticeables (array). Bad: \"Observe the child.\" Good: notice one-to-one correspondence, quantity language, recounts.",
     adaptations: "Real support adaptation (canonical field name: adaptations). Bad: \"Provide support.\" Good: larger manipulatives + one action at a time.",
     extensions: "Real added challenge. Bad: \"Make it harder.\" Good: compare two groups before counting to check.",
+    preparation: "Teacher prep before children arrive: stage materials at child height, pre-count pieces, and post visual cues. Bad: \"Prep materials.\" Good: name what to set out, where, and any safety check tied to this activity.",
     steps: "Multiple actionable steps unless the activity is genuinely tiny.",
     cleanupTips: "May be concise if specific.",
     vocabulary: [
@@ -1647,6 +1650,37 @@ function fieldRepairQualityInstruction(field, reason) {
   if (canonical === "materials") {
     return "List concrete activity materials with enough detail to set up the experience (not a one-word list).";
   }
+  if (canonical === "extensions") {
+    if (why === "generic_filler") {
+      return [
+        "The existing extensions text is too generic.",
+        "REPLACE it with a real added challenge for THIS activity that builds on the same materials and learning goal.",
+        "Bad: \"Make it harder.\" / \"Do more.\"",
+        "Good: a concrete next step children can try (compare, sort, measure, document, teach a peer) using this activity's setup.",
+      ].join(" ");
+    }
+    return [
+      "EXPAND extensions into a concrete added challenge for this same activity.",
+      "Name what children do next, how it builds on the current setup/materials, and what deeper skill they practice.",
+      "Use activityContext (concept, materials, setup, steps, currentExtensions).",
+      "Meet the existing ≥8-word depth gate with activity-specific substance — not generic \"make it harder\" filler.",
+    ].join(" ");
+  }
+  if (canonical === "preparation") {
+    if (why === "generic_filler") {
+      return [
+        "The existing preparation text is too generic.",
+        "REPLACE it with teacher prep steps before children arrive: what to stage, where, counts, and any safety/environment check for THIS activity.",
+        "Do not return \"Prep materials\" or \"Set up the room\" without activity-specific detail.",
+      ].join(" ");
+    }
+    return [
+      "EXPAND preparation into concrete teacher prep before children arrive.",
+      "Include staging materials (counts/placement), environment setup, and any activity-specific safety check.",
+      "Use activityContext (concept, materials, setup, steps, currentPreparation).",
+      "Meet the existing ≥8-word depth gate — not a one-word or two-word label like \"Prep trays.\"",
+    ].join(" ");
+  }
   return "";
 }
 
@@ -1715,6 +1749,8 @@ function enrichExpansionRepairTargets(repairTargets, previousActivities, bluepri
         requiredQuestionCount: MIN_TEACHER_LANGUAGE_PROMPT_LINES,
         currentIndoorAlternatives: text(prior.indoorAlternatives, 500),
         currentOutdoorAlternatives: text(prior.outdoorAlternatives, 500),
+        currentExtensions: text(prior.extensions, 500),
+        currentPreparation: text(prior.preparation, 500),
       },
     };
   });
@@ -2054,6 +2090,39 @@ function planExpansionRepair(issues, activities) {
     unmappedQualityIssues: unmapped,
     canRepair: unmapped.length === 0 && targets.length > 0,
   };
+}
+
+/** rejectGeneric too-short failures only (not thin_vocabulary / missing_tips suffix codes). */
+function isRejectGenericTooShortIssue(issue) {
+  return /^Too short:\s*.+\.[A-Za-z]+$/.test(text(issue, 240));
+}
+
+/** True when every actionable quality issue is a mapped rejectGeneric too_short field failure. */
+function expansionQualityIssuesAreOnlyTooShort(issues, activities) {
+  const list = schema.asArray(issues).map((i) => text(i, 200)).filter(Boolean);
+  if (!list.length) return false;
+  let sawTooShort = false;
+  for (const issue of list) {
+    if (!isRejectGenericTooShortIssue(issue)) {
+      const parsed = parseExpansionIssueTarget(issue, activities);
+      if (parsed.structural || (!parsed.hit && !parsed.unmapped)) continue;
+      return false;
+    }
+    const parsed = parseExpansionIssueTarget(issue, activities);
+    if (parsed.unmapped || !parsed.hit || parsed.hit.reason !== "too_short") return false;
+    sawTooShort = true;
+  }
+  return sawTooShort;
+}
+
+function filterTooShortExpansionQualityIssues(issues, activities) {
+  return schema.asArray(issues)
+    .map((i) => text(i, 200))
+    .filter((raw) => {
+      if (!isRejectGenericTooShortIssue(raw)) return false;
+      const parsed = parseExpansionIssueTarget(raw, activities);
+      return parsed.hit && parsed.hit.reason === "too_short";
+    });
 }
 
 function buildExpansionRepairTargets(issues, activities) {
@@ -3833,16 +3902,38 @@ async function composeStagedLessonContent(brief, options = {}) {
         };
       }
 
-      // ONE targeted quality repair for ALL mapped targets in this batch
+      let tooShortFollowUpUsed = false;
+      const maxQualityRepairRounds = 1 + MAX_TOO_SHORT_FOLLOWUP_REPAIR_CALLS_PER_BATCH;
+      let activeRepairIssues = lastIssues.filter((i) => !/^unmapped_quality_issue:/i.test(String(i)));
+      let postSweep = null;
+      let genericDiag = genericDiagBase;
+
+      for (let repairRound = 0; repairRound < maxQualityRepairRounds; repairRound += 1) {
+        if (repairRound > 0) {
+          if (!expansionQualityIssuesAreOnlyTooShort(lastIssues, priorBatchActivities)) break;
+          activeRepairIssues = filterTooShortExpansionQualityIssues(lastIssues, priorBatchActivities);
+          if (!activeRepairIssues.length) break;
+          lastRepairPlan = repairPlanner(activeRepairIssues, priorBatchActivities);
+          lastRepairTargets = lastRepairPlan.mappedRepairTargets;
+          lastUnmappedIssues = lastRepairPlan.unmappedQualityIssues;
+          if (!lastRepairPlan.canRepair) break;
+          tooShortFollowUpUsed = true;
+          lastInitialFailures = activeRepairIssues;
+        }
+
+      // ONE targeted quality repair for mapped targets in this batch (optional too_short follow-up)
       repairUsed = true;
       batchRepairCalls += 1;
       usage.activityRepairCalls += 1;
+      const repairStageLabel = tooShortFollowUpUsed && repairRound > 0
+        ? `activity_expansion_${batchKey}_too_short_repair`
+        : `activity_expansion_${batchKey}_repair`;
       const repairPrompt = buildExpansionRepairUserPrompt(
         brief,
         blueprint,
         ids,
         priorBatchActivities,
-        lastIssues.filter((i) => !/^unmapped_quality_issue:/i.test(String(i))),
+        activeRepairIssues,
         { batchNumber: batchIndex + 1, repairPlan: lastRepairPlan },
       );
       const repairStage = await callAiStage(
@@ -3852,7 +3943,7 @@ async function composeStagedLessonContent(brief, options = {}) {
         usage,
         diagnostics,
         {
-          stage: `activity_expansion_${batchKey}_repair`,
+          stage: repairStageLabel,
           expectedObjectCount: ids.length,
         },
       );
@@ -3871,7 +3962,7 @@ async function composeStagedLessonContent(brief, options = {}) {
           ...(repairStage.flags?.reasons || []),
         ];
         pushStageDiag(diagnostics, {
-          stage: `activity_expansion_${batchKey}_repair`,
+          stage: repairStageLabel,
           model: repairStage.meta?.model,
           finishReason: repairStage.meta?.finishReason,
           outputChars: lastOutputChars,
@@ -3883,35 +3974,7 @@ async function composeStagedLessonContent(brief, options = {}) {
           validationIssues: lastIssues,
           ok: false,
         });
-        batchState[batchKey] = {
-          status: "FAILED",
-          outlineIds: ids,
-          issues: lastIssues,
-          repairUsed: true,
-          parseRetryUsed,
-          expansionAttempts,
-          mappedRepairTargets: lastRepairTargets,
-        };
-        recordFailDiag({
-          preRepairQualityIssues,
-          issueCountByField: preIssueCountByField,
-          postRepairQualityIssues: preRepairQualityIssues,
-          ...genericDiagBase,
-          genericFillerAfter: genericDiagBase.genericFillerBefore,
-        });
-        return {
-          ok: false,
-          code: "AI_CREATION_FAILED",
-          error: `Stage 2 batch ${batchKey} failed: ${lastIssues.slice(0, 8).join("; ")}`,
-          issues: lastIssues,
-          usage,
-          stagedDiagnostics: diagnostics,
-          progress: {
-            creationBlueprintComplete: true,
-            creationBlueprint: blueprint,
-            activityExpansionBatches: batchState,
-          },
-        };
+        break;
       }
 
       validated = coalesceExpansionBatch(
@@ -3923,7 +3986,7 @@ async function composeStagedLessonContent(brief, options = {}) {
         lastInitialFailures,
       );
       // Full post-repair sweep across all activities/fields (not only targeted fields).
-      const postSweep = sweepExpansionActivitiesQuality(validated.activities);
+      postSweep = sweepExpansionActivitiesQuality(validated.activities);
       const postStructural = schema.asArray(validated.issues).filter((iss) => (
         !postSweep.issueStrings.includes(iss)
       ));
@@ -3933,7 +3996,7 @@ async function composeStagedLessonContent(brief, options = {}) {
         issues: postAllIssues,
         ok: postAllIssues.length === 0 && validated.activities.length === ids.length,
       };
-      const genericDiag = collectGenericFillerRepairDiagnostics(
+      genericDiag = collectGenericFillerRepairDiagnostics(
         lastRepairTargets,
         preRepairQualityIssues,
         postSweep.structuredIssues,
@@ -3959,7 +4022,7 @@ async function composeStagedLessonContent(brief, options = {}) {
       priorBatchActivities = validated.activities;
       lastIssues = validated.issues;
       pushStageDiag(diagnostics, {
-        stage: `activity_expansion_${batchKey}_repair`,
+        stage: repairStageLabel,
         model: repairStage.meta?.model,
         finishReason: repairStage.meta?.finishReason,
         outputChars: lastOutputChars,
@@ -3980,6 +4043,7 @@ async function composeStagedLessonContent(brief, options = {}) {
           repairUsed: true,
           parseRetryUsed,
           expansionAttempts,
+          tooShortFollowUpUsed,
         };
         validated.activities.forEach((a) => expandedById.set(a.outlineId, a));
         recordBatchDiagnostic(diagnostics, {
@@ -4006,6 +4070,7 @@ async function composeStagedLessonContent(brief, options = {}) {
           repairUsed: true,
           repairTargets: lastRepairTargets,
           postRepairFailures: [],
+          tooShortFollowUpUsed,
           ...teacherLanguageDiagBundle,
           ...vocabularyDiagBundle,
           preRepairQualityIssues,
@@ -4015,7 +4080,16 @@ async function composeStagedLessonContent(brief, options = {}) {
           finalBatchPass: true,
         });
         success = true;
-      } else {
+        break;
+      }
+      if (repairRound + 1 < maxQualityRepairRounds
+        && expansionQualityIssuesAreOnlyTooShort(lastIssues, priorBatchActivities)) {
+        continue;
+      }
+      break;
+      } // end quality repair rounds
+
+      if (!success) {
         batchState[batchKey] = {
           status: "FAILED",
           outlineIds: ids,
@@ -4024,13 +4098,14 @@ async function composeStagedLessonContent(brief, options = {}) {
           parseRetryUsed,
           expansionAttempts,
           mappedRepairTargets: lastRepairTargets,
+          tooShortFollowUpUsed,
         };
         recordFailDiag({
           postRepairFailures: lastIssues,
           preRepairQualityIssues,
           issueCountByField: preIssueCountByField,
-          postRepairQualityIssues: postSweep.structuredIssues,
-          ...genericDiag,
+          postRepairQualityIssues: postSweep?.structuredIssues || preRepairQualityIssues,
+          ...(genericDiag || genericDiagBase),
         });
         return {
           ok: false,
@@ -4315,6 +4390,7 @@ module.exports = {
   MAX_BATCH_RETRIES,
   MAX_EXPANSION_PARSE_RETRIES,
   MAX_QUALITY_REPAIR_CALLS_PER_BATCH,
+  MAX_TOO_SHORT_FOLLOWUP_REPAIR_CALLS_PER_BATCH,
   MAX_FINAL_REPAIR_CALLS,
   STAGE_MAX_OUTPUT_TOKENS,
   REQUIRED_WEEKLY_FIELDS,
@@ -4335,6 +4411,9 @@ module.exports = {
   buildExpansionRepairUserPrompt,
   buildExpansionRepairTargets,
   planExpansionRepair,
+  expansionQualityIssuesAreOnlyTooShort,
+  filterTooShortExpansionQualityIssues,
+  isRejectGenericTooShortIssue,
   parseExpansionIssueTarget,
   isExpansionParseTransportFailure,
   EXPANSION_ISSUE_CODE_FIELD_MAP,

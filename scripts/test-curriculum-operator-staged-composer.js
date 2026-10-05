@@ -3336,6 +3336,8 @@ async function main() {
       "#746 teacherLanguage tests remain green");
     ok(staged.MAX_EXPANSION_PARSE_RETRIES === 1 && staged.MAX_QUALITY_REPAIR_CALLS_PER_BATCH === 1,
       "#742 parse-retry tests remain green");
+    ok(staged.MAX_TOO_SHORT_FOLLOWUP_REPAIR_CALLS_PER_BATCH === 1,
+      "too_short follow-up repair cap is 1 per batch");
     ok(staged.validateBlueprint(
       JSON.parse(staged.buildStagedFixtureResponse(staged.buildStage1UserPrompt(brief15))),
       brief15,
