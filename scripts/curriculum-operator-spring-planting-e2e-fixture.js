@@ -4,9 +4,36 @@
  * Disposable QA scope fixtures for Curriculum Operator spring planting E2E.
  */
 
+const crypto = require("crypto");
+
 const EXACT_COMMAND = "Research spring planting activities for preschoolers, create a complete lesson plan, make the activities age-appropriate, create the matching printable, use realistic activity pictures, keep anything that is already good, fix anything that is wrong, and leave it ready for me to review.";
 
 const EXPLICIT_CREATE_COMMAND = "Create a complete spring planting lesson for preschoolers. For the seed growth activity, make a printable Seed Growth Sequencing Cards PDF. It must be letter-size, child-friendly, printable in black and white or color, include clearly labeled stages from seed to sprout to plant, and be linked to the seed growth activity. Keep the lesson unpublished and ready for me to review.";
+
+/**
+ * Unique disposable lesson title for live production QA (avoids POSSIBLE_DUPLICATE on reruns).
+ * @param {string} runId
+ * @returns {string}
+ */
+function buildDisposableSpringPlantingQaTitle(runId) {
+  const slug = String(runId || Date.now())
+    .replace(/[^a-zA-Z0-9-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 48);
+  const suffix = crypto.randomBytes(4).toString("hex");
+  return `Spring Planting QA Disposable ${slug || "run"}-${suffix}`;
+}
+
+/**
+ * Explicit create command with a unique quoted title (production QA harness only).
+ * @param {string} disposableTitle
+ * @returns {string}
+ */
+function buildExplicitCreateCommand(disposableTitle) {
+  const title = String(disposableTitle || "").trim();
+  return `Create a complete spring planting lesson for preschoolers called "${title}". For the seed growth activity, make a printable Seed Growth Sequencing Cards PDF. It must be letter-size, child-friendly, printable in black and white or color, include clearly labeled stages from seed to sprout to plant, and be linked to the seed growth activity. Keep the lesson unpublished and ready for me to review.`;
+}
 
 const FOLLOW_UP_COMMANDS = [
   "Make Activity 1 easier for younger toddlers.",
@@ -232,6 +259,8 @@ function lessonSnapshot(curriculum, lessonId) {
 module.exports = {
   EXACT_COMMAND,
   EXPLICIT_CREATE_COMMAND,
+  buildDisposableSpringPlantingQaTitle,
+  buildExplicitCreateCommand,
   FOLLOW_UP_COMMANDS,
   MOCK_RESEARCH_SOURCES,
   IMAGE_SEED,

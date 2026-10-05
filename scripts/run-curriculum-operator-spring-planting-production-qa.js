@@ -11,6 +11,7 @@ const fs = require("fs");
 const path = require("path");
 
 const fixture = require("./curriculum-operator-spring-planting-e2e-fixture.js");
+const createApi = require("./curriculum-operator-create.js");
 const commandApi = require("./curriculum-operator-command.js");
 const auditApi = require("./curriculum-operator-audit.js");
 const imagesApi = require("./curriculum-operator-images.js");
@@ -132,7 +133,9 @@ async function main() {
     console.error("Missing LLH_SMOKE_ADMIN_* credentials");
     process.exit(2);
   }
-  const report = { base: BASE, session: SESSION, checks: [] };
+  const disposableTitle = fixture.buildDisposableSpringPlantingQaTitle(SESSION);
+  const explicitCreateCommand = fixture.buildExplicitCreateCommand(disposableTitle);
+  const report = { base: BASE, session: SESSION, disposableTitle, checks: [] };
   const ok = (name, cond, detail) => {
     report.checks.push({ name, ok: Boolean(cond), detail: detail || null });
     if (!cond) fail(report, name, detail);
@@ -181,11 +184,28 @@ async function main() {
   ok("no_lesson_before_confirm", countSpringDrafts(curriculum) === springDraftsBefore,
     { before: springDraftsBefore, after: countSpringDrafts(curriculum) });
 
+  const createParse = commandApi.parseOperatorCommand(explicitCreateCommand, { phase: PHASE });
+  ok("create_intent", createParse.command?.intent === "create_lesson", { intent: createParse.command?.intent });
+  const createBrief = createApi.parseCreationBrief(explicitCreateCommand).brief;
+  ok("create_brief_title", createBrief.title === disposableTitle, {
+    expected: disposableTitle,
+    actual: createBrief.title,
+  });
+  ok("create_brief_theme", /spring planting/i.test(String(createBrief.theme || createBrief.title || "")),
+    { theme: createBrief.theme, title: createBrief.title });
+  ok("create_explicit_printable", schema.asArray(createBrief.explicitPrintables).length >= 1
+    && /Seed Growth Sequencing Cards/i.test(createBrief.explicitPrintables[0].title || ""),
+    { explicitPrintables: createBrief.explicitPrintables });
+  const titleCollision = (curriculum.lessonPlans || []).some(
+    (p) => String(p.title || "").trim().toLowerCase() === disposableTitle.trim().toLowerCase(),
+  );
+  ok("no_title_collision_before_create", !titleCollision, { disposableTitle });
+
   const createRun = await req("POST", "/api/admin/curriculum/operator", {
     action: "run",
     phase: PHASE,
     confirm: true,
-    command: fixture.EXPLICIT_CREATE_COMMAND,
+    command: explicitCreateCommand,
     operatorSessionId: SESSION,
   }, token);
   ok("confirmed_create_200", createRun.status === 200, { status: createRun.status, error: createRun.json?.error });
