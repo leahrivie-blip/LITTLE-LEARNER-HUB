@@ -3459,7 +3459,7 @@ async function composeStagedLessonContent(brief, options = {}) {
         ok: validated.ok,
       });
       if (validated.ok) {
-        blueprint = validated.blueprint;
+        blueprint = architect.alignBlueprintOutlinesForRequestedActivities(validated.blueprint, brief);
         blueprintComplete = true;
         const repairedConceptOutlineIds = [];
         if (attempt > 0 && priorBlueprint && stage1OutlineRepairPlan) {
@@ -3589,6 +3589,8 @@ async function composeStagedLessonContent(brief, options = {}) {
       },
     });
   }
+
+  blueprint = architect.alignBlueprintOutlinesForRequestedActivities(blueprint, brief);
 
   const outlineIds = schema.asArray(blueprint.activityOutlines).map((o) => o.outlineId);
   const batches = chunkIds(outlineIds, diagnostics.batchSize);
@@ -4142,7 +4144,7 @@ async function composeStagedLessonContent(brief, options = {}) {
     }
   }
 
-  const expandedActivities = outlineIds.map((id) => expandedById.get(id)).filter(Boolean);
+  let expandedActivities = outlineIds.map((id) => expandedById.get(id)).filter(Boolean);
   usage.activitiesCompleted = expandedActivities.length;
   if (expandedActivities.length !== outlineIds.length) {
     return {
@@ -4160,6 +4162,11 @@ async function composeStagedLessonContent(brief, options = {}) {
   }
 
   // -------- Stage 3 assemble + final pre-create quality sweep --------
+  expandedActivities = architect.alignExpandedActivitiesForRequestedActivities(
+    expandedActivities,
+    blueprint,
+    brief,
+  );
   let assembled = assembleLessonObject(blueprint, expandedActivities);
   const finalSweep = sweepAssembledLessonQuality(expandedActivities, brief);
   let architectValidated = architect.validateArchitectOutput(JSON.stringify(assembled), brief);

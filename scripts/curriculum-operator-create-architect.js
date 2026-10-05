@@ -223,6 +223,158 @@ function buildArchitectUserPrompt(brief, { revisionIssues, previousContent, prev
   ].join("\n");
 }
 
+function requestedActivityTerms(requested) {
+  return structurePaste.normalizeTitleKey(requested).split(" ").filter((term) => term.length > 2);
+}
+
+function titleMatchesRequestedActivity(title, requested) {
+  const terms = requestedActivityTerms(requested);
+  if (!terms.length) return true;
+  const normalized = structurePaste.normalizeTitleKey(title);
+  return terms.every((term) => normalized.includes(term));
+}
+
+function canonicalRequestedActivityTitle(requested) {
+  const raw = text(requested, 120).trim();
+  if (!raw) return "Requested Activity";
+  if (/\bactivity\b/i.test(raw)) {
+    const cleaned = raw.replace(/\bactivity\b/gi, "").trim();
+    if (!cleaned) return raw;
+    return `${cleaned.charAt(0).toUpperCase()}${cleaned.slice(1)} Activity`;
+  }
+  return `${raw.charAt(0).toUpperCase()}${raw.slice(1)} Activity`;
+}
+
+function scoreRequestedActivityMatch(activity, requested) {
+  const terms = requestedActivityTerms(requested);
+  if (!terms.length) return 0;
+  const haystack = structurePaste.normalizeTitleKey([
+    activity?.title,
+    activity?.objective,
+    activity?.description,
+    activity?.steps,
+    activity?.name,
+    activity?.concept,
+  ].filter(Boolean).join(" "));
+  let score = 0;
+  terms.forEach((term) => {
+    if (haystack.includes(term)) score += 1;
+  });
+  return score;
+}
+
+function findExplicitPrintableCreateOutlineId(blueprint, brief) {
+  const outlines = schema.asArray(blueprint?.activityOutlines);
+  const explicitHints = schema.asArray(brief.explicitPrintables)
+    .map((p) => text(p.activityHint, 120))
+    .filter(Boolean);
+  const createOutlines = outlines.filter(
+    (o) => text(o.expectedAssetIntent?.printable, 40).toUpperCase() === "CREATE",
+  );
+  if (!createOutlines.length) return null;
+  if (explicitHints.length) {
+    const matched = createOutlines.find((outline) => explicitHints.some(
+      (hint) => scoreRequestedActivityMatch({ title: outline.name, concept: outline.concept }, hint) > 0
+        || titleMatchesRequestedActivity(outline.name, hint),
+    ));
+    if (matched) return text(matched.outlineId, 80);
+  }
+  return text(createOutlines[0].outlineId, 80);
+}
+
+/**
+ * Pin semantically related expanded activities to titles that satisfy requestedActivities validation.
+ * Never renames unrelated activities (fail closed when no safe match).
+ */
+function alignExpandedActivitiesForRequestedActivities(expandedActivities, blueprint, brief) {
+  const activities = schema.asArray(expandedActivities).map((a) => ({ ...a }));
+  const outlines = schema.asArray(blueprint?.activityOutlines);
+  const explicitCreateId = findExplicitPrintableCreateOutlineId(blueprint, brief);
+  const claimed = new Set();
+
+  schema.asArray(brief.requestedActivities).forEach((requested) => {
+    const terms = requestedActivityTerms(requested);
+    if (!terms.length) return;
+    if (activities.some((a) => titleMatchesRequestedActivity(a.title, requested))) return;
+
+    let bestIdx = -1;
+    let bestScore = 0;
+    activities.forEach((act, idx) => {
+      if (claimed.has(idx)) return;
+      let score = scoreRequestedActivityMatch(act, requested);
+      const outlineId = text(act.outlineId, 80);
+      if (explicitCreateId && outlineId === explicitCreateId) score += terms.length + 2;
+      const outline = outlines.find((o) => text(o.outlineId, 80) === outlineId);
+      if (outline && titleMatchesRequestedActivity(outline.name, requested)) score += terms.length;
+      if (score > bestScore) {
+        bestScore = score;
+        bestIdx = idx;
+      }
+    });
+
+    if (bestIdx < 0) return;
+    const pinnedExplicit = explicitCreateId && text(activities[bestIdx].outlineId, 80) === explicitCreateId;
+    const minScore = pinnedExplicit ? 1 : Math.min(2, terms.length);
+    if (bestScore < minScore) return;
+
+    activities[bestIdx] = {
+      ...activities[bestIdx],
+      title: canonicalRequestedActivityTitle(requested),
+    };
+    claimed.add(bestIdx);
+  });
+
+  return activities;
+}
+
+/**
+ * Ensure explicit owner-printable outlines keep a validation-safe activity name through Stage 2 expansion.
+ */
+function alignBlueprintOutlinesForRequestedActivities(blueprint, brief) {
+  if (!blueprint?.activityOutlines) return blueprint;
+  const outlines = schema.asArray(blueprint.activityOutlines).map((o) => ({ ...o }));
+  const explicitPrintables = schema.asArray(brief.explicitPrintables);
+  if (!explicitPrintables.length) return blueprint;
+
+  explicitPrintables.forEach((req) => {
+    const hint = text(req.activityHint, 120);
+    if (!hint) return;
+    let targetIdx = outlines.findIndex(
+      (o) => text(o.expectedAssetIntent?.printable, 40).toUpperCase() === "CREATE",
+    );
+    if (targetIdx < 0) {
+      let bestIdx = -1;
+      let bestScore = 0;
+      outlines.forEach((row, idx) => {
+        const score = scoreRequestedActivityMatch(
+          { title: row.name, concept: row.concept, description: "", steps: "" },
+          hint,
+        );
+        if (score > bestScore) {
+          bestScore = score;
+          bestIdx = idx;
+        }
+      });
+      if (bestIdx < 0 || bestScore === 0) return;
+      targetIdx = bestIdx;
+    }
+    const prior = outlines[targetIdx];
+    const canonical = canonicalRequestedActivityTitle(hint);
+    outlines[targetIdx] = {
+      ...prior,
+      name: canonical,
+      expectedAssetIntent: {
+        image: text(prior.expectedAssetIntent?.image, 40).toUpperCase() === "GENERATE" ? "GENERATE" : "NOT_NEEDED",
+        printable: "CREATE",
+        reason: text(prior.expectedAssetIntent?.reason, 300)
+          || "Owner requested an explicit activity-linked printable.",
+      },
+    };
+  });
+
+  return { ...blueprint, activityOutlines: outlines };
+}
+
 function validateRequestedActivities(requestedActivities = [], generatedTitles = []) {
   const titles = schema.asArray(generatedTitles).map((title) => structurePaste.normalizeTitleKey(title));
   const missing = [];
@@ -759,6 +911,13 @@ module.exports = {
   buildArchitectUserPrompt,
   validateArchitectOutput,
   validateRequestedActivities,
+  requestedActivityTerms,
+  titleMatchesRequestedActivity,
+  canonicalRequestedActivityTitle,
+  scoreRequestedActivityMatch,
+  alignExpandedActivitiesForRequestedActivities,
+  alignBlueprintOutlinesForRequestedActivities,
+  findExplicitPrintableCreateOutlineId,
   buildOperatorCreateArchitectFixtureResponse,
   composeNewLessonContent,
   conceptKey,
