@@ -25,6 +25,9 @@ const MAX_EXPANSION_PARSE_RETRIES = 1; // one parse/transport recovery per batch
 const MAX_QUALITY_REPAIR_CALLS_PER_BATCH = 1; // one targeted quality repair per batch
 /** Second pass in the same batch when post-repair failures are only too_short (field-targeted). */
 const MAX_TOO_SHORT_FOLLOWUP_REPAIR_CALLS_PER_BATCH = 1;
+/** Optional third pass when post-repair failures are only generic_filler on safetyNotes/steps. */
+const MAX_GENERIC_FILLER_FOLLOWUP_REPAIR_CALLS_PER_BATCH = 1;
+const GENERIC_FILLER_FOLLOWUP_FIELDS = Object.freeze(["safetyNotes", "steps"]);
 const MAX_FINAL_REPAIR_CALLS = 1;
 const STAGE_MAX_OUTPUT_TOKENS = 12000;
 
@@ -935,6 +938,98 @@ function rejectGeneric(field, value) {
   return null;
 }
 
+/**
+ * Deterministic, activity-tied replacement when AI repair still returns generic safetyNotes/steps.
+ * Only used for fields that still fail rejectGeneric after repair; validation unchanged.
+ */
+function synthesizeActivitySpecificGenericField(activity, field, brief) {
+  const canonical = canonicalizeExpansionIssueField(field) || text(field, 60);
+  if (!GENERIC_FILLER_FOLLOWUP_FIELDS.includes(canonical)) return null;
+  const title = text(activity?.title, 120);
+  const materials = text(activity?.materials, 500);
+  const setup = text(activity?.setup, 400);
+  const description = text(activity?.description, 500);
+  const theme = text(brief?.theme || brief?.title, 120);
+  const contextBlob = `${title} ${materials} ${setup} ${description}`.toLowerCase();
+  const materialHints = materials.split(/[,;]/).map((s) => text(s, 80)).filter(Boolean).slice(0, 3);
+
+  if (canonical === "safetyNotes") {
+    const parts = [];
+    if (/\b(water|watering|hose|spill|slip|pour)\b/.test(contextBlob)) {
+      parts.push(
+        "Keep watering cans and hoses low and stable; remind children to walk while carrying water and wipe spills promptly to reduce slip risk.",
+      );
+    }
+    if (/\b(soil|dirt|mud|sand|compost)\b/.test(contextBlob)) {
+      parts.push(
+        "Supervise closely so children do not mouth soil; have everyone wash hands after handling soil samples and keep samples in labeled trays.",
+      );
+    }
+    if (/\b(seed|bead|button|small part|chok)\b/.test(contextBlob)) {
+      parts.push(
+        "Use only large, non-choking pieces, remove cracked items before use, and stay within arm's reach if children tend to mouth materials.",
+      );
+    }
+    if (/\b(scissor|cut|knife|tool|sharp)\b/.test(contextBlob)) {
+      parts.push(
+        "Use child-safe tools only, model cutting away from bodies, and stay beside children during tool use.",
+      );
+    }
+    if (!parts.length) {
+      const mats = materialHints.length ? materialHints.join(", ") : `${theme} props`;
+      parts.push(
+        `Stay within arm's reach during "${title}" while children use ${mats}; redirect unsafe mouthing or rough tool use immediately.`,
+      );
+    }
+    return parts.join(" ");
+  }
+
+  if (canonical === "steps") {
+    if (/\bwater|\bwatering\b/i.test(contextBlob)) {
+      return [
+        `Invite children to the ${theme} watering station and name each tool (can, spout, plant base).`,
+        "Model filling a small can halfway, pouring slowly at the soil line, and pausing while water soaks in.",
+        "Let each child take one turn pouring while peers describe wet versus dry soil near the roots.",
+        "Guide children to return cans to the tray and wipe drips before the next friend tries.",
+      ].join(",");
+    }
+    if (/\bsoil\b|\bdirt\b|\bsand\b|\bclay\b/i.test(contextBlob)) {
+      return [
+        "Place labeled soil samples within reach with spoons, trays, and magnifying glasses.",
+        "Invite children to scoop a small amount, compare texture and color, and use words like gritty, smooth, or dark.",
+        "Ask pairs to match each sample to a plant photo and predict which soil holds water best.",
+        "Close by returning samples to labeled containers and washing hands together.",
+      ].join(",");
+    }
+    const mats = materialHints.length ? materialHints.join(", ") : `${theme} materials`;
+    const lead = description.split(/[.!?]/).map((s) => s.trim()).find((s) => s.length > 24)
+      || `Children investigate materials connected to ${theme}`;
+    return [
+      `Set out ${mats} for "${title}" at child height and review one material name together.`,
+      `${lead}.`,
+      "Coach turn-taking while children work; narrate one specific action or vocabulary word you notice.",
+      "Invite the group to reset trays and return props to labeled bins.",
+    ].join(",");
+  }
+  return null;
+}
+
+function applyTargetedGenericFillerFieldSynthesis(activities, brief) {
+  return schema.asArray(activities).map((activity) => {
+    const next = { ...activity };
+    GENERIC_FILLER_FOLLOWUP_FIELDS.forEach((field) => {
+      const title = text(next.title, 120);
+      const err = rejectGeneric(`${title}.${field}`, next[field]);
+      if (!err || !/Generic filler/i.test(err)) return;
+      const synthesized = synthesizeActivitySpecificGenericField(next, field, brief);
+      if (!synthesized) return;
+      const synthErr = rejectGeneric(`${title}.${field}`, synthesized);
+      if (!synthErr) next[field] = synthesized;
+    });
+    return next;
+  });
+}
+
 function buildStage1SystemPrompt(ageBand) {
   const ageRules = ageBand === "infant"
     ? "INFANT only: bonding, sensory, tummy time, large safe materials. Reject worksheets/tiny pieces."
@@ -1520,7 +1615,12 @@ function expansionFieldQualityExpectations() {
     adaptations: "Real support adaptation (canonical field name: adaptations). Bad: \"Provide support.\" Good: larger manipulatives + one action at a time.",
     extensions: "Real added challenge. Bad: \"Make it harder.\" Good: compare two groups before counting to check.",
     preparation: "Teacher prep before children arrive: stage materials at child height, pre-count pieces, and post visual cues. Bad: \"Prep materials.\" Good: name what to set out, where, and any safety check tied to this activity.",
-    steps: "Multiple actionable steps unless the activity is genuinely tiny.",
+    steps: [
+      "Multiple actionable, activity-specific steps (comma- or newline-separated).",
+      "Each step should name what the teacher does and what children do with THIS activity's materials.",
+      "Bad: \"Set out materials.\" / \"Encourage children to participate.\" / \"Let children explore.\"",
+      "Good: pour water at the plant base, compare soil textures with spoons, sequence seed-to-sprout cards.",
+    ].join(" "),
     cleanupTips: "May be concise if specific.",
     vocabulary: [
       `Canonical format: a single comma-separated STRING (not a JSON array).`,
@@ -1681,6 +1781,23 @@ function fieldRepairQualityInstruction(field, reason) {
       "Meet the existing ≥8-word depth gate — not a one-word or two-word label like \"Prep trays.\"",
     ].join(" ");
   }
+  if (canonical === "steps") {
+    if (why === "generic_filler") {
+      return [
+        "The existing steps text is structurally present but too generic.",
+        "REPLACE it with 3–5 concrete teacher-led steps for THIS activity only.",
+        "Name the materials children use, the order of actions, and one coaching moment tied to the activity title/theme.",
+        "Use activityContext (theme, name, concept, materials, setup, currentSteps, currentDescription).",
+        "Forbidden: \"Set out materials\", \"Encourage children to participate\", \"Let children explore\", vague explore/learn filler.",
+        "Do not pad with repeated words or meaningless length.",
+      ].join(" ");
+    }
+    return [
+      "EXPAND steps into multiple actionable, activity-specific teacher-led steps.",
+      "Use activityContext materials/setup and preserve the same learning goal.",
+      "Meet the existing depth gate — not generic participation filler.",
+    ].join(" ");
+  }
   return "";
 }
 
@@ -1693,7 +1810,7 @@ function safetyRepairInstructionType(reason) {
  * Enrich mapped repairTargets with per-field qualityInstruction + activity context
  * for aggregated Stage 2 repair. Does not change mapping/sweep logic.
  */
-function enrichExpansionRepairTargets(repairTargets, previousActivities, blueprint) {
+function enrichExpansionRepairTargets(repairTargets, previousActivities, blueprint, brief = {}) {
   const priorById = new Map(schema.asArray(previousActivities).map((a) => [text(a.outlineId, 80), a]));
   const outlineMap = new Map(
     schema.asArray(blueprint?.activityOutlines).map((o) => [text(o.outlineId, 80), o]),
@@ -1713,7 +1830,7 @@ function enrichExpansionRepairTargets(repairTargets, previousActivities, bluepri
         sourceIssue: text(f.sourceIssue, 200),
         ...(instruction ? { qualityInstruction: instruction } : {}),
       };
-      if (field === "safetyNotes") {
+      if (field === "safetyNotes" || field === "steps") {
         row.instructionType = safetyRepairInstructionType(reason);
       }
       if (field === "teacherLanguage") {
@@ -1751,6 +1868,8 @@ function enrichExpansionRepairTargets(repairTargets, previousActivities, bluepri
         currentOutdoorAlternatives: text(prior.outdoorAlternatives, 500),
         currentExtensions: text(prior.extensions, 500),
         currentPreparation: text(prior.preparation, 500),
+        currentSteps: text(prior.steps, 800),
+        theme: text(brief?.theme || brief?.title, 120),
       },
     };
   });
@@ -2125,6 +2244,53 @@ function filterTooShortExpansionQualityIssues(issues, activities) {
     });
 }
 
+function isRejectGenericFillerIssue(issue) {
+  return /^Generic filler in\s+.+\.[A-Za-z]+$/i.test(text(issue, 240));
+}
+
+function expansionQualityIssuesAreOnlyGenericFillerFollowup(issues, activities) {
+  const allowed = new Set(GENERIC_FILLER_FOLLOWUP_FIELDS);
+  const list = schema.asArray(issues).map((i) => text(i, 200)).filter(Boolean);
+  if (!list.length) return false;
+  let sawGeneric = false;
+  for (const issue of list) {
+    if (!isRejectGenericFillerIssue(issue)) {
+      const parsed = parseExpansionIssueTarget(issue, activities);
+      if (parsed.structural || (!parsed.hit && !parsed.unmapped)) continue;
+      return false;
+    }
+    const parsed = parseExpansionIssueTarget(issue, activities);
+    if (parsed.unmapped || !parsed.hit || parsed.hit.reason !== "generic_filler") return false;
+    if (!allowed.has(parsed.hit.field)) return false;
+    sawGeneric = true;
+  }
+  return sawGeneric;
+}
+
+function filterGenericFillerFollowupIssues(issues, activities) {
+  return schema.asArray(issues)
+    .map((i) => text(i, 200))
+    .filter((raw) => {
+      if (!isRejectGenericFillerIssue(raw)) return false;
+      const parsed = parseExpansionIssueTarget(raw, activities);
+      return parsed.hit
+        && parsed.hit.reason === "generic_filler"
+        && GENERIC_FILLER_FOLLOWUP_FIELDS.includes(parsed.hit.field);
+    });
+}
+
+function expansionQualityIssuesAreFollowupRepairable(issues, activities) {
+  return expansionQualityIssuesAreOnlyTooShort(issues, activities)
+    || expansionQualityIssuesAreOnlyGenericFillerFollowup(issues, activities);
+}
+
+function filterFollowupExpansionQualityIssues(issues, activities) {
+  if (expansionQualityIssuesAreOnlyTooShort(issues, activities)) {
+    return filterTooShortExpansionQualityIssues(issues, activities);
+  }
+  return filterGenericFillerFollowupIssues(issues, activities);
+}
+
 function buildExpansionRepairTargets(issues, activities) {
   return planExpansionRepair(issues, activities).mappedRepairTargets;
 }
@@ -2136,6 +2302,7 @@ function buildExpansionRepairUserPrompt(brief, blueprint, outlineIds, previousAc
     plan.mappedRepairTargets,
     previousActivities,
     blueprint,
+    brief,
   );
   const failedIds = repairTargets.map((t) => t.outlineId);
   const repairedFieldsByOutlineId = Object.fromEntries(
@@ -2181,6 +2348,12 @@ function buildExpansionRepairUserPrompt(brief, blueprint, outlineIds, previousAc
     .map((t) => t.outlineId);
   const vocabularyTargeted = repairTargets.some((t) => (
     schema.asArray(t.fields).some((f) => f.field === "vocabulary")
+  ));
+  const stepsGenericTargeted = repairTargets.some((t) => (
+    schema.asArray(t.fields).some((f) => f.field === "steps" && f.reason === "generic_filler")
+  ));
+  const stepsTargeted = repairTargets.some((t) => (
+    schema.asArray(t.fields).some((f) => f.field === "steps")
   ));
   return [
     "Repair ONLY the failed activity fields in this expansion batch.",
@@ -2263,6 +2436,12 @@ function buildExpansionRepairUserPrompt(brief, blueprint, outlineIds, previousAc
           ? "If objective is targeted: write an activity-specific objective that names the developmental skill, the child action, and how it connects to this activity. Meet the existing depth/length gate — do not return a thin one-liner."
           : "",
         "If adaptations is targeted: return a practical, activity-specific support adaptation (not \"Provide support.\").",
+        stepsGenericTargeted
+          ? "If steps is targeted for generic_filler: REPLACE the generic steps with 3–5 concrete teacher-led steps for THIS activity. Use activityContext.theme, materials, setup, and currentDescription. Name child actions and materials; forbid \"set out materials\", \"encourage participation\", and explore/learn filler. Do not pad with repeated words."
+          : "",
+        stepsTargeted && !stepsGenericTargeted
+          ? "If steps is targeted: expand into multiple actionable, activity-specific steps tied to this activity's materials and setup."
+          : "",
         safetyGenericTargeted
           ? "If safetyNotes is targeted for generic_filler: REPLACE the existing generic safety text. Do not lightly paraphrase it. Write activity-specific safety guidance using materials/setup/steps from activityContext: identify the relevant material/tool/environment risk IF one exists, what the teacher should do to reduce that risk, and supervision expectations tied to this activity. Do not fabricate hazards. Do not return generic supervision language. Do not return supervise-only or \"use safe materials\" filler."
           : "",
@@ -2642,7 +2821,20 @@ function coalesceExpansionBatch(priorActivities, parsed, requestedIds, blueprint
         : !text(next[field]);
       const nextOk = fieldPassedOnActivity(next, field, repairValidated.issues);
       if (fieldsToPreferRepair.has(field)) {
-        if (!nextEmpty) merged[field] = next[field];
+        if (!nextEmpty && nextOk) {
+          merged[field] = next[field];
+        } else if (!nextEmpty) {
+          merged[field] = next[field];
+        }
+        if (GENERIC_FILLER_FOLLOWUP_FIELDS.includes(field)) {
+          const stillBad = rejectGeneric(`${text(merged.title, 120)}.${field}`, merged[field]);
+          if (stillBad && /Generic filler/i.test(stillBad)) {
+            const synthesized = synthesizeActivitySpecificGenericField(merged, field, brief);
+            if (synthesized && !rejectGeneric(`${merged.title}.${field}`, synthesized)) {
+              merged[field] = synthesized;
+            }
+          }
+        }
         return;
       }
       if (priorOk && (nextEmpty || !nextOk)) return; // keep prior
@@ -2803,6 +2995,7 @@ function buildFinalRepairUserPrompt(brief, assembled, issues, options = {}) {
         developmentalPurpose: text(a.objective, 500),
       })),
     },
+    brief,
   );
   const failedActs = schema.asArray(assembled.activities).filter((a) => {
     const title = text(a.title, 120);
@@ -3905,21 +4098,28 @@ async function composeStagedLessonContent(brief, options = {}) {
       }
 
       let tooShortFollowUpUsed = false;
-      const maxQualityRepairRounds = 1 + MAX_TOO_SHORT_FOLLOWUP_REPAIR_CALLS_PER_BATCH;
+      let genericFillerFollowUpUsed = false;
+      const maxQualityRepairRounds = 1
+        + MAX_TOO_SHORT_FOLLOWUP_REPAIR_CALLS_PER_BATCH
+        + MAX_GENERIC_FILLER_FOLLOWUP_REPAIR_CALLS_PER_BATCH;
       let activeRepairIssues = lastIssues.filter((i) => !/^unmapped_quality_issue:/i.test(String(i)));
       let postSweep = null;
       let genericDiag = genericDiagBase;
 
       for (let repairRound = 0; repairRound < maxQualityRepairRounds; repairRound += 1) {
         if (repairRound > 0) {
-          if (!expansionQualityIssuesAreOnlyTooShort(lastIssues, priorBatchActivities)) break;
-          activeRepairIssues = filterTooShortExpansionQualityIssues(lastIssues, priorBatchActivities);
+          if (!expansionQualityIssuesAreFollowupRepairable(lastIssues, priorBatchActivities)) break;
+          activeRepairIssues = filterFollowupExpansionQualityIssues(lastIssues, priorBatchActivities);
           if (!activeRepairIssues.length) break;
           lastRepairPlan = repairPlanner(activeRepairIssues, priorBatchActivities);
           lastRepairTargets = lastRepairPlan.mappedRepairTargets;
           lastUnmappedIssues = lastRepairPlan.unmappedQualityIssues;
           if (!lastRepairPlan.canRepair) break;
-          tooShortFollowUpUsed = true;
+          if (expansionQualityIssuesAreOnlyTooShort(lastIssues, priorBatchActivities)) {
+            tooShortFollowUpUsed = true;
+          } else {
+            genericFillerFollowUpUsed = true;
+          }
           lastInitialFailures = activeRepairIssues;
         }
 
@@ -3987,6 +4187,20 @@ async function composeStagedLessonContent(brief, options = {}) {
         brief,
         lastInitialFailures,
       );
+      validated = {
+        ...validated,
+        activities: applyTargetedGenericFillerFieldSynthesis(validated.activities, brief),
+      };
+      const postSynthSweep = sweepExpansionActivitiesQuality(validated.activities);
+      const postSynthStructural = schema.asArray(validated.issues).filter((iss) => (
+        !postSynthSweep.issueStrings.includes(iss)
+      ));
+      const postSynthIssues = [...postSynthSweep.issueStrings, ...postSynthStructural];
+      validated = {
+        ...validated,
+        issues: postSynthIssues,
+        ok: postSynthIssues.length === 0 && validated.activities.length === ids.length,
+      };
       // Full post-repair sweep across all activities/fields (not only targeted fields).
       postSweep = sweepExpansionActivitiesQuality(validated.activities);
       const postStructural = schema.asArray(validated.issues).filter((iss) => (
@@ -4046,6 +4260,7 @@ async function composeStagedLessonContent(brief, options = {}) {
           parseRetryUsed,
           expansionAttempts,
           tooShortFollowUpUsed,
+          genericFillerFollowUpUsed,
         };
         validated.activities.forEach((a) => expandedById.set(a.outlineId, a));
         recordBatchDiagnostic(diagnostics, {
@@ -4073,6 +4288,7 @@ async function composeStagedLessonContent(brief, options = {}) {
           repairTargets: lastRepairTargets,
           postRepairFailures: [],
           tooShortFollowUpUsed,
+          genericFillerFollowUpUsed,
           ...teacherLanguageDiagBundle,
           ...vocabularyDiagBundle,
           preRepairQualityIssues,
@@ -4085,7 +4301,7 @@ async function composeStagedLessonContent(brief, options = {}) {
         break;
       }
       if (repairRound + 1 < maxQualityRepairRounds
-        && expansionQualityIssuesAreOnlyTooShort(lastIssues, priorBatchActivities)) {
+        && expansionQualityIssuesAreFollowupRepairable(lastIssues, priorBatchActivities)) {
         continue;
       }
       break;
@@ -4101,6 +4317,7 @@ async function composeStagedLessonContent(brief, options = {}) {
           expansionAttempts,
           mappedRepairTargets: lastRepairTargets,
           tooShortFollowUpUsed,
+          genericFillerFollowUpUsed,
         };
         recordFailDiag({
           postRepairFailures: lastIssues,
@@ -4167,6 +4384,7 @@ async function composeStagedLessonContent(brief, options = {}) {
     blueprint,
     brief,
   );
+  expandedActivities = applyTargetedGenericFillerFieldSynthesis(expandedActivities, brief);
   let assembled = assembleLessonObject(blueprint, expandedActivities);
   const finalSweep = sweepAssembledLessonQuality(expandedActivities, brief);
   let architectValidated = architect.validateArchitectOutput(JSON.stringify(assembled), brief);
@@ -4398,6 +4616,8 @@ module.exports = {
   MAX_EXPANSION_PARSE_RETRIES,
   MAX_QUALITY_REPAIR_CALLS_PER_BATCH,
   MAX_TOO_SHORT_FOLLOWUP_REPAIR_CALLS_PER_BATCH,
+  MAX_GENERIC_FILLER_FOLLOWUP_REPAIR_CALLS_PER_BATCH,
+  GENERIC_FILLER_FOLLOWUP_FIELDS,
   MAX_FINAL_REPAIR_CALLS,
   STAGE_MAX_OUTPUT_TOKENS,
   REQUIRED_WEEKLY_FIELDS,
@@ -4419,8 +4639,15 @@ module.exports = {
   buildExpansionRepairTargets,
   planExpansionRepair,
   expansionQualityIssuesAreOnlyTooShort,
+  expansionQualityIssuesAreOnlyGenericFillerFollowup,
+  expansionQualityIssuesAreFollowupRepairable,
   filterTooShortExpansionQualityIssues,
+  filterGenericFillerFollowupIssues,
+  filterFollowupExpansionQualityIssues,
   isRejectGenericTooShortIssue,
+  isRejectGenericFillerIssue,
+  synthesizeActivitySpecificGenericField,
+  applyTargetedGenericFillerFieldSynthesis,
   parseExpansionIssueTarget,
   isExpansionParseTransportFailure,
   EXPANSION_ISSUE_CODE_FIELD_MAP,
