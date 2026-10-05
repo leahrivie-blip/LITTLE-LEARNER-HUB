@@ -213,7 +213,16 @@ async function main() {
   const lr = job?.lessonResults?.[0];
   ok("publish_false", createRun.json?.published === false && createRun.json?.publishEnabled === false);
   ok("research_context_on_job", schema.asArray(lr?.creationBrief?.researchContext).length >= 1);
-  ok("lesson_created", lr?.lessonCreated === true && lr?.createdLessonId);
+  ok("lesson_created", lr?.lessonCreated === true && lr?.createdLessonId, {
+    jobStatus: job?.status,
+    jobId: job?.id,
+    lrStatus: lr?.status,
+    code: lr?.code,
+    error: lr?.error,
+    activityRepairCalls: job?.costCounters?.activityRepairCalls,
+    activityExpansionCalls: job?.costCounters?.activityExpansionCalls,
+    batchState: lr?.activityExpansionBatches || job?.activityExpansionBatches,
+  });
   ok("lesson_draft", lr?.published === false);
   ok("no_content_persistence_incomplete", lr?.contentPersistenceIncomplete !== true && job?.contentPersistenceIncomplete !== true);
   ok("owner_review_ready", lr?.ownerReviewStatus === "READY_FOR_OWNER_REVIEW"
