@@ -377,19 +377,79 @@ function planImageDecision(act, patch = {}) {
   };
 }
 
-function activityMatchesExplicitPrintableHint(act, patch = {}, activityHint = "") {
-  const hint = schema.text(activityHint, 120).toLowerCase();
-  if (!hint) return false;
-  const title = schema.text(act.title, 180).toLowerCase();
-  const blob = activityBlob(act, patch).toLowerCase();
-  if (title.includes(hint) || blob.includes(hint)) return true;
-  const tokens = hint.split(/\s+/).filter((word) => word.length > 2);
-  return tokens.length > 0 && tokens.every((word) => title.includes(word) || blob.includes(word));
+function normalizeExplicitActivityHint(activityHint) {
+  return schema.text(activityHint, 120)
+    .toLowerCase()
+    .replace(/\bactivit(?:y|ies)\b/g, "")
+    .replace(/[-_]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
-function applyExplicitOwnerPrintableDecision(act, patch, printable, explicitPrintables = []) {
+/**
+ * Title/id-only matching so lesson-wide objectives (seed, growth) do not mark every activity explicit.
+ * Higher score = stronger match.
+ */
+function explicitPrintableActivityMatchScore(act, patch = {}, activityHint = "") {
+  const hint = normalizeExplicitActivityHint(activityHint);
+  if (!hint) return 0;
+  const title = normalizeExplicitActivityHint(act.title);
+  const id = schema.text(act.id || act.itemId, 160).toLowerCase();
+  const slugHint = hint.replace(/\s+/g, "-");
+  if (title === hint) return 100;
+  if (title.includes(hint)) return 90;
+  if (id.includes(slugHint) || id.includes(hint.replace(/\s+/g, ""))) return 85;
+  const tokens = hint.split(/\s+/).filter((word) => word.length > 2);
+  if (tokens.length > 0 && tokens.every((word) => title.includes(word))) return 70;
+  return 0;
+}
+
+function activityMatchesExplicitPrintableHint(act, patch = {}, activityHint = "") {
+  return explicitPrintableActivityMatchScore(act, patch, activityHint) > 0;
+}
+
+/**
+ * Pick at most one activity per explicit printable request. Ambiguous ties → no assignment (fail closed).
+ * @returns {{ targets: Set<string>, ambiguous: object[] }}
+ */
+function resolveExplicitPrintableTargetActivityIds(flatActivities, draftActs, explicitPrintables = []) {
+  const targets = new Set();
+  const ambiguous = [];
+  schema.asArray(explicitPrintables).forEach((req) => {
+    const scored = schema.asArray(flatActivities)
+      .map((act) => {
+        const key = schema.text(act.id || act.itemId);
+        const patch = (draftActs && draftActs[key]) || {};
+        return {
+          key,
+          score: explicitPrintableActivityMatchScore(act, patch, req.activityHint),
+        };
+      })
+      .filter((row) => row.score > 0)
+      .sort((a, b) => b.score - a.score || String(a.key).localeCompare(String(b.key)));
+    if (!scored.length) return;
+    const topScore = scored[0].score;
+    const winners = scored.filter((row) => row.score === topScore);
+    if (winners.length > 1) {
+      ambiguous.push({
+        activityHint: req.activityHint,
+        title: req.title,
+        activityIds: winners.map((row) => row.key),
+      });
+      return;
+    }
+    targets.add(winners[0].key);
+  });
+  return { targets, ambiguous };
+}
+
+function applyExplicitOwnerPrintableDecision(act, patch, printable, explicitPrintables = [], explicitTargetActivityIds = null) {
   const requests = schema.asArray(explicitPrintables);
   if (!requests.length) return printable;
+  const actKey = schema.text(act.id || act.itemId);
+  if (explicitTargetActivityIds instanceof Set && explicitTargetActivityIds.size > 0 && !explicitTargetActivityIds.has(actKey)) {
+    return printable;
+  }
   const hit = requests.find((req) => activityMatchesExplicitPrintableHint(act, patch, req.activityHint));
   if (!hit) return printable;
   const resourceType = schema.text(hit.resourceType, 40)
@@ -416,8 +476,34 @@ function applyExplicitOwnerPrintableDecision(act, patch, printable, explicitPrin
  */
 function constrainAssetPlanForExplicitOwnerPrintables(assetPlan, explicitPrintables = []) {
   if (!schema.asArray(explicitPrintables).length) return assetPlan;
+  const explicitCreateIds = schema.asArray(assetPlan)
+    .filter((item) => item.printable?.ownerExplicitPrintable === true
+      && schema.text(item.printable?.decision, 40) === "CREATE")
+    .map((item) => schema.text(item.activityId, 160))
+    .filter(Boolean);
+  const keepExplicitId = explicitCreateIds.length > 1 ? explicitCreateIds[0] : explicitCreateIds[0] || null;
   return schema.asArray(assetPlan).map((item) => {
-    if (item.printable?.ownerExplicitPrintable) return item;
+    const activityId = schema.text(item.activityId, 160);
+    if (item.printable?.ownerExplicitPrintable) {
+      if (keepExplicitId && activityId !== keepExplicitId
+        && schema.text(item.printable?.decision, 40) === "CREATE") {
+        return schema.normalizeAssetPlanItem({
+          ...item,
+          printable: {
+            ...item.printable,
+            decision: "NOT_NEEDED",
+            reason: "Owner named one explicit printable; deferring duplicate explicit scope on another activity.",
+            ownerExplicitPrintable: false,
+            type: null,
+            title: "",
+            contents: [],
+            purpose: "",
+            existingResourceIds: schema.asArray(item.printable?.existingResourceIds),
+          },
+        });
+      }
+      return item;
+    }
     const decision = schema.text(item.printable?.decision, 40);
     if (decision !== "CREATE" && decision !== "REPLACE") return item;
     return schema.normalizeAssetPlanItem({
@@ -694,6 +780,15 @@ function auditLesson(plan, curriculum = {}, options = {}) {
     linkedByActivity.get(actId).push(r);
   });
 
+  const explicitPrintableRequests = schema.asArray(
+    options.explicitPrintables || options.creationBrief?.explicitPrintables,
+  );
+  const explicitPrintableTargets = resolveExplicitPrintableTargetActivityIds(
+    flat,
+    draftActs,
+    explicitPrintableRequests,
+  );
+
   const assetPlan = flat.map((act) => {
     const key = schema.text(act.id || act.itemId);
     const patch = draftActs[key] || {};
@@ -703,7 +798,8 @@ function auditLesson(plan, curriculum = {}, options = {}) {
       act,
       patch,
       printable,
-      options.explicitPrintables || options.creationBrief?.explicitPrintables,
+      explicitPrintableRequests,
+      explicitPrintableTargets.targets,
     );
     return schema.normalizeAssetPlanItem({
       activityId: key,
@@ -713,9 +809,6 @@ function auditLesson(plan, curriculum = {}, options = {}) {
       printable,
     });
   });
-  const explicitPrintableRequests = schema.asArray(
-    options.explicitPrintables || options.creationBrief?.explicitPrintables,
-  );
   const constrainedAssetPlan = constrainAssetPlanForExplicitOwnerPrintables(
     assetPlan,
     explicitPrintableRequests,
@@ -885,6 +978,12 @@ function auditLesson(plan, curriculum = {}, options = {}) {
       lessonResources: lessonPrintableNotes,
     },
     assetPlan,
+    explicitPrintableScope: explicitPrintableRequests.length
+      ? {
+        targetActivityIds: [...explicitPrintableTargets.targets],
+        ambiguous: explicitPrintableTargets.ambiguous,
+      }
+      : null,
     teachingKitBlockers: blockers,
     completenessSections: schema.asArray(completeness?.sections).map((s) => ({
       id: s.id,
@@ -944,6 +1043,8 @@ module.exports = {
   applyExplicitOwnerPrintableDecision,
   constrainAssetPlanForExplicitOwnerPrintables,
   activityMatchesExplicitPrintableHint,
+  explicitPrintableActivityMatchScore,
+  resolveExplicitPrintableTargetActivityIds,
   recommendedFutureActions,
   estimateJobScope,
 };
