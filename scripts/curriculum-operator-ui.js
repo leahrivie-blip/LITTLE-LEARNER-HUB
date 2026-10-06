@@ -5,6 +5,10 @@
 (function initCurriculumOperatorUi(global) {
   "use strict";
 
+  function jobPresent() {
+    return global.LLHCurriculumOperatorJobStatus || {};
+  }
+
   function mapCurrentActionToLabel(action) {
     const key = String(action || "").toLowerCase();
     if (!key) return "Working on lesson…";
@@ -153,6 +157,7 @@
     flagEnabled: false,
     publishModal: null,
     publishResult: null,
+    mutationLockNotice: null,
   };
 
   function esc(value) {
@@ -380,7 +385,7 @@
         </div>
         <span class="co-status-pill">${esc(review)}</span>
       </header>
-      ${lr.workPlan ? `
+      ${lr.workPlan && !(jobPresent().isCoverOnlyCommand && jobPresent().isCoverOnlyCommand(state.job?.command)) ? `
       <section>
         <h5>Full-kit work plan</h5>
         <pre class="co-log">${esc((typeof LLHCurriculumOperatorUi !== "undefined" ? "" : "") + (lr.workPlan.title || "") + " · cover " + (lr.workPlan.cover || "LOCKED"))}</pre>
@@ -502,22 +507,147 @@
     state.runStartedAt = 0;
   }
 
-  function renderRunStatusBlock() {
-    if (!state.runPhase || state.runPhase === "idle") return "";
-    const phaseClass = state.runPhase === "failed" ? "is-error"
-      : (state.runPhase === "complete" ? "is-success" : "is-running");
-    const jobLine = state.runJobId
-      ? `<p class="muted-copy">Job <code>${esc(state.runJobId)}</code></p>`
+  function activeJobForBanner() {
+    if (state.job) return state.job;
+    if (state.runInFlight && state.runJobId) {
+      return { id: state.runJobId, status: state.runPhase === "starting" ? "planned" : "running" };
+    }
+    return null;
+  }
+
+  function renderMutationLockNotice() {
+    const notice = state.mutationLockNotice;
+    if (!notice?.message) return "";
+    const jobBtn = notice.blockingJobId
+      ? `<button type="button" class="linkish" data-co-load-job="${esc(notice.blockingJobId)}">Open job ${esc(notice.blockingJobId)}</button>`
       : "";
-    const elapsed = state.runStartedAt && (state.runPhase === "starting" || state.runPhase === "running")
+    return `<section class="co-job-lock-notice access-notice" role="alert">
+      <p><strong>${esc(notice.message)}</strong></p>
+      ${jobBtn}
+    </section>`;
+  }
+
+  function renderJobStatusBanner(job, clientRunPhase) {
+    const present = jobPresent();
+    if (!job && (clientRunPhase === "starting" || clientRunPhase === "running")) {
+      job = { status: clientRunPhase === "starting" ? "planned" : "running", id: state.runJobId || "" };
+    }
+    if (!job) return renderRunStatusLegacy(clientRunPhase);
+    const kind = present.normalizeJobStatus ? present.normalizeJobStatus(job) : String(job.status || "running");
+    const title = present.bannerTitle ? present.bannerTitle(kind) : String(job.status || "Running");
+    const subtitle = present.bannerSubtitle ? present.bannerSubtitle(kind) : "";
+    const step = present.currentStepLabel ? present.currentStepLabel(job, clientRunPhase) : "";
+    const progress = present.jobProgress ? present.jobProgress(job) : { completed: 0, total: 1, percent: 0 };
+    const progressHtml = present.renderProgressBarHtml
+      ? present.renderProgressBarHtml(progress, esc)
+      : `<p class="muted-copy">${esc(progress.completed)}/${esc(progress.total)} complete</p>`;
+    const phaseClass = kind === "failed" || kind === "blocked" ? "is-error"
+      : (kind === "ready_for_owner_review" || kind === "completed" || kind === "partial" ? "is-success" : "is-running");
+    const lessonId = present.lessonIdFromJob ? present.lessonIdFromJob(job) : "";
+    const lessonTitle = present.lessonTitleFromJob ? present.lessonTitleFromJob(job, state.planSummary) : "";
+    const reviewBtn = present.shouldShowReviewDraft && present.shouldShowReviewDraft(job) && lessonId
+      ? `<button type="button" class="primary-button" data-co-open-lesson="${esc(lessonId)}">Review draft</button>`
+      : "";
+    const publishedLine = `<p class="co-not-published-banner"><strong>Nothing was published</strong> — changes stay in draft until you publish manually.</p>`;
+    const elapsed = state.runStartedAt && (clientRunPhase === "starting" || clientRunPhase === "running")
       ? `<p class="muted-copy">Elapsed ${Math.max(0, Math.floor((Date.now() - state.runStartedAt) / 1000))}s</p>`
       : "";
     return `
-      <section class="co-run-status ${phaseClass}" role="status" aria-live="polite" aria-atomic="true">
-        <p class="co-run-status-head"><strong>${esc(state.runStatusMessage || "Starting curriculum job…")}</strong></p>
-        ${jobLine}
+      <section class="co-run-status co-job-banner ${phaseClass}" role="status" aria-live="polite" aria-atomic="true">
+        <header class="co-job-banner-head">
+          <span class="co-status-pill co-status-pill-${esc(kind)}">${esc(title)}</span>
+          <p class="co-run-status-head">${esc(subtitle)}</p>
+        </header>
+        ${step ? `<p class="muted-copy"><strong>Current step:</strong> ${esc(step)}</p>` : ""}
+        ${progressHtml}
+        ${lessonTitle || lessonId ? `<p class="muted-copy"><strong>Lesson:</strong> ${esc(lessonTitle || lessonId)}${lessonId && lessonTitle ? ` (<code>${esc(lessonId)}</code>)` : lessonId ? ` <code>${esc(lessonId)}</code>` : ""}</p>` : ""}
+        ${job.id ? `<p class="muted-copy">Job <code>${esc(job.id)}</code></p>` : ""}
+        ${publishedLine}
+        ${reviewBtn ? `<div class="account-actions-row">${reviewBtn}</div>` : ""}
         ${elapsed}
       </section>`;
+  }
+
+  function renderRunStatusLegacy(clientRunPhase) {
+    if (!clientRunPhase || clientRunPhase === "idle") return "";
+    const phaseClass = clientRunPhase === "failed" ? "is-error"
+      : (clientRunPhase === "complete" ? "is-success" : "is-running");
+    return `
+      <section class="co-run-status ${phaseClass}" role="status" aria-live="polite" aria-atomic="true">
+        <p class="co-run-status-head"><strong>${esc(state.runStatusMessage || "Starting curriculum job…")}</strong></p>
+      </section>`;
+  }
+
+  function renderRunStatusBlock() {
+    const job = activeJobForBanner();
+    if (job || (state.runPhase && state.runPhase !== "idle")) {
+      return renderJobStatusBanner(job, state.runPhase);
+    }
+    return "";
+  }
+
+  function renderWhatChangedSection(job) {
+    const present = jobPresent();
+    if (!job || !present.buildWhatChangedLines) return "";
+    const { lines, partial } = present.buildWhatChangedLines(job);
+    if (!lines.length) return "";
+    const partialHtml = partial && (partial.failed?.length || partial.succeeded?.length) ? `
+      <div class="co-what-changed-partial">
+        ${partial.succeeded?.length ? `<p><strong>Succeeded:</strong> ${esc(partial.succeeded.join("; "))}</p>` : ""}
+        ${partial.failed?.length ? `<p><strong>Did not finish:</strong> ${esc(partial.failed.join("; "))}</p>` : ""}
+      </div>` : "";
+    return `<section class="co-what-changed">
+      <h5>What changed</h5>
+      <ul>${lines.map((line) => `<li>${esc(line)}</li>`).join("")}</ul>
+      ${partialHtml}
+    </section>`;
+  }
+
+  function renderOwnerScopePanel(parsed, plan) {
+    const command = parsed?.command;
+    if (!command) return "";
+    const present = jobPresent();
+    const summary = present.ownerScopeSummaryText ? present.ownerScopeSummaryText(command) : "";
+    const rows = present.ownerScopeRows ? present.ownerScopeRows(command) : [];
+    const planNote = present.ownerExecutionPlanNote
+      ? present.ownerExecutionPlanNote(command, plan)
+      : (plan?.phaseNote || "");
+    return `<section class="co-panel co-scope-panel">
+      <h4>Scope for this request</h4>
+      <p class="muted-copy">${esc(summary)}</p>
+      ${rows.length ? `<ul class="co-scope-rows">${rows.map((row) => `
+        <li><strong>${esc(row.label)}</strong> — ${row.state === "included" ? "May change" : "Unchanged"}</li>`).join("")}</ul>` : ""}
+      <details class="co-technical-details">
+        <summary>Technical details</summary>
+        <pre class="co-json">${esc(JSON.stringify({ actions: command.actions, scope: command.scope }, null, 2))}</pre>
+        ${planNote ? `<pre class="co-log">${esc(planNote)}</pre>` : ""}
+      </details>
+    </section>`;
+  }
+
+  function renderCurrentJobPanel(job, parsed) {
+    if (!job) return "";
+    const present = jobPresent();
+    const kind = present.normalizeJobStatus ? present.normalizeJobStatus(job) : job.status;
+    return `<section class="co-panel co-current-job-panel" aria-labelledby="co-current-job-title">
+      <h4 id="co-current-job-title">Current job</h4>
+      ${renderWhatChangedSection(job)}
+      <details class="co-technical-details">
+        <summary>Technical details</summary>
+        <pre class="co-json">${esc(JSON.stringify({
+          id: job.id,
+          status: job.status,
+          bannerStatus: kind,
+          progress: job.progress,
+          publishEnabled: job.publishEnabled,
+          commandActions: job.command?.actions,
+        }, null, 2))}</pre>
+        <pre class="co-log">${esc((job.log || []).slice(-12).map((e) => `${e.at} [${e.level}] ${e.message}`).join("\n"))}</pre>
+      </details>
+      <div class="co-lesson-results">${(job.lessonResults || []).map(renderAuditCard).join("")}</div>
+      ${job.status === "awaiting_confirm" ? `
+        <button type="button" class="primary-button" id="coConfirmResumeBtn">Confirm &amp; run</button>` : ""}
+    </section>`;
   }
 
   function startRunPolling(commandText, startedAt) {
@@ -580,6 +710,15 @@
     const job = state.job;
     const runBlocked = isRunBlockedByParsed(state.commandParsed, plan);
     const runBlockNotice = runBlocked ? runBlockMessage(state.commandParsed, plan) : "";
+    const userMessages = jobPresent().dedupeOperatorMessages
+      ? jobPresent().dedupeOperatorMessages([state.message].filter(Boolean))
+      : [state.message].filter(Boolean);
+    const bannerMessage = state.mutationLockNotice?.message
+      ? ""
+      : (userMessages[0] || "");
+    const recentJobs = jobPresent().filterRecentJobs
+      ? jobPresent().filterRecentJobs(state.jobs, job?.id)
+      : (state.jobs || []).filter((row) => row.id !== job?.id);
     el.innerHTML = `
       <div class="co-operator">
         <div class="section-heading">
@@ -589,7 +728,8 @@
             <p class="muted-copy">Phase 8: AI jobs still end at <strong>READY FOR OWNER REVIEW</strong> (never auto-publish). You inspect the stored draft, then explicitly Publish through the trusted path — one lesson at a time.</p>
           </div>
         </div>
-        ${state.message ? `<p class="access-notice ${state.isError ? "error" : ""}" role="status">${esc(state.message)}</p>` : ""}
+        ${renderMutationLockNotice()}
+        ${bannerMessage ? `<p class="access-notice ${state.isError ? "error" : ""}" role="status">${esc(bannerMessage)}</p>` : ""}
         ${renderRunStatusBlock()}
         <section class="co-panel">
           <h4>Research</h4>
@@ -630,9 +770,13 @@
         ${state.commandParsed && !state.commandParsed.interpretation?.ownerSummary ? `
           <section class="co-panel">
             <h4>Interpreted command</h4>
-            <pre class="co-json">${esc(JSON.stringify(state.commandParsed.command, null, 2))}</pre>
+            <details class="co-technical-details">
+              <summary>Technical details</summary>
+              <pre class="co-json">${esc(JSON.stringify(state.commandParsed.command, null, 2))}</pre>
+            </details>
             ${(state.commandParsed.command?.parsedNotes || []).map((n) => `<p class="muted-copy">${esc(n)}</p>`).join("")}
           </section>` : ""}
+        ${state.commandParsed?.command ? renderOwnerScopePanel(state.commandParsed, plan) : ""}
         ${plan ? `
           <section class="co-panel">
             <h4>${plan.createsLesson ? "Create new lesson" : "Execution plan"}</h4>
@@ -644,25 +788,15 @@
             <p class="muted-copy">${esc(plan.lessons?.length || 0)} lesson(s) · candidates considered ${esc(plan.candidatesConsidered || 0)}</p>
             <ol>${(plan.lessons || []).map((l) => `
               <li><strong>${esc(l.title)}</strong> (<code>${esc(l.id)}</code>) — readiness ${esc(l.readinessPercent)}% · ${esc(l.plan)} · ${esc(l.ageBand)}</li>`).join("")}</ol>
-            <p class="muted-copy">${esc(plan.phaseNote || plan.phase1?.note || "")}</p>
           </section>` : ""}
-        ${job ? `
-          <section class="co-panel">
-            <h4>Job ${esc(job.id)}</h4>
-            <p>Status: <strong>${esc(job.status)}</strong> · ${esc(job.progress?.completed || 0)}/${esc(job.progress?.lessonCount || 0)} complete · failed ${esc(job.progress?.failed || 0)} · Publish: NOT PUBLISHED</p>
-            <pre class="co-log">${esc((job.log || []).slice(-12).map((e) => `${e.at} [${e.level}] ${e.message}`).join("\n"))}</pre>
-            <div class="co-lesson-results">${(job.lessonResults || []).map(renderAuditCard).join("")}</div>
-            ${(job.lessonResults || []).some((lr) => lr.createdLessonId || (lr.lessonId && String(lr.lessonId).startsWith("cur-lp-"))) ? `
-              <p class="muted-copy">Open the new draft in Owner Admin → Curriculum to inspect and manually publish.</p>` : ""}
-            ${job.status === "awaiting_confirm" ? `
-              <button type="button" class="primary-button" id="coConfirmResumeBtn">Confirm &amp; run</button>` : ""}
-          </section>` : ""}
-        <section class="co-panel">
+        ${renderCurrentJobPanel(job, state.commandParsed)}
+        <section class="co-panel co-recent-jobs-panel">
           <h4>Recent jobs</h4>
-          ${(state.jobs || []).length ? `<ul>${state.jobs.slice(0, 8).map((j) => `
+          <p class="muted-copy">Earlier operator runs. The current job stays in the panel above.</p>
+          ${recentJobs.length ? `<ul>${recentJobs.slice(0, 8).map((j) => `
             <li><button type="button" class="linkish" data-co-load-job="${esc(j.id)}">${esc(j.id)}</button>
-              — ${esc(j.status)} — ${esc(j.rawCommand || "").slice(0, 80)}</li>`).join("")}</ul>`
-            : "<p class=\"muted-copy\">No jobs yet.</p>"}
+              — ${esc(jobPresent().bannerTitle ? jobPresent().bannerTitle(jobPresent().normalizeJobStatus(j)) : j.status)} — ${esc(j.rawCommand || "").slice(0, 80)}</li>`).join("")}</ul>`
+            : "<p class=\"muted-copy\">No other jobs yet.</p>"}
         </section>
       </div>
       ${state.publishModal ? `
@@ -710,6 +844,19 @@
         .co-run-status.is-error { border-color: rgba(138, 31, 31, .35); background: #fdeeee; }
         .co-run-status-head { margin: 0; }
         .co-run-actions { flex-wrap: wrap; gap: .5rem; }
+        .co-current-job-panel { border: 2px solid rgba(120, 86, 20, .22); border-radius: 12px; padding: 1rem; background: rgba(255, 250, 243, .65); }
+        .co-recent-jobs-panel { opacity: .92; }
+        .co-job-banner-head { display: flex; flex-direction: column; gap: .35rem; }
+        .co-job-progress-track { height: .55rem; border-radius: 999px; background: rgba(0,0,0,.08); overflow: hidden; margin: .35rem 0; }
+        .co-job-progress-fill { height: 100%; background: linear-gradient(90deg, #c9892c, #e8b35a); }
+        .co-not-published-banner { margin: .65rem 0 0; padding: .5rem .65rem; border-radius: 8px; background: rgba(31, 107, 58, .08); }
+        .co-what-changed ul { margin: .35rem 0 0; padding-left: 1.1rem; }
+        .co-scope-rows { margin: .5rem 0 0; padding-left: 1.1rem; }
+        .co-technical-details { margin-top: .65rem; }
+        .co-status-pill-queued { background: #e8eef8; }
+        .co-status-pill-running { background: #fff1d6; }
+        .co-status-pill-ready_for_owner_review { background: #dff3e6; }
+        .co-status-pill-failed, .co-status-pill-blocked { background: #fde2e2; }
       </style>
     `;
 
@@ -1001,6 +1148,7 @@
       return;
     }
     const commandSnapshot = state.command;
+    state.mutationLockNotice = null;
     state.runInFlight = true;
     state.busy = true;
     state.runPhase = "starting";
@@ -1061,8 +1209,21 @@
     } catch (error) {
       state.isError = true;
       state.runPhase = "failed";
-      state.runStatusMessage = error.message || "Run failed.";
-      state.message = state.runStatusMessage;
+      const lock = jobPresent().buildMutationLockNotice
+        ? jobPresent().buildMutationLockNotice(error.payload || { error: error.message })
+        : null;
+      if (lock) {
+        state.mutationLockNotice = lock;
+        state.runStatusMessage = lock.message;
+        state.message = "";
+        if (lock.blockingJobId) {
+          await loadJob(lock.blockingJobId, { quiet: true });
+        }
+      } else {
+        state.mutationLockNotice = null;
+        state.runStatusMessage = error.message || "Run failed.";
+        state.message = state.runStatusMessage;
+      }
       state.planSummary = error.payload?.selection ? {
         selectionNote: error.payload.selection.selectionNote,
         lessons: error.payload.selection.selected || [],
@@ -1094,7 +1255,8 @@
     }
   }
 
-  async function loadJob(jobId) {
+  async function loadJob(jobId, opts = {}) {
+    const quiet = opts.quiet === true;
     state.busy = true;
     render();
     try {
@@ -1102,7 +1264,7 @@
       state.job = result.job;
       state.command = result.job?.command?.rawCommand || state.command;
       state.planSummary = result.job?.planSummary || null;
-      state.message = `Loaded job ${jobId}.`;
+      if (!quiet) state.message = `Loaded job ${jobId}.`;
     } catch (error) {
       state.isError = true;
       state.message = error.message || "Could not load job.";
