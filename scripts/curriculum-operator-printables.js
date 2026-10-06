@@ -1330,6 +1330,23 @@ async function runPrintablePlanForLesson({
     };
   }
 
+  const ambiguousExplicitPrintables = schema.asArray(audit?.explicitPrintableScope?.ambiguous);
+  if (ambiguousExplicitPrintables.length) {
+    const hints = ambiguousExplicitPrintables.map((row) => schema.text(row.activityHint, 120)).filter(Boolean).join("; ");
+    return {
+      ok: false,
+      code: "NEEDS_OWNER_INPUT",
+      error: `Ambiguous explicit printable scope — multiple activities match “${hints}”. Name one activity or use a unique title.`,
+      actions: [],
+      counts: summarizePrintableActions([]),
+      enrichmentDraft: plan?.enrichmentDraft || null,
+      changed: false,
+      generations: 0,
+      explicitPrintableScope: audit.explicitPrintableScope,
+      cost: { printablePlannerCalls: 0, printableRevisionCalls: 0, printableVisualGenerations: 0 },
+    };
+  }
+
   const rawActions = schema.asArray(actionsOverride).length ? schema.asArray(actionsOverride) : buildPrintableActionsFromAudit(plan, activities, audit, curriculum, {
     replaceWeakPrintables,
   });
