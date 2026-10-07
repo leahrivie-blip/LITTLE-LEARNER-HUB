@@ -273,6 +273,10 @@ function createCurriculumOperatorJobStore({ localFilePath = null } = {}) {
         CREATE INDEX IF NOT EXISTS llh_curriculum_operator_jobs_updated_idx
         ON llh_curriculum_operator_jobs (updated_at DESC)
       `);
+      await pool.query(`
+        CREATE INDEX IF NOT EXISTS llh_curriculum_operator_jobs_session_updated_idx
+        ON llh_curriculum_operator_jobs ((data->>'operatorSessionId'), updated_at DESC)
+      `);
       tableReady = true;
       return { ok: true, backend: "postgres" };
     } catch (error) {
@@ -348,6 +352,46 @@ function createCurriculumOperatorJobStore({ localFilePath = null } = {}) {
     }
     jobs.sort((a, b) => (Date.parse(b.updatedAt || "") || 0) - (Date.parse(a.updatedAt || "") || 0));
     return jobs.slice(0, max);
+  }
+
+  async function findJobsByOperatorSessionId(sessionId, { limit = 20 } = {}) {
+    const sid = schema.text(sessionId, 100);
+    if (!sid) return [];
+    const max = Math.max(1, Math.min(100, Number(limit) || 20));
+    const byId = new Map();
+
+    if (mode === "postgres" && pool && tableReady) {
+      const result = await pool.query(
+        `SELECT data FROM llh_curriculum_operator_jobs
+         WHERE data->>'operatorSessionId' = $1
+         ORDER BY updated_at DESC
+         LIMIT $2`,
+        [sid, max],
+      );
+      for (const row of result.rows) {
+        const job = jobApi.normalizeOperatorJob(row.data);
+        if (job.id) {
+          memory.set(job.id, job);
+          byId.set(job.id, job);
+        }
+      }
+    }
+
+    for (const job of memory.values()) {
+      if (schema.text(job.operatorSessionId, 100) !== sid) continue;
+      const existing = byId.get(job.id);
+      if (!existing) {
+        byId.set(job.id, job);
+        continue;
+      }
+      const existingMs = Date.parse(existing.updatedAt || "") || 0;
+      const nextMs = Date.parse(job.updatedAt || "") || 0;
+      if (nextMs >= existingMs) byId.set(job.id, job);
+    }
+
+    return Array.from(byId.values())
+      .sort((a, b) => (Date.parse(b.updatedAt || "") || 0) - (Date.parse(a.updatedAt || "") || 0))
+      .slice(0, max);
   }
 
   async function loadDestinationJob(id) {
@@ -486,6 +530,7 @@ function createCurriculumOperatorJobStore({ localFilePath = null } = {}) {
     loadFromStorage,
     getJob,
     getJobSync,
+    findJobsByOperatorSessionId,
     listJobsSync,
     upsertJob,
     upsertJobs,

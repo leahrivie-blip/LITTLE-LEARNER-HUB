@@ -207,6 +207,7 @@ function normalizeOperatorJob(raw = {}) {
     },
     log: schema.asArray(input.log).slice(-500),
     ownerSummary: schema.text(input.ownerSummary, 4000),
+    operatorSessionId: schema.text(input.operatorSessionId, 100) || null,
   };
 }
 
@@ -243,7 +244,17 @@ function findActiveMutationJobForLessons(jobs, lessonIds = [], options = {}) {
   return null;
 }
 
-function createJobFromPlan({ command, planSummary, createdBy, status = "planned" }) {
+function findActiveJobForOperatorSession(jobs, operatorSessionId) {
+  const session = schema.text(operatorSessionId, 100);
+  if (!session) return null;
+  return (Array.isArray(jobs) ? jobs : []).find((job) => {
+    if (schema.text(job?.operatorSessionId, 100) !== session) return false;
+    const status = String(job?.status || "").toLowerCase();
+    return ["planned", "awaiting_confirm", "running", "paused"].includes(status);
+  }) || null;
+}
+
+function createJobFromPlan({ command, planSummary, createdBy, status = "planned", operatorSessionId = null }) {
   const lessons = schema.asArray(planSummary?.lessons);
   const phase = Number(command?.completion?.phase) || 1;
   const doCreate = phase >= 7 && command?.actions?.createLesson === true;
@@ -273,6 +284,7 @@ function createJobFromPlan({ command, planSummary, createdBy, status = "planned"
   const job = normalizeOperatorJob({
     createdBy,
     status,
+    operatorSessionId: schema.text(operatorSessionId, 100) || null,
     operatorPlanVersion: 2,
     command,
     planSummary,
@@ -477,5 +489,6 @@ module.exports = {
   buildOwnerSummary,
   findActiveMutationJob,
   findActiveMutationJobForLessons,
+  findActiveJobForOperatorSession,
   nowIso,
 };

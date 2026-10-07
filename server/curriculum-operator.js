@@ -31,6 +31,7 @@ const assetRetryApi = require("../scripts/curriculum-operator-asset-retry.js");
 const instructionProfile = require("../scripts/curriculum-operator-instruction-profile.js");
 const operatorHttpBoundary = require("../scripts/curriculum-operator-http-boundary.js");
 const researchApi = require("../scripts/curriculum-operator-research.js");
+const runVisibility = require("../scripts/curriculum-operator-run-visibility.js");
 
 const ACTIONS = Object.freeze([
   "parse",
@@ -40,6 +41,7 @@ const ACTIONS = Object.freeze([
   "connected_run",
   "list",
   "get",
+  "job_by_session",
   "resume",
   "cancel",
   "context_get",
@@ -198,6 +200,75 @@ function createCurriculumOperatorApi(deps) {
 
     await writeStoreAsync(store);
     return store.curriculumOperatorJobs;
+  }
+
+  async function resolveJobById(store, jobId) {
+    const id = schema.text(jobId, 80);
+    if (!id) return null;
+    const bag = readJobs(store);
+    let job = bag.jobs.find((j) => j.id === id) || null;
+    if (!job && operatorJobStore && typeof operatorJobStore.getJob === "function") {
+      job = await operatorJobStore.getJob(id);
+    }
+    return job || null;
+  }
+
+  async function linkOperatorSessionToJob(store, ownerEmail, operatorSessionId, jobId) {
+    const session = schema.text(operatorSessionId, 100);
+    const id = schema.text(jobId, 80);
+    if (!session || !id) return;
+    const existing = conversationStore.read(store, ownerEmail, session);
+    const ctx = existing || {
+      ownerId: ownerEmail,
+      sessionId: session,
+      messages: [],
+    };
+    conversationStore.save(store, { ...ctx, latestDraftJobId: id });
+    await writeStoreAsync(store);
+  }
+
+  function scheduleAsyncOperatorRun(jobId, ownerEmail) {
+    setImmediate(() => {
+      void (async () => {
+        try {
+          const store = readStore();
+          let job = await resolveJobById(store, jobId);
+          if (!job) return;
+          job = await runJob(job, store, ownerEmail);
+          let bag = readJobs(store);
+          bag.jobs = [job, ...bag.jobs.filter((j) => j.id !== job.id)].slice(0, 100);
+          await writeJobs(store, bag);
+
+          const cmdActions = job?.command?.actions || {};
+          const shouldAutoApply = !cmdActions.planOnly
+            && cmdActions.connectedAutoApply !== false
+            && (cmdActions.connectedAutoApply === true
+              || cmdActions.connectedUpgrade === true
+              || cmdActions.composeReviewDraft === true);
+          if (shouldAutoApply) {
+            const autoApply = await tryConnectedAutoApply(job, store, ownerEmail);
+            if (autoApply.applied.length) await writeStoreAsync(store);
+            bag = readJobs(store);
+            bag.jobs = [job, ...bag.jobs.filter((j) => j.id !== job.id)].slice(0, 100);
+            await writeJobs(store, bag);
+          }
+        } catch (error) {
+          console.error("[curriculum-operator] async run failed:", error?.message || error);
+          try {
+            const store = readStore();
+            let job = await resolveJobById(store, jobId);
+            if (!job) return;
+            job.status = "failed";
+            jobApi.appendLog(job, schema.text(error?.message, 500) || "Async operator run failed.", "error");
+            const bag = readJobs(store);
+            bag.jobs = [job, ...bag.jobs.filter((j) => j.id !== job.id)].slice(0, 100);
+            await writeJobs(store, bag);
+          } catch (persistErr) {
+            console.error("[curriculum-operator] async run failure persist failed:", persistErr?.message || persistErr);
+          }
+        }
+      })();
+    });
   }
 
   function getJobMutationAllowlist(job) {
@@ -2696,11 +2767,59 @@ function createCurriculumOperatorApi(deps) {
         return;
       }
 
+      const canPersistDedicated = Boolean(
+        operatorJobStore
+        && typeof operatorJobStore.canSafelyPersistDedicated === "function"
+        && operatorJobStore.canSafelyPersistDedicated(),
+      );
+      const requiresDedicated = Boolean(
+        operatorJobStore
+        && typeof operatorJobStore.requiresDurableBackend === "function"
+        && operatorJobStore.requiresDurableBackend(),
+      );
+      const creatingConfirmed = body.confirm === true && wantsCreate(command);
+      if (creatingConfirmed && requiresDedicated && !canPersistDedicated) {
+        jsonResponse(response, 503, {
+          ok: false,
+          code: "operator_job_backend_not_ready",
+          error: "Operator job persistence is unavailable; long create was not started.",
+          runBlocked: true,
+        });
+        return;
+      }
+
+      if (creatingConfirmed && operatorSessionId) {
+        let activeSessionJob = jobApi.findActiveJobForOperatorSession(readJobs(store).jobs, operatorSessionId);
+        if (!activeSessionJob && operatorJobStore && typeof operatorJobStore.findJobsByOperatorSessionId === "function") {
+          const sessionJobs = await operatorJobStore.findJobsByOperatorSessionId(operatorSessionId, { limit: 8 });
+          activeSessionJob = sessionJobs.find((row) => runVisibility.isSessionActiveJobStatus(row.status)) || null;
+        }
+        if (activeSessionJob) {
+          jsonResponse(response, 409, {
+            ok: false,
+            code: "OPERATOR_SESSION_JOB_ACTIVE",
+            error: "An operator job is already active for this session.",
+            operatorSessionId,
+            jobId: activeSessionJob.id,
+            jobStatus: activeSessionJob.status,
+            runBlocked: true,
+          });
+          return;
+        }
+      }
+
+      const acknowledgeAsync = runVisibility.shouldAcknowledgeCreateAsynchronously({
+        action,
+        body,
+        wantsCreate: wantsCreate(command),
+      });
+
       let job = jobApi.createJobFromPlan({
         command,
         planSummary,
         createdBy: session.email,
         status: "running",
+        operatorSessionId: operatorSessionId || null,
       });
       const bag = readJobs(store);
       const activeLock = jobApi.findActiveMutationJobForLessons(bag.jobs, planSummary.selectedLessonIds, {
@@ -2718,7 +2837,43 @@ function createCurriculumOperatorApi(deps) {
         return;
       }
       bag.jobs = [job, ...bag.jobs.filter((j) => j.id !== job.id)].slice(0, 100);
-      await writeJobs(store, bag);
+      try {
+        await writeJobs(store, bag);
+      } catch (error) {
+        jsonResponse(response, 503, {
+          ok: false,
+          code: error?.code || "operator_job_persist_failed",
+          error: error?.message || "Could not persist operator job before execution.",
+          runBlocked: true,
+        });
+        return;
+      }
+
+      if (operatorSessionId) {
+        await linkOperatorSessionToJob(store, session.email, operatorSessionId, job.id);
+      }
+
+      if (acknowledgeAsync) {
+        scheduleAsyncOperatorRun(job.id, session.email);
+        const created = wantsCreate(command);
+        jsonResponse(response, 202, {
+          ok: true,
+          action: "run",
+          async: true,
+          acknowledged: true,
+          operatorSessionId: operatorSessionId || null,
+          command,
+          planSummary,
+          job,
+          autoApply: { applied: [], skipped: [] },
+          publishEnabled: false,
+          published: false,
+          draftOnly: created,
+          curriculumUnchanged: !created,
+          mutationsEnabled: created,
+        });
+        return;
+      }
 
       job = await runJob(job, store, session.email);
       const bag2 = readJobs(store);
@@ -2774,6 +2929,50 @@ function createCurriculumOperatorApi(deps) {
           createdAt: j.createdAt,
           updatedAt: j.updatedAt,
           rawCommand: j.command?.rawCommand,
+          operatorSessionId: j.operatorSessionId || null,
+          progress: j.progress,
+          mutationsEnabled: j.mutationsEnabled === true,
+          publishEnabled: false,
+        })),
+      });
+      return;
+    }
+
+    if (action === "job_by_session") {
+      const sid = operatorSessionId;
+      if (!sid) {
+        jsonResponse(response, 400, {
+          ok: false,
+          code: "operator_session_required",
+          error: "operatorSessionId is required.",
+        });
+        return;
+      }
+      const hotMatches = readJobs(store).jobs.filter(
+        (j) => schema.text(j.operatorSessionId, 100) === sid,
+      );
+      let dedicatedMatches = [];
+      if (operatorJobStore && typeof operatorJobStore.findJobsByOperatorSessionId === "function") {
+        dedicatedMatches = await operatorJobStore.findJobsByOperatorSessionId(sid, { limit: 20 });
+      }
+      const byId = new Map();
+      for (const row of [...hotMatches, ...dedicatedMatches]) {
+        if (row?.id) byId.set(row.id, row);
+      }
+      const jobs = Array.from(byId.values())
+        .sort((a, b) => (Date.parse(b.updatedAt || "") || 0) - (Date.parse(a.updatedAt || "") || 0));
+      jsonResponse(response, 200, {
+        ok: true,
+        action,
+        operatorSessionId: sid,
+        jobs: jobs.map((j) => ({
+          id: j.id,
+          status: j.status,
+          phase: j.phase,
+          createdAt: j.createdAt,
+          updatedAt: j.updatedAt,
+          rawCommand: j.command?.rawCommand,
+          operatorSessionId: j.operatorSessionId || sid,
           progress: j.progress,
           mutationsEnabled: j.mutationsEnabled === true,
           publishEnabled: false,
@@ -2783,8 +2982,7 @@ function createCurriculumOperatorApi(deps) {
     }
 
     if (action === "get") {
-      const bag = readJobs(store);
-      const job = bag.jobs.find((j) => j.id === schema.text(body.jobId, 80));
+      const job = await resolveJobById(store, schema.text(body.jobId, 80));
       if (!job) {
         jsonResponse(response, 404, { error: "Job not found.", code: "job_not_found" });
         return;
