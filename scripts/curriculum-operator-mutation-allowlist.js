@@ -20,6 +20,7 @@ const DANGEROUS_CONFIRM_REASONS = Object.freeze([
   "unresolved_target",
   "access_tier_mismatch",
   "age_band_mismatch",
+  "conflicting_create_and_existing",
 ]);
 
 const WEEKLY_FIELD_ALIASES = Object.freeze({

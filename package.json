@@ -48,6 +48,7 @@
     "test:curriculum-operator-production-qa-live": "node scripts/run-curriculum-operator-production-qa-live.js",
     "test:curriculum-operator-spring-planting-e2e": "NODE_ENV=test LLH_OPERATOR_AI_FIXTURE=1 LLH_OPERATOR_SONGS_BOOKS_FIXTURE=1 LLH_OPERATOR_PRINTABLE_FIXTURE=1 VISUAL_PRODUCTION_MOCK_GENERATE=1 LLH_OPERATOR_IMAGE_FIXTURE=1 node scripts/test-curriculum-operator-spring-planting-e2e.js",
     "test:curriculum-operator-spring-planting-qa-title": "NODE_ENV=test node scripts/test-curriculum-operator-spring-planting-qa-title.js",
+    "test:curriculum-operator-create-title-scope": "NODE_ENV=test node scripts/test-curriculum-operator-create-title-scope.js",
     "test:curriculum-operator-explicit-printable": "NODE_ENV=test node scripts/test-curriculum-operator-explicit-printable.js",
     "test:curriculum-operator-seed-growth-requested-activity": "NODE_ENV=test node scripts/test-curriculum-operator-seed-growth-requested-activity.js",
     "test:curriculum-operator-generic-filler-field-repair": "NODE_ENV=test node scripts/test-curriculum-operator-generic-filler-field-repair.js",

@@ -13,6 +13,7 @@ const orchestrator = require("./curriculum-operator-orchestrator.js");
 const printableAgeBand = require("./curriculum-operator-printable-age-band.js");
 const instructionProfile = require("./curriculum-operator-instruction-profile.js");
 const intentRouter = require("./curriculum-operator-intent-router.js");
+const createTitleScope = require("./curriculum-operator-create-title-scope.js");
 
 const WEEKDAYS = Object.freeze(["monday", "tuesday", "wednesday", "thursday", "friday"]);
 
@@ -160,9 +161,11 @@ function parseCreationBrief(rawCommand, options = {}) {
   requestedActivities = requestedActivities.slice(0, 24);
   const materialCostMode = instructionProfile.resolveMaterialCostMode(raw, options.lessonInstructions || []);
 
-  let title = "";
-  const quoted = raw.match(/[“"]([^”"]{2,120})[”"]/);
-  if (quoted) title = quoted[1].trim();
+  let title = createTitleScope.extractRequestedNewLessonTitle(raw);
+  if (!title) {
+    const quoted = raw.match(/[“"]([^”"]{2,120})[”"]/);
+    if (quoted) title = quoted[1].trim();
+  }
   if (!title) {
     const researchTheme = raw.match(/\bresearch\s+(.+?)\s+activities?\s+for\b/i);
     if (researchTheme) {

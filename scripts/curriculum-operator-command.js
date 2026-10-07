@@ -10,6 +10,7 @@ const createApi = require("./curriculum-operator-create.js");
 const intentRouter = require("./curriculum-operator-intent-router.js");
 const commandSafety = require("./curriculum-operator-command-safety.js");
 const semanticInterpret = require("./curriculum-operator-semantic-interpret.js");
+const createTitleScope = require("./curriculum-operator-create-title-scope.js");
 
 function parseCount(command) {
   const m = String(command || "").match(/\b(?:top|next|first|the)?\s*(\d{1,2})\b/i)
@@ -533,6 +534,23 @@ function parseOperatorCommand(rawCommand, options = {}) {
     actions.createLesson = false;
   }
 
+  const createScope = createTitleScope.applyCreateLessonTitleScope({
+    rawCommand: raw,
+    titles,
+    lessonIds,
+    selection,
+    confirmReasons,
+    lessonPlans: options.lessonPlans || [],
+    isCreateLesson: isCreateCommand && actions.createLesson === true,
+    ambiguous,
+  });
+  titles = createScope.titles;
+  lessonIds = createScope.lessonIds;
+  selection = createScope.selection;
+  confirmReasons.length = 0;
+  confirmReasons.push(...createScope.confirmReasons);
+  ambiguous = createScope.ambiguous;
+
   Object.assign(actions, orchestrator.applyTextOnlyAuditFlags(raw, actions));
   Object.assign(actions, commandSafety.applyExplicitBooleanConstraints(actions, explicitBooleans));
   Object.assign(actions, commandSafety.applyNarrowScopeLocks(actions, actions.weeklyFieldScope));
@@ -582,6 +600,7 @@ function parseOperatorCommand(rawCommand, options = {}) {
       requireExplicitIdsIfAmbiguous: true,
       requestedTargetCount,
       requestedActivities,
+      requestedNewLessonTitle: createScope.requestedNewLessonTitle || "",
     },
     actions,
     limits: {
@@ -626,7 +645,7 @@ function parseOperatorCommand(rawCommand, options = {}) {
     phase2Executable: phase >= 2,
     mutationsStripped: !command.completion.mutationsEnabled,
   };
-  const result = intentRouter.applyPostSemanticSafety(semanticInterpret.applyToParsedResult(parsed, {
+  let result = intentRouter.applyPostSemanticSafety(semanticInterpret.applyToParsedResult(parsed, {
     phase,
     lessonPlans: options.lessonPlans || [],
     activities: options.activities || [],
@@ -634,6 +653,14 @@ function parseOperatorCommand(rawCommand, options = {}) {
     operatorContext: options.operatorContext || null,
     rawCommand: raw,
   }), ownerIntent);
+
+  const finalizedCreate = createTitleScope.finalizeCreateLessonInterpretation(result, {
+    rawCommand: raw,
+    lessonPlans: options.lessonPlans || [],
+  });
+  if (finalizedCreate !== result) {
+    result = finalizedCreate;
+  }
 
   if (researchScope.explicit) {
     result.command.intent = "research_only";
