@@ -18,8 +18,10 @@ const imagesApi = require("./curriculum-operator-images.js");
 const printablesApi = require("./curriculum-operator-printables.js");
 const schema = require("./curriculum-operator-schema.js");
 const prepApi = require("./curriculum-operator-production-qa-live-prep.js");
+const { parseQaHttpTimeoutMs } = require("./curriculum-operator-qa-http-timeout.js");
 
 const BASE = process.env.LLH_PROD_BASE || "https://littlelearnershubbyleah.com";
+const HTTP_TIMEOUT_MS = parseQaHttpTimeoutMs();
 const EXPECTED_SHA = String(process.env.LLH_EXPECTED_COMMIT_SHA || "259fe94").slice(0, 7);
 const SESSION = `spring-planting-prod-qa-${Date.now()}`;
 const OUT_DIR = process.env.LLH_QA_OUT || "/opt/cursor/artifacts/spring-planting-prod-qa";
@@ -45,7 +47,7 @@ function req(method, urlPath, body, token) {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...(payload ? { "Content-Length": Buffer.byteLength(payload) } : {}),
       },
-      timeout: 900000,
+      timeout: HTTP_TIMEOUT_MS,
     }, (res) => {
       let raw = "";
       res.on("data", (c) => { raw += c; });
@@ -116,6 +118,38 @@ async function saveEnrichmentDraft(token, stamp, lessonId, enrichmentDraft) {
     saveMode: "enrichment_draft",
     lessonPlan: { id: lessonId, enrichmentDraft },
   }, token);
+}
+
+async function listRecentOperatorJobs(token) {
+  const list = await req("POST", "/api/admin/curriculum/operator", { action: "list" }, token);
+  const jobs = schema.asArray(list.json?.jobs);
+  return jobs.map((j) => ({
+    id: j.id,
+    status: j.status,
+    updatedAt: j.updatedAt,
+    rawCommand: String(j.rawCommand || "").slice(0, 240),
+  }));
+}
+
+async function failCreateRunTimeout(report, token, err, context) {
+  let recentJobs = [];
+  try {
+    recentJobs = await listRecentOperatorJobs(token);
+  } catch (listErr) {
+    recentJobs = [{ listError: listErr.message }];
+  }
+  const hint = String(context?.disposableTitle || "");
+  const related = recentJobs.filter((j) => (
+    j.id && (String(j.rawCommand || "").includes(hint) || /create.*spring planting/i.test(String(j.rawCommand || "")))
+  ));
+  fail(report, "confirmed_create_timeout", {
+    error: err.message,
+    httpTimeoutMs: HTTP_TIMEOUT_MS,
+    operatorSessionId: context?.session,
+    recentJobIds: recentJobs.map((j) => j.id).filter(Boolean),
+    relatedJobIds: related.map((j) => j.id).filter(Boolean),
+    relatedJobs: related,
+  });
 }
 
 function fail(report, reason, detail) {
@@ -201,14 +235,26 @@ async function main() {
   );
   ok("no_title_collision_before_create", !titleCollision, { disposableTitle });
 
-  const createRun = await req("POST", "/api/admin/curriculum/operator", {
-    action: "run",
-    phase: PHASE,
-    confirm: true,
-    command: explicitCreateCommand,
-    operatorSessionId: SESSION,
-  }, token);
-  ok("confirmed_create_200", createRun.status === 200, { status: createRun.status, error: createRun.json?.error });
+  let createRun;
+  try {
+    createRun = await req("POST", "/api/admin/curriculum/operator", {
+      action: "run",
+      phase: PHASE,
+      confirm: true,
+      command: explicitCreateCommand,
+      operatorSessionId: SESSION,
+    }, token);
+  } catch (err) {
+    if (/timeout/i.test(String(err?.message || ""))) {
+      await failCreateRunTimeout(report, token, err, { session: SESSION, disposableTitle });
+    }
+    throw err;
+  }
+  ok("confirmed_create_200", createRun.status === 200, {
+    status: createRun.status,
+    error: createRun.json?.error,
+    jobId: createRun.json?.job?.id,
+  });
   const job = createRun.json?.job;
   const lr = job?.lessonResults?.[0];
   ok("publish_false", createRun.json?.published === false && createRun.json?.publishEnabled === false);

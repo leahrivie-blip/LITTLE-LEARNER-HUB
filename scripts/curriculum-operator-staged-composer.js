@@ -15,6 +15,7 @@ const schema = require("./curriculum-operator-schema.js");
 const createApi = require("./curriculum-operator-create.js");
 const architect = require("./curriculum-operator-create-architect.js");
 const composer = require("./curriculum-operator-ai-composer.js");
+const outdoorAltRepair = require("./curriculum-operator-outdoor-alternatives-repair.js");
 
 const WEEKDAYS = createApi.WEEKDAYS;
 const DEFAULT_BATCH_SIZE = 5;
@@ -28,6 +29,7 @@ const MAX_TOO_SHORT_FOLLOWUP_REPAIR_CALLS_PER_BATCH = 1;
 /** Optional third pass when post-repair failures are only generic_filler on safetyNotes/steps. */
 const MAX_GENERIC_FILLER_FOLLOWUP_REPAIR_CALLS_PER_BATCH = 1;
 const GENERIC_FILLER_FOLLOWUP_FIELDS = Object.freeze(["safetyNotes", "steps"]);
+const ALTERNATIVES_TOO_SHORT_SYNTHESIS_FIELDS = outdoorAltRepair.ALTERNATIVES_TOO_SHORT_FIELDS;
 const MAX_FINAL_REPAIR_CALLS = 1;
 const STAGE_MAX_OUTPUT_TOKENS = 12000;
 
@@ -935,6 +937,13 @@ function rejectGeneric(field, value) {
     && !["vocabulary", "vocabularyWords"].includes(field)) {
     return `Too short: ${field}`;
   }
+  const canonicalAltField = /\.([^.]+)$/.test(field) ? field.replace(/^.*\./, "") : field;
+  if (canonicalAltField === "outdoorAlternatives" && outdoorAltRepair.isShallowOutdoorAlternatives(sample)) {
+    return `Generic filler in ${field}`;
+  }
+  if (canonicalAltField === "indoorAlternatives" && outdoorAltRepair.isShallowIndoorAlternatives(sample)) {
+    return `Generic filler in ${field}`;
+  }
   return null;
 }
 
@@ -1012,6 +1021,13 @@ function synthesizeActivitySpecificGenericField(activity, field, brief) {
     ].join(",");
   }
   return null;
+}
+
+function applyTargetedAlternativesTooShortSynthesis(activities, brief, options = {}) {
+  return outdoorAltRepair.applyTargetedAlternativesTooShortSynthesis(activities, brief, {
+    rejectGeneric,
+    ...options,
+  });
 }
 
 function applyTargetedGenericFillerFieldSynthesis(activities, brief) {
@@ -1708,34 +1724,10 @@ function fieldRepairQualityInstruction(field, reason) {
     ].join(" ");
   }
   if (canonical === "indoorAlternatives") {
-    if (why === "generic_filler") {
-      return [
-        "The existing indoorAlternatives text is too generic.",
-        "REPLACE it with a practical indoor adaptation of THIS activity.",
-        "Explain where/how the activity can happen indoors, what materials or setup change if needed, and preserve the original learning goal.",
-        "Do not lightly paraphrase \"do this indoors\" filler.",
-      ].join(" ");
-    }
-    return [
-      "EXPAND this field into a practical indoor adaptation of the same activity.",
-      "Explain where/how the activity can happen indoors, what materials or setup change if needed,",
-      "and preserve the original learning goal.",
-      "Do not merely lengthen the existing sentence. Do not write generic filler such as \"Do this activity indoors.\"",
-    ].join(" ");
+    return outdoorAltRepair.indoorAlternativesRepairQualityInstruction(why);
   }
   if (canonical === "outdoorAlternatives") {
-    if (why === "generic_filler") {
-      return [
-        "The existing outdoorAlternatives text is too generic.",
-        "REPLACE it with a practical outdoor adaptation of THIS activity.",
-        "Explain where/how the activity can happen outdoors, what materials or setup change if needed, and preserve the original learning goal.",
-      ].join(" ");
-    }
-    return [
-      "EXPAND this field into a practical outdoor adaptation of the same activity.",
-      "Explain where/how the activity can happen outdoors, what materials or setup change if needed,",
-      "and preserve the original learning goal. Do not write generic \"do this outside\" filler.",
-    ].join(" ");
+    return outdoorAltRepair.outdoorAlternativesRepairQualityInstruction(why);
   }
   if (canonical === "vocabulary") {
     return [
@@ -2832,6 +2824,23 @@ function coalesceExpansionBatch(priorActivities, parsed, requestedIds, blueprint
             const synthesized = synthesizeActivitySpecificGenericField(merged, field, brief);
             if (synthesized && !rejectGeneric(`${merged.title}.${field}`, synthesized)) {
               merged[field] = synthesized;
+            }
+          }
+        }
+        if (ALTERNATIVES_TOO_SHORT_SYNTHESIS_FIELDS.includes(field)) {
+          const fieldKey = `${text(merged.title, 120)}.${field}`;
+          const stillBad = rejectGeneric(fieldKey, merged[field]);
+          if (stillBad && (/Too short/i.test(stillBad) || /Generic filler/i.test(stillBad))) {
+            const synthesized = field === "outdoorAlternatives"
+              ? outdoorAltRepair.synthesizeActivitySpecificOutdoorAlternative(merged, brief)
+              : outdoorAltRepair.synthesizeActivitySpecificIndoorAlternative(merged, brief);
+            if (synthesized) {
+              const shallow = field === "outdoorAlternatives"
+                ? outdoorAltRepair.isShallowOutdoorAlternatives(synthesized)
+                : outdoorAltRepair.isShallowIndoorAlternatives(synthesized);
+              if (!shallow && !rejectGeneric(fieldKey, synthesized)) {
+                merged[field] = synthesized;
+              }
             }
           }
         }
@@ -4189,7 +4198,10 @@ async function composeStagedLessonContent(brief, options = {}) {
       );
       validated = {
         ...validated,
-        activities: applyTargetedGenericFillerFieldSynthesis(validated.activities, brief),
+        activities: applyTargetedAlternativesTooShortSynthesis(
+          applyTargetedGenericFillerFieldSynthesis(validated.activities, brief),
+          brief,
+        ),
       };
       const postSynthSweep = sweepExpansionActivitiesQuality(validated.activities);
       const postSynthStructural = schema.asArray(validated.issues).filter((iss) => (
@@ -4480,7 +4492,7 @@ async function composeStagedLessonContent(brief, options = {}) {
     if (repairStage.ok && repairStage.parsed) {
       assembled = applyRepairPatch(assembled, repairStage.parsed);
       // Prefer patched activities that retain outlineId; fall back to re-linking by title.
-      const patchedActivities = schema.asArray(assembled.activities).map((a, index) => {
+      let patchedActivities = schema.asArray(assembled.activities).map((a, index) => {
         const prior = expandedActivities[index];
         return {
           ...a,
@@ -4491,6 +4503,12 @@ async function composeStagedLessonContent(brief, options = {}) {
           substitutions: asActivityStringList(a.substitutions),
         };
       });
+      patchedActivities = applyTargetedAlternativesTooShortSynthesis(patchedActivities, brief, {
+        onlySynthWhenUnchangedFromPrior: true,
+        priorActivities: expandedActivities,
+        repairOutlineIds: [...new Set([...indoorAlternativeRepairIds, ...outdoorAlternativeRepairIds])],
+      });
+      assembled = { ...assembled, activities: patchedActivities };
       const indoorAlternativeAfter = Object.fromEntries(
         indoorAlternativeRepairIds.map((id) => {
           const act = patchedActivities.find((a) => text(a.outlineId, 80) === id);
@@ -4648,6 +4666,8 @@ module.exports = {
   isRejectGenericFillerIssue,
   synthesizeActivitySpecificGenericField,
   applyTargetedGenericFillerFieldSynthesis,
+  applyTargetedAlternativesTooShortSynthesis,
+  ALTERNATIVES_TOO_SHORT_SYNTHESIS_FIELDS,
   parseExpansionIssueTarget,
   isExpansionParseTransportFailure,
   EXPANSION_ISSUE_CODE_FIELD_MAP,
