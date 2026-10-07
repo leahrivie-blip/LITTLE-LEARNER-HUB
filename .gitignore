@@ -21,3 +21,6 @@ server/data/*.admin-sessions.json
 
 .tmp-*
 .tmp-tk-*
+
+# Local Pro upgrade image cache (uploaded to enrichment media; do not commit)
+curriculum-drafts/pro-upgrade/images/

@@ -1,0 +1,496 @@
+{
+  "at": "2026-08-20T17:56:33.458Z",
+  "site": "https://littlelearnershubbyleah.com",
+  "report": [
+    {
+      "lessonId": "cur-lp-toddler-pet-vet-clinic",
+      "title": "Pet Vet Clinic",
+      "enrichmentPublished": false,
+      "planStatus": "published",
+      "printableIdsOnDraft": [
+        "cur-res-b722ba10ee070a6b",
+        "cur-res-f69bee309aa41f32",
+        "cur-res-ab46a19506a160f1"
+      ],
+      "uploads": [
+        {
+          "title": "Pet Care Action Cards",
+          "resourceId": "cur-res-b722ba10ee070a6b",
+          "status": "draft",
+          "pages": 2,
+          "http": 200
+        },
+        {
+          "title": "Pet Friend Picture Cards",
+          "resourceId": "cur-res-f69bee309aa41f32",
+          "status": "draft",
+          "pages": 2,
+          "http": 200
+        },
+        {
+          "title": "Vet Check Picture Chart",
+          "resourceId": "cur-res-ab46a19506a160f1",
+          "status": "draft",
+          "pages": 1,
+          "http": 200
+        }
+      ],
+      "removed": [
+        {
+          "id": "cur-res-b11d123a40d51a11",
+          "title": "Clinic Zone Signs (Draft)",
+          "status": "draft",
+          "deleteHttp": 200,
+          "deleteOk": true
+        },
+        {
+          "id": "cur-res-f5fc9f02b43f9c53",
+          "title": "Pet Care Choice Cards (Draft)",
+          "status": "draft",
+          "deleteHttp": 200,
+          "deleteOk": true
+        }
+      ],
+      "resourceStatuses": [
+        {
+          "id": "cur-res-b722ba10ee070a6b",
+          "title": "Pet Care Action Cards",
+          "status": "draft",
+          "hasDraftInTitle": false
+        },
+        {
+          "id": "cur-res-f69bee309aa41f32",
+          "title": "Pet Friend Picture Cards",
+          "status": "draft",
+          "hasDraftInTitle": false
+        },
+        {
+          "id": "cur-res-ab46a19506a160f1",
+          "title": "Vet Check Picture Chart",
+          "status": "draft",
+          "hasDraftInTitle": false
+        }
+      ],
+      "saveHttp": 200,
+      "publishStatus": "NOT PUBLISHED / OWNER REVIEW"
+    },
+    {
+      "lessonId": "cur-lp-toddler-zoo-adventures",
+      "title": "Zoo Adventures",
+      "enrichmentPublished": false,
+      "planStatus": "published",
+      "printableIdsOnDraft": [
+        "cur-res-47289150a016e6a4",
+        "cur-res-ed3dd8cd112b51ba"
+      ],
+      "uploads": [
+        {
+          "title": "Zoo Animal Picture Cards",
+          "resourceId": "cur-res-47289150a016e6a4",
+          "status": "draft",
+          "pages": 1,
+          "http": 200
+        },
+        {
+          "title": "Animal–Habitat Match Cards",
+          "resourceId": "cur-res-ed3dd8cd112b51ba",
+          "status": "draft",
+          "pages": 1,
+          "http": 200
+        }
+      ],
+      "removed": [
+        {
+          "id": "cur-res-b5ac54d682293f5f",
+          "title": "Habitat Zone Signs (Draft)",
+          "status": "draft",
+          "deleteHttp": 200,
+          "deleteOk": true
+        },
+        {
+          "id": "cur-res-91d913cc179a73ed",
+          "title": "Animal Choice Cards (Draft)",
+          "status": "draft",
+          "deleteHttp": 200,
+          "deleteOk": true
+        }
+      ],
+      "resourceStatuses": [
+        {
+          "id": "cur-res-47289150a016e6a4",
+          "title": "Zoo Animal Picture Cards",
+          "status": "draft",
+          "hasDraftInTitle": false
+        },
+        {
+          "id": "cur-res-ed3dd8cd112b51ba",
+          "title": "Animal–Habitat Match Cards",
+          "status": "draft",
+          "hasDraftInTitle": false
+        }
+      ],
+      "saveHttp": 200,
+      "publishStatus": "NOT PUBLISHED / OWNER REVIEW"
+    },
+    {
+      "lessonId": "cur-lp-toddler-camping-under-the-stars",
+      "title": "Camping Under the Stars",
+      "enrichmentPublished": false,
+      "planStatus": "published",
+      "printableIdsOnDraft": [
+        "cur-res-739b44750866b0e1",
+        "cur-res-72b3d0b06da14a7f",
+        "cur-res-046771f59434cc05"
+      ],
+      "uploads": [
+        {
+          "title": "Day & Night Scene Cards",
+          "resourceId": "cur-res-739b44750866b0e1",
+          "status": "draft",
+          "pages": 1,
+          "http": 200
+        },
+        {
+          "title": "Nature Treasure Hunt Cards",
+          "resourceId": "cur-res-72b3d0b06da14a7f",
+          "status": "draft",
+          "pages": 1,
+          "http": 200
+        },
+        {
+          "title": "Pack the Backpack Cards",
+          "resourceId": "cur-res-046771f59434cc05",
+          "status": "draft",
+          "pages": 1,
+          "http": 200
+        }
+      ],
+      "removed": [
+        {
+          "id": "cur-res-f05a4b1d1ea1f03b",
+          "title": "Trail Signs (Draft)",
+          "status": "draft",
+          "deleteHttp": 200,
+          "deleteOk": true
+        },
+        {
+          "id": "cur-res-8fe9dfb61174228c",
+          "title": "Day and Night Cards (Draft)",
+          "status": "draft",
+          "deleteHttp": 200,
+          "deleteOk": true
+        }
+      ],
+      "resourceStatuses": [
+        {
+          "id": "cur-res-739b44750866b0e1",
+          "title": "Day & Night Scene Cards",
+          "status": "draft",
+          "hasDraftInTitle": false
+        },
+        {
+          "id": "cur-res-72b3d0b06da14a7f",
+          "title": "Nature Treasure Hunt Cards",
+          "status": "draft",
+          "hasDraftInTitle": false
+        },
+        {
+          "id": "cur-res-046771f59434cc05",
+          "title": "Pack the Backpack Cards",
+          "status": "draft",
+          "hasDraftInTitle": false
+        }
+      ],
+      "saveHttp": 200,
+      "publishStatus": "NOT PUBLISHED / OWNER REVIEW"
+    },
+    {
+      "lessonId": "cur-lp-toddler-pirate-adventure",
+      "title": "Pirate Adventure",
+      "enrichmentPublished": false,
+      "planStatus": "published",
+      "printableIdsOnDraft": [
+        "cur-res-c7064e918084ee60",
+        "cur-res-2703fd901b3a8d48"
+      ],
+      "uploads": [
+        {
+          "title": "Toddler Treasure Map",
+          "resourceId": "cur-res-c7064e918084ee60",
+          "status": "draft",
+          "pages": 1,
+          "http": 200
+        },
+        {
+          "title": "Gold Coin Sort Mat & Cutouts",
+          "resourceId": "cur-res-2703fd901b3a8d48",
+          "status": "draft",
+          "pages": 2,
+          "http": 200
+        }
+      ],
+      "removed": [
+        {
+          "id": "cur-res-ec06af2ecc16e6a8",
+          "title": "Ship / Island Zone Signs (Draft)",
+          "status": "draft",
+          "deleteHttp": 200,
+          "deleteOk": true
+        },
+        {
+          "id": "cur-res-bbea62bb89e29307",
+          "title": "Photo Treasure Map Template (Draft)",
+          "status": "draft",
+          "deleteHttp": 200,
+          "deleteOk": true
+        }
+      ],
+      "resourceStatuses": [
+        {
+          "id": "cur-res-c7064e918084ee60",
+          "title": "Toddler Treasure Map",
+          "status": "draft",
+          "hasDraftInTitle": false
+        },
+        {
+          "id": "cur-res-2703fd901b3a8d48",
+          "title": "Gold Coin Sort Mat & Cutouts",
+          "status": "draft",
+          "hasDraftInTitle": false
+        }
+      ],
+      "saveHttp": 200,
+      "publishStatus": "NOT PUBLISHED / OWNER REVIEW"
+    },
+    {
+      "lessonId": "cur-lp-toddler-superhero-training-camp",
+      "title": "Superhero Training Camp",
+      "enrichmentPublished": false,
+      "planStatus": "published",
+      "printableIdsOnDraft": [
+        "cur-res-d0766e0900173303",
+        "cur-res-f72e48f308860194",
+        "cur-res-59fbca5ee3088b9c"
+      ],
+      "uploads": [
+        {
+          "title": "Kindness Mission Cards",
+          "resourceId": "cur-res-d0766e0900173303",
+          "status": "draft",
+          "pages": 1,
+          "http": 200
+        },
+        {
+          "title": "Hero Movement Action Cards",
+          "resourceId": "cur-res-f72e48f308860194",
+          "status": "draft",
+          "pages": 1,
+          "http": 200
+        },
+        {
+          "title": "Super Badge Emblem Template",
+          "resourceId": "cur-res-59fbca5ee3088b9c",
+          "status": "draft",
+          "pages": 1,
+          "http": 200
+        }
+      ],
+      "removed": [
+        {
+          "id": "cur-res-a885084c433b23e5",
+          "title": "Helper Zone Signs (Draft)",
+          "status": "draft",
+          "deleteHttp": 200,
+          "deleteOk": true
+        },
+        {
+          "id": "cur-res-1402d0c76cd86bdf",
+          "title": "Kindness Mission Picture Cards (Draft)",
+          "status": "draft",
+          "deleteHttp": 200,
+          "deleteOk": true
+        }
+      ],
+      "resourceStatuses": [
+        {
+          "id": "cur-res-d0766e0900173303",
+          "title": "Kindness Mission Cards",
+          "status": "draft",
+          "hasDraftInTitle": false
+        },
+        {
+          "id": "cur-res-f72e48f308860194",
+          "title": "Hero Movement Action Cards",
+          "status": "draft",
+          "hasDraftInTitle": false
+        },
+        {
+          "id": "cur-res-59fbca5ee3088b9c",
+          "title": "Super Badge Emblem Template",
+          "status": "draft",
+          "hasDraftInTitle": false
+        }
+      ],
+      "saveHttp": 200,
+      "publishStatus": "NOT PUBLISHED / OWNER REVIEW"
+    },
+    {
+      "lessonId": "cur-lp-toddler-apples-in-the-kitchen",
+      "title": "Apples in the Kitchen",
+      "enrichmentPublished": false,
+      "planStatus": "published",
+      "printableIdsOnDraft": [
+        "cur-res-179aaab4a0a9646a",
+        "cur-res-486331e0aae8b242",
+        "cur-res-fbb9f1ba0546e6f2"
+      ],
+      "uploads": [
+        {
+          "title": "Applesauce Picture Recipe",
+          "resourceId": "cur-res-179aaab4a0a9646a",
+          "status": "draft",
+          "pages": 1,
+          "http": 200
+        },
+        {
+          "title": "Apple Juice Café Menu & Order Tickets",
+          "resourceId": "cur-res-486331e0aae8b242",
+          "status": "draft",
+          "pages": 2,
+          "http": 200
+        },
+        {
+          "title": "Apple Color Sort Mat & Cutouts",
+          "resourceId": "cur-res-fbb9f1ba0546e6f2",
+          "status": "draft",
+          "pages": 2,
+          "http": 200
+        }
+      ],
+      "removed": [
+        {
+          "id": "cur-res-9dba67cffe7ed329",
+          "title": "Kitchen Zone Signs (Draft)",
+          "status": "draft",
+          "deleteHttp": 200,
+          "deleteOk": true
+        },
+        {
+          "id": "cur-res-39fa83250cfc3b9d",
+          "title": "Picture Recipe Cards (Draft)",
+          "status": "draft",
+          "deleteHttp": 200,
+          "deleteOk": true
+        },
+        {
+          "id": "cur-res-e4f2e479ac4fff3a",
+          "title": "Café Menu Picture Cards (Draft)",
+          "status": "draft",
+          "deleteHttp": 200,
+          "deleteOk": true
+        }
+      ],
+      "resourceStatuses": [
+        {
+          "id": "cur-res-179aaab4a0a9646a",
+          "title": "Applesauce Picture Recipe",
+          "status": "draft",
+          "hasDraftInTitle": false
+        },
+        {
+          "id": "cur-res-486331e0aae8b242",
+          "title": "Apple Juice Café Menu & Order Tickets",
+          "status": "draft",
+          "hasDraftInTitle": false
+        },
+        {
+          "id": "cur-res-fbb9f1ba0546e6f2",
+          "title": "Apple Color Sort Mat & Cutouts",
+          "status": "draft",
+          "hasDraftInTitle": false
+        }
+      ],
+      "saveHttp": 200,
+      "publishStatus": "NOT PUBLISHED / OWNER REVIEW"
+    },
+    {
+      "lessonId": "cur-lp-toddler-johnny-appleseed-apple-fun",
+      "title": "Johnny Appleseed & Apple Fun",
+      "enrichmentPublished": false,
+      "planStatus": "published",
+      "printableIdsOnDraft": [
+        "cur-res-07b827adcb81ad41",
+        "cur-res-7311a00e011d37f7",
+        "cur-res-f521606e808db17e"
+      ],
+      "uploads": [
+        {
+          "title": "Apple Tree Life Cycle Sequence Cards",
+          "resourceId": "cur-res-07b827adcb81ad41",
+          "status": "draft",
+          "pages": 1,
+          "http": 200
+        },
+        {
+          "title": "Planting Steps Cards",
+          "resourceId": "cur-res-7311a00e011d37f7",
+          "status": "draft",
+          "pages": 1,
+          "http": 200
+        },
+        {
+          "title": "Apple Tree Counting Mat & Cutouts",
+          "resourceId": "cur-res-f521606e808db17e",
+          "status": "draft",
+          "pages": 2,
+          "http": 200
+        }
+      ],
+      "removed": [
+        {
+          "id": "cur-res-be91b95b163a2f3f",
+          "title": "Orchard Zone Signs (Draft)",
+          "status": "draft",
+          "deleteHttp": 200,
+          "deleteOk": true
+        },
+        {
+          "id": "cur-res-5d1005a0e642d16f",
+          "title": "Oversized Apple Life-Cycle Cards (Draft)",
+          "status": "draft",
+          "deleteHttp": 200,
+          "deleteOk": true
+        },
+        {
+          "id": "cur-res-1318b7804cd008fc",
+          "title": "Seed–Plant–Water Choice Cards (Draft)",
+          "status": "draft",
+          "deleteHttp": 200,
+          "deleteOk": true
+        }
+      ],
+      "resourceStatuses": [
+        {
+          "id": "cur-res-07b827adcb81ad41",
+          "title": "Apple Tree Life Cycle Sequence Cards",
+          "status": "draft",
+          "hasDraftInTitle": false
+        },
+        {
+          "id": "cur-res-7311a00e011d37f7",
+          "title": "Planting Steps Cards",
+          "status": "draft",
+          "hasDraftInTitle": false
+        },
+        {
+          "id": "cur-res-f521606e808db17e",
+          "title": "Apple Tree Counting Mat & Cutouts",
+          "status": "draft",
+          "hasDraftInTitle": false
+        }
+      ],
+      "saveHttp": 200,
+      "publishStatus": "NOT PUBLISHED / OWNER REVIEW"
+    }
+  ]
+}

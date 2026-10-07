@@ -1,0 +1,189 @@
+{
+  "at": "2026-08-20T17:56:46.010Z",
+  "lessons": [
+    {
+      "title": "Pet Vet Clinic",
+      "enrichmentPublished": false,
+      "planStatus": "published",
+      "printableCount": 3,
+      "printables": [
+        {
+          "id": "cur-res-b722ba10ee070a6b",
+          "title": "Pet Care Action Cards",
+          "status": "draft",
+          "draftInTitle": false
+        },
+        {
+          "id": "cur-res-f69bee309aa41f32",
+          "title": "Pet Friend Picture Cards",
+          "status": "draft",
+          "draftInTitle": false
+        },
+        {
+          "id": "cur-res-ab46a19506a160f1",
+          "title": "Vet Check Picture Chart",
+          "status": "draft",
+          "draftInTitle": false
+        }
+      ],
+      "oldGenericLeft": 0,
+      "coverImageUrl": true
+    },
+    {
+      "title": "Zoo Adventures",
+      "enrichmentPublished": false,
+      "planStatus": "published",
+      "printableCount": 2,
+      "printables": [
+        {
+          "id": "cur-res-47289150a016e6a4",
+          "title": "Zoo Animal Picture Cards",
+          "status": "draft",
+          "draftInTitle": false
+        },
+        {
+          "id": "cur-res-ed3dd8cd112b51ba",
+          "title": "Animal–Habitat Match Cards",
+          "status": "draft",
+          "draftInTitle": false
+        }
+      ],
+      "oldGenericLeft": 0,
+      "coverImageUrl": true
+    },
+    {
+      "title": "Camping Under the Stars",
+      "enrichmentPublished": false,
+      "planStatus": "published",
+      "printableCount": 3,
+      "printables": [
+        {
+          "id": "cur-res-739b44750866b0e1",
+          "title": "Day & Night Scene Cards",
+          "status": "draft",
+          "draftInTitle": false
+        },
+        {
+          "id": "cur-res-72b3d0b06da14a7f",
+          "title": "Nature Treasure Hunt Cards",
+          "status": "draft",
+          "draftInTitle": false
+        },
+        {
+          "id": "cur-res-046771f59434cc05",
+          "title": "Pack the Backpack Cards",
+          "status": "draft",
+          "draftInTitle": false
+        }
+      ],
+      "oldGenericLeft": 0,
+      "coverImageUrl": true
+    },
+    {
+      "title": "Pirate Adventure",
+      "enrichmentPublished": false,
+      "planStatus": "published",
+      "printableCount": 2,
+      "printables": [
+        {
+          "id": "cur-res-c7064e918084ee60",
+          "title": "Toddler Treasure Map",
+          "status": "draft",
+          "draftInTitle": false
+        },
+        {
+          "id": "cur-res-2703fd901b3a8d48",
+          "title": "Gold Coin Sort Mat & Cutouts",
+          "status": "draft",
+          "draftInTitle": false
+        }
+      ],
+      "oldGenericLeft": 0,
+      "coverImageUrl": true
+    },
+    {
+      "title": "Superhero Training Camp",
+      "enrichmentPublished": false,
+      "planStatus": "published",
+      "printableCount": 3,
+      "printables": [
+        {
+          "id": "cur-res-d0766e0900173303",
+          "title": "Kindness Mission Cards",
+          "status": "draft",
+          "draftInTitle": false
+        },
+        {
+          "id": "cur-res-f72e48f308860194",
+          "title": "Hero Movement Action Cards",
+          "status": "draft",
+          "draftInTitle": false
+        },
+        {
+          "id": "cur-res-59fbca5ee3088b9c",
+          "title": "Super Badge Emblem Template",
+          "status": "draft",
+          "draftInTitle": false
+        }
+      ],
+      "oldGenericLeft": 0,
+      "coverImageUrl": true
+    },
+    {
+      "title": "Apples in the Kitchen",
+      "enrichmentPublished": false,
+      "planStatus": "published",
+      "printableCount": 3,
+      "printables": [
+        {
+          "id": "cur-res-179aaab4a0a9646a",
+          "title": "Applesauce Picture Recipe",
+          "status": "draft",
+          "draftInTitle": false
+        },
+        {
+          "id": "cur-res-486331e0aae8b242",
+          "title": "Apple Juice Café Menu & Order Tickets",
+          "status": "draft",
+          "draftInTitle": false
+        },
+        {
+          "id": "cur-res-fbb9f1ba0546e6f2",
+          "title": "Apple Color Sort Mat & Cutouts",
+          "status": "draft",
+          "draftInTitle": false
+        }
+      ],
+      "oldGenericLeft": 0,
+      "coverImageUrl": true
+    },
+    {
+      "title": "Johnny Appleseed & Apple Fun",
+      "enrichmentPublished": false,
+      "planStatus": "published",
+      "printableCount": 3,
+      "printables": [
+        {
+          "id": "cur-res-07b827adcb81ad41",
+          "title": "Apple Tree Life Cycle Sequence Cards",
+          "status": "draft",
+          "draftInTitle": false
+        },
+        {
+          "id": "cur-res-7311a00e011d37f7",
+          "title": "Planting Steps Cards",
+          "status": "draft",
+          "draftInTitle": false
+        },
+        {
+          "id": "cur-res-f521606e808db17e",
+          "title": "Apple Tree Counting Mat & Cutouts",
+          "status": "draft",
+          "draftInTitle": false
+        }
+      ],
+      "oldGenericLeft": 0,
+      "coverImageUrl": true
+    }
+  ]
+}
