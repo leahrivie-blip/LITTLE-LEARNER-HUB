@@ -1,0 +1,699 @@
+[
+  {
+    "role": "required + infant",
+    "id": "cur-lp-infant-animal-sounds-discovery",
+    "title": "Animal Sounds Discovery",
+    "age": "Infant 0–12 Months",
+    "theme": "Animal Sounds",
+    "plan": "Pro",
+    "coverImageUrl": "/images/lesson-covers/animal-sounds.jpg",
+    "weeklyOverview": "Infants will explore animal sounds through music, stories, sensory play, visual discovery, movement, and communication activities. Children will listen to familiar animal sounds, observe animal pictures, and engage in playful experiences that support early language development and auditory awareness.",
+    "learningDomains": [
+      "Social Emotional",
+      "Language & Literacy",
+      "Science",
+      "Physical Development",
+      "Creative Arts"
+    ],
+    "sampleActivities": [
+      {
+        "title": "Animal Discovery Basket",
+        "category": "Sensory Play",
+        "day": "monday"
+      },
+      {
+        "title": "Animal Song Circle",
+        "category": "Music & Movement",
+        "day": "monday"
+      },
+      {
+        "title": "Animal Story Time",
+        "category": "Literacy",
+        "day": "monday"
+      },
+      {
+        "title": "Dog Bark Listening Fun",
+        "category": "Open-Ended Exploration",
+        "day": "tuesday"
+      },
+      {
+        "title": "Animal Mirror Play",
+        "category": "Open-Ended Exploration",
+        "day": "tuesday"
+      },
+      {
+        "title": "Animal Movement Fun",
+        "category": "Gross Motor",
+        "day": "tuesday"
+      },
+      {
+        "title": "Farm Animal Discovery",
+        "category": "Sensory Play",
+        "day": "wednesday"
+      },
+      {
+        "title": "Moo & Quack Listening",
+        "category": "Open-Ended Exploration",
+        "day": "wednesday"
+      },
+      {
+        "title": "Animal Music Time",
+        "category": "Music & Movement",
+        "day": "wednesday"
+      },
+      {
+        "title": "Animal Sensory Bag",
+        "category": "Sensory Play",
+        "day": "thursday"
+      },
+      {
+        "title": "Bird Sound Discovery",
+        "category": "Open-Ended Exploration",
+        "day": "thursday"
+      },
+      {
+        "title": "Animal Rhythm Time",
+        "category": "Music & Movement",
+        "day": "thursday"
+      }
+    ]
+  },
+  {
+    "role": "infant age-mismatch (was all-about-me.jpg)",
+    "id": "cur-lp-19fb35928244ffc2f1f",
+    "title": "Welcome, Baby!",
+    "age": "Infant 0–6 Months",
+    "theme": "Back to School: Safety and Belonging",
+    "plan": "Pro",
+    "coverImageUrl": "/images/lesson-covers/all-about-me.jpg",
+    "weeklyOverview": "Young infants build trust through predictable greetings, responsive caregiving, face-to-face interaction, gentle movement, supervised tummy time, and calm sensory experiences.",
+    "learningDomains": [
+      "Social Emotional",
+      "Language & Literacy",
+      "Physical Development"
+    ],
+    "sampleActivities": [
+      {
+        "title": "Teacher Face Tracking",
+        "category": "Literacy",
+        "day": "monday"
+      },
+      {
+        "title": "Welcome Name Song",
+        "category": "Music & Movement",
+        "day": "monday"
+      },
+      {
+        "title": "High-Contrast Hello Cards",
+        "category": "Sensory Play",
+        "day": "monday"
+      },
+      {
+        "title": "Mirror Tummy Greeting",
+        "category": "Gross Motor",
+        "day": "tuesday"
+      },
+      {
+        "title": "Copy My Sound Conversation",
+        "category": "Literacy",
+        "day": "tuesday"
+      },
+      {
+        "title": "Slow Scarf Tracking",
+        "category": "Sensory Play",
+        "day": "tuesday"
+      },
+      {
+        "title": "Classroom Sound Walk",
+        "category": "STEM/Discovery",
+        "day": "wednesday"
+      },
+      {
+        "title": "Soft Texture Panels",
+        "category": "Sensory Play",
+        "day": "wednesday"
+      },
+      {
+        "title": "Calm Light Watching",
+        "category": "STEM/Discovery",
+        "day": "wednesday"
+      },
+      {
+        "title": "Kick the Ribbon",
+        "category": "Gross Motor",
+        "day": "thursday"
+      },
+      {
+        "title": "Reach for the Soft Ring",
+        "category": "Fine Motor",
+        "day": "thursday"
+      },
+      {
+        "title": "Gentle Rock and Sway",
+        "category": "Music & Movement",
+        "day": "thursday"
+      }
+    ]
+  },
+  {
+    "role": "infant seasonal",
+    "id": "cur-lp-19fb3849d087888afe5",
+    "title": "Fall Colors, Leaves and Movement",
+    "age": "Infant 6–12 Months",
+    "theme": "September Infant 6–12: First Days of Fall",
+    "plan": "Pro",
+    "coverImageUrl": "/images/lesson-covers/seasons-year.jpg",
+    "weeklyOverview": "Mobile infants explore the first days of fall through large leaf pictures, warm-color choices, crawling, posting, outdoor observation, and sealed texture play. Loose leaves, acorns, pinecones, and other choking hazards are not used.",
+    "learningDomains": [
+      "Social Emotional",
+      "Language & Literacy",
+      "Physical Development",
+      "Creative Arts"
+    ],
+    "sampleActivities": [
+      {
+        "title": "Choose a Fall Color",
+        "category": "Literacy",
+        "day": "monday"
+      },
+      {
+        "title": "Color Drop Basket",
+        "category": "Fine Motor",
+        "day": "monday"
+      },
+      {
+        "title": "Leaf Card Posting",
+        "category": "Fine Motor",
+        "day": "tuesday"
+      },
+      {
+        "title": "Up-and-Down Scarf Dance",
+        "category": "Music & Movement",
+        "day": "tuesday"
+      },
+      {
+        "title": "Crawl to the Leaf Trail",
+        "category": "Gross Motor",
+        "day": "wednesday"
+      },
+      {
+        "title": "Wind Pause Game",
+        "category": "Music & Movement",
+        "day": "wednesday"
+      },
+      {
+        "title": "Sealed Fall Texture Bags",
+        "category": "Sensory Play",
+        "day": "thursday"
+      },
+      {
+        "title": "Outdoor Tree Watch",
+        "category": "Outdoor Play",
+        "day": "thursday"
+      },
+      {
+        "title": "Warm-Color Process Painting",
+        "category": "Art",
+        "day": "friday"
+      },
+      {
+        "title": "Fall Photo Book",
+        "category": "Literacy",
+        "day": "friday"
+      }
+    ]
+  },
+  {
+    "role": "toddler REVIEW→REPLACE",
+    "id": "cur-lp-toddler-classroom-helpers",
+    "title": "Classroom Helpers",
+    "age": "Toddler",
+    "theme": "August: Back to School & Belonging",
+    "plan": "Pro",
+    "coverImageUrl": "/images/lesson-covers/classroom-helpers.jpg",
+    "weeklyOverview": "Classroom Helpers introduces toddlers to simple classroom responsibilities while building confidence, independence, and teamwork. Throughout the week, children will learn that everyone has an important role in keeping the classroom safe, clean, and welcoming. Through hands-on activities, dramatic play, songs, and cooperative experiences, children will practice helping others, caring for classroom materials, following routines, and working together as a classroom family.",
+    "learningDomains": [
+      "Language & Literacy",
+      "Physical Development",
+      "Creative Arts"
+    ],
+    "sampleActivities": [
+      {
+        "title": "Meet Our Helper Jobs",
+        "category": "Open-Ended Exploration",
+        "day": "monday"
+      },
+      {
+        "title": "Toy Helper Challenge",
+        "category": "Open-Ended Exploration",
+        "day": "monday"
+      },
+      {
+        "title": "My Helper Badge",
+        "category": "Art",
+        "day": "monday"
+      },
+      {
+        "title": "Helper Parade",
+        "category": "Music & Movement",
+        "day": "monday"
+      },
+      {
+        "title": "Toy Organizer",
+        "category": "Open-Ended Exploration",
+        "day": "tuesday"
+      },
+      {
+        "title": "Wipe and Shine",
+        "category": "Open-Ended Exploration",
+        "day": "tuesday"
+      },
+      {
+        "title": "My Helping Hands Poster",
+        "category": "Art",
+        "day": "tuesday"
+      },
+      {
+        "title": "Clean Up Dance Party",
+        "category": "Music & Movement",
+        "day": "tuesday"
+      },
+      {
+        "title": "Helper Team Challenge",
+        "category": "Open-Ended Exploration",
+        "day": "wednesday"
+      },
+      {
+        "title": "Build Our Classroom",
+        "category": "STEM/Discovery",
+        "day": "wednesday"
+      },
+      {
+        "title": "Helping Hands Mural",
+        "category": "Art",
+        "day": "wednesday"
+      },
+      {
+        "title": "Helper Obstacle Course",
+        "category": "Music & Movement",
+        "day": "wednesday"
+      }
+    ]
+  },
+  {
+    "role": "toddler REVIEW→REPLACE",
+    "id": "cur-lp-toddler-making-new-friends",
+    "title": "Making New Friends",
+    "age": "Toddler",
+    "theme": "August: Back to School & Belonging",
+    "plan": "Pro",
+    "coverImageUrl": "/images/lesson-covers/making-new-friends.jpg",
+    "weeklyOverview": "Making New Friends helps toddlers develop positive social skills as they continue adjusting to the classroom. Throughout the week, children will practice greeting classmates, sharing materials, taking turns, working together during play, and using kind words. Activities encourage cooperation, communication, empathy, and building friendships while helping children feel connected and confident in their classroom community.",
+    "learningDomains": [
+      "Language & Literacy",
+      "Physical Development",
+      "Creative Arts"
+    ],
+    "sampleActivities": [
+      {
+        "title": "Hello, Friend!",
+        "category": "Open-Ended Exploration",
+        "day": "monday"
+      },
+      {
+        "title": "Friends Build Together",
+        "category": "STEM/Discovery",
+        "day": "monday"
+      },
+      {
+        "title": "Friendship Heart Craft",
+        "category": "Art",
+        "day": "monday"
+      },
+      {
+        "title": "Friendship Freeze Dance",
+        "category": "Music & Movement",
+        "day": "monday"
+      },
+      {
+        "title": "Sharing Basket",
+        "category": "Open-Ended Exploration",
+        "day": "tuesday"
+      },
+      {
+        "title": "Playdough Friends",
+        "category": "Fine Motor",
+        "day": "tuesday"
+      },
+      {
+        "title": "Friendship Puzzle",
+        "category": "Art",
+        "day": "tuesday"
+      },
+      {
+        "title": "Pass the Smile",
+        "category": "Music & Movement",
+        "day": "tuesday"
+      },
+      {
+        "title": "Helping Hands",
+        "category": "Open-Ended Exploration",
+        "day": "wednesday"
+      },
+      {
+        "title": "Team Tower Challenge",
+        "category": "STEM/Discovery",
+        "day": "wednesday"
+      },
+      {
+        "title": "Friendship Garden",
+        "category": "Art",
+        "day": "wednesday"
+      },
+      {
+        "title": "Parachute Teamwork",
+        "category": "Music & Movement",
+        "day": "wednesday"
+      }
+    ]
+  },
+  {
+    "role": "preschool STEM/dramatic play",
+    "id": "cur-lp-preschool-construction-engineers",
+    "title": "Construction Engineers",
+    "age": "Preschool",
+    "theme": "Construction & Engineering",
+    "plan": "Pro",
+    "coverImageUrl": "",
+    "weeklyOverview": "Children will become construction engineers as they design buildings, test structures, operate construction sites, explore tools, and solve engineering challenges. Through hands-on building experiences and STEM investigations, children will develop creativity, problem-solving, and teamwork skills.",
+    "learningDomains": [
+      "Social Emotional",
+      "Language & Literacy",
+      "Math",
+      "Science",
+      "Physical Development",
+      "Creative Arts"
+    ],
+    "sampleActivities": [
+      {
+        "title": "Construction Site Setup",
+        "category": "Dramatic Play",
+        "day": "monday"
+      },
+      {
+        "title": "Blueprint Drawing",
+        "category": "Art",
+        "day": "monday"
+      },
+      {
+        "title": "Construction Story Time",
+        "category": "Literacy",
+        "day": "monday"
+      },
+      {
+        "title": "Tower Building Challenge",
+        "category": "STEM/Discovery",
+        "day": "tuesday"
+      },
+      {
+        "title": "Dump Truck Relay",
+        "category": "Gross Motor",
+        "day": "tuesday"
+      },
+      {
+        "title": "Tool Exploration",
+        "category": "STEM/Discovery",
+        "day": "tuesday"
+      },
+      {
+        "title": "Bridge Engineering Challenge",
+        "category": "STEM/Discovery",
+        "day": "wednesday"
+      },
+      {
+        "title": "Measure the Building",
+        "category": "STEM/Discovery",
+        "day": "wednesday"
+      },
+      {
+        "title": "Builder Journal",
+        "category": "Literacy",
+        "day": "wednesday"
+      },
+      {
+        "title": "Road Construction Lab",
+        "category": "Open-Ended Exploration",
+        "day": "thursday"
+      },
+      {
+        "title": "Construction Vehicle Sorting",
+        "category": "STEM/Discovery",
+        "day": "thursday"
+      },
+      {
+        "title": "Builder Dance Break",
+        "category": "Music & Movement",
+        "day": "thursday"
+      }
+    ]
+  },
+  {
+    "role": "preschool dramatic play",
+    "id": "cur-lp-preschool-ice-cream-shop-entrepreneurs",
+    "title": "Ice Cream Shop Entrepreneurs",
+    "age": "Preschool",
+    "theme": "Ice Cream Shop Business",
+    "plan": "Pro",
+    "coverImageUrl": "",
+    "weeklyOverview": "Children will become ice cream shop owners as they create menus, take customer orders, count money, build ice cream creations, and operate their own classroom ice cream business. Through dramatic play, math activities, literacy experiences, and teamwork, children will learn early business concepts while having summer fun.",
+    "learningDomains": [
+      "Social Emotional",
+      "Language & Literacy",
+      "Math",
+      "Science",
+      "Physical Development",
+      "Creative Arts"
+    ],
+    "sampleActivities": [
+      {
+        "title": "Open the Ice Cream Shop",
+        "category": "Dramatic Play",
+        "day": "monday"
+      },
+      {
+        "title": "Design a Shop Sign",
+        "category": "Art",
+        "day": "monday"
+      },
+      {
+        "title": "Ice Cream Story Time",
+        "category": "Literacy",
+        "day": "monday"
+      },
+      {
+        "title": "Create a Menu",
+        "category": "Literacy",
+        "day": "tuesday"
+      },
+      {
+        "title": "Flavor Sorting Challenge",
+        "category": "STEM/Discovery",
+        "day": "tuesday"
+      },
+      {
+        "title": "Ice Cream Dance Party",
+        "category": "Music & Movement",
+        "day": "tuesday"
+      },
+      {
+        "title": "Take Customer Orders",
+        "category": "Dramatic Play",
+        "day": "wednesday"
+      },
+      {
+        "title": "Count the Coins",
+        "category": "STEM/Discovery",
+        "day": "wednesday"
+      },
+      {
+        "title": "Entrepreneur Circle Time",
+        "category": "Circle Time",
+        "day": "wednesday"
+      },
+      {
+        "title": "Build Giant Ice Cream Cones",
+        "category": "STEM/Discovery",
+        "day": "thursday"
+      },
+      {
+        "title": "Play Dough Ice Cream Shop",
+        "category": "Fine Motor",
+        "day": "thursday"
+      },
+      {
+        "title": "Customer Service Practice",
+        "category": "Dramatic Play",
+        "day": "thursday"
+      }
+    ]
+  },
+  {
+    "role": "toddler theme (SVG)",
+    "id": "cur-lp-toddler-farm-friends",
+    "title": "Farm Friends",
+    "age": "Toddler",
+    "theme": "Farm Friends",
+    "plan": "Pro",
+    "coverImageUrl": "/images/lesson-covers/farm-friends.svg",
+    "weeklyOverview": "Toddlers will explore life on the farm through hands-on activities, animal sounds, movement games, books, songs, sensory play, and dramatic play experiences. Children will learn about farm animals, their sounds, where they live, and how they help people while building language, social, cognitive, and motor skills.",
+    "learningDomains": [
+      "Language & Literacy",
+      "Science",
+      "Physical Development",
+      "Social Emotional",
+      "Creative Arts"
+    ],
+    "sampleActivities": [
+      {
+        "title": "Farm Animal Discovery Basket",
+        "category": "Open-Ended Exploration",
+        "day": "monday"
+      },
+      {
+        "title": "Old MacDonald Sing Along",
+        "category": "Music & Movement",
+        "day": "monday"
+      },
+      {
+        "title": "Farm Animal Walk",
+        "category": "Gross Motor",
+        "day": "monday"
+      },
+      {
+        "title": "Feed the Farm Animals",
+        "category": "Fine Motor",
+        "day": "tuesday"
+      },
+      {
+        "title": "Muddy Pig Sensory Bin",
+        "category": "Sensory Play",
+        "day": "tuesday"
+      },
+      {
+        "title": "Barnyard Animal Freeze Dance",
+        "category": "Music & Movement",
+        "day": "wednesday"
+      },
+      {
+        "title": "Muddy Pig Sensory Bin",
+        "category": "Sensory Play",
+        "day": "wednesday"
+      },
+      {
+        "title": "Feeding Time at the Barn",
+        "category": "Dramatic Play",
+        "day": "wednesday"
+      },
+      {
+        "title": "Big Red Barn Story Stretch",
+        "category": "Literacy",
+        "day": "thursday"
+      },
+      {
+        "title": "Tractor Track Dough Roads",
+        "category": "Fine Motor",
+        "day": "thursday"
+      },
+      {
+        "title": "Farm Animal Obstacle Course",
+        "category": "Outdoor Play",
+        "day": "thursday"
+      },
+      {
+        "title": "Old MacDonald Sing-Along",
+        "category": "Circle Time",
+        "day": "friday"
+      }
+    ]
+  },
+  {
+    "role": "preschool seasonal",
+    "id": "cur-lp-preschool-easter-eggs-chicks-spring-science",
+    "title": "Easter Eggs, Chicks & Spring Science",
+    "age": "Preschool",
+    "theme": "Easter & Spring",
+    "plan": "Pro",
+    "coverImageUrl": "",
+    "weeklyOverview": "Preschoolers will explore Easter and spring through life cycle investigations, egg experiments, nature studies, literacy activities, engineering challenges, art projects, and outdoor exploration. Children will develop scientific thinking while learning about growth, change, and new beginnings.",
+    "learningDomains": [
+      "Social Emotional",
+      "Language & Literacy",
+      "Math",
+      "Science",
+      "Physical Development",
+      "Creative Arts"
+    ],
+    "sampleActivities": [
+      {
+        "title": "Egg Investigation Station",
+        "category": "STEM/Discovery",
+        "day": "monday"
+      },
+      {
+        "title": "Egg Measurement Challenge",
+        "category": "STEM/Discovery",
+        "day": "monday"
+      },
+      {
+        "title": "Spring Circle Time",
+        "category": "Circle Time",
+        "day": "monday"
+      },
+      {
+        "title": "Life Cycle of a Chick",
+        "category": "STEM/Discovery",
+        "day": "tuesday"
+      },
+      {
+        "title": "Chick Name Craft",
+        "category": "Fine Motor",
+        "day": "tuesday"
+      },
+      {
+        "title": "Chick Story Time",
+        "category": "Literacy",
+        "day": "tuesday"
+      },
+      {
+        "title": "Egg Drop Engineering Challenge",
+        "category": "STEM/Discovery",
+        "day": "wednesday"
+      },
+      {
+        "title": "Spring Flower Painting",
+        "category": "Art",
+        "day": "wednesday"
+      },
+      {
+        "title": "Bunny Hop Movement Game",
+        "category": "Music & Movement",
+        "day": "wednesday"
+      },
+      {
+        "title": "Planting Seeds Investigation",
+        "category": "STEM/Discovery",
+        "day": "thursday"
+      },
+      {
+        "title": "Easter Egg Pattern Challenge",
+        "category": "STEM/Discovery",
+        "day": "thursday"
+      },
+      {
+        "title": "Spring Vocabulary Match",
+        "category": "Literacy",
+        "day": "thursday"
+      }
+    ]
+  }
+]
