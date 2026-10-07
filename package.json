@@ -52,6 +52,8 @@
     "test:curriculum-operator-explicit-printable": "NODE_ENV=test node scripts/test-curriculum-operator-explicit-printable.js",
     "test:curriculum-operator-seed-growth-requested-activity": "NODE_ENV=test node scripts/test-curriculum-operator-seed-growth-requested-activity.js",
     "test:curriculum-operator-generic-filler-field-repair": "NODE_ENV=test node scripts/test-curriculum-operator-generic-filler-field-repair.js",
+    "test:curriculum-operator-outdoor-alternatives-repair": "NODE_ENV=test node scripts/test-curriculum-operator-outdoor-alternatives-repair.js",
+    "test:curriculum-operator-qa-http-timeout": "NODE_ENV=test node scripts/test-curriculum-operator-qa-http-timeout.js",
     "test:curriculum-operator-instruction-profile": "NODE_ENV=test node scripts/test-curriculum-operator-instruction-profile.js",
     "test:curriculum-operator-nl-smoke-blockers": "NODE_ENV=test node scripts/test-curriculum-operator-nl-smoke-blockers.js",
     "test:curriculum-operator-nl-bugfix-qa": "NODE_ENV=test node scripts/test-curriculum-operator-nl-bugfix-qa.js",
