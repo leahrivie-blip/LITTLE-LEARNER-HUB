@@ -688,4 +688,231 @@ console.log("\nT11) resume wiring uses resolveConnectedApplyMode before broad en
   ok(/command:\s*job\.command/.test(opSrc), "tryConnectedAutoApply passes job.command into apply gate");
 }
 
+function explicitFourWordCommand(rawExtra = "") {
+  return {
+    actions: {
+      weeklyFieldScope: ["vocabCards"],
+      connectedAutoApply: true,
+      connectedUpgrade: true,
+      publish: false,
+      upgradeActivities: false,
+      textOnly: true,
+      touchImages: false,
+      touchPrintables: false,
+      touchSongs: false,
+      touchBooks: false,
+      touchCover: false,
+    },
+    rawCommand: `Change vocabulary to art, create, explore, build. exactly these four separate cards: art, create, explore, build. vocabulary-only. weeklyFieldScope=["vocabCards"] publish=false upgradeActivities=false. ${rawExtra}`.trim(),
+    scope: { lessonIds: [LMW_ID] },
+  };
+}
+
+console.log("\nT12) explicit vocab authority — exact four-word request");
+{
+  const cmd = explicitFourWordCommand();
+  const words = vocabSurgical.extractExplicitVocabularyWords(cmd);
+  ok(words.length === 4, "exact four explicit words extracted");
+  ok(words.join(",") === "art,create,explore,build", "order preserved: art, create, explore, build");
+  ok(!words.includes("play") && !words.includes("color"), "no AI substitute words in extract");
+
+  const cards = vocabSurgical.cardsFromExplicitVocabularyWords(words);
+  ok(cards.length === 4, "four separate structured cards");
+  ok(cards.every((c) => typeof c.word === "string" && !/,/.test(c.word)), "separate-card normalization");
+  ok(cards.map((c) => c.word).join(",") === "art,create,explore,build", "card words exact");
+
+  const commaOnly = vocabSurgical.extractExplicitVocabularyWords({
+    rawCommand: "Change vocabulary to art, create, explore, build",
+  });
+  ok(commaOnly.join(",") === "art,create,explore,build", "combined comma input normalizes to separate words");
+}
+
+console.log("\nT13) explicit vocab survives parser → plan scope → surgical payload");
+{
+  const cmd = explicitFourWordCommand();
+  const allowlist = allowlistApi.buildMutationAllowlist(cmd);
+  ok(vocabSurgical.isVocabOnlyWeeklyScope(cmd.actions.weeklyFieldScope), "plan weeklyFieldScope is vocab-only");
+  const mode = vocabSurgical.resolveConnectedApplyMode(allowlist, cmd);
+  ok(mode.mode === "surgical_vocab", "routing remains surgical_vocab");
+  ok(mode.mode !== "broad_enrichment", "never broad_enrichment");
+
+  // Simulate composer/AI producing the live wrong set.
+  const aiCards = [
+    { word: "play" }, { word: "build" }, { word: "color" }, { word: "move" }, { word: "share" },
+  ];
+  const authority = vocabSurgical.applyExplicitVocabularyAuthorityToIntended(cmd, {
+    week: { vocabCards: aiCards },
+  });
+  ok(authority.changed === true, "authority overrides AI intended vocabulary");
+  ok(authority.intended.week.vocabCards.map((c) => c.word).join(",") === "art,create,explore,build",
+    "intended after authority is exact requested set");
+
+  const before = historicalDraftPlan();
+  const extracted = vocabSurgical.extractVocabCardsForSurgicalApply(before, {
+    intended: authority.intended,
+  }, cmd);
+  ok(extracted.map((c) => c.word).join(",") === "art,create,explore,build",
+    "surgical extract payload is exact requested set");
+  const applied = vocabSurgical.applySurgicalVocabToPlan(before, extracted);
+  ok(applied.ok, "surgical apply succeeds with authoritative explicit set");
+  ok(applied.vocabularyWords === "art, create, explore, build",
+    "vocabularyWords string is exact requested set");
+  ok(applied.plan.teachingKit.vocabCards.length === 4, "no extra fifth card introduced");
+  ok(applied.plan.teachingKit.vocabCards.every((c) => ["art", "create", "explore", "build"].includes(c.word)),
+    "no synonym/substitution replaces an explicit word");
+  ok(JSON.stringify(applied.plan.songs) === JSON.stringify(before.songs), "non-vocab songs unchanged");
+  ok(JSON.stringify(applied.plan.books) === JSON.stringify(before.books), "non-vocab books unchanged");
+  ok(JSON.stringify(applied.plan.learningDomains) === JSON.stringify(before.learningDomains),
+    "learningDomains unchanged");
+  ok(applied.plan.status === "draft" && applied.plan.publishedAt == null, "publish=false preserved");
+  ok(JSON.stringify(applied.plan.enrichmentDraft.week.songs)
+    === JSON.stringify(before.enrichmentDraft.week.songs),
+    "historical enrichmentDraft songs not promoted");
+}
+
+console.log("\nT14) composer mismatch fail-closed before persistence");
+{
+  const cmd = explicitFourWordCommand();
+  const before = historicalDraftPlan();
+  const aiCards = [
+    { word: "play" }, { word: "build" }, { word: "color" }, { word: "move" }, { word: "share" },
+  ];
+  let threw = null;
+  try {
+    vocabSurgical.extractVocabCardsForSurgicalApply(before, {
+      intended: { week: { vocabCards: aiCards } },
+    }, cmd);
+  } catch (error) {
+    threw = error;
+  }
+  ok(threw && threw.code === "VOCAB_CONTENT_MISMATCH",
+    "AI substitute list fails closed with VOCAB_CONTENT_MISMATCH");
+
+  const wrongCount = vocabSurgical.resolveAuthoritativeVocabCards({
+    command: cmd,
+    candidateCards: [{ word: "art" }, { word: "create" }, { word: "explore" }],
+  });
+  ok(wrongCount.ok === false && wrongCount.code === "VOCAB_CONTENT_MISMATCH",
+    "wrong count fails closed");
+
+  const wrongContent = vocabSurgical.resolveAuthoritativeVocabCards({
+    command: cmd,
+    candidateCards: [
+      { word: "art" }, { word: "create" }, { word: "explore" }, { word: "paint" },
+    ],
+  });
+  ok(wrongContent.ok === false && wrongContent.code === "VOCAB_CONTENT_MISMATCH",
+    "wrong content same count fails closed");
+
+  const extraWord = vocabSurgical.resolveAuthoritativeVocabCards({
+    command: cmd,
+    candidateCards: [
+      { word: "art" }, { word: "create" }, { word: "explore" }, { word: "build" }, { word: "share" },
+    ],
+  });
+  ok(extraWord.ok === false && extraWord.code === "VOCAB_CONTENT_MISMATCH",
+    "unauthorized extra word fails closed");
+
+  // Historical draft poison must not be used when intended is empty for explicit reqs.
+  const fromEmptyIntended = vocabSurgical.extractVocabCardsForSurgicalApply(before, {
+    intended: { week: {} },
+  }, cmd);
+  ok(fromEmptyIntended.map((c) => c.word).join(",") === "art,create,explore,build",
+    "empty intended + explicit command uses authoritative explicit set (not historical draft)");
+}
+
+console.log("\nT15) generative vocab-only (no explicit list) still works");
+{
+  const genCmd = {
+    actions: {
+      weeklyFieldScope: ["vocabCards"],
+      connectedAutoApply: true,
+      connectedUpgrade: true,
+      publish: false,
+      upgradeActivities: false,
+      textOnly: true,
+    },
+    rawCommand: "Improve the vocabulary cards for Little Makers Workshop. vocabulary-only. publish=false",
+    scope: { lessonIds: [LMW_ID] },
+  };
+  ok(vocabSurgical.extractExplicitVocabularyWords(genCmd).length === 0,
+    "generative request yields no explicit word list");
+  const aiCards = [
+    { word: "press" }, { word: "stick" }, { word: "roll" }, { word: "build" },
+  ];
+  const resolved = vocabSurgical.resolveAuthoritativeVocabCards({
+    command: genCmd,
+    candidateCards: aiCards,
+  });
+  ok(resolved.ok && resolved.explicit === false, "generative path leaves composer cards authoritative");
+  ok(resolved.cards.map((c) => c.word).join(",") === "press,stick,roll,build",
+    "composer-generated vocabulary retained for generative request");
+
+  const allowlist = allowlistApi.buildMutationAllowlist(genCmd);
+  const mode = vocabSurgical.resolveConnectedApplyMode(allowlist, genCmd);
+  ok(mode.mode === "surgical_vocab", "generative vocab-only still routes surgical_vocab");
+  ok(mode.mode !== "broad_enrichment", "generative vocab-only never broad_enrichment");
+}
+
+console.log("\nT16) contradictory vocab-only remains fail_closed (never broad_enrichment)");
+{
+  const badAllowlist = {
+    weeklyFieldScope: ["vocabCards", "vocabularyWords"],
+    assets: { images: false, printables: false, cover: false, songs: true, books: false },
+    allowedActivityFields: new Set(),
+  };
+  // Contradictory allowlist without a clean vocab-only command signal → fail_closed.
+  const mode = vocabSurgical.resolveConnectedApplyMode(badAllowlist, null);
+  ok(mode.mode === "fail_closed", "contradictory/unsafe vocab-only remains fail_closed");
+  ok(mode.mode !== "broad_enrichment", "fail_closed never becomes broad_enrichment");
+  const explicitMode = vocabSurgical.resolveConnectedApplyMode(
+    allowlistApi.buildMutationAllowlist(explicitFourWordCommand()),
+    explicitFourWordCommand(),
+  );
+  ok(explicitMode.mode === "surgical_vocab", "safe explicit vocab-only still surgical_vocab");
+}
+
+console.log("\nT17) local LMW fixture replay of failed live vocabulary request");
+{
+  // Local-only replay of opjob_2d434de3838cc38d failure class. No production mutation.
+  const before = historicalDraftPlan({
+    vocabularyWords: "play, build, color, move, share",
+  });
+  const cmd = explicitFourWordCommand("Lesson ID: cur-lp-549b80f61dfa8d79");
+  const aiIntended = {
+    week: {
+      vocabCards: [
+        { word: "play" }, { word: "build" }, { word: "color" }, { word: "move" }, { word: "share" },
+      ],
+    },
+  };
+  // Stage 1: authority at upgrade/composer boundary replaces AI set.
+  const authority = vocabSurgical.applyExplicitVocabularyAuthorityToIntended(cmd, aiIntended);
+  ok(authority.intended.week.vocabCards.map((c) => c.word).join(",") === "art,create,explore,build",
+    "local replay: intended surgical payload is exact art/create/explore/build");
+  // Stage 2: surgical extract + apply with corrected intended.
+  const extracted = vocabSurgical.extractVocabCardsForSurgicalApply(before, {
+    intended: authority.intended,
+  }, cmd);
+  const applied = vocabSurgical.applySurgicalVocabToPlan(before, extracted);
+  ok(applied.ok, "local replay surgical apply ok");
+  ok(applied.plan.teachingKit.vocabCards.map((c) => c.word).join(",") === "art,create,explore,build",
+    "local replay authoritative cards exact");
+  ok(applied.vocabularyWords === "art, create, explore, build",
+    "local replay vocabularyWords exact");
+  const authDiff = vocabSurgical.computeAuthoritativeCurriculumDiff(before, applied.plan);
+  ok(authDiff.every((p) => /^(vocabularyWords|teachingKit\.vocabCards)/.test(p)),
+    "local replay: only vocabulary authoritative fields change");
+  ok(applied.plan.status === "draft", "local replay stays draft");
+  // Stage 3: uncorrected AI intended must still fail closed (no silent wrong persist).
+  let fail = null;
+  try {
+    vocabSurgical.extractVocabCardsForSurgicalApply(before, { intended: aiIntended }, cmd);
+  } catch (error) {
+    fail = error;
+  }
+  ok(fail && fail.code === "VOCAB_CONTENT_MISMATCH",
+    "local replay: uncorrected AI intended fails closed before persistence");
+}
+
 console.log(`\n${passed} assertions passed.`);
