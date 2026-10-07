@@ -264,6 +264,7 @@ function resolveTargets({
 
 module.exports = {
   catalogRows,
+  resolveRequestedTitles,
   resolveTargets,
   assertAccessInvariant,
   assertAgeInvariant,

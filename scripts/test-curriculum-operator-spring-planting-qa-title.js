@@ -17,9 +17,20 @@ const cmdB = fixture.buildExplicitCreateCommand(titleB);
 assert.notEqual(cmdA, cmdB, "explicit create commands differ when titles differ");
 assert.ok(cmdA.includes(`"${titleA}"`), "command embeds quoted disposable title");
 
-const parsed = commandApi.parseOperatorCommand(cmdA, { phase: 7 });
+const largeCatalog = Array.from({ length: 130 }, (_, i) => ({
+  id: `cur-lp-qa-catalog-${i}`,
+  title: i % 5 === 0 ? "Spring Planting Explorers" : `Catalog Lesson ${i}`,
+  status: "draft",
+  age: "Preschool 3–5",
+}));
+
+const parsed = commandApi.parseOperatorCommand(cmdA, { phase: 7, lessonPlans: largeCatalog });
 assert.equal(parsed.command?.intent, "create_lesson", "parser keeps create_lesson intent");
 assert.equal(parsed.command?.actions?.createLesson, true, "createLesson action remains true");
+assert.ok(
+  !(parsed.confirmReasons || []).includes("ambiguous_scope"),
+  "disposable called title passes interpretation gate on production-like catalog",
+);
 
 const brief = createApi.parseCreationBrief(cmdA).brief;
 assert.equal(brief.title, titleA, "creation brief uses quoted disposable title");

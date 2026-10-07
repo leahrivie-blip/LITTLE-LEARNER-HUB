@@ -11,6 +11,7 @@ const targetsApi = require("./curriculum-operator-semantic-targets.js");
 const contradictionApi = require("./curriculum-operator-semantic-contradiction.js");
 const summaryApi = require("./curriculum-operator-semantic-summary.js");
 const draftCompose = require("./curriculum-operator-review-draft-compose.js");
+const createTitleScope = require("./curriculum-operator-create-title-scope.js");
 
 const INTERPRET_VERSION = 1;
 
@@ -78,10 +79,16 @@ function applyToParsedResult(parsed = {}, options = {}) {
   const context = sanitizeOperatorContext(options.operatorContext);
 
   const compiled = capabilities.compileCapabilities(signals, context);
+  const requestedNewLessonTitle = isCreate
+    ? createTitleScope.extractRequestedNewLessonTitle(raw)
+    : "";
+  const parsedTitlesForTargets = isCreate && requestedNewLessonTitle
+    ? createTitleScope.filterTitlesForTargetResolution(command.scope?.titles || [], requestedNewLessonTitle)
+    : (command.scope?.titles || []);
   const targets = targetsApi.resolveTargets({
     signals,
-    parsedTitles: command.scope?.titles || [],
-    parsedLessonIds: command.scope?.lessonIds || [],
+    parsedTitles: parsedTitlesForTargets,
+    parsedLessonIds: isCreate && requestedNewLessonTitle ? [] : (command.scope?.lessonIds || []),
     lessonPlans: options.lessonPlans || [],
     currentlySelectedLessonId: options.currentlySelectedLessonId || command.scope?.currentlySelectedLessonId,
     context,
@@ -136,9 +143,22 @@ function applyToParsedResult(parsed = {}, options = {}) {
   if (signals.accessConflict) confirmReasons.push("semantic_contradiction");
   if (signals.publishConflict) confirmReasons.push("semantic_contradiction");
   if (signals.metaInstruction) confirmReasons.push("meta_instruction");
+  const createTitleGateClear = isCreate && requestedNewLessonTitle
+    && !createTitleScope.detectCreateExistingTargetConflict(
+      raw,
+      options.lessonPlans || [],
+      requestedNewLessonTitle,
+    );
   if (signals.ambiguousBare && !context.previousIntent) confirmReasons.push("ambiguous_scope");
-  if (targets.ambiguous?.length) confirmReasons.push("ambiguous_scope");
-  if (targets.unresolved?.length && !signals.collection) confirmReasons.push("unresolved_target");
+  if (targets.ambiguous?.length && !createTitleGateClear) confirmReasons.push("ambiguous_scope");
+  if (targets.unresolved?.length && !signals.collection && !createTitleGateClear) {
+    confirmReasons.push("unresolved_target");
+  }
+  if (createTitleGateClear) {
+    const kept = createTitleScope.stripCreateTitleGateReasons(confirmReasons);
+    confirmReasons.length = 0;
+    confirmReasons.push(...kept);
+  }
 
   const accessCheck = targetsApi.assertAccessInvariant(targets.rows, signals.access);
   if (!accessCheck.ok) confirmReasons.push(accessCheck.code);
