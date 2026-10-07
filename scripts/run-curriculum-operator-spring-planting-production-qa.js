@@ -145,6 +145,14 @@ async function operatorSessionContext(token, operatorSessionId) {
   return res.json?.context || null;
 }
 
+async function operatorJobsBySession(token, operatorSessionId) {
+  const res = await req("POST", "/api/admin/curriculum/operator", {
+    action: "job_by_session",
+    operatorSessionId,
+  }, token);
+  return schema.asArray(res.json?.jobs);
+}
+
 /**
  * Submit confirmed create with a short HTTP timeout, then poll operator jobs by session/title
  * until terminal or the overall QA deadline (LLH_QA_HTTP_TIMEOUT_MS).
@@ -184,11 +192,14 @@ async function runConfirmedCreateWithPolling(token, report, {
     if (submitResponse.json?.job?.id) {
       report.createJobFlow.submitJobId = submitResponse.json.job.id;
     }
-    if (submitResponse.status === 200 && submitResponse.json?.job) {
+    if ((submitResponse.status === 200 || submitResponse.status === 202) && submitResponse.json?.job) {
       const summary = qaJobPoll.summarizeCreateJob(submitResponse.json.job);
       if (qaJobPoll.isTerminalJobStatus(summary.jobStatus)) {
         report.createJobFlow.resolvedVia = "create_http_response";
         return { job: submitResponse.json.job, summary, createRun: submitResponse };
+      }
+      if (submitResponse.status === 202) {
+        report.createJobFlow.resolvedVia = "create_http_202_ack";
       }
     }
   } catch (err) {
@@ -203,6 +214,7 @@ async function runConfirmedCreateWithPolling(token, report, {
     listJobs: () => operatorListJobs(token),
     getJob: (jobId) => operatorGetJob(token, jobId),
     getSessionContext: () => operatorSessionContext(token, operatorSessionId),
+    listSessionJobs: () => operatorJobsBySession(token, operatorSessionId),
     operatorSessionId,
     disposableTitle,
     deadlineMs,
@@ -358,7 +370,7 @@ async function main() {
   report.createJob = createSummary;
 
   ok("confirmed_create_terminal", qaJobPoll.isTerminalJobStatus(createSummary.jobStatus), createSummary);
-  ok("confirmed_create_200", createRun.status === 200, {
+  ok("confirmed_create_200", createRun.status === 200 || createRun.status === 202, {
     status: createRun.status,
     error: createRun.json?.error,
     jobId: createSummary.jobId,

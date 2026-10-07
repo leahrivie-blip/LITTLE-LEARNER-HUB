@@ -55,6 +55,7 @@
     "test:curriculum-operator-outdoor-alternatives-repair": "NODE_ENV=test node scripts/test-curriculum-operator-outdoor-alternatives-repair.js",
     "test:curriculum-operator-qa-http-timeout": "NODE_ENV=test node scripts/test-curriculum-operator-qa-http-timeout.js",
     "test:curriculum-operator-qa-job-poll": "NODE_ENV=test node scripts/test-curriculum-operator-qa-job-poll.js",
+    "test:curriculum-operator-job-visibility": "NODE_ENV=test node scripts/test-curriculum-operator-job-visibility.js",
     "test:curriculum-operator-instruction-profile": "NODE_ENV=test node scripts/test-curriculum-operator-instruction-profile.js",
     "test:curriculum-operator-nl-smoke-blockers": "NODE_ENV=test node scripts/test-curriculum-operator-nl-smoke-blockers.js",
     "test:curriculum-operator-nl-bugfix-qa": "NODE_ENV=test node scripts/test-curriculum-operator-nl-bugfix-qa.js",

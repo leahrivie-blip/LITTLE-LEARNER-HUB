@@ -103,6 +103,7 @@ function createJobSucceeded(summary) {
  * @param {() => Promise<object[]>} options.listJobs
  * @param {(jobId: string) => Promise<object|null>} options.getJob
  * @param {() => Promise<object|null>} [options.getSessionContext]
+ * @param {() => Promise<object[]>} [options.listSessionJobs] job_by_session rows
  * @param {string} options.operatorSessionId
  * @param {string} options.disposableTitle
  * @param {number} options.deadlineMs absolute timestamp
@@ -141,7 +142,19 @@ async function resolveAndPollCreateJob(options) {
       }
     }
 
-    const jobs = await listJobs();
+    let jobs = await listJobs();
+    if (typeof options.listSessionJobs === "function") {
+      try {
+        const sessionRows = await options.listSessionJobs();
+        const byId = new Map();
+        for (const row of [...jobs, ...schema.asArray(sessionRows)]) {
+          if (row?.id) byId.set(row.id, row);
+        }
+        jobs = Array.from(byId.values());
+      } catch {
+        // session lookup is best-effort
+      }
+    }
     lastCandidates = findJobsForQaSession(jobs, { operatorSessionId, disposableTitle });
     const best = pickBestJobMatch(lastCandidates);
     if (best?.id) {
