@@ -19,9 +19,12 @@ const printablesApi = require("./curriculum-operator-printables.js");
 const schema = require("./curriculum-operator-schema.js");
 const prepApi = require("./curriculum-operator-production-qa-live-prep.js");
 const { parseQaHttpTimeoutMs } = require("./curriculum-operator-qa-http-timeout.js");
+const qaJobPoll = require("./curriculum-operator-qa-job-poll.js");
+const qaCleanup = require("./curriculum-operator-qa-disposable-cleanup.js");
 
 const BASE = process.env.LLH_PROD_BASE || "https://littlelearnershubbyleah.com";
 const HTTP_TIMEOUT_MS = parseQaHttpTimeoutMs();
+const CREATE_SUBMIT_TIMEOUT_MS = qaJobPoll.parseCreateSubmitTimeoutMs();
 const EXPECTED_SHA = String(process.env.LLH_EXPECTED_COMMIT_SHA || "259fe94").slice(0, 7);
 const SESSION = `spring-planting-prod-qa-${Date.now()}`;
 const OUT_DIR = process.env.LLH_QA_OUT || "/opt/cursor/artifacts/spring-planting-prod-qa";
@@ -33,8 +36,11 @@ const CODE = process.env.LLH_SMOKE_ADMIN_ACCESS_CODE;
 
 const BAD_IMAGE = "https://example.com/cartoon-clipart-spring-theme.png";
 
-function req(method, urlPath, body, token) {
+function req(method, urlPath, body, token, options = {}) {
   const payload = body == null ? null : JSON.stringify(body);
+  const timeoutMs = Number.isFinite(options.timeoutMs) && options.timeoutMs > 0
+    ? options.timeoutMs
+    : HTTP_TIMEOUT_MS;
   return new Promise((resolve, reject) => {
     const url = new URL(BASE + urlPath);
     const r = https.request({
@@ -47,7 +53,7 @@ function req(method, urlPath, body, token) {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...(payload ? { "Content-Length": Buffer.byteLength(payload) } : {}),
       },
-      timeout: HTTP_TIMEOUT_MS,
+      timeout: timeoutMs,
     }, (res) => {
       let raw = "";
       res.on("data", (c) => { raw += c; });
@@ -120,35 +126,129 @@ async function saveEnrichmentDraft(token, stamp, lessonId, enrichmentDraft) {
   }, token);
 }
 
-async function listRecentOperatorJobs(token) {
+async function operatorListJobs(token) {
   const list = await req("POST", "/api/admin/curriculum/operator", { action: "list" }, token);
-  const jobs = schema.asArray(list.json?.jobs);
-  return jobs.map((j) => ({
-    id: j.id,
-    status: j.status,
-    updatedAt: j.updatedAt,
-    rawCommand: String(j.rawCommand || "").slice(0, 240),
-  }));
+  return schema.asArray(list.json?.jobs);
 }
 
-async function failCreateRunTimeout(report, token, err, context) {
-  let recentJobs = [];
+async function operatorGetJob(token, jobId) {
+  const get = await req("POST", "/api/admin/curriculum/operator", { action: "get", jobId }, token);
+  if (get.status !== 200 || !get.json?.job) return null;
+  return get.json.job;
+}
+
+async function operatorSessionContext(token, operatorSessionId) {
+  const res = await req("POST", "/api/admin/curriculum/operator", {
+    action: "context_get",
+    operatorSessionId,
+  }, token);
+  return res.json?.context || null;
+}
+
+/**
+ * Submit confirmed create with a short HTTP timeout, then poll operator jobs by session/title
+ * until terminal or the overall QA deadline (LLH_QA_HTTP_TIMEOUT_MS).
+ */
+async function runConfirmedCreateWithPolling(token, report, {
+  operatorSessionId,
+  disposableTitle,
+  explicitCreateCommand,
+  deadlineMs,
+}) {
+  const createBody = {
+    action: "run",
+    phase: PHASE,
+    confirm: true,
+    command: explicitCreateCommand,
+    operatorSessionId,
+  };
+  const startedMs = Date.now();
+  report.createJobFlow = {
+    operatorSessionId,
+    disposableTitle,
+    createSubmitTimeoutMs: CREATE_SUBMIT_TIMEOUT_MS,
+    pollDeadlineMs: deadlineMs,
+    submitHttpStatus: null,
+    submitError: null,
+    submitJobId: null,
+    resolvedVia: null,
+    polled: false,
+  };
+
+  let submitResponse = null;
   try {
-    recentJobs = await listRecentOperatorJobs(token);
-  } catch (listErr) {
-    recentJobs = [{ listError: listErr.message }];
+    submitResponse = await req("POST", "/api/admin/curriculum/operator", createBody, token, {
+      timeoutMs: CREATE_SUBMIT_TIMEOUT_MS,
+    });
+    report.createJobFlow.submitHttpStatus = submitResponse.status;
+    if (submitResponse.json?.job?.id) {
+      report.createJobFlow.submitJobId = submitResponse.json.job.id;
+    }
+    if (submitResponse.status === 200 && submitResponse.json?.job) {
+      const summary = qaJobPoll.summarizeCreateJob(submitResponse.json.job);
+      if (qaJobPoll.isTerminalJobStatus(summary.jobStatus)) {
+        report.createJobFlow.resolvedVia = "create_http_response";
+        return { job: submitResponse.json.job, summary, createRun: submitResponse };
+      }
+    }
+  } catch (err) {
+    report.createJobFlow.submitError = String(err?.message || err);
+    if (!/timeout|ECONNRESET|socket hang up/i.test(report.createJobFlow.submitError)) {
+      throw err;
+    }
   }
-  const hint = String(context?.disposableTitle || "");
-  const related = recentJobs.filter((j) => (
-    j.id && (String(j.rawCommand || "").includes(hint) || /create.*spring planting/i.test(String(j.rawCommand || "")))
-  ));
-  fail(report, "confirmed_create_timeout", {
-    error: err.message,
-    httpTimeoutMs: HTTP_TIMEOUT_MS,
-    operatorSessionId: context?.session,
-    recentJobIds: recentJobs.map((j) => j.id).filter(Boolean),
-    relatedJobIds: related.map((j) => j.id).filter(Boolean),
-    relatedJobs: related,
+
+  report.createJobFlow.polled = true;
+  const pollResult = await qaJobPoll.resolveAndPollCreateJob({
+    listJobs: () => operatorListJobs(token),
+    getJob: (jobId) => operatorGetJob(token, jobId),
+    getSessionContext: () => operatorSessionContext(token, operatorSessionId),
+    operatorSessionId,
+    disposableTitle,
+    deadlineMs,
+  });
+  report.createJobFlow.pollResult = {
+    ok: pollResult.ok,
+    code: pollResult.code || null,
+    resolvedVia: pollResult.resolvedVia || null,
+    lastCandidateIds: schema.asArray(pollResult.lastCandidates).map((row) => row.id).filter(Boolean),
+  };
+
+  if (pollResult.ok && pollResult.job) {
+    report.createJobFlow.resolvedVia = pollResult.resolvedVia;
+    return {
+      job: pollResult.job,
+      summary: pollResult.summary,
+      createRun: { status: 200, json: { ok: true, job: pollResult.job, published: false, publishEnabled: false } },
+    };
+  }
+
+  let draftLessonHint = null;
+  try {
+    const { curriculum: curAfterPoll } = await loadSite(token);
+    const draftByTitle = (curAfterPoll.lessonPlans || []).find(
+      (p) => schema.text(p?.title, 280) === disposableTitle,
+    );
+    if (draftByTitle) {
+      draftLessonHint = {
+        lessonId: draftByTitle.id,
+        exactTitle: draftByTitle.title,
+        verified: qaCleanup.verifyDisposableQaLessonIdentity(draftByTitle, {
+          lessonId: draftByTitle.id,
+          exactTitle: disposableTitle,
+        }),
+      };
+    }
+  } catch {
+    draftLessonHint = null;
+  }
+  fail(report, "confirmed_create_job_unresolved", {
+    operatorSessionId,
+    disposableTitle,
+    elapsedMs: Date.now() - startedMs,
+    pollDeadlineMs: deadlineMs,
+    poll: pollResult,
+    draftLessonHint,
   });
 }
 
@@ -235,46 +335,70 @@ async function main() {
   );
   ok("no_title_collision_before_create", !titleCollision, { disposableTitle });
 
-  let createRun;
-  try {
-    createRun = await req("POST", "/api/admin/curriculum/operator", {
-      action: "run",
-      phase: PHASE,
-      confirm: true,
-      command: explicitCreateCommand,
-      operatorSessionId: SESSION,
-    }, token);
-  } catch (err) {
-    if (/timeout/i.test(String(err?.message || ""))) {
-      await failCreateRunTimeout(report, token, err, { session: SESSION, disposableTitle });
-    }
-    throw err;
-  }
+  const preCreateJobs = await operatorListJobs(token);
+  const activeForSession = qaJobPoll.findActiveQaSessionJobs(preCreateJobs, {
+    operatorSessionId: SESSION,
+    disposableTitle,
+  });
+  ok("no_active_qa_job_for_session", activeForSession.length === 0, {
+    operatorSessionId: SESSION,
+    activeJobIds: activeForSession.map((row) => row.id),
+  });
+
+  const createDeadlineMs = Date.now() + HTTP_TIMEOUT_MS;
+  const createOutcome = await runConfirmedCreateWithPolling(token, report, {
+    operatorSessionId: SESSION,
+    disposableTitle,
+    explicitCreateCommand,
+    deadlineMs: createDeadlineMs,
+  });
+  const createRun = createOutcome.createRun;
+  const job = createOutcome.job;
+  const createSummary = createOutcome.summary;
+  report.createJob = createSummary;
+
+  ok("confirmed_create_terminal", qaJobPoll.isTerminalJobStatus(createSummary.jobStatus), createSummary);
   ok("confirmed_create_200", createRun.status === 200, {
     status: createRun.status,
     error: createRun.json?.error,
-    jobId: createRun.json?.job?.id,
+    jobId: createSummary.jobId,
+    jobStatus: createSummary.jobStatus,
+    resolvedVia: report.createJobFlow?.resolvedVia,
   });
-  const job = createRun.json?.job;
   const lr = job?.lessonResults?.[0];
   ok("publish_false", createRun.json?.published === false && createRun.json?.publishEnabled === false);
   ok("research_context_on_job", schema.asArray(lr?.creationBrief?.researchContext).length >= 1);
-  ok("lesson_created", lr?.lessonCreated === true && lr?.createdLessonId, {
-    jobStatus: job?.status,
-    jobId: job?.id,
-    lrStatus: lr?.status,
-    code: lr?.code,
-    error: lr?.error,
-    activityRepairCalls: job?.costCounters?.activityRepairCalls,
-    activityExpansionCalls: job?.costCounters?.activityExpansionCalls,
-    batchState: lr?.activityExpansionBatches || job?.activityExpansionBatches,
-  });
+  const lessonCreatedDetail = {
+    jobStatus: createSummary.jobStatus,
+    jobId: createSummary.jobId,
+    lrStatus: createSummary.lrStatus,
+    code: createSummary.code,
+    error: createSummary.error,
+    activityRepairCalls: createSummary.activityRepairCalls,
+    activityExpansionCalls: createSummary.activityExpansionCalls,
+    batchState: createSummary.batchState,
+    createdLessonId: createSummary.createdLessonId,
+    ownerReviewStatus: createSummary.ownerReviewStatus,
+  };
+  if (!qaJobPoll.createJobSucceeded(createSummary)) {
+    const maybePlan = qaCleanup.findLessonPlanByExactId(curriculum, createSummary.createdLessonId || "")
+      || (curriculum.lessonPlans || []).find((p) => schema.text(p?.title, 280) === disposableTitle);
+    lessonCreatedDetail.cleanupHint = maybePlan ? {
+      lessonId: maybePlan.id,
+      exactTitle: maybePlan.title,
+      verified: qaCleanup.verifyDisposableQaLessonIdentity(maybePlan, {
+        lessonId: maybePlan.id,
+        exactTitle: disposableTitle,
+      }),
+    } : null;
+  }
+  ok("lesson_created", qaJobPoll.createJobSucceeded(createSummary), lessonCreatedDetail);
   ok("lesson_draft", lr?.published === false);
   ok("no_content_persistence_incomplete", lr?.contentPersistenceIncomplete !== true && job?.contentPersistenceIncomplete !== true);
   ok("owner_review_ready", lr?.ownerReviewStatus === "READY_FOR_OWNER_REVIEW"
     || lr?.ownerReviewStatus === "PARTIAL");
 
-  const lessonId = lr.createdLessonId;
+  const lessonId = createSummary.createdLessonId;
   ({ curriculum, stamp } = await loadSite(token));
   ok("one_new_spring_draft", countSpringDrafts(curriculum) === springDraftsBefore + 1);
   ok("published_scope_unchanged", publishedScopeFingerprint(curriculum) === scopeBefore);
