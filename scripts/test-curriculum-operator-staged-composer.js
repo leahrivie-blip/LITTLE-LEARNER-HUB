@@ -2423,9 +2423,13 @@ async function main() {
         return staged.buildStagedFixtureResponse(user);
       },
     });
-    ok(badRepairN === 1, "failed repair still uses exactly one quality repair");
+    ok(badRepairN >= 1, "failed repair path invokes at least one quality repair");
     ok(blocked.ok === false && !blocked.content, "failed repair blocks Batch 2 / lesson.create");
     const anyFailedBatch = schema.asArray(blocked.stagedDiagnostics?.batches).find((b) => b.finalBatchPass === false);
+    ok(
+      Number(anyFailedBatch?.activityRepairCalls) <= 1 + staged.MAX_INSUFFICIENT_QUESTIONS_FOLLOWUP_REPAIR_CALLS_PER_BATCH,
+      "each failing batch uses at most one insufficient_questions follow-up beyond initial repair",
+    );
     ok(schema.asArray(anyFailedBatch?.postRepairInsufficientQuestionFailures).length >= 1
       || schema.asArray(anyFailedBatch?.postRepairFailures).some((i) => /\.insufficient_questions$/.test(String(i))),
       "still-insufficient repair records postRepairInsufficientQuestionFailures / blocks create");
@@ -2624,9 +2628,13 @@ async function main() {
         return staged.buildStagedFixtureResponse(user);
       },
     });
-    ok(badRepair === 1, "remaining-issue path still uses exactly one quality repair");
+    ok(badRepair >= 1, "remaining-issue path invokes quality repair");
     ok(stillBad.ok === false && !stillBad.content, "post-repair full sweep catches any remaining issue / blocks create");
     const failBatch = schema.asArray(stillBad.stagedDiagnostics?.batches).find((b) => b.batchNumber === 1);
+    ok(
+      Number(failBatch?.activityRepairCalls) <= 1 + staged.MAX_INSUFFICIENT_QUESTIONS_FOLLOWUP_REPAIR_CALLS_PER_BATCH,
+      "remaining-issue batch uses at most one insufficient_questions follow-up beyond initial repair",
+    );
     ok(schema.asArray(failBatch?.postRepairQualityIssues).some((r) => r.field === "teacherLanguage"
       || /insufficient_questions|teacherLanguage/i.test(String(r.message || r.sourceIssue || ""))),
       "postRepairQualityIssues records remaining teacherLanguage failure");
