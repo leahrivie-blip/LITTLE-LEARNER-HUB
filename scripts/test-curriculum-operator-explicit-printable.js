@@ -8,6 +8,8 @@ const printablesApi = require("./curriculum-operator-printables.js");
 const commandApi = require("./curriculum-operator-command.js");
 const schema = require("./curriculum-operator-schema.js");
 const fixture = require("./curriculum-operator-spring-planting-e2e-fixture.js");
+const planner = require("./curriculum-operator-printable-planner.js");
+const orchestrator = require("./curriculum-operator-orchestrator.js");
 
 const EXPLICIT = fixture.EXPLICIT_CREATE_COMMAND;
 const REPLACE_ONLY = fixture.FOLLOW_UP_COMMANDS[1];
@@ -116,17 +118,142 @@ const sevenActions = printablesApi.buildPrintableActionsFromAudit(
 const sevenWrites = sevenActions.filter((a) => a.decision === "CREATE" || a.decision === "REPLACE");
 assert.equal(sevenWrites.length, 1, "printable planner sees one write action");
 async function runAsyncExplicitPrintableChecks() {
-const sevenPlanRun = await printablesApi.runPrintablePlanForLesson({
-  plan: { ...sevenPlan, enrichmentDraft: { week: {}, activities: {} } },
-  activities: sevenActs,
-  audit: sevenAudit,
-  curriculum: sevenCurriculum,
-  limits: { maxPrintableGenerations: 30 },
-  lessonCount: 1,
-  createPrintableResource: async () => ({ ok: true, resourceId: "cur-res-explicit-only" }),
-});
-assert.ok(sevenPlanRun.code !== "SCOPE_REVIEW_REQUIRED", "seven-pack SCOPE_REVIEW blocked for narrowed explicit scope");
-assert.equal(sevenPlanRun.printableBudgetDiagnostics?.plannedPackCountBeforeBudget, 1, "one pack planned before budget");
+  const seedAct = sevenActs[0];
+  let linkedDraft = { week: { printableIds: [] }, activities: {} };
+  const sevenPlanRun = await printablesApi.runPrintablePlanForLesson({
+    plan: { ...sevenPlan, enrichmentDraft: linkedDraft },
+    activities: sevenActs,
+    audit: sevenAudit,
+    curriculum: sevenCurriculum,
+    limits: { maxPrintableGenerations: 30 },
+    lessonCount: 1,
+    createPrintableResource: async () => ({ ok: true, resourceId: "cur-res-explicit-only" }),
+    readResourceFile: async () => ({ ok: true, pageCount: 1 }),
+    saveDraft: async ({ enrichmentDraft }) => {
+      linkedDraft = enrichmentDraft;
+      return { ok: true, enrichmentDraft };
+    },
+  });
+  assert.ok(sevenPlanRun.code !== "SCOPE_REVIEW_REQUIRED", "seven-pack SCOPE_REVIEW blocked for narrowed explicit scope");
+  assert.equal(sevenPlanRun.printableBudgetDiagnostics?.plannedPackCountBeforeBudget, 1, "one pack planned before budget");
+  assert.ok(sevenPlanRun.ok, "explicit seed growth printable run succeeds");
+  assert.equal(sevenPlanRun.actions.filter((a) => a.status === "success").length, 1, "exactly one printable success");
+  assert.match(sevenPlanRun.actions[0]?.title || "", /Seed Growth Sequencing Cards/i);
+  assert.equal(sevenPlanRun.actions[0]?.activityId, seedAct.id, "printable stays on seed growth activity");
+  assert.ok(
+    schema.asArray(linkedDraft.week?.printableIds).includes("cur-res-explicit-only"),
+    "week.printableIds contains generated resource",
+  );
+  assert.equal(
+    linkedDraft.activities?.[seedAct.id]?.relatedPrintableId,
+    "cur-res-explicit-only",
+    "activity draft links printable",
+  );
+
+  const sparseAiJson = JSON.stringify({
+    title: "Seed Growth Sequencing Cards",
+    resourceType: "sequencing_cards",
+    purpose: "Sequence seeds.",
+    teacherUse: "Print.",
+    childUse: "Order cards.",
+    pages: [{ type: "sequencing", heading: "Sparse", items: [{ name: "one step only" }] }],
+  });
+  const sparsePlanned = await planner.planPrintableContent({
+    plan: sevenPlan,
+    activity: seedAct,
+    baseSpec: {
+      ...sevenWrites[0].spec,
+      ownerExplicitPrintable: true,
+      decision: "CREATE",
+      lessonId: sevenPlan.id,
+      activityIds: [seedAct.id],
+    },
+    callAi: async () => sparseAiJson,
+  });
+  assert.ok(sparsePlanned.ok && sparsePlanned.explicitOwnerFallback === true,
+    "sparse live planner output falls back to explicit owner sequencing pack");
+
+  const unrelatedResource = {
+    id: "cur-res-unrelated-menu",
+    title: "Apple Café Menu Pack",
+    lessonPlanIds: [sevenPlan.id],
+    fileName: "cafe.pdf",
+    status: "draft",
+  };
+  const auditWithUnrelated = auditApi.auditLesson(
+    { ...sevenPlan, resourceIds: [unrelatedResource.id] },
+    { ...sevenCurriculum, resources: [unrelatedResource] },
+    { explicitPrintables: brief.explicitPrintables },
+  );
+  const unrelatedCreates = auditWithUnrelated.assetPlan.filter((row) => row.printable?.decision === "CREATE");
+  assert.equal(unrelatedCreates.length, 1, "unrelated menu resource does not satisfy explicit seed growth request");
+  assert.ok(
+    unrelatedCreates[0].printable?.ownerExplicitPrintable,
+    "explicit CREATE still required despite unrelated resource on lesson",
+  );
+
+  const blockedRun = await printablesApi.runPrintablePlanForLesson({
+    plan: { ...sevenPlan, enrichmentDraft: { week: {}, activities: {} } },
+    activities: sevenActs,
+    audit: sevenAudit,
+    curriculum: sevenCurriculum,
+    limits: { maxPrintableGenerations: 30 },
+    lessonCount: 1,
+    callAi: async () => sparseAiJson,
+    createPrintableResource: async () => ({ ok: false, error: "upload denied" }),
+  });
+  assert.equal(blockedRun.ok, false, "upload failure fails closed");
+  assert.ok(printablesApi.hasRequiredPrintableActionFailure(blockedRun.actions), "required explicit failure detected");
+
+  const kitScope = { printables: true, images: true, songs: true, books: true };
+  assert.equal(
+    orchestrator.classifyFullKitOwnerReview({
+      kitScope,
+      textOk: true,
+      textRan: true,
+      songsBooksOk: true,
+      songsBooksRan: true,
+      imagesOk: true,
+      imagesRan: true,
+      printablesOk: false,
+      printablesRan: true,
+      printablesRequiredFailed: true,
+      finalVerificationOk: true,
+    }),
+    "BLOCKED",
+    "required printable failure cannot be READY_FOR_OWNER_REVIEW",
+  );
+  assert.notEqual(
+    orchestrator.classifyFullKitOwnerReview({
+      kitScope,
+      textOk: true,
+      textRan: true,
+      songsBooksOk: true,
+      songsBooksRan: true,
+      imagesOk: true,
+      imagesRan: true,
+      printablesOk: false,
+      printablesRan: true,
+      printablesRequiredFailed: true,
+      finalVerificationOk: true,
+    }),
+    "READY_FOR_OWNER_REVIEW",
+  );
+
+  const successAction = sevenPlanRun.actions.find((a) => a.status === "success");
+  const generatedPdf = await printablesApi.generatePrintablePdfBuffer({
+    spec: successAction.spec,
+    plan: sevenPlan,
+    activity: seedAct,
+    forbidGenericFallback: true,
+  });
+  const pdfCheck = await printablesApi.validateGeneratedPdf(generatedPdf.buffer, {
+    expectedPageCount: successAction.pageCount,
+    fileName: successAction.fileName,
+  });
+  assert.ok(pdfCheck.ok, "letter-size explicit PDF passes validation");
+  assert.ok(Number.isFinite(successAction.pageCount) && successAction.pageCount >= 1,
+    "explicit page-count metadata on success action");
 
 const ambiguousActs = [
   { id: "a1", itemId: "a1", lessonPlanId: "lp-amb", title: "Seed Growth Station", dayOfWeek: "monday" },

@@ -306,6 +306,7 @@ function classifyFullKitOwnerReview({
   imagesRan = false,
   printablesOk = true,
   printablesRan = false,
+  printablesRequiredFailed = false,
   finalVerificationOk = true,
   criticalBlockers = [],
   partialErrors = [],
@@ -313,6 +314,9 @@ function classifyFullKitOwnerReview({
   if (!finalVerificationOk) return "BLOCKED";
   if (schema.asArray(criticalBlockers).length) return "BLOCKED";
   if (textRan && !textOk) return "BLOCKED";
+  if (printablesRan && !printablesOk && printablesRequiredFailed) {
+    return "BLOCKED";
+  }
 
   const enabledFailed = [];
   if (kitScope?.songs || kitScope?.books) {

@@ -256,6 +256,20 @@ async function main() {
     finalVerificationOk: true,
   }) === "BLOCKED", "text failure → BLOCKED");
 
+  ok(orchestrator.classifyFullKitOwnerReview({
+    kitScope,
+    textOk: true,
+    textRan: true,
+    songsBooksOk: true,
+    songsBooksRan: true,
+    imagesOk: true,
+    imagesRan: true,
+    printablesOk: false,
+    printablesRan: true,
+    printablesRequiredFailed: true,
+    finalVerificationOk: true,
+  }) === "BLOCKED", "required explicit printable failure → BLOCKED");
+
   const verified = orchestrator.verifyFullKitStoredState({
     beforePlan: plan,
     afterPlan: plan,
