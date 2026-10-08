@@ -16,6 +16,7 @@ const createApi = require("./curriculum-operator-create.js");
 const architect = require("./curriculum-operator-create-architect.js");
 const composer = require("./curriculum-operator-ai-composer.js");
 const outdoorAltRepair = require("./curriculum-operator-outdoor-alternatives-repair.js");
+const printablePlanner = require("./curriculum-operator-printable-planner.js");
 
 const WEEKDAYS = createApi.WEEKDAYS;
 const DEFAULT_BATCH_SIZE = 5;
@@ -28,6 +29,10 @@ const MAX_QUALITY_REPAIR_CALLS_PER_BATCH = 1; // one targeted quality repair per
 const MAX_TOO_SHORT_FOLLOWUP_REPAIR_CALLS_PER_BATCH = 1;
 /** Optional third pass when post-repair failures are only generic_filler on safetyNotes/steps. */
 const MAX_GENERIC_FILLER_FOLLOWUP_REPAIR_CALLS_PER_BATCH = 1;
+/** Second pass when post-repair failures are only teacherLanguage insufficient_questions. */
+const MAX_INSUFFICIENT_QUESTIONS_FOLLOWUP_REPAIR_CALLS_PER_BATCH = 1;
+/** One parse recovery on targeted repair responses (malformed JSON with substantial output). */
+const MAX_REPAIR_PARSE_RETRIES = 1;
 const GENERIC_FILLER_FOLLOWUP_FIELDS = Object.freeze(["safetyNotes", "steps"]);
 const ALTERNATIVES_TOO_SHORT_SYNTHESIS_FIELDS = outdoorAltRepair.ALTERNATIVES_TOO_SHORT_FIELDS;
 const MAX_FINAL_REPAIR_CALLS = 1;
@@ -2002,6 +2007,62 @@ function buildExpansionParseRetryUserPrompt(brief, blueprint, outlineIds, option
   ].join("\n");
 }
 
+function buildExpansionRepairParseRetryUserPrompt(
+  brief,
+  blueprint,
+  outlineIds,
+  previousActivities,
+  issues,
+  options = {},
+) {
+  const base = buildExpansionRepairUserPrompt(
+    brief,
+    blueprint,
+    outlineIds,
+    previousActivities,
+    issues,
+    options,
+  );
+  return [
+    "Your previous REPAIR_ACTIVITY_BATCH response could not be parsed. Return the same repair in valid JSON only.",
+    "Repair ONLY the listed repairTargets fields. Preserve every other field on each activity exactly as in previousBatchActivities.",
+    "Do not redesign activities. Do not omit outlineIds. Return parseable JSON only.",
+    base,
+  ].join("\n");
+}
+
+/**
+ * Parse Stage 2 AI JSON: strict fence strip first, then balanced first-object extract
+ * (recoverable trailing prose after a complete JSON object).
+ */
+function parseStageAiJson(rawText) {
+  const raw = String(rawText || "");
+  if (!raw.trim()) {
+    return { ok: false, parsed: null, method: null };
+  }
+  try {
+    const parsed = JSON.parse(composer.stripJsonFences(raw));
+    if (parsed && typeof parsed === "object") {
+      return { ok: true, parsed, method: "strip_fences" };
+    }
+  } catch (_e) {
+    /* fall through */
+  }
+  const recovered = printablePlanner.extractFirstJsonObject(raw);
+  if (recovered && typeof recovered === "object") {
+    return { ok: true, parsed: recovered, method: "balanced_object_extract" };
+  }
+  return { ok: false, parsed: null, method: null };
+}
+
+function repairStageParseRetryEligible(stage) {
+  if (!stage || stage.ok === true) return false;
+  const reasons = schema.asArray(stage.flags?.reasons).map((r) => text(r, 120));
+  if (reasons.includes("json_parse_failed_after_substantial_output")) return true;
+  const len = Number(stage.rawText?.length) || 0;
+  return len > 500 && String(stage.error || "").includes("malformed JSON");
+}
+
 /**
  * True when the expansion response failed as parse/transport (not activity quality).
  * Quality failures with a parsed activity set must NOT use this path.
@@ -2271,14 +2332,45 @@ function filterGenericFillerFollowupIssues(issues, activities) {
     });
 }
 
+function isInsufficientQuestionsOnlyIssue(issue) {
+  return /\.insufficient_questions$/.test(text(issue, 240));
+}
+
+function expansionQualityIssuesAreOnlyInsufficientQuestions(issues, activities) {
+  const list = schema.asArray(issues).map((i) => text(i, 200)).filter(Boolean);
+  if (!list.length) return false;
+  let sawInsufficient = false;
+  for (const issue of list) {
+    if (isInsufficientQuestionsOnlyIssue(issue)) {
+      sawInsufficient = true;
+      continue;
+    }
+    const parsed = parseExpansionIssueTarget(issue, activities);
+    if (parsed.structural) continue;
+    if (parsed.unmapped || parsed.hit) return false;
+    return false;
+  }
+  return sawInsufficient;
+}
+
+function filterInsufficientQuestionsExpansionQualityIssues(issues) {
+  return schema.asArray(issues)
+    .map((i) => text(i, 200))
+    .filter((raw) => isInsufficientQuestionsOnlyIssue(raw));
+}
+
 function expansionQualityIssuesAreFollowupRepairable(issues, activities) {
   return expansionQualityIssuesAreOnlyTooShort(issues, activities)
-    || expansionQualityIssuesAreOnlyGenericFillerFollowup(issues, activities);
+    || expansionQualityIssuesAreOnlyGenericFillerFollowup(issues, activities)
+    || expansionQualityIssuesAreOnlyInsufficientQuestions(issues, activities);
 }
 
 function filterFollowupExpansionQualityIssues(issues, activities) {
   if (expansionQualityIssuesAreOnlyTooShort(issues, activities)) {
     return filterTooShortExpansionQualityIssues(issues, activities);
+  }
+  if (expansionQualityIssuesAreOnlyInsufficientQuestions(issues, activities)) {
+    return filterInsufficientQuestionsExpansionQualityIssues(issues);
   }
   return filterGenericFillerFollowupIssues(issues, activities);
 }
@@ -2813,9 +2905,15 @@ function coalesceExpansionBatch(priorActivities, parsed, requestedIds, blueprint
         : !text(next[field]);
       const nextOk = fieldPassedOnActivity(next, field, repairValidated.issues);
       if (fieldsToPreferRepair.has(field)) {
-        if (!nextEmpty && nextOk) {
+        if (field === "teacherLanguage") {
+          const priorCount = countTeacherLanguagePrompts(prior.teacherLanguage);
+          const nextCount = countTeacherLanguagePrompts(next[field]);
+          if (!nextEmpty && (nextOk || nextCount > priorCount)) {
+            merged[field] = next[field];
+          }
+        } else if (!nextEmpty && nextOk) {
           merged[field] = next[field];
-        } else if (!nextEmpty) {
+        } else if (!nextEmpty && !priorOk) {
           merged[field] = next[field];
         }
         if (GENERIC_FILLER_FOLLOWUP_FIELDS.includes(field)) {
@@ -3407,13 +3505,9 @@ async function callAiStage(callAi, systemPrompt, userPrompt, usage, diagnostics,
   diagnostics.model = diagnostics.model || unwrapped.model;
   usage.openaiCalls += 1;
 
-  let parsed = null;
-  let parseSuccess = true;
-  try {
-    parsed = JSON.parse(composer.stripJsonFences(unwrapped.text));
-  } catch (_e) {
-    parseSuccess = false;
-  }
+  const parseResult = parseStageAiJson(unwrapped.text);
+  const parsed = parseResult.parsed;
+  const parseSuccess = parseResult.ok === true;
 
   const parsedObjectCount = parseSuccess
     ? schema.asArray(
@@ -3442,6 +3536,7 @@ async function callAiStage(callAi, systemPrompt, userPrompt, usage, diagnostics,
     meta: unwrapped,
     flags,
     parsedObjectCount,
+    parseRecoveryMethod: parseResult.method,
   };
 }
 
@@ -4108,9 +4203,12 @@ async function composeStagedLessonContent(brief, options = {}) {
 
       let tooShortFollowUpUsed = false;
       let genericFillerFollowUpUsed = false;
+      let insufficientQuestionsFollowUpUsed = false;
+      let repairParseRetryUsed = false;
       const maxQualityRepairRounds = 1
         + MAX_TOO_SHORT_FOLLOWUP_REPAIR_CALLS_PER_BATCH
-        + MAX_GENERIC_FILLER_FOLLOWUP_REPAIR_CALLS_PER_BATCH;
+        + MAX_GENERIC_FILLER_FOLLOWUP_REPAIR_CALLS_PER_BATCH
+        + MAX_INSUFFICIENT_QUESTIONS_FOLLOWUP_REPAIR_CALLS_PER_BATCH;
       let activeRepairIssues = lastIssues.filter((i) => !/^unmapped_quality_issue:/i.test(String(i)));
       let postSweep = null;
       let genericDiag = genericDiagBase;
@@ -4118,6 +4216,18 @@ async function composeStagedLessonContent(brief, options = {}) {
       for (let repairRound = 0; repairRound < maxQualityRepairRounds; repairRound += 1) {
         if (repairRound > 0) {
           if (!expansionQualityIssuesAreFollowupRepairable(lastIssues, priorBatchActivities)) break;
+          if (expansionQualityIssuesAreOnlyInsufficientQuestions(lastIssues, priorBatchActivities)
+            && insufficientQuestionsFollowUpUsed) {
+            break;
+          }
+          if (expansionQualityIssuesAreOnlyTooShort(lastIssues, priorBatchActivities)
+            && tooShortFollowUpUsed) {
+            break;
+          }
+          if (expansionQualityIssuesAreOnlyGenericFillerFollowup(lastIssues, priorBatchActivities)
+            && genericFillerFollowUpUsed) {
+            break;
+          }
           activeRepairIssues = filterFollowupExpansionQualityIssues(lastIssues, priorBatchActivities);
           if (!activeRepairIssues.length) break;
           lastRepairPlan = repairPlanner(activeRepairIssues, priorBatchActivities);
@@ -4126,65 +4236,100 @@ async function composeStagedLessonContent(brief, options = {}) {
           if (!lastRepairPlan.canRepair) break;
           if (expansionQualityIssuesAreOnlyTooShort(lastIssues, priorBatchActivities)) {
             tooShortFollowUpUsed = true;
+          } else if (expansionQualityIssuesAreOnlyInsufficientQuestions(lastIssues, priorBatchActivities)) {
+            insufficientQuestionsFollowUpUsed = true;
           } else {
             genericFillerFollowUpUsed = true;
           }
           lastInitialFailures = activeRepairIssues;
         }
 
-      // ONE targeted quality repair for mapped targets in this batch (optional too_short follow-up)
+      // ONE targeted quality repair for mapped targets in this batch (optional follow-ups)
       repairUsed = true;
       batchRepairCalls += 1;
       usage.activityRepairCalls += 1;
-      const repairStageLabel = tooShortFollowUpUsed && repairRound > 0
-        ? `activity_expansion_${batchKey}_too_short_repair`
-        : `activity_expansion_${batchKey}_repair`;
-      const repairPrompt = buildExpansionRepairUserPrompt(
-        brief,
-        blueprint,
-        ids,
-        priorBatchActivities,
-        activeRepairIssues,
-        { batchNumber: batchIndex + 1, repairPlan: lastRepairPlan },
-      );
-      const repairStage = await callAiStage(
-        callAi,
-        buildExpansionSystemPrompt(brief.ageBand),
-        repairPrompt,
-        usage,
-        diagnostics,
-        {
-          stage: repairStageLabel,
-          expectedObjectCount: ids.length,
-        },
-      );
-      lastResponseKeys = repairStage.parsed && typeof repairStage.parsed === "object"
-        ? Object.keys(repairStage.parsed).slice(0, 24)
-        : lastResponseKeys;
-      lastModel = repairStage.meta?.model || lastModel;
-      lastFinishReason = repairStage.meta?.finishReason || lastFinishReason;
-      lastOutputChars = repairStage.rawText?.length || 0;
-      lastTruncation = repairStage.flags?.possibleOutputTruncation === true || lastTruncation;
+      const repairStageLabelBase = insufficientQuestionsFollowUpUsed && repairRound > 0
+        ? `activity_expansion_${batchKey}_insufficient_questions_repair`
+        : (tooShortFollowUpUsed && repairRound > 0
+          ? `activity_expansion_${batchKey}_too_short_repair`
+          : `activity_expansion_${batchKey}_repair`);
+      let repairStage = null;
+      let repairStageLabel = repairStageLabelBase;
+      for (let repairParseAttempt = 0; repairParseAttempt < 1 + MAX_REPAIR_PARSE_RETRIES; repairParseAttempt += 1) {
+        const isRepairParseRetry = repairParseAttempt > 0;
+        if (isRepairParseRetry) {
+          repairParseRetryUsed = true;
+          batchExpansionRetryCalls += 1;
+          usage.activityExpansionRetryCalls += 1;
+        }
+        repairStageLabel = isRepairParseRetry
+          ? `${repairStageLabelBase}_parse_retry`
+          : repairStageLabelBase;
+        const repairPrompt = isRepairParseRetry
+          ? buildExpansionRepairParseRetryUserPrompt(
+            brief,
+            blueprint,
+            ids,
+            priorBatchActivities,
+            activeRepairIssues,
+            { batchNumber: batchIndex + 1, repairPlan: lastRepairPlan },
+          )
+          : buildExpansionRepairUserPrompt(
+            brief,
+            blueprint,
+            ids,
+            priorBatchActivities,
+            activeRepairIssues,
+            { batchNumber: batchIndex + 1, repairPlan: lastRepairPlan },
+          );
+        repairStage = await callAiStage(
+          callAi,
+          buildExpansionSystemPrompt(brief.ageBand),
+          repairPrompt,
+          usage,
+          diagnostics,
+          {
+            stage: repairStageLabel,
+            expectedObjectCount: ids.length,
+          },
+        );
+        lastResponseKeys = repairStage.parsed && typeof repairStage.parsed === "object"
+          ? Object.keys(repairStage.parsed).slice(0, 24)
+          : lastResponseKeys;
+        lastModel = repairStage.meta?.model || lastModel;
+        lastFinishReason = repairStage.meta?.finishReason || lastFinishReason;
+        lastOutputChars = repairStage.rawText?.length || 0;
+        lastTruncation = repairStage.flags?.possibleOutputTruncation === true || lastTruncation;
 
-      if (!repairStage.ok) {
-        lastIssues = [
-          ...lastInitialFailures,
-          repairStage.error || "malformed_json",
-          ...(repairStage.flags?.reasons || []),
-        ];
-        pushStageDiag(diagnostics, {
-          stage: repairStageLabel,
-          model: repairStage.meta?.model,
-          finishReason: repairStage.meta?.finishReason,
-          outputChars: lastOutputChars,
-          parseSuccess: false,
-          expectedObjectCount: ids.length,
-          parsedObjectCount: 0,
-          possibleOutputTruncation: repairStage.flags?.possibleOutputTruncation,
-          unterminatedJsonTail: repairStage.flags?.unterminatedJsonTail,
-          validationIssues: lastIssues,
-          ok: false,
-        });
+        if (!repairStage.ok) {
+          if (!isRepairParseRetry && MAX_REPAIR_PARSE_RETRIES > 0 && repairStageParseRetryEligible(repairStage)) {
+            continue;
+          }
+          lastIssues = [
+            ...lastInitialFailures,
+            repairStage.error || "malformed_json",
+            ...(repairStage.flags?.reasons || []),
+          ];
+          pushStageDiag(diagnostics, {
+            stage: repairStageLabel,
+            model: repairStage.meta?.model,
+            finishReason: repairStage.meta?.finishReason,
+            outputChars: lastOutputChars,
+            parseSuccess: false,
+            expectedObjectCount: ids.length,
+            parsedObjectCount: 0,
+            possibleOutputTruncation: repairStage.flags?.possibleOutputTruncation,
+            unterminatedJsonTail: repairStage.flags?.unterminatedJsonTail,
+            validationIssues: lastIssues,
+            ok: false,
+          });
+          repairStage = null;
+          break;
+        }
+        break;
+      }
+
+      if (!repairStage || !repairStage.ok) {
         break;
       }
 
@@ -4270,9 +4415,11 @@ async function composeStagedLessonContent(brief, options = {}) {
           activities: validated.activities,
           repairUsed: true,
           parseRetryUsed,
+          repairParseRetryUsed,
           expansionAttempts,
           tooShortFollowUpUsed,
           genericFillerFollowUpUsed,
+          insufficientQuestionsFollowUpUsed,
         };
         validated.activities.forEach((a) => expandedById.set(a.outlineId, a));
         recordBatchDiagnostic(diagnostics, {
@@ -4301,6 +4448,8 @@ async function composeStagedLessonContent(brief, options = {}) {
           postRepairFailures: [],
           tooShortFollowUpUsed,
           genericFillerFollowUpUsed,
+          insufficientQuestionsFollowUpUsed,
+          repairParseRetryUsed,
           ...teacherLanguageDiagBundle,
           ...vocabularyDiagBundle,
           preRepairQualityIssues,
@@ -4326,10 +4475,12 @@ async function composeStagedLessonContent(brief, options = {}) {
           issues: lastIssues,
           repairUsed: true,
           parseRetryUsed,
+          repairParseRetryUsed,
           expansionAttempts,
           mappedRepairTargets: lastRepairTargets,
           tooShortFollowUpUsed,
           genericFillerFollowUpUsed,
+          insufficientQuestionsFollowUpUsed,
         };
         recordFailDiag({
           postRepairFailures: lastIssues,
@@ -4635,7 +4786,15 @@ module.exports = {
   MAX_QUALITY_REPAIR_CALLS_PER_BATCH,
   MAX_TOO_SHORT_FOLLOWUP_REPAIR_CALLS_PER_BATCH,
   MAX_GENERIC_FILLER_FOLLOWUP_REPAIR_CALLS_PER_BATCH,
+  MAX_INSUFFICIENT_QUESTIONS_FOLLOWUP_REPAIR_CALLS_PER_BATCH,
+  MAX_REPAIR_PARSE_RETRIES,
   GENERIC_FILLER_FOLLOWUP_FIELDS,
+  parseStageAiJson,
+  buildExpansionRepairParseRetryUserPrompt,
+  repairStageParseRetryEligible,
+  expansionQualityIssuesAreOnlyInsufficientQuestions,
+  filterInsufficientQuestionsExpansionQualityIssues,
+  isInsufficientQuestionsOnlyIssue,
   MAX_FINAL_REPAIR_CALLS,
   STAGE_MAX_OUTPUT_TOKENS,
   REQUIRED_WEEKLY_FIELDS,
