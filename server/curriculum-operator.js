@@ -3204,10 +3204,21 @@ function createCurriculumOperatorApi(deps) {
     }
 
     if (action === "resume") {
-      const bag = readJobs(store);
-      let job = bag.jobs.find((j) => j.id === schema.text(body.jobId, 80));
-      if (!job) {
+      const jobId = schema.text(body.jobId, 80);
+      let job = await resolveJobById(store, jobId);
+      if (!job || job.id !== jobId) {
         jsonResponse(response, 404, { error: "Job not found.", code: "job_not_found" });
+        return;
+      }
+      job = jobApi.normalizeOperatorJob(job);
+      const resumeStatus = schema.text(job.status, 40).toLowerCase();
+      if (["completed", "failed", "cancelled", "blocked", "completed_with_gaps"].includes(resumeStatus)) {
+        jsonResponse(response, 409, {
+          ok: false,
+          code: "job_not_resumable",
+          error: "This job is in a terminal state and cannot be resumed.",
+          job,
+        });
         return;
       }
       if (job.status === "awaiting_confirm" && !body.confirm) {
@@ -3219,8 +3230,9 @@ function createCurriculumOperatorApi(deps) {
         });
         return;
       }
-      job = await runJob(jobApi.normalizeOperatorJob(job), store, session.email);
-      bag.jobs = bag.jobs.map((j) => (j.id === job.id ? job : j));
+      job = await runJob(job, store, session.email);
+      const bag = readJobs(store);
+      bag.jobs = [job, ...bag.jobs.filter((j) => j.id !== job.id)].slice(0, 100);
       await writeJobs(store, bag);
 
       // Preserve connectedAutoApply across plan → resume (same path as action=run).
@@ -3250,16 +3262,31 @@ function createCurriculumOperatorApi(deps) {
     }
 
     if (action === "cancel") {
-      const bag = readJobs(store);
-      const idx = bag.jobs.findIndex((j) => j.id === schema.text(body.jobId, 80));
-      if (idx < 0) {
+      const jobId = schema.text(body.jobId, 80);
+      let job = await resolveJobById(store, jobId);
+      if (!job || job.id !== jobId) {
         jsonResponse(response, 404, { error: "Job not found.", code: "job_not_found" });
         return;
       }
-      const job = jobApi.normalizeOperatorJob(bag.jobs[idx]);
+      job = jobApi.normalizeOperatorJob(job);
+      const cancelStatus = schema.text(job.status, 40).toLowerCase();
+      if (cancelStatus === "cancelled") {
+        jsonResponse(response, 200, { ok: true, action, job });
+        return;
+      }
+      if (["completed", "failed", "blocked", "completed_with_gaps"].includes(cancelStatus)) {
+        jsonResponse(response, 409, {
+          ok: false,
+          code: "job_not_cancellable",
+          error: "This job is already terminal and cannot be cancelled.",
+          job,
+        });
+        return;
+      }
       job.status = "cancelled";
       jobApi.appendLog(job, "Cancelled by owner.");
-      bag.jobs[idx] = job;
+      const bag = readJobs(store);
+      bag.jobs = [job, ...bag.jobs.filter((j) => j.id !== job.id)].slice(0, 100);
       await writeJobs(store, bag);
       jsonResponse(response, 200, { ok: true, action, job });
     }
