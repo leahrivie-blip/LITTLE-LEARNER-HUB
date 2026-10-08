@@ -78,6 +78,18 @@ function printableCandidateId(action, index = 0) {
  * Dramatic-play props “benefit from” printables → HIGH_VALUE, not REQUIRED.
  * Do not mark everything REQUIRED — optional over-planning must self-budget.
  */
+function isPrintableActionTerminalFailure(status) {
+  const s = text(status, 24).toLowerCase();
+  return s === "failed" || s === "blocked" || s === "needs_revision";
+}
+
+function hasRequiredPrintableActionFailure(actions = []) {
+  return schema.asArray(actions).some((action) => (
+    isPrintableActionTerminalFailure(action.status)
+    && printableImportance(action) === PRINTABLE_IMPORTANCE.REQUIRED
+  ));
+}
+
 function printableImportance(action) {
   const decision = normalizePrintableDecision(action?.decision);
   if (decision === "KEEP" || decision === "NOT_NEEDED" || decision === "REMOVE") {
@@ -1976,6 +1988,8 @@ module.exports = {
   commandRequestsFullPrintableCoverage,
   printableActionPageCount,
   printableImportance,
+  isPrintableActionTerminalFailure,
+  hasRequiredPrintableActionFailure,
   printableWritePriorityScore,
   applyPrintableGenerationSoftBudget,
   assessPrintableScope,

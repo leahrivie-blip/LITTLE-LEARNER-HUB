@@ -407,8 +407,7 @@ async function main() {
   ok("lesson_created", qaJobPoll.createJobSucceeded(createSummary), lessonCreatedDetail);
   ok("lesson_draft", lr?.published === false);
   ok("no_content_persistence_incomplete", lr?.contentPersistenceIncomplete !== true && job?.contentPersistenceIncomplete !== true);
-  ok("owner_review_ready", lr?.ownerReviewStatus === "READY_FOR_OWNER_REVIEW"
-    || lr?.ownerReviewStatus === "PARTIAL");
+  ok("owner_review_ready", lr?.ownerReviewStatus === "READY_FOR_OWNER_REVIEW");
 
   const lessonId = createSummary.createdLessonId;
   ({ curriculum, stamp } = await loadSite(token));

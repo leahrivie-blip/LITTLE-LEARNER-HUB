@@ -733,16 +733,23 @@ function createCurriculumOperatorApi(deps) {
     const counts = printablesApi.summarizePrintableActions(verifiedActions);
     job.costCounters.printables = (job.costCounters.printables || 0) + Number(printableRun.generations || 0);
 
+    const actionsOk = verifiedActions.every(
+      (a) => !printablesApi.isPrintableActionTerminalFailure(a.status),
+    );
+    const requiredPrintableFailed = printablesApi.hasRequiredPrintableActionFailure(verifiedActions);
+
     return {
-      ok: verifiedActions.every((a) => a.status !== "failed") && jobVerification.ok,
-      partial: verifiedActions.some((a) => a.status === "failed")
-        && verifiedActions.some((a) => a.status === "success"),
+      ok: actionsOk && jobVerification.ok && printableRun.ok !== false,
+      partial: !actionsOk && verifiedActions.some((a) => a.status === "success"),
+      requiredPrintableFailed,
       printableRun: { ...printableRun, actions: verifiedActions, counts, jobVerification },
       afterPlan,
       historyId: null,
       counts,
       printableBudgetDiagnostics: printableRun.printableBudgetDiagnostics || null,
-      error: jobVerification.ok ? null : "Post-save printable verification failed.",
+      error: !jobVerification.ok
+        ? "Post-save printable verification failed."
+        : (!actionsOk ? "One or more printable actions failed or were blocked (existing resources preserved)." : null),
     };
   }
 
@@ -1826,7 +1833,7 @@ function createCurriculumOperatorApi(deps) {
         afterScores = finalAudit.audit.scores;
         if (!printableResult.ok) {
           printableError = printableResult.error || "One or more printable actions failed (existing resources preserved).";
-          ownerReviewStatus = "PARTIAL";
+          ownerReviewStatus = printableResult.requiredPrintableFailed ? "BLOCKED" : "PARTIAL";
         } else if (!upgrade && !images && !songsBooks) {
           ownerReviewStatus = "READY_FOR_OWNER_REVIEW";
         } else if (ownerReviewStatus === "AUDIT_ONLY") {
@@ -2067,6 +2074,7 @@ function createCurriculumOperatorApi(deps) {
           imagesRan: imagesRan || (images && imagesComplete),
           printablesOk,
           printablesRan: printablesRan || (printables && printablesComplete),
+          printablesRequiredFailed: printablesApi.hasRequiredPrintableActionFailure(printableActions),
           finalVerificationOk: finalVerification.ok,
           criticalBlockers,
           partialErrors,

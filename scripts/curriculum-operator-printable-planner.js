@@ -730,6 +730,42 @@ function buildRevisionSystemPrompt(ageRaw) {
   ].join("\n");
 }
 
+/**
+ * Deterministic, activity-tied sequencing pack when owner explicitly requested
+ * sequencing_cards but live planner/revision failed quality gate (fail-closed otherwise).
+ */
+function buildExplicitOwnerSequencingContentPlan({ plan, activity, baseSpec } = {}) {
+  if (baseSpec?.ownerExplicitPrintable !== true) return null;
+  const resourceType = text(baseSpec?.resourceType, 40).toLowerCase();
+  if (!/sequenc/.test(resourceType)) return null;
+  const actTitle = text(activity?.title, 120) || "this activity";
+  const title = text(baseSpec?.title, 180) || "Seed Growth Sequencing Cards";
+  const purpose = text(baseSpec?.purpose, 600)
+    || `Children order seed-to-plant stages during ${actTitle}.`;
+  return {
+    title,
+    resourceType: text(baseSpec?.resourceType, 40) || "sequencing_cards",
+    purpose,
+    teacherUse: `Print on letter-size paper, cut the cards, and use them during ${actTitle}.`,
+    childUse: "Children place the cards in order from seed to sprout to plant.",
+    pages: [
+      {
+        type: "sequencing",
+        heading: title,
+        visualMode: "simple_vector",
+        instructions: "Cut out the cards. Child places them in order from seed to sprout to plant.",
+        items: [
+          { name: "Dry seed in soil", visualConcept: `dry seed in soil cup for ${actTitle}` },
+          { name: "Sprout emerging", visualConcept: "small green sprout breaking soil" },
+          { name: "Growing seedling", visualConcept: "seedling with two leaves" },
+          { name: "Mature plant", visualConcept: "small flowering garden plant" },
+        ],
+      },
+    ],
+    source: "explicit_owner_sequencing_fallback",
+  };
+}
+
 function buildRevisionUserPrompt(context, failures, previousSpec) {
   return [
     "Revise this printable pack to fix the quality failures.",
@@ -847,6 +883,24 @@ async function planPrintableContent({
 
   validated = validatePlannerOutput(raw, { plan, activity, baseSpec });
   if (!validated.ok) {
+    const fallbackPlan = buildExplicitOwnerSequencingContentPlan({ plan, activity, baseSpec });
+    if (fallbackPlan) {
+      const merged = mergeContentIntoSpec(baseSpec, fallbackPlan);
+      const gate = auditPrintableContentQuality(merged, { activity, plan });
+      const review = reviewPrintableSpec(merged, { activity, plan });
+      if (gate.ok && review.ok) {
+        return {
+          ok: true,
+          spec: merged,
+          contentPlan: fallbackPlan,
+          gate,
+          review,
+          revised: true,
+          explicitOwnerFallback: true,
+          usage: { plannerCalls, revisionCalls, calls: plannerCalls + revisionCalls },
+        };
+      }
+    }
     return {
       ok: false,
       code: "BLOCKED",
@@ -893,6 +947,7 @@ module.exports = {
   validatePlannerOutput,
   buildOperatorPrintableAiFixtureResponse,
   buildOperatorPrintableAiRevisionFixtureResponse,
+  buildExplicitOwnerSequencingContentPlan,
   planPrintableContent,
   ageBandKind,
 };
