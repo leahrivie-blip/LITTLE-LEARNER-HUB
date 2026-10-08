@@ -18,6 +18,7 @@ const DANGEROUS_CONFIRM_REASONS = Object.freeze([
   "semantic_contradiction",
   "meta_instruction",
   "unresolved_target",
+  "research_scope_clarification_required",
   "access_tier_mismatch",
   "age_band_mismatch",
   "conflicting_create_and_existing",
