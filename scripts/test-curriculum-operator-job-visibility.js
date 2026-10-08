@@ -168,10 +168,23 @@ async function sleep(ms) {
   const dedicated = await operatorJobStore.getJob(jobId);
   assert.ok(dedicated?.id === jobId, "dedicated store retains job after ack");
 
-  await sleep(250);
+  await sleep(400);
   const finished = await operatorJobStore.getJob(jobId);
+  const visLogs = (finished?.log || []).map((e) => String(e.message || ""));
+  assert.ok(
+    visLogs.some((m) => /async worker starting runjob/i.test(m)),
+    "async worker start logged after 202 ack",
+  );
   assert.ok(["completed", "failed", "blocked", "cancelled"].includes(String(finished?.status || ""))
     || finished?.status === "running", "job progresses after async run");
+  if (finished?.status === "running") {
+    const asyncDispatch = require("./curriculum-operator-async-dispatch.js");
+    const progress = asyncDispatch.countLessonActionProgress(finished);
+    assert.ok(
+      progress.running + progress.success + progress.failed > 0,
+      "no zero-progress running zombie after async dispatch",
+    );
+  }
 
   const dupApi = captureApi(storeRef, operatorJobStore, makeCreateHelper(storeRef), delayedAi);
   await invokeRun(dupApi.api, {
