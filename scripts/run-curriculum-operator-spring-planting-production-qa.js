@@ -435,7 +435,15 @@ async function main() {
   const fileData = fileRes.json?.resource?.fileData || "";
   ok("printable_file_http", fileRes.status === 200 && fileData.length > 400, { status: fileRes.status, len: fileData.length });
   const pdfBuf = Buffer.from(String(fileData).replace(/^data:application\/pdf;base64,/, ""), "base64");
-  const validated = await printablesApi.validateGeneratedPdf(pdfBuf, { fileName: seqResource.fileName });
+  const expectedPageCount = Number(seqResource?.pageCount);
+  ok("printable_page_count_metadata", Number.isFinite(expectedPageCount) && expectedPageCount >= 1, {
+    pageCount: seqResource?.pageCount,
+    resourceId: seqResource?.id,
+  });
+  const validated = await printablesApi.validateGeneratedPdf(pdfBuf, {
+    expectedPageCount,
+    fileName: seqResource.fileName,
+  });
   ok("printable_pdf_valid", validated.ok, validated.failed);
   ok("printable_letter_size", validated.checks.some((c) => c.code === "letter_size" && c.ok));
 

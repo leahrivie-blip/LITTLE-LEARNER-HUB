@@ -1155,6 +1155,20 @@ async function validateGeneratedPdf(buffer, { expectedPageCount, fileName }) {
   pass(!/^(printable|file\d+|generated-final|resource-\d+)\.pdf$/i.test(String(fileName || "")),
     "filename_quality", "Filename is not a generic placeholder.");
 
+  const expected = Number(expectedPageCount);
+  const hasExpected = Number.isFinite(expected) && expected >= 1;
+  pass(
+    hasExpected,
+    "expected_page_count",
+    hasExpected
+      ? `Expected page count is ${expected}.`
+      : "Expected page count must be a positive number (missing or invalid metadata).",
+  );
+  if (!hasExpected) {
+    const failed = checks.filter((c) => !c.ok);
+    return { ok: false, checks, failed, pageCount: 0 };
+  }
+
   let pageCount = 0;
   try {
     const merge = loadPdfMerge();
@@ -1162,9 +1176,9 @@ async function validateGeneratedPdf(buffer, { expectedPageCount, fileName }) {
       const inspected = await merge.inspectPdfPages(buffer);
       pageCount = Number(inspected.pageCount) || 0;
       pass(inspected.ok === true, "inspect_ok", "PDF inspect succeeded.");
-      pass(pageCount === Number(expectedPageCount), "page_count", `Page count ${pageCount} matches expected ${expectedPageCount}.`);
+      pass(pageCount === expected, "page_count", `Page count ${pageCount} matches expected ${expected}.`);
       pass(pageCount > 0, "not_empty", "PDF is not empty.");
-      pass(pageCount === Number(expectedPageCount) && pageCount > 0, "no_missing_pages", "No missing pages vs expected count.");
+      pass(pageCount === expected && pageCount > 0, "no_missing_pages", "No missing pages vs expected count.");
       const sizes = schema.asArray(inspected.pages);
       pass(sizes.every((p) => p.width >= 500 && p.height >= 700), "letter_size", "Pages look US Letter-ish.");
       const idxs = sizes.map((p) => p.index).filter((n) => n != null);
@@ -1175,8 +1189,9 @@ async function validateGeneratedPdf(buffer, { expectedPageCount, fileName }) {
       const pdfLib = loadPdfLib();
       const doc = await pdfLib.PDFDocument.load(buffer);
       pageCount = doc.getPageCount();
-      pass(pageCount === Number(expectedPageCount), "page_count", `Page count ${pageCount} matches expected.`);
+      pass(pageCount === expected, "page_count", `Page count ${pageCount} matches expected ${expected}.`);
       pass(pageCount > 0, "not_empty", "PDF is not empty.");
+      pass(pageCount === expected && pageCount > 0, "no_missing_pages", "No missing pages vs expected count.");
     }
   } catch (error) {
     pass(false, "inspect_error", text(error?.message || "PDF inspect failed", 200));
