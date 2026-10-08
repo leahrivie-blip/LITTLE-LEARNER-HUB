@@ -227,13 +227,50 @@ function createCurriculumOperatorApi(deps) {
     await writeStoreAsync(store);
   }
 
-  function scheduleAsyncOperatorRun(jobId, ownerEmail) {
+  function scheduleAsyncOperatorRun(jobId, ownerEmail, options = {}) {
+    const jobSnapshot = options?.jobSnapshot && typeof options.jobSnapshot === "object"
+      ? options.jobSnapshot
+      : null;
     setImmediate(() => {
       void (async () => {
         try {
+          const asyncDispatch = require("../scripts/curriculum-operator-async-dispatch.js");
+          const resolved = await asyncDispatch.resolveJobForAsyncDispatch(
+            {
+              readStore,
+              resolveJobById,
+              operatorJobStore,
+            },
+            { jobId, jobSnapshot },
+          );
+          if (!resolved.job) {
+            console.error(
+              "[curriculum-operator] async dispatch unresolved:",
+              JSON.stringify(resolved.diagnostic || {}),
+            );
+            const store = readStore();
+            const stub = jobSnapshot || { id: jobId, status: "running", lessonResults: [] };
+            const failedJob = asyncDispatch.buildAsyncDispatchFailureJob(stub, {
+              errorCode: resolved.diagnostic?.errorCode || "async_dispatch_job_unresolved",
+              message: resolved.diagnostic?.message || "Async worker could not resolve acknowledged job.",
+              diagnostic: resolved.diagnostic,
+            });
+            const bag = readJobs(store);
+            bag.jobs = [failedJob, ...bag.jobs.filter((j) => j.id !== failedJob.id)].slice(0, 100);
+            await writeJobs(store, bag);
+            return;
+          }
+          let job = resolved.job;
           const store = readStore();
-          let job = await resolveJobById(store, jobId);
-          if (!job) return;
+          jobApi.appendLog(job, "Async worker starting runJob.", "info");
+          console.info(
+            "[curriculum-operator] async dispatch starting:",
+            JSON.stringify({
+              jobId: job.id,
+              foundVia: resolved.diagnostic?.foundVia || null,
+              lookupAttempts: resolved.diagnostic?.lookupAttempts ?? null,
+            }),
+          );
           job = await runJob(job, store, ownerEmail);
           let bag = readJobs(store);
           bag.jobs = [job, ...bag.jobs.filter((j) => j.id !== job.id)].slice(0, 100);
@@ -2854,7 +2891,7 @@ function createCurriculumOperatorApi(deps) {
       }
 
       if (acknowledgeAsync) {
-        scheduleAsyncOperatorRun(job.id, session.email);
+        scheduleAsyncOperatorRun(job.id, session.email, { jobSnapshot: job });
         const created = wantsCreate(command);
         jsonResponse(response, 202, {
           ok: true,
