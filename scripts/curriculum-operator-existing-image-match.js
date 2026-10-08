@@ -21,7 +21,9 @@ const VISUAL_GROUPS = Object.freeze({
 });
 
 const GROUP_CONFLICTS = Object.freeze({
-  mirror: ["sort", "animal", "stamp", "jar", "wash", "texture"],
+  // Mirror/self-recognition photos are a common false KEEP for paint/tray activities
+  // when the URL or enrichment metadata clearly depicts reflection play.
+  mirror: ["sort", "animal", "stamp", "jar", "wash", "texture", "paint"],
   cloud: ["jar", "stamp", "sort", "wash"],
   farm: ["wash", "sort", "stamp", "jar"],
   apple: ["stamp", "sort", "mirror"],
@@ -179,7 +181,13 @@ function mergeImageGroupSets(...sets) {
 }
 
 /**
- * @returns {{ matches: boolean, reason: string, activityGroups: string[], imageGroups: string[] }}
+ * @returns {{
+ *   matches: boolean,
+ *   reason: string,
+ *   activityGroups: string[],
+ *   imageGroups: string[],
+ *   needsOwnerReview?: boolean,
+ * }}
  */
 function assessActivityImageSemanticMatch(activity, patch = {}, imageUrl, options = {}) {
   const url = text(imageUrl, 600);
@@ -241,9 +249,11 @@ function finishMatch(activityGroupsSet, imageGroupsSet, mode, context = {}) {
     }
     return {
       matches: true,
-      reason: "Image URL has no conflicting subject hints; assuming match pending visual QA.",
+      reason:
+        "Image URL has no readable subject evidence of a mismatch; keeping for now — owner should review exact-activity match.",
       activityGroups,
       imageGroups,
+      needsOwnerReview: true,
     };
   }
 
