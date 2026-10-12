@@ -159,6 +159,9 @@ function parseCreationBrief(rawCommand, options = {}) {
     if (!exists) requestedActivities.push(hint);
   });
   requestedActivities = requestedActivities.slice(0, 24);
+  if (requestedActivities.length >= 3 && activityTarget > requestedActivities.length) {
+    activityTarget = requestedActivities.length;
+  }
   const materialCostMode = instructionProfile.resolveMaterialCostMode(raw, options.lessonInstructions || []);
 
   let title = createTitleScope.extractRequestedNewLessonTitle(raw);
@@ -233,12 +236,21 @@ function parseCreationBrief(rawCommand, options = {}) {
   };
   brief.idempotencyKey = creationIdempotencyKey(brief);
 
+  const guidedMaterials = require("./curriculum-operator-guided-materials.js");
+  const enrichedBrief = guidedMaterials.enrichCreationBrief(brief, raw, {
+    attachments: options.attachments,
+    researchSources: options.researchSources,
+  });
+  enrichedBrief.guidedUnderstanding = guidedMaterials.buildUnderstandingSummary(enrichedBrief);
+
   return {
     ok: needsOwnerInput.length === 0,
     code: needsOwnerInput.length ? "NEEDS_OWNER_INPUT" : "ok",
     needsOwnerInput,
-    brief,
+    brief: enrichedBrief,
     notes: exclusions.notes.slice(),
+    guidedUnderstanding: enrichedBrief.guidedUnderstanding,
+    requiresGuidedConfirmation: guidedMaterials.detectOwnerSuppliedContent(raw, options.attachments),
   };
 }
 
@@ -597,6 +609,12 @@ function qualityReviewNewLesson({ brief, lessonPlan, activities }) {
   const ageBand = brief?.ageBand;
   if (ageBand === "infant" && acts.some((a) => /worksheet|cut out|tiny bead/i.test(`${a.title} ${a.steps}`))) {
     issues.push("infant_inappropriate");
+  }
+  if (brief?.guidedWorkflow === true) {
+    const ageSafety = require("./curriculum-operator-guided-age-safety.js");
+    const guidedCheck = ageSafety.validateLessonActivities({ brief, activities: acts });
+    guidedCheck.issues.forEach((code) => issues.push(code));
+    if (guidedCheck.safetyWarnings.length) issues.push("guided_safety_warnings");
   }
   const generic = acts.filter((a) => /children will learn about|set out materials|what do you see|let children explore/i.test(`${a.objective} ${a.steps}`));
   if (generic.length > 0) issues.push("generic_filler");

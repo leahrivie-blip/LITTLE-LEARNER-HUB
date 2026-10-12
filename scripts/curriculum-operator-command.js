@@ -11,6 +11,7 @@ const intentRouter = require("./curriculum-operator-intent-router.js");
 const commandSafety = require("./curriculum-operator-command-safety.js");
 const semanticInterpret = require("./curriculum-operator-semantic-interpret.js");
 const createTitleScope = require("./curriculum-operator-create-title-scope.js");
+const guidedMaterials = require("./curriculum-operator-guided-materials.js");
 
 function parseCount(command) {
   const m = String(command || "").match(/\b(?:top|next|first|the)?\s*(\d{1,2})\b/i)
@@ -638,7 +639,8 @@ function parseOperatorCommand(rawCommand, options = {}) {
       || confirmReasons.includes("scope_review_required")
       || confirmReasons.includes("possible_duplicate")
       || confirmReasons.includes("unexpected_scope_expansion")
-      || confirmReasons.includes("parsed_intent_contradiction"),
+      || confirmReasons.includes("parsed_intent_contradiction")
+      || confirmReasons.includes(guidedMaterials.GUIDED_CONFIRM_REASON),
     confirmReasons: [...new Set(confirmReasons)],
     parseSafety: safety,
     phase1Executable: true,
@@ -701,6 +703,24 @@ function parseOperatorCommand(rawCommand, options = {}) {
       confirmationReason,
     ])];
     result.mutationsStripped = true;
+  } else if (
+    (result.command.intent === "create_lesson" || result.command.actions?.createLesson === true)
+    && guidedMaterials.detectOwnerSuppliedContent(raw)
+    && !options.confirmGuidedMaterials
+  ) {
+    result.command.confirmations.reasons = [...new Set([
+      ...(result.command.confirmations.reasons || []),
+      guidedMaterials.GUIDED_CONFIRM_REASON,
+    ])];
+    result.needsConfirmation = true;
+    result.confirmReasons = [...new Set([
+      ...(result.confirmReasons || []),
+      guidedMaterials.GUIDED_CONFIRM_REASON,
+    ])];
+    result.command.parsedNotes = [...new Set([
+      ...(result.command.parsedNotes || []),
+      "Guided materials workflow: review the understood summary, then confirm before creating the draft lesson.",
+    ])];
   } else if (researchScope.ambiguous) {
     result.command.intent = "audit";
     result.command.scope.lessonIds = [];

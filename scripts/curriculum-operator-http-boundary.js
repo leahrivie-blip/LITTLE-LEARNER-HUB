@@ -4,6 +4,7 @@ const schema = require("./curriculum-operator-schema.js");
 const createApi = require("./curriculum-operator-create.js");
 const researchApi = require("./curriculum-operator-research.js");
 const intentRouter = require("./curriculum-operator-intent-router.js");
+const guidedMaterials = require("./curriculum-operator-guided-materials.js");
 
 async function handleParseRequest({
   body = {}, session = {}, store, curriculum = {}, phase = 7, dependencies = {},
@@ -27,7 +28,9 @@ async function handleParseRequest({
     };
   }
   const correction = conversation.parseSemanticCorrection(rawText);
-  const creationBrief = createApi.parseCreationBrief(rawText);
+  const creationBrief = createApi.parseCreationBrief(rawText, {
+    attachments: schema.asArray(body.attachments),
+  });
   const research = creationBrief.brief.researchRequested
     ? await researchApi.requestResearch({
       query: researchApi.buildResearchQuery(rawText, creationBrief.brief),
@@ -53,6 +56,7 @@ async function handleParseRequest({
     phase,
     lessonPlans: lessons,
     activities: schema.asArray(curriculum.activities),
+    confirmGuidedMaterials: body.confirm === true,
     currentlySelectedLessonId: intentRouter.hasStagedResearchCreateIntent(rawText)
       ? body.currentlySelectedLessonId
       : (toddler?.id || body.currentlySelectedLessonId),
@@ -112,11 +116,34 @@ async function handleParseRequest({
       return { statusCode: 503, body: { ok: false, code: "conversation_unavailable", error: "Your message could not be saved, so no changes were made." } };
     }
   }
+  const guidedUnderstanding = creationBrief.guidedUnderstanding || null;
+  if (guidedUnderstanding && parsed?.interpretation) {
+    parsed.interpretation.ownerSummary = guidedMaterials.appendGuidedSummaryToOwnerText(
+      parsed.interpretation.ownerSummary || "",
+      creationBrief.brief,
+    );
+    parsed.guidedUnderstanding = guidedUnderstanding;
+  } else if (guidedUnderstanding) {
+    parsed.guidedUnderstanding = guidedUnderstanding;
+  }
+  if (creationBrief.brief?.ownerMaterials) {
+    parsed.creationBriefPreview = {
+      title: creationBrief.brief.title,
+      theme: creationBrief.brief.theme,
+      ageBand: creationBrief.brief.ageBand,
+      ownerMaterials: creationBrief.brief.ownerMaterials,
+      guidedWorkflow: creationBrief.brief.guidedWorkflow === true,
+    };
+  }
+
   return {
     statusCode: 200,
     body: {
       ok: true, action: "parse", ...parsed, conversationContext: context, publishEnabled: false, jobCreated: false,
       researchStatus: research ? (research.ok ? "ready" : research.code) : null,
+      guidedUnderstanding,
+      requiresGuidedConfirmation: creationBrief.requiresGuidedConfirmation === true
+        && schema.asArray(parsed.confirmReasons).includes(guidedMaterials.GUIDED_CONFIRM_REASON),
     },
   };
 }
