@@ -152,7 +152,8 @@ function extractPrintableSpecifications(rawCommand, explicitPrintables = []) {
 function extractSuppliedMaterials(rawCommand) {
   const raw = text(rawCommand, 4000);
   const items = [];
-  const m = raw.match(/\bmaterials?\s*:?\s*([^.!?]{3,500})/i);
+  const m = raw.match(/\bMaterials\s*:\s*([^.!?]{3,500})/)
+    || raw.match(/\bmaterials\s*:\s*([^.!?]{3,500})/i);
   if (m) splitList(m[1]).forEach((t) => items.push({ name: text(t, 120), section: "activity_materials" }));
   return items.slice(0, 24);
 }

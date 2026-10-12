@@ -5,6 +5,7 @@
  */
 "use strict";
 
+const crypto = require("crypto");
 const https = require("https");
 const fs = require("fs");
 const path = require("path");
@@ -18,7 +19,7 @@ const qaJobPoll = require("./curriculum-operator-qa-job-poll.js");
 const BASE = process.env.LLH_PROD_BASE || "https://littlelearnershubbyleah.com";
 const HTTP_TIMEOUT_MS = parseQaHttpTimeoutMs();
 const EXPECTED_SHA = String(process.env.LLH_EXPECTED_COMMIT_SHA || "").slice(0, 7);
-const SESSION = `guided-materials-prod-qa-${Date.now()}`;
+const SESSION = `guided-materials-prod-qa-${Date.now()}-${crypto.randomBytes(4).toString("hex")}`;
 const OUT_DIR = process.env.LLH_QA_OUT || "/opt/cursor/artifacts/guided-materials-prod-qa";
 const PHASE = 7;
 
@@ -54,6 +55,35 @@ function req(method, urlPath, body, token) {
     if (payload) r.write(payload);
     r.end();
   });
+}
+
+function isLegacyGuidedQaDraftTitle(title) {
+  return /^Guided Materials QA Disposable guided-materials-prod-qa-/i.test(String(title || "").trim());
+}
+
+function isGuidedQaDraftTitle(title) {
+  return guidedFixture.isDisposableGuidedMaterialsQaTitle(title) || isLegacyGuidedQaDraftTitle(title);
+}
+
+async function cleanupGuidedQaDrafts(token) {
+  const site = await req("GET", "/api/admin/site-content", null, token);
+  const curriculum = site.json?.curriculum || site.json?.siteContent?.curriculum || {};
+  const stamp = site.json?.siteContent?.updatedAt || site.json?.updatedAt || "";
+  const drafts = (curriculum.lessonPlans || []).filter(
+    (p) => p && p.status === "draft" && isGuidedQaDraftTitle(p.title),
+  );
+  const removed = [];
+  for (const plan of drafts) {
+    const del = await req("POST", "/api/admin/curriculum/lesson-plans/delete", {
+      lessonPlanId: plan.id,
+      confirmTitle: schema.text(plan.title, 280),
+      expectedUpdatedAt: stamp,
+    }, token);
+    if (del.status === 200 && del.json?.ok !== false) {
+      removed.push({ id: plan.id, title: plan.title });
+    }
+  }
+  return removed;
 }
 
 function fail(report, name, detail) {
@@ -95,6 +125,21 @@ async function main() {
   const login = await req("POST", "/api/admin/login", { email: EMAIL, password: PASSWORD, code: CODE });
   ok("admin_login", login.status === 200 && login.json?.token);
   const token = login.json.token;
+
+  const jobsList = await req("POST", "/api/admin/curriculum/operator", { action: "list" }, token);
+  const activeJobs = (jobsList.json?.jobs || []).filter((j) => qaJobPoll.isActiveJobStatus(j.status));
+  ok("zero_active_mutation_jobs", activeJobs.length === 0, { activeJobIds: activeJobs.map((j) => j.id) });
+
+  const cleaned = await cleanupGuidedQaDrafts(token);
+  report.preCleanupRemoved = cleaned;
+  const siteAfterCleanup = await req("GET", "/api/admin/site-content", null, token);
+  const curAfter = siteAfterCleanup.json?.curriculum || siteAfterCleanup.json?.siteContent?.curriculum || {};
+  const remainingGuided = (curAfter.lessonPlans || []).filter(
+    (p) => p && p.status === "draft" && isGuidedQaDraftTitle(p.title),
+  );
+  ok("zero_guided_qa_drafts_before_run", remainingGuided.length === 0, {
+    remaining: remainingGuided.map((p) => ({ id: p.id, title: p.title })),
+  });
 
   const parse = await req("POST", "/api/admin/curriculum/operator", {
     action: "parse",
