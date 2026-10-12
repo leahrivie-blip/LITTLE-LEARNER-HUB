@@ -610,6 +610,12 @@ function qualityReviewNewLesson({ brief, lessonPlan, activities }) {
   if (ageBand === "infant" && acts.some((a) => /worksheet|cut out|tiny bead/i.test(`${a.title} ${a.steps}`))) {
     issues.push("infant_inappropriate");
   }
+  if (brief?.guidedWorkflow === true) {
+    const ageSafety = require("./curriculum-operator-guided-age-safety.js");
+    const guidedCheck = ageSafety.validateLessonActivities({ brief, activities: acts });
+    guidedCheck.issues.forEach((code) => issues.push(code));
+    if (guidedCheck.safetyWarnings.length) issues.push("guided_safety_warnings");
+  }
   const generic = acts.filter((a) => /children will learn about|set out materials|what do you see|let children explore/i.test(`${a.objective} ${a.steps}`));
   if (generic.length > 0) issues.push("generic_filler");
   const domains = new Set(acts.map((a) => text(a.activityCategory || a.category, 80).toLowerCase()).filter(Boolean));

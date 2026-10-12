@@ -11,6 +11,7 @@ const schema = require("./curriculum-operator-schema.js");
 const structurePaste = require("./curriculum-lesson-structure-paste.js");
 const composer = require("./curriculum-operator-ai-composer.js");
 const createApi = require("./curriculum-operator-create.js");
+const childcareKnowledge = require("./curriculum-operator-childcare-knowledge.js");
 
 const WEEKDAYS = createApi.WEEKDAYS;
 const ACTIVITY_TEXT_FIELDS = Object.freeze([
@@ -197,6 +198,10 @@ function buildArchitectUserPrompt(brief, { revisionIssues, previousContent, prev
         : []),
       ...(schema.asArray(brief.ownerMaterials?.ownerInstructions).length
         ? brief.ownerMaterials.ownerInstructions.map((line) => `Owner instruction: ${line}`)
+        : []),
+      ...(brief.ageBand ? childcareKnowledge.architectGuidanceLines(brief.ageBand) : []),
+      ...(brief.ownerMaterials?.replace?.length
+        ? ["Replace assets only when audit shows mismatch or owner explicitly requested replace; otherwise KEEP valid existing assets."]
         : []),
       ...(schema.asArray(brief.explicitPrintables).length
         ? ["Include a complete activity for every explicitPrintables.activityHint so the owner-requested printable can link to that activity."]

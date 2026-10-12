@@ -9,20 +9,10 @@ function createApi() {
   return require("./curriculum-operator-create.js");
 }
 
-const FIELDS_AI_FILLS = Object.freeze([
-  "objectives",
-  "materials",
-  "preparation",
-  "setup",
-  "steps",
-  "questions",
-  "observation points",
-  "safety",
-  "cleanup",
-  "adaptations",
-  "vocabulary",
-  "indoor/outdoor alternatives",
-]);
+const knowledge = require("./curriculum-operator-childcare-knowledge.js");
+const ageSafety = require("./curriculum-operator-guided-age-safety.js");
+
+const FIELDS_AI_FILLS = Object.freeze(knowledge.fieldsAiShouldFill());
 
 const GUIDED_CONFIRM_REASON = "guided_materials_confirmation_required";
 
@@ -159,6 +149,75 @@ function extractPrintableSpecifications(rawCommand, explicitPrintables = []) {
   return specs.slice(0, 6);
 }
 
+function extractSuppliedMaterials(rawCommand) {
+  const raw = text(rawCommand, 4000);
+  const items = [];
+  const m = raw.match(/\bmaterials?\s*:?\s*([^.!?]{3,500})/i);
+  if (m) splitList(m[1]).forEach((t) => items.push({ name: text(t, 120), section: "activity_materials" }));
+  return items.slice(0, 24);
+}
+
+function extractKeepReplaceDirectives(rawCommand) {
+  const raw = text(rawCommand, 4000);
+  const keep = [];
+  const replace = [];
+  const keepRe = /\bkeep\s+(?:the\s+)?(?:existing\s+)?(.+?)(?:\.|,|\s+but\b|\s+and\b|\s+replace\b|$)/gi;
+  let m = keepRe.exec(raw);
+  while (m) {
+    keep.push({ target: text(m[1], 120), section: "asset_preserve" });
+    m = keepRe.exec(raw);
+  }
+  const replaceRe = /\breplace\s+(?:the\s+)?(.+?)(?:\.|,|\s+with\b|\s+only\b|$)/gi;
+  m = replaceRe.exec(raw);
+  while (m) {
+    replace.push({ target: text(m[1], 120), section: "asset_replace", requiresEvidence: true });
+    m = replaceRe.exec(raw);
+  }
+  if (/\bkeep valid existing\b/i.test(raw)) keep.push({ target: "valid existing assets", section: "asset_preserve" });
+  return { keep: keep.slice(0, 12), replace: replace.slice(0, 12) };
+}
+
+function extractOwnerResearchNotes(rawCommand) {
+  const raw = text(rawCommand, 4000);
+  const notes = [];
+  const patterns = [
+    /\b(?:i found|i researched|here is what i found|already know)\s+([^.!?]{10,500})/i,
+    /\bresearch notes?\s*:?\s*([^.!?]{10,500})/i,
+  ];
+  patterns.forEach((re) => {
+    const m = raw.match(re);
+    if (m) notes.push({ text: text(m[1], 500), section: "owner_research_context", fabricated: false });
+  });
+  return notes.slice(0, 6);
+}
+
+function extractExactPictureInstructions(rawCommand) {
+  const raw = text(rawCommand, 4000);
+  const lines = [];
+  const re = /\b(?:exact picture instructions|picture instructions|for the image)\s*:?\s*([^.!?]{10,500})/gi;
+  let m = re.exec(raw);
+  while (m) {
+    lines.push(text(m[1], 500));
+    m = re.exec(raw);
+  }
+  if (/\bdo not add text, logos/i.test(raw)) {
+    lines.push(text(raw.match(/\bdo not add text[^.!?]*/i)?.[0] || "", 400));
+  }
+  return lines.slice(0, 6);
+}
+
+function extractExactPrintableInstructions(rawCommand) {
+  const raw = text(rawCommand, 4000);
+  const lines = [];
+  const re = /\b(?:exact printable instructions|printable instructions)\s*:?\s*([^.!?]{10,500})/gi;
+  let m = re.exec(raw);
+  while (m) {
+    lines.push(text(m[1], 500));
+    m = re.exec(raw);
+  }
+  return lines.slice(0, 6);
+}
+
 function extractImageRequests(rawCommand) {
   const raw = text(rawCommand, 4000);
   const images = [];
@@ -238,11 +297,33 @@ function enrichCreationBrief(brief, rawCommand, options = {}) {
   const printables = extractPrintableSpecifications(raw, explicit);
   const images = extractImageRequests(raw);
   const referenceImages = normalizeAttachments(options.attachments);
+  const materials = extractSuppliedMaterials(raw);
+  const keepReplace = extractKeepReplaceDirectives(raw);
+  const researchNotes = extractOwnerResearchNotes(raw);
+  const pictureInstructions = extractExactPictureInstructions(raw);
+  const printableInstructions = extractExactPrintableInstructions(raw);
+  if (printableInstructions.length) {
+    const exactPrintableText = printableInstructions.join(" ");
+    printables.forEach((p) => {
+      // eslint-disable-next-line no-param-reassign
+      p.ownerInstructions = exactPrintableText;
+    });
+  }
+  if (pictureInstructions.length) {
+    images.forEach((img, i) => {
+      if (!img.instructions || img.instructions.length < 20) {
+        // eslint-disable-next-line no-param-reassign
+        img.instructions = pictureInstructions[i] || pictureInstructions[0];
+      }
+    });
+  }
   const ownerInstructions = [];
   const actInstr = raw.match(/\b(?:exact instructions|instructions for)[^.!?]{0,40}:?\s*([^.!?]{10,500})/i);
   if (actInstr) ownerInstructions.push(text(actInstr[1], 500));
   const keepIdea = raw.match(/\bkeep the activity idea[^.!?]*/i);
   if (keepIdea) ownerInstructions.push(text(keepIdea[0], 300));
+  pictureInstructions.forEach((line) => ownerInstructions.push(`Picture: ${line}`));
+  printableInstructions.forEach((line) => ownerInstructions.push(`Printable: ${line}`));
 
   const requestedActivities = [...schema.asArray(brief.requestedActivities)];
   activities.forEach((a) => {
@@ -254,18 +335,25 @@ function enrichCreationBrief(brief, rawCommand, options = {}) {
   const ownerMaterials = {
     activities,
     books,
+    materials,
     printables,
     images,
     referenceImages,
+    keep: keepReplace.keep,
+    replace: keepReplace.replace,
+    researchNotes,
     ownerInstructions,
     fieldsAiWillFill: FIELDS_AI_FILLS.slice(),
     fieldsOwnerSupplied: [
       ...(activities.length ? ["activity titles and core ideas"] : []),
+      ...(materials.length ? ["listed materials"] : []),
       ...(books.length ? ["book titles/links"] : []),
       ...(printables.length ? ["printable specifications"] : []),
       ...(images.length || referenceImages.length ? ["image/reference instructions"] : []),
+      ...(keepReplace.keep.length ? ["assets marked keep"] : []),
     ],
-    preserveExistingLessonContent: true,
+    preserveExistingLessonContent: keepReplace.replace.length === 0,
+    replaceOnlyWithEvidence: true,
   };
 
   const researchContext = [
@@ -281,6 +369,12 @@ function enrichCreationBrief(brief, rawCommand, options = {}) {
       type: "owner_printable",
       title: p.title,
       summary: p.ownerInstructions || "Owner-requested printable.",
+      source: "owner_materials",
+    })),
+    ...researchNotes.map((n) => ({
+      type: "owner_research",
+      title: "Owner research note",
+      summary: n.text,
       source: "owner_materials",
     })),
   ].slice(0, 12);
@@ -308,6 +402,8 @@ function enrichCreationBrief(brief, rawCommand, options = {}) {
   if (nextBrief.requestedActivities.length >= 3) {
     nextBrief.activityTarget = nextBrief.requestedActivities.length;
   }
+  nextBrief.childcareKnowledgeBand = knowledge.mapSchemaAgeBand(nextBrief.ageBand).key;
+  nextBrief.guidedValidation = ageSafety.validateGuidedBrief(nextBrief);
   return nextBrief;
 }
 
@@ -335,6 +431,21 @@ function buildUnderstandingSummary(brief) {
     ...(m.referenceImages?.length
       ? ["Reference uploads:", ...m.referenceImages.map((r) => `• ${r.fileName || r.id}: ${r.ownerInstructions || "style/composition reference only"}`)]
       : []),
+    ...(m.materials?.length
+      ? ["Materials you listed:", ...m.materials.map((x) => `• ${x.name}`)]
+      : []),
+    ...(m.keep?.length
+      ? ["Keep unchanged:", ...m.keep.map((x) => `• ${x.target}`)]
+      : []),
+    ...(m.replace?.length
+      ? ["Replace only with evidence:", ...m.replace.map((x) => `• ${x.target}`)]
+      : []),
+    ...(brief?.guidedValidation?.safetyWarnings?.length
+      ? ["Safety notes:", ...brief.guidedValidation.safetyWarnings.map((w) => `• ${w}`)]
+      : []),
+    ...(brief?.guidedValidation?.uncertainties?.length
+      ? ["Needs your confirmation (not guessed):", ...brief.guidedValidation.uncertainties.map((u) => `• ${u}`)]
+      : []),
     "",
     "I will fill in:",
     ...FIELDS_AI_FILLS.map((f) => `• ${f}`),
@@ -358,6 +469,10 @@ function buildUnderstandingSummary(brief) {
       referenceImages: schema.asArray(m.referenceImages),
       aiFills: FIELDS_AI_FILLS.slice(),
       unchanged: schema.asArray(m.fieldsOwnerSupplied),
+      materials: schema.asArray(m.materials),
+      keep: schema.asArray(m.keep),
+      replace: schema.asArray(m.replace),
+      validation: brief?.guidedValidation || null,
     },
     requiresConfirmation: true,
   };
@@ -418,6 +533,11 @@ module.exports = {
   FIELDS_AI_FILLS,
   GUIDED_PROGRESS_STEPS,
   extractSuppliedActivities,
+  extractSuppliedMaterials,
+  extractKeepReplaceDirectives,
+  extractOwnerResearchNotes,
+  extractExactPictureInstructions,
+  extractExactPrintableInstructions,
   extractSuppliedBooks,
   extractPrintableSpecifications,
   extractImageRequests,
