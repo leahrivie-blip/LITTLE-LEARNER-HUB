@@ -55,6 +55,7 @@
     "test:curriculum-operator-guided-image-spec": "NODE_ENV=test node scripts/test-curriculum-operator-guided-image-spec.js",
     "test:curriculum-operator-guided-materials-production-qa": "node scripts/run-curriculum-operator-guided-materials-production-qa.js",
     "test:curriculum-operator-printable-pdf-validate": "NODE_ENV=test node scripts/test-curriculum-operator-printable-pdf-validate.js",
+    "test:curriculum-operator-printable-activity-link": "NODE_ENV=test node scripts/test-curriculum-operator-printable-activity-link.js",
     "test:curriculum-operator-seed-growth-requested-activity": "NODE_ENV=test node scripts/test-curriculum-operator-seed-growth-requested-activity.js",
     "test:curriculum-operator-generic-filler-field-repair": "NODE_ENV=test node scripts/test-curriculum-operator-generic-filler-field-repair.js",
     "test:curriculum-operator-outdoor-alternatives-repair": "NODE_ENV=test node scripts/test-curriculum-operator-outdoor-alternatives-repair.js",

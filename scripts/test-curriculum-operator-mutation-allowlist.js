@@ -151,6 +151,23 @@ console.log("\n6) printables excluded denies resources");
   ok(gate.violations.some((v) => v.field === "printableIds"), "printable mutation blocked");
 }
 
+console.log("\n6b) printables allowed persists activity relatedPrintableId");
+{
+  const allowlist = allowlistApi.buildMutationAllowlist({
+    actions: { generatePrintables: true, touchPrintables: true, upgradeActivities: true },
+    scope: { lessonIds: [LMW_ID] },
+  });
+  ok(allowlistApi.isActivityMutationAllowed(ACT_ID, "relatedPrintableId", allowlist), "relatedPrintableId allowed");
+  const gate = allowlistApi.validateEnrichmentDraftSave({
+    beforeDraft: { activities: { [ACT_ID]: {} } },
+    afterDraft: { activities: { [ACT_ID]: { relatedPrintableId: "cur-res-1" } } },
+    allowlist,
+    lessonId: LMW_ID,
+    stage: "printables.save",
+  });
+  ok(gate.filteredDraft.activities[ACT_ID].relatedPrintableId === "cur-res-1", "relatedPrintableId not stripped on save");
+}
+
 console.log("\n7) books excluded denies books");
 {
   const filtered = allowlistApi.filterComposerPlan({

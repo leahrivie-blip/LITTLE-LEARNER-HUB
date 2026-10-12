@@ -1227,12 +1227,54 @@ function bufferToPdfDataUrl(buffer) {
   return `data:application/pdf;base64,${Buffer.from(buffer).toString("base64")}`;
 }
 
+/** Merge activity draft patches keyed by persisted id and legacy itemId (editor hydration). */
+function resolveActivityDraftPatchFromMap(draftActivities, activityRecord) {
+  const draft = draftActivities && typeof draftActivities === "object" && !Array.isArray(draftActivities)
+    ? draftActivities
+    : {};
+  const idKey = text(activityRecord?.id, 160);
+  const itemKey = text(activityRecord?.itemId, 160);
+  const byId = idKey && draft[idKey] && typeof draft[idKey] === "object" && !Array.isArray(draft[idKey])
+    ? draft[idKey]
+    : {};
+  const byItem = itemKey && itemKey !== idKey && draft[itemKey]
+    && typeof draft[itemKey] === "object" && !Array.isArray(draft[itemKey])
+    ? draft[itemKey]
+    : {};
+  if (!Object.keys(byId).length && !Object.keys(byItem).length) return {};
+  return { ...byItem, ...byId };
+}
+
+function readActivityRelatedPrintableId(draftActivities, activityId, activityRecord = null) {
+  const actId = text(activityId, 160);
+  if (!actId) return "";
+  const record = activityRecord && text(activityRecord.id, 160) === actId ? activityRecord : { id: actId };
+  const merged = resolveActivityDraftPatchFromMap(draftActivities, record);
+  return text(merged.relatedPrintableId, 160);
+}
+
+function findConflictingActivityPrintableLink(draftActivities, resourceId, intendedActivityId, activities = []) {
+  const resId = text(resourceId, 160);
+  const intended = text(intendedActivityId, 160);
+  if (!resId || !intended) return null;
+  for (const record of schema.asArray(activities)) {
+    const persistedId = text(record?.id, 160);
+    if (!persistedId || persistedId === intended) continue;
+    const linked = readActivityRelatedPrintableId(draftActivities, persistedId, record);
+    if (linked === resId) {
+      return { activityId: persistedId, draftKey: persistedId };
+    }
+  }
+  return null;
+}
+
 function linkPrintableIntoEnrichmentDraft(draftInput, {
   lessonId,
   expectedLessonId,
   activityId,
   resourceId,
   title,
+  activityRecord = null,
 }) {
   if (text(lessonId, 160) !== text(expectedLessonId, 160)) {
     return { ok: false, code: "wrong_lesson_id", error: "Lesson ID mismatch; refuse printable link." };
@@ -1241,6 +1283,13 @@ function linkPrintableIntoEnrichmentDraft(draftInput, {
   const resId = text(resourceId, 160);
   if (!actId) return { ok: false, code: "missing_activity_id", error: "Activity ID required." };
   if (!resId) return { ok: false, code: "missing_resource_id", error: "Resource ID required." };
+  if (activityRecord && text(activityRecord.id, 160) && text(activityRecord.id, 160) !== actId) {
+    return {
+      ok: false,
+      code: "activity_id_mismatch",
+      error: "Activity record id does not match verified activityId; refuse printable link.",
+    };
+  }
 
   const draft = draftInput && typeof draftInput === "object"
     ? JSON.parse(JSON.stringify(draftInput))
@@ -1253,9 +1302,18 @@ function linkPrintableIntoEnrichmentDraft(draftInput, {
   if (!draft.activities[actId] || typeof draft.activities[actId] !== "object") {
     draft.activities[actId] = {};
   }
-  // Association only — do not invent a second storage system.
+  // Association only — persist under verified saved activity id (never title-only remapping).
   draft.activities[actId].relatedPrintableId = resId;
   draft.activities[actId].relatedPrintableTitle = text(title, 180);
+  const itemKey = text(activityRecord?.itemId, 160);
+  if (itemKey && itemKey !== actId && draft.activities[itemKey] && typeof draft.activities[itemKey] === "object") {
+    const legacy = draft.activities[itemKey];
+    if (text(legacy.relatedPrintableId, 160) === resId) {
+      delete legacy.relatedPrintableId;
+      delete legacy.relatedPrintableTitle;
+      if (!Object.keys(legacy).length) delete draft.activities[itemKey];
+    }
+  }
   draft.updatedAt = new Date().toISOString();
   draft.operatorPhase = 4;
   return { ok: true, enrichmentDraft: draft };
@@ -1266,6 +1324,7 @@ function verifyPrintableJobDraft({
   afterPlan,
   actions = [],
   resourcesAfter = [],
+  activities = [],
 }) {
   const checks = [];
   const pass = (ok, code, message) => checks.push({ ok: Boolean(ok), code, message });
@@ -1319,12 +1378,37 @@ function verifyPrintableJobDraft({
     }
     const draftIds = schema.asArray(afterPlan?.enrichmentDraft?.week?.printableIds).map(String);
     pass(draftIds.includes(String(resId)), `draft_printableIds_${resId}`, "Draft week.printableIds includes resource.");
-    const actPatch = afterActs[text(action.activityId, 160)] || {};
-    pass(
-      text(actPatch.relatedPrintableId, 160) === resId,
-      `activity_link_${action.activityId}`,
-      "Activity draft references resource by verified activity ID.",
+    const verifiedActivityId = text(action.activityId, 160);
+    const activityRecord = schema.asArray(activities).find((a) => text(a.id, 160) === verifiedActivityId) || null;
+    const linkedOnActivity = readActivityRelatedPrintableId(afterActs, verifiedActivityId, activityRecord);
+    const wrongOwner = findConflictingActivityPrintableLink(
+      afterActs,
+      resId,
+      verifiedActivityId,
+      activities,
     );
+    pass(!wrongOwner, `activity_link_wrong_owner_${resId}`, wrongOwner
+      ? `Printable ${resId} linked on activity ${wrongOwner.activityId}, not ${verifiedActivityId}.`
+      : "No other activity owns this printable link.");
+    pass(
+      linkedOnActivity === resId,
+      `activity_link_${action.activityId}`,
+      linkedOnActivity
+        ? "Activity draft references resource by verified activity ID."
+        : "Activity draft references resource by verified activity ID.",
+    );
+    if (draftIds.includes(String(resId)) && linkedOnActivity !== resId) {
+      pass(false, `activity_link_lesson_only_${resId}`, "Lesson week.printableIds link without activity relatedPrintableId.");
+    }
+    if (resource) {
+      const descActivity = String(resource.description || "").match(/Operator activityId=([^\s\n]+)/);
+      const descActId = descActivity ? text(descActivity[1], 160) : "";
+      pass(
+        !descActId || descActId === verifiedActivityId,
+        `resource_activity_id_${resId}`,
+        "Resource metadata activityId matches verified activity (no title-only association).",
+      );
+    }
   });
 
   const failed = checks.filter((c) => !c.ok);
@@ -1916,6 +2000,7 @@ async function runPrintablePlanForLesson({
         activityId: action.activityId,
         resourceId: uploaded.resourceId,
         title: generated.title,
+        activityRecord: activity,
       });
       if (!linked.ok) throw new Error(linked.error || "draft link failed");
       draft = linked.enrichmentDraft;
@@ -2035,6 +2120,9 @@ module.exports = {
   generatePrintablePdfBuffer,
   validateGeneratedPdf,
   bufferToPdfDataUrl,
+  resolveActivityDraftPatchFromMap,
+  readActivityRelatedPrintableId,
+  findConflictingActivityPrintableLink,
   linkPrintableIntoEnrichmentDraft,
   verifyPrintableJobDraft,
   runPrintablePlanForLesson,
