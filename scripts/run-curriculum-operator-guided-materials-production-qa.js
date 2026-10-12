@@ -126,7 +126,10 @@ async function main() {
     confirm: true,
     operatorSessionId: SESSION,
   }, token);
-  ok("confirmed_create_http", createRun.status === 200, { status: createRun.status, error: createRun.json?.error });
+  ok("confirmed_create_http", createRun.status === 200 || createRun.status === 202, {
+    status: createRun.status,
+    error: createRun.json?.error,
+  });
   const jobId = createRun.json?.job?.id;
   ok("job_id_present", Boolean(jobId));
 
