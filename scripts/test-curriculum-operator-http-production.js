@@ -57,5 +57,10 @@ const api = createCurriculumOperatorApi({
   assert.equal(staged.status, 409, "research then lesson cannot run a job before confirmation");
   assert.equal(staged.body.code, "RESEARCH_ONLY_RUN_BLOCKED", "staged research has a dedicated run block");
   assert.equal(staged.body.runBlocked, true, "staged research never reaches runJob");
+
+  await api.handle({ body: { action: "run", command: "Research healthy habits and make something for toddlers." } }, {});
+  const ambiguousResearch = replies.at(-1);
+  assert.equal(ambiguousResearch.status, 409, "ambiguous research cannot create a no-op job");
+  assert.equal(ambiguousResearch.body.runBlocked, true, "ambiguous research remains blocked pending clarification");
   console.log("Curriculum operator production HTTP adapter checks passed.");
 })().catch((error) => { console.error(error); process.exitCode = 1; });
