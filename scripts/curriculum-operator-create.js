@@ -159,6 +159,9 @@ function parseCreationBrief(rawCommand, options = {}) {
     if (!exists) requestedActivities.push(hint);
   });
   requestedActivities = requestedActivities.slice(0, 24);
+  if (requestedActivities.length >= 3 && activityTarget > requestedActivities.length) {
+    activityTarget = requestedActivities.length;
+  }
   const materialCostMode = instructionProfile.resolveMaterialCostMode(raw, options.lessonInstructions || []);
 
   let title = createTitleScope.extractRequestedNewLessonTitle(raw);
@@ -233,12 +236,21 @@ function parseCreationBrief(rawCommand, options = {}) {
   };
   brief.idempotencyKey = creationIdempotencyKey(brief);
 
+  const guidedMaterials = require("./curriculum-operator-guided-materials.js");
+  const enrichedBrief = guidedMaterials.enrichCreationBrief(brief, raw, {
+    attachments: options.attachments,
+    researchSources: options.researchSources,
+  });
+  enrichedBrief.guidedUnderstanding = guidedMaterials.buildUnderstandingSummary(enrichedBrief);
+
   return {
     ok: needsOwnerInput.length === 0,
     code: needsOwnerInput.length ? "NEEDS_OWNER_INPUT" : "ok",
     needsOwnerInput,
-    brief,
+    brief: enrichedBrief,
     notes: exclusions.notes.slice(),
+    guidedUnderstanding: enrichedBrief.guidedUnderstanding,
+    requiresGuidedConfirmation: guidedMaterials.detectOwnerSuppliedContent(raw, options.attachments),
   };
 }
 

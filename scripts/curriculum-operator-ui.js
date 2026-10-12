@@ -41,6 +41,10 @@
   function runButtonLabel(runPhase) {
     if (runPhase === "starting") return "Starting…";
     if (runPhase === "running") return "Running…";
+    if (state.commandParsed?.requiresGuidedConfirmation
+      || (state.commandParsed?.confirmReasons || []).includes("guided_materials_confirmation_required")) {
+      return "Confirm & create draft";
+    }
     return "Run job";
   }
 
@@ -99,15 +103,32 @@
     return "Run blocked — resolve confirmation issues before running.";
   }
 
+  function renderGuidedSections(guided) {
+    if (!guided?.sections) return "";
+    const s = guided.sections;
+    return `
+            <ul class="co-field-list">
+              <li><strong>Theme:</strong> ${esc(s.theme || "—")}</li>
+              <li><strong>Age group:</strong> ${esc(s.ageGroup || "—")}</li>
+              <li><strong>Your activities:</strong> ${esc((s.activities || []).join(", ") || "none")}</li>
+              <li><strong>Your books:</strong> ${esc((s.books || []).map((b) => b.title || b).join(", ") || "none")}</li>
+              <li><strong>Printables:</strong> ${esc((s.printables || []).map((p) => p.title || p).join(", ") || "none")}</li>
+              <li><strong>Images:</strong> ${esc((s.images || []).map((i) => i.kind || i).join(", ") || "none")}</li>
+              <li><strong>I will fill in:</strong> ${esc((s.aiFills || []).slice(0, 6).join(", "))}…</li>
+            </ul>`;
+  }
+
   function renderUnderstoodRequest(parsed) {
     const interp = parsed?.interpretation || parsed?.command?.interpretation;
-    if (!interp?.ownerSummary) return "";
-    const flags = interp.ownerFacingFlags || {};
+    const guided = parsed?.guidedUnderstanding;
+    if (!interp?.ownerSummary && !guided?.text) return "";
+    const flags = interp?.ownerFacingFlags || {};
     const effective = parsed?.effectiveInstructions || {};
     return `
           <section class="co-panel">
-            <h4>Understood request</h4>
-            <pre class="co-summary">${esc(interp.ownerSummary)}</pre>
+            <h4>${esc(guided?.title || "Understood request")}</h4>
+            ${guided ? renderGuidedSections(guided) : ""}
+            <pre class="co-summary">${esc(guided?.text || interp.ownerSummary)}</pre>
             <p class="muted-copy">${esc(flags.connectedAutoApply || "Successful approved AI changes will be saved directly into the lesson draft for your review.")}</p>
             <p class="muted-copy">${esc(flags.publish || "Nothing will publish automatically.")}</p>
             ${effective.profileLoaded ? `<p class="muted-copy">Permanent profile v${esc(effective.profileVersion)} applied: ${esc((effective.permanentInstructions || []).slice(0, 3).join(" · "))}</p>` : ""}
@@ -537,6 +558,7 @@
     const title = present.bannerTitle ? present.bannerTitle(kind) : String(job.status || "Running");
     const subtitle = present.bannerSubtitle ? present.bannerSubtitle(kind) : "";
     const step = present.currentStepLabel ? present.currentStepLabel(job, clientRunPhase) : "";
+    const guidedSteps = present.renderGuidedProgressSteps ? present.renderGuidedProgressSteps(job, esc) : "";
     const progress = present.jobProgress ? present.jobProgress(job) : { completed: 0, total: 1, percent: 0 };
     const progressHtml = present.renderProgressBarHtml
       ? present.renderProgressBarHtml(progress, esc)
@@ -559,6 +581,7 @@
           <p class="co-run-status-head">${esc(subtitle)}</p>
         </header>
         ${step ? `<p class="muted-copy"><strong>Current step:</strong> ${esc(step)}</p>` : ""}
+        ${guidedSteps}
         ${progressHtml}
         ${lessonTitle || lessonId ? `<p class="muted-copy"><strong>Lesson:</strong> ${esc(lessonTitle || lessonId)}${lessonId && lessonTitle ? ` (<code>${esc(lessonId)}</code>)` : lessonId ? ` <code>${esc(lessonId)}</code>` : ""}</p>` : ""}
         ${job.id ? `<p class="muted-copy">Job <code>${esc(job.id)}</code></p>` : ""}

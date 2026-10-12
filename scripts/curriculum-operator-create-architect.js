@@ -102,6 +102,8 @@ function buildArchitectUserPrompt(brief, { revisionIssues, previousContent, prev
       exclusions: brief.exclusions || {},
       requestedFeatures: brief.requestedFeatures || {},
       requestedActivities: schema.asArray(brief.requestedActivities).slice(0, 24),
+      suppliedBooks: schema.asArray(brief.suppliedBooks).slice(0, 12),
+      ownerMaterials: brief.ownerMaterials || null,
       materialCostMode: brief.materialCostMode || { requested: false, source: "default", preserveStandardMaterials: false },
       researchRequested: brief.researchRequested === true,
       coverRequested: brief.coverRequested === true,
@@ -189,6 +191,12 @@ function buildArchitectUserPrompt(brief, { revisionIssues, previousContent, prev
         : "Choose activity-appropriate materials; do not describe the lesson as budget-friendly or add cheaper substitutions unless requested.",
       ...(schema.asArray(brief.requestedActivities).length
         ? ["Include every requestedActivities item as a complete activity; do not replace it with an unrelated activity."]
+        : []),
+      ...(schema.asArray(brief.suppliedBooks).length
+        ? [`Owner supplied book(s) — keep these titles in bookIntent: ${schema.asArray(brief.suppliedBooks).map((b) => b.title).join("; ")}`]
+        : []),
+      ...(schema.asArray(brief.ownerMaterials?.ownerInstructions).length
+        ? brief.ownerMaterials.ownerInstructions.map((line) => `Owner instruction: ${line}`)
         : []),
       ...(schema.asArray(brief.explicitPrintables).length
         ? ["Include a complete activity for every explicitPrintables.activityHint so the owner-requested printable can link to that activity."]

@@ -2544,6 +2544,7 @@ function createCurriculumOperatorApi(deps) {
           operatorContext: body.operatorContext,
           ownerProfile: instructionProfile.read(store, session.email),
           confirmStagedResearchCreate: action === "run" && body.confirm === true,
+          confirmGuidedMaterials: body.confirm === true,
         });
 
       let command = parsed.command;
@@ -2629,6 +2630,7 @@ function createCurriculumOperatorApi(deps) {
           ageBand: parsed.ownerIntent?.inheritFromLesson?.ageBand || undefined,
           lessonInstructions: parsed.effectiveInstructions?.permanentInstructions || [],
           effectiveInstructions: parsed.effectiveInstructions || null,
+          attachments: schema.asArray(body.attachments),
           researchSources: operatorSessionId
             ? conversationStore.read(store, session.email, operatorSessionId)?.researchSources || []
             : [],
@@ -2785,7 +2787,8 @@ function createCurriculumOperatorApi(deps) {
           || planSummary.confirmReasons.includes("unexpectedly_large_scope")
           || planSummary.confirmReasons.includes("publish_requested")
           || planSummary.confirmReasons.includes("scope_review_required")
-          || planSummary.confirmReasons.includes("possible_duplicate"));
+          || planSummary.confirmReasons.includes("possible_duplicate")
+          || planSummary.confirmReasons.includes("guided_materials_confirmation_required"));
 
       if (action === "plan" || mustConfirm) {
         const planned = jobApi.createJobFromPlan({

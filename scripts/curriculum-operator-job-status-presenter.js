@@ -4,10 +4,16 @@
 "use strict";
 
 let executionScopeApi = null;
+let guidedMaterialsApi = null;
 try {
   executionScopeApi = require("./curriculum-operator-execution-scope.js");
 } catch (_browserRequire) {
   executionScopeApi = null;
+}
+try {
+  guidedMaterialsApi = require("./curriculum-operator-guided-materials.js");
+} catch (_browserRequire) {
+  guidedMaterialsApi = null;
 }
 
 const MUTATION_LOCK_API_RE = /Another Operator job is already mutating lesson/i;
@@ -113,6 +119,12 @@ function mapActionToStepLabel(action) {
 
 function currentStepLabel(job, clientRunPhase) {
   const kind = normalizeJobStatus(job);
+  const lr = primaryLessonResult(job);
+  if (lr?.creationBrief?.guidedWorkflow === true && guidedMaterialsApi?.guidedProgressFromJob) {
+    const guided = guidedMaterialsApi.guidedProgressFromJob(job);
+    if (kind === "ready_for_owner_review") return guided.currentLabel || "Ready for review";
+    if (kind === "running" || kind === "queued") return guided.currentLabel || "Organizing lesson";
+  }
   if (kind === "queued") return "Waiting to start";
   if (kind === "ready_for_owner_review") return "Ready for review";
   if (kind === "failed" || kind === "blocked") {
@@ -323,6 +335,14 @@ function filterRecentJobs(jobs, activeJobId) {
   return asArray(jobs).filter((job) => job && job.id !== active);
 }
 
+function renderGuidedProgressSteps(job, escFn) {
+  const esc = escFn || ((v) => String(v ?? ""));
+  const lr = primaryLessonResult(job);
+  if (!guidedMaterialsApi || lr?.creationBrief?.guidedWorkflow !== true) return "";
+  const { steps } = guidedMaterialsApi.guidedProgressFromJob(job);
+  return `<ol class="co-guided-steps">${steps.map((s) => `<li data-state="${esc(s.state)}">${esc(s.label)}</li>`).join("")}</ol>`;
+}
+
 function renderProgressBarHtml(progress, escFn) {
   const esc = escFn || ((v) => String(v ?? ""));
   const { completed, total, percent } = progress;
@@ -350,6 +370,7 @@ const api = {
   dedupeOperatorMessages,
   filterRecentJobs,
   renderProgressBarHtml,
+  renderGuidedProgressSteps,
   mapActionToStepLabel,
 };
 
