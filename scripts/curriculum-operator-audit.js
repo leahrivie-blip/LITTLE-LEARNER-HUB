@@ -443,7 +443,7 @@ function resolveExplicitPrintableTargetActivityIds(flatActivities, draftActs, ex
   return { targets, ambiguous };
 }
 
-function applyExplicitOwnerPrintableDecision(act, patch, printable, explicitPrintables = [], explicitTargetActivityIds = null) {
+function applyExplicitOwnerPrintableDecision(act, patch, printable, explicitPrintables = [], explicitTargetActivityIds = null, ownerMaterials = null) {
   const requests = schema.asArray(explicitPrintables);
   if (!requests.length) return printable;
   const actKey = schema.text(act.id || act.itemId);
@@ -454,17 +454,27 @@ function applyExplicitOwnerPrintableDecision(act, patch, printable, explicitPrin
   if (!hit) return printable;
   const resourceType = schema.text(hit.resourceType, 40)
     || (/\bsequenc/i.test(hit.title) ? "sequencing_cards" : schema.text(printable.type, 40));
+  const ownerPrintable = schema.asArray(ownerMaterials?.printables).find(
+    (p) => schema.text(p.title, 180).toLowerCase() === schema.text(hit.title, 180).toLowerCase(),
+  );
+  const ownerInstr = schema.text(ownerPrintable?.ownerInstructions || ownerMaterials?.ownerInstructions?.join(" "), 800);
+  const combinedTitle = requests.length > 1 && ownerInstr
+    ? `${schema.text(act.title, 80)} Guided Printable Pack`
+    : schema.text(hit.title, 180);
   return {
     decision: hit.replaceOnly ? "REPLACE" : "CREATE",
     reason: "Owner explicitly requested a printable for this activity.",
     type: resourceType || "sequencing_cards",
-    title: schema.text(hit.title, 180),
+    title: combinedTitle,
     contents: schema.asArray(printable.contents).length
       ? printable.contents
-      : ["clearly labeled stages from seed to sprout to plant"],
-    purpose: `Children use ${schema.text(hit.title, 180)} during ${schema.text(act.title, 180)}.`,
+      : (ownerInstr ? [ownerInstr.slice(0, 120)] : ["clearly labeled stages from seed to sprout to plant"]),
+    purpose: ownerInstr
+      ? `${ownerInstr} (Activity: ${schema.text(act.title, 180)}.)`
+      : `Children use ${schema.text(hit.title, 180)} during ${schema.text(act.title, 180)}.`,
     existingResourceIds: schema.asArray(printable.existingResourceIds),
     ownerExplicitPrintable: true,
+    ownerInstructions: ownerInstr,
   };
 }
 
@@ -800,6 +810,7 @@ function auditLesson(plan, curriculum = {}, options = {}) {
       printable,
       explicitPrintableRequests,
       explicitPrintableTargets.targets,
+      options.creationBrief?.ownerMaterials || options.ownerMaterials,
     );
     return schema.normalizeAssetPlanItem({
       activityId: key,

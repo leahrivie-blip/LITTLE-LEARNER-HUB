@@ -840,9 +840,45 @@ async function planPrintableContent({
 
   let validated = validatePlannerOutput(raw, { plan, activity, baseSpec });
   if (validated.ok) {
+    const printablesApi = require("./curriculum-operator-printables.js");
+    let finalSpec = validated.spec;
+    let renderPath = printablesApi.classifyPrintableRenderPath(finalSpec, { operatorWrite: true });
+    if (!renderPath.ok && (baseSpec?.guidedOwnerPrintable === true || baseSpec?.guidedOwnerContext?.guidedWorkflow)) {
+      const guidedSpec = require("./curriculum-operator-guided-printable-spec.js");
+      const enriched = guidedSpec.tryApplyGuidedRenderEnrichment(finalSpec, {
+        plan,
+        activity,
+        guidedContext: baseSpec.guidedOwnerContext,
+      });
+      if (enriched.ok) {
+        finalSpec = enriched.spec;
+        renderPath = printablesApi.classifyPrintableRenderPath(finalSpec, { operatorWrite: true });
+        if (renderPath.ok) {
+          return {
+            ok: true,
+            spec: finalSpec,
+            contentPlan: enriched.contentPlan,
+            gate: enriched.gate,
+            review: enriched.review,
+            guidedOwnerFallback: true,
+            usage: { plannerCalls, revisionCalls, calls: plannerCalls + revisionCalls },
+          };
+        }
+      }
+    }
+    if (!renderPath.ok) {
+      return {
+        ok: false,
+        code: "BLOCKED",
+        error: `Thin spec blocked (no generic fallback): ${renderPath.reason}`,
+        blocked: true,
+        usage: { plannerCalls, revisionCalls, calls: plannerCalls + revisionCalls },
+        preservedExisting: true,
+      };
+    }
     return {
       ok: true,
-      spec: validated.spec,
+      spec: finalSpec,
       contentPlan: validated.contentPlan,
       gate: validated.gate,
       review: validated.review,
@@ -897,6 +933,26 @@ async function planPrintableContent({
           review,
           revised: true,
           explicitOwnerFallback: true,
+          usage: { plannerCalls, revisionCalls, calls: plannerCalls + revisionCalls },
+        };
+      }
+    }
+    if (baseSpec?.guidedOwnerPrintable === true || baseSpec?.guidedOwnerContext?.guidedWorkflow) {
+      const guidedSpec = require("./curriculum-operator-guided-printable-spec.js");
+      const enriched = guidedSpec.tryApplyGuidedRenderEnrichment(baseSpec, {
+        plan,
+        activity,
+        guidedContext: baseSpec.guidedOwnerContext,
+      });
+      if (enriched.ok) {
+        return {
+          ok: true,
+          spec: enriched.spec,
+          contentPlan: enriched.contentPlan,
+          gate: enriched.gate,
+          review: enriched.review,
+          revised: true,
+          guidedOwnerFallback: true,
           usage: { plannerCalls, revisionCalls, calls: plannerCalls + revisionCalls },
         };
       }

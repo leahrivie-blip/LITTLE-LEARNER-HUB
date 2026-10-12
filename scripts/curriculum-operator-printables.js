@@ -341,7 +341,9 @@ function buildPrintableSpec({
   planItem,
   decision,
   existingResourceIds = [],
-}) {
+  guidedBrief = null,
+  ownerPrintableInstructions = "",
+} = {}) {
   const activityId = text(planItem?.activityId || activity?.id, 160);
   const lessonId = text(plan?.id, 160);
   const d = normalizePrintableDecision(decision || planItem?.printable?.decision);
@@ -393,6 +395,11 @@ function buildPrintableSpec({
     reason: text(planItem?.printable?.reason, 600),
     existingResourceIds: existingIds,
     ...(planItem?.printable?.ownerExplicitPrintable === true ? { ownerExplicitPrintable: true } : {}),
+    ...(guidedBrief?.guidedWorkflow === true ? {
+      guidedOwnerPrintable: true,
+      guidedOwnerContext: require("./curriculum-operator-guided-printable-spec.js").ownerPrintableContext(guidedBrief),
+      ownerInstructions: text(ownerPrintableInstructions || planItem?.printable?.ownerInstructions, 800),
+    } : {}),
   };
   return spec;
 }
@@ -513,6 +520,8 @@ function refinePrintableDecision(planItem, activity, linkedResources = [], optio
     },
     decision,
     existingResourceIds: existingIds,
+    guidedBrief: options.guidedBrief || null,
+    ownerPrintableInstructions: options.ownerPrintableInstructions || "",
   });
 
   return {
@@ -1336,6 +1345,7 @@ async function runPrintablePlanForLesson({
   alreadySucceededKeys = new Set(),
   lessonCount = 1,
   command = null,
+  creationBrief = null,
   forceFullPrintableCoverage = false,
   saveDraft,
   callAi = null,
@@ -1374,8 +1384,15 @@ async function runPrintablePlanForLesson({
     };
   }
 
+  const guidedBrief = creationBrief?.guidedWorkflow === true ? creationBrief : null;
+  const ownerPrintableInstructions = guidedBrief?.ownerMaterials?.ownerInstructions?.join(" ")
+    || guidedBrief?.ownerMaterials?.printables?.map((p) => p.ownerInstructions).filter(Boolean).join(" ")
+    || "";
   const rawActions = schema.asArray(actionsOverride).length ? schema.asArray(actionsOverride) : buildPrintableActionsFromAudit(plan, activities, audit, curriculum, {
     replaceWeakPrintables,
+    plan,
+    guidedBrief,
+    ownerPrintableInstructions,
   });
   const softPackMax = softPrintablePackBudget(lessonCount);
   const softPageMax = softPrintablePageBudget(lessonCount);
@@ -1704,7 +1721,25 @@ async function runPrintablePlanForLesson({
               });
               continue;
             }
-            const pathCheck = classifyPrintableRenderPath(enrichedSpec, { operatorWrite: true });
+            let pathCheck = classifyPrintableRenderPath(enrichedSpec, { operatorWrite: true });
+            if (!pathCheck.ok && enrichedSpec.guidedOwnerPrintable === true) {
+              const guidedSpec = require("./curriculum-operator-guided-printable-spec.js");
+              const enriched = guidedSpec.tryApplyGuidedRenderEnrichment(enrichedSpec, {
+                plan,
+                activity,
+                guidedContext: enrichedSpec.guidedOwnerContext,
+              });
+              if (enriched.ok) {
+                enrichedSpec = enriched.spec;
+                plannerMeta = {
+                  ...(plannerMeta || {}),
+                  guidedOwnerFallback: true,
+                  gate: enriched.gate,
+                  review: enriched.review,
+                };
+                pathCheck = classifyPrintableRenderPath(enrichedSpec, { operatorWrite: true });
+              }
+            }
             if (!pathCheck.ok) {
               results.push({
                 ...action,
