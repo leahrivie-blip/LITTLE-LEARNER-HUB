@@ -450,13 +450,32 @@ function assessImageScope({ actions, lessonCount = 1, limits = {} }) {
   return { ok: true, planned, hardMax, softMax };
 }
 
-function buildActivityImagePrompt({ plan, activity, draftActivity, field, concept }) {
+function resolveActivityImageOwnerBrief(params) {
+  const {
+    plan, activity, draftActivity, field, concept, creationBrief, ownerBriefOverride,
+  } = params;
   const enrich = loadEnrichment();
   const view = enrich?.activityEnrichmentView
     ? enrich.activityEnrichmentView(activity, draftActivity || {})
     : activity;
   const briefField = field === "exampleImageUrl" ? "imageBriefExample" : "imageBriefSetup";
   const existingBrief = text(draftActivity?.[briefField] || activity?.[briefField], 800);
+  let ownerBrief = text(ownerBriefOverride, 800) || existingBrief || text(concept, 800);
+  if (creationBrief?.guidedWorkflow === true) {
+    const guidedImage = require("./curriculum-operator-guided-image-spec.js");
+    ownerBrief = guidedImage.guidedOwnerBriefForActivity({
+      brief: creationBrief,
+      activity: view || activity,
+      concept: ownerBrief,
+      field,
+    });
+  }
+  return { view, ownerBrief };
+}
+
+function buildActivityImagePrompt(params) {
+  const { view, ownerBrief } = resolveActivityImageOwnerBrief(params);
+  const { plan, activity, field } = params;
   const promptBuilder = require("./visual-prompt-builder.js");
   const bundle = promptBuilder.buildVisualPrompt({
     assetMode: field === "exampleImageUrl"
@@ -473,38 +492,35 @@ function buildActivityImagePrompt({ plan, activity, draftActivity, field, concep
     setup: view?.setup || activity?.setup,
     steps: view?.steps || activity?.steps,
     safetyNotes: view?.safetyNotes || activity?.safetyNotes,
-    ownerBrief: existingBrief || text(concept, 800),
+    ownerBrief,
     imagePurpose: field === "exampleImageUrl" ? "example" : "setup",
   });
   return bundle.generationPrompt;
 }
 
 function buildActivityImagePromptBundle(params) {
-  const prompt = buildActivityImagePrompt(params);
+  const { view, ownerBrief } = resolveActivityImageOwnerBrief(params);
+  const { plan, activity, field } = params;
   const promptBuilder = require("./visual-prompt-builder.js");
-  return {
-    ...promptBuilder.buildVisualPrompt({
-      assetMode: params.field === "exampleImageUrl"
-        ? promptBuilder.ASSET_MODES.REALISTIC_ACTIVITY_EXAMPLE
-        : promptBuilder.ASSET_MODES.REALISTIC_ACTIVITY_PHOTO,
-      ageBand: params.plan?.age || params.activity?.age,
-      lessonTitle: params.plan?.title,
-      lessonTheme: params.plan?.theme,
-      activityTitle: params.activity?.title,
-      activityCategory: params.activity?.category,
-      objective: params.activity?.objective,
-      description: params.activity?.description,
-      materials: params.activity?.materials,
-      setup: params.activity?.setup,
-      steps: params.activity?.steps,
-      safetyNotes: params.activity?.safetyNotes,
-      ownerBrief: text(params.draftActivity?.[params.field === "exampleImageUrl" ? "imageBriefExample" : "imageBriefSetup"]
-        || params.activity?.[params.field === "exampleImageUrl" ? "imageBriefExample" : "imageBriefSetup"]
-        || params.concept, 800),
-      imagePurpose: params.field === "exampleImageUrl" ? "example" : "setup",
-    }),
-    generationPrompt: prompt,
-  };
+  const bundle = promptBuilder.buildVisualPrompt({
+    assetMode: field === "exampleImageUrl"
+      ? promptBuilder.ASSET_MODES.REALISTIC_ACTIVITY_EXAMPLE
+      : promptBuilder.ASSET_MODES.REALISTIC_ACTIVITY_PHOTO,
+    ageBand: plan?.age || activity?.age,
+    lessonTitle: plan?.title,
+    lessonTheme: plan?.theme,
+    activityTitle: view?.title || activity?.title,
+    activityCategory: view?.activityCategory || activity?.category,
+    objective: view?.objective || activity?.objective,
+    description: view?.description || activity?.description,
+    materials: view?.materials || activity?.materials,
+    setup: view?.setup || activity?.setup,
+    steps: view?.steps || activity?.steps,
+    safetyNotes: view?.safetyNotes || activity?.safetyNotes,
+    ownerBrief,
+    imagePurpose: field === "exampleImageUrl" ? "example" : "setup",
+  });
+  return { ...bundle, generationPrompt: bundle.generationPrompt };
 }
 
 async function generateActivityImageBuffer({ apiKey, model, prompt, generateFn, mock }) {
@@ -1115,6 +1131,7 @@ async function runImagePlanForLesson({
   command = null,
   forceFullImageCoverage = false,
   actionsOverride = null,
+  creationBrief = null,
 } = {}) {
   if (touchImages === false) {
     return {
@@ -1298,30 +1315,43 @@ async function runImagePlanForLesson({
         throw new Error(`Activity ${activityId} not found by exact id; refuse image attach.`);
       }
 
-      const promptBundle = buildActivityImagePromptBundle({
+      const guidedImage = creationBrief?.guidedWorkflow === true
+        ? require("./curriculum-operator-guided-image-spec.js")
+        : null;
+      let ownerBriefOverride = null;
+      let promptBundle = buildActivityImagePromptBundle({
         plan,
         activity,
         draftActivity: draft.activities[activityId] || {},
         field: action.field,
         concept: action.concept,
+        creationBrief,
+        ownerBriefOverride,
       });
-      const prompt = promptBundle.generationPrompt;
-
-      const generated = await generateActivityImageBuffer({
-        apiKey,
-        model,
-        prompt,
-        generateFn: callGenerate,
-        mock: mockGenerate,
-      });
-      generations += 1;
+      let prompt = promptBundle.generationPrompt;
 
       const enrich = loadEnrichment();
       const view = enrich?.activityEnrichmentView
         ? enrich.activityEnrichmentView(activity, draft.activities[activityId] || {})
         : activity;
       const qaGate = loadVisualAttachQaGate();
-      if (qaGate?.assessVisualAttachQuality) {
+
+      let generated = null;
+      let visualQaAttempts = 0;
+      const maxVisualQaAttempts = 2;
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        generated = await generateActivityImageBuffer({
+          apiKey,
+          model,
+          prompt,
+          generateFn: callGenerate,
+          mock: mockGenerate,
+        });
+        generations += 1;
+
+        if (!qaGate?.assessVisualAttachQuality || skipVisualAttachQa === true) break;
+
         const visualQa = await qaGate.assessVisualAttachQuality({
           buffer: generated.buffer,
           mimeType: generated.mimeType || "image/png",
@@ -1342,12 +1372,34 @@ async function runImagePlanForLesson({
           mock: mockGenerate,
           skip: skipVisualAttachQa === true,
         });
-        if (!visualQa.ok) {
+        if (visualQa.ok) break;
+
+        visualQaAttempts += 1;
+        if (visualQaAttempts >= maxVisualQaAttempts || generations >= hardMax) {
           const qaError = new Error(visualQa.error || "Visual attach QA blocked generated activity image.");
           qaError.visualQaBlocked = true;
           qaError.visualQa = visualQa;
           throw qaError;
         }
+        if (generations >= hardMax) {
+          throw new Error("maxImageGenerations reached during visual QA retry");
+        }
+        ownerBriefOverride = guidedImage
+          ? guidedImage.visualQaRetryOwnerBrief(visualQa, promptBundle.ownerBrief || action.concept)
+          : require("./curriculum-operator-guided-image-spec.js").visualQaRetryOwnerBrief(
+            visualQa,
+            promptBundle.ownerBrief || action.concept,
+          );
+        promptBundle = buildActivityImagePromptBundle({
+          plan,
+          activity,
+          draftActivity: draft.activities[activityId] || {},
+          field: action.field,
+          concept: action.concept,
+          creationBrief,
+          ownerBriefOverride,
+        });
+        prompt = promptBundle.generationPrompt;
       }
 
       const uploaded = await uploadActivityImageBuffer({
@@ -1426,7 +1478,7 @@ async function runImagePlanForLesson({
         error: text(error?.message || "image action failed", 400),
         code: error?.visualQaBlocked ? "visual_qa_blocked" : undefined,
         visualQa: error?.visualQa || undefined,
-        retryable: !error?.visualQaBlocked,
+        retryable: !error?.visualQaBlocked && error?.message !== "maxImageGenerations reached",
         idempotencyKey,
         preservedExisting: Boolean(existingUrl),
       });
