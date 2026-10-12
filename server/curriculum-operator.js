@@ -787,6 +787,7 @@ function createCurriculumOperatorApi(deps) {
       preferPublicMediaUrls: imagesApi.commandRequestsConnectedAutoApply(job.command),
       alreadySucceededKeys: collectSucceededImageKeys(lr),
       actionsOverride,
+      creationBrief: job.creationBrief || lr?.creationBrief || null,
     });
 
     if (imageRun.code === "SCOPE_REVIEW_REQUIRED") {
