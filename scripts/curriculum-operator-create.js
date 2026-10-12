@@ -243,6 +243,15 @@ function parseCreationBrief(rawCommand, options = {}) {
   });
   enrichedBrief.guidedUnderstanding = guidedMaterials.buildUnderstandingSummary(enrichedBrief);
 
+  if (enrichedBrief.guidedWorkflow === true) {
+    const guidedPrintable = require("./curriculum-operator-guided-printable-spec.js");
+    const printablePre = guidedPrintable.assessGuidedPrintablesPreCreate(enrichedBrief);
+    if (printablePre.needsClarification) {
+      needsOwnerInput.push(printablePre.code || "guided_printable_clarification");
+      enrichedBrief.guidedPrintableClarification = printablePre.clarifyingQuestion;
+    }
+  }
+
   return {
     ok: needsOwnerInput.length === 0,
     code: needsOwnerInput.length ? "NEEDS_OWNER_INPUT" : "ok",

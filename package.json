@@ -51,6 +51,7 @@
     "test:curriculum-operator-create-title-scope": "NODE_ENV=test node scripts/test-curriculum-operator-create-title-scope.js",
     "test:curriculum-operator-explicit-printable": "NODE_ENV=test node scripts/test-curriculum-operator-explicit-printable.js",
     "test:curriculum-operator-guided-materials": "NODE_ENV=test node scripts/test-curriculum-operator-guided-materials.js",
+    "test:curriculum-operator-guided-printable-spec": "NODE_ENV=test node scripts/test-curriculum-operator-guided-printable-spec.js",
     "test:curriculum-operator-guided-materials-production-qa": "node scripts/run-curriculum-operator-guided-materials-production-qa.js",
     "test:curriculum-operator-printable-pdf-validate": "NODE_ENV=test node scripts/test-curriculum-operator-printable-pdf-validate.js",
     "test:curriculum-operator-seed-growth-requested-activity": "NODE_ENV=test node scripts/test-curriculum-operator-seed-growth-requested-activity.js",

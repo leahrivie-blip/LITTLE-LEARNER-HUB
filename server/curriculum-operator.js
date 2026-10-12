@@ -654,6 +654,7 @@ function createCurriculumOperatorApi(deps) {
       },
       lessonCount,
       command: job.command || null,
+      creationBrief: lr?.creationBrief || null,
       touchPrintables: true,
       replaceWeakPrintables: true,
       alreadySucceededKeys: collectSucceededPrintableKeys(lr),
@@ -1311,6 +1312,7 @@ function createCurriculumOperatorApi(deps) {
         conservativeOptionalEnrichment: job.command?.actions?.conservativeFullAudit === true,
         connectedOperatorPath: job.command?.actions?.connectedUpgrade === true,
         explicitPrintables: schema.asArray(lr.creationBrief?.explicitPrintables),
+        creationBrief: lr.creationBrief,
       };
       const before = auditOneLesson(plan, curriculum, auditOptions);
       if (!before.verification.ok) {
