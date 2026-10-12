@@ -181,6 +181,9 @@ function isActivityMutationAllowed(activityId, field, allowlist) {
   if (!id || !f) return false;
   if (allowlist?.allowedActivityIds?.length && !allowlist.allowedActivityIds.includes(id)) return false;
   if (IMAGE_ACTIVITY_FIELDS.has(f)) return allowlist?.assets?.images === true;
+  if (f === "relatedPrintableId" || f === "relatedPrintableTitle") {
+    return allowlist?.assets?.printables === true;
+  }
   if (!allowlist?.allowedActivityFields?.size) return false;
   return allowlist.allowedActivityFields.has(f);
 }

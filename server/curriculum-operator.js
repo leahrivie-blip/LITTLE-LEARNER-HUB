@@ -714,6 +714,7 @@ function createCurriculumOperatorApi(deps) {
       afterPlan,
       actions: printableRun.actions,
       resourcesAfter,
+      activities: linked,
     });
 
     const verifiedActions = schema.asArray(printableRun.actions).map((action) => {
