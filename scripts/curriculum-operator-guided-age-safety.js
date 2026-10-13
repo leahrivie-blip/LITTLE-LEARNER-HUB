@@ -5,6 +5,7 @@
 
 const schema = require("./curriculum-operator-schema.js");
 const knowledge = require("./curriculum-operator-childcare-knowledge.js");
+const knowledgeProfile = require("./curriculum-operator-knowledge-profile.js");
 
 function text(value, max = 2000) {
   return schema.text(value, max);
@@ -53,6 +54,15 @@ function validateActivityIdea({ ageBand, title, materialsText = "", ownerInstruc
   if (!ageBand) {
     uncertainties.push(`Age band missing — cannot fully validate "${title}".`);
   }
+
+  const profileSafety = knowledgeProfile.safetyFlagsFromKnowledge({
+    ageBand,
+    title,
+    materialsText,
+    ownerInstructions,
+  });
+  profileSafety.flags.forEach((f) => flags.push(f));
+  profileSafety.notes.forEach((n) => safetyWarnings.push(n));
 
   return {
     title,

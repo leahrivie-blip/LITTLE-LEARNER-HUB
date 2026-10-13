@@ -241,6 +241,15 @@ function parseCreationBrief(rawCommand, options = {}) {
     attachments: options.attachments,
     researchSources: options.researchSources,
   });
+  if (options.effectiveInstructions?.phraseInterpretation) {
+    enrichedBrief.ownerWorkflowProfile = {
+      permanentProfileVersion: options.effectiveInstructions.permanentProfileVersion,
+      phraseFlags: options.effectiveInstructions.phraseInterpretation.flags || {},
+      phraseMatched: options.effectiveInstructions.phraseInterpretation.matched || [],
+    };
+  }
+  const knowledgeProfile = require("./curriculum-operator-knowledge-profile.js");
+  Object.assign(enrichedBrief, knowledgeProfile.attachToBrief(enrichedBrief));
   enrichedBrief.guidedUnderstanding = guidedMaterials.buildUnderstandingSummary(enrichedBrief);
 
   if (enrichedBrief.guidedWorkflow === true) {

@@ -5,6 +5,7 @@
 "use strict";
 
 const schema = require("./curriculum-operator-schema.js");
+const knowledgeProfile = require("./curriculum-operator-knowledge-profile.js");
 
 const BANDS = Object.freeze({
   infant: {
@@ -97,9 +98,9 @@ function mapSchemaAgeBand(ageBand) {
   return BANDS.preschool;
 }
 
-function architectGuidanceLines(ageBand) {
+function architectGuidanceLines(ageBand, brief = null) {
   const band = mapSchemaAgeBand(ageBand);
-  return [
+  const base = [
     `Age-band guidance (${band.label}): attention ~${band.attentionMinutes[0]}-${band.attentionMinutes[1]} min; activity duration ~${band.typicalDurationMinutes[0]}-${band.typicalDurationMinutes[1]} min.`,
     `Motor: ${band.motor}`,
     `Language/questions: ${band.language}`,
@@ -111,6 +112,14 @@ function architectGuidanceLines(ageBand) {
     "If uncertain about allergens, choking risk, or age fit, note uncertainty in safetyNotes instead of inventing unsafe details.",
     "Do not fabricate book authors, ISBNs, citations, or research sources.",
   ];
+  if (brief && typeof brief === "object") {
+    return base.concat(knowledgeProfile.architectSupplementLines(brief, { maxLines: 18 }));
+  }
+  const stage = knowledgeProfile.resolveDevelopmentStage(ageBand, "");
+  return base.concat(knowledgeProfile.developmentLinesForStage(
+    stage === "infant_all" ? "infant_all" : stage,
+    6,
+  ));
 }
 
 function fieldsAiShouldFill() {

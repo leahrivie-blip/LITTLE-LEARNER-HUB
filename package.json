@@ -65,6 +65,8 @@
     "test:curriculum-operator-async-dispatch": "NODE_ENV=test node scripts/test-curriculum-operator-async-dispatch.js",
     "test:curriculum-operator-cancel-resume-dedicated": "NODE_ENV=test node scripts/test-curriculum-operator-cancel-resume-dedicated.js",
     "test:curriculum-operator-instruction-profile": "NODE_ENV=test node scripts/test-curriculum-operator-instruction-profile.js",
+    "test:curriculum-operator-owner-workflow-profile": "NODE_ENV=test node scripts/test-curriculum-operator-owner-workflow-profile.js",
+    "test:curriculum-operator-knowledge-profile": "NODE_ENV=test node scripts/test-curriculum-operator-knowledge-profile.js",
     "test:curriculum-operator-nl-smoke-blockers": "NODE_ENV=test node scripts/test-curriculum-operator-nl-smoke-blockers.js",
     "test:curriculum-operator-nl-bugfix-qa": "NODE_ENV=test node scripts/test-curriculum-operator-nl-bugfix-qa.js",
     "test:curriculum-operator-execution-keep-qa": "NODE_ENV=test node scripts/test-curriculum-operator-execution-keep-qa.js",
