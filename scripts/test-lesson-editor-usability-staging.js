@@ -329,6 +329,27 @@ async function main() {
     ok(afterCover.cover !== beforeUrls.cover, "Cover image URL changed after cover upload");
     ok(afterCover.alpha === beforeUrls.alpha && afterCover.beta === beforeUrls.beta, "Activity setup URLs unchanged after cover-only upload");
 
+    await page.click("[data-lre-cover-preview-btn]");
+    await page.waitForSelector("[data-lre-image-lightbox]", { timeout: 5000 });
+    ok(await page.locator("[data-lre-image-lightbox] img").count() >= 1, "Cover preview opens");
+    await page.click("[data-lre-lightbox-close]");
+    await page.waitForTimeout(150);
+
+    await page.click("[data-lre-cover-remove]");
+    await page.waitForTimeout(200);
+    const afterRemove = await readDraftUrls();
+    ok(!afterRemove.cover, "Cover remove clears cover URL only");
+    ok(afterRemove.alpha === beforeUrls.alpha && afterRemove.beta === beforeUrls.beta, "Activity URLs unchanged after cover remove");
+
+    await page.locator("input[data-lre-cover-upload]").setInputFiles(pngPath);
+    await page.waitForFunction(
+      () => Boolean(document.querySelector('[data-lre-path="coverImageUrl"]')?.value),
+      null,
+      { timeout: 20000 },
+    );
+    const coverBeforeActivityUpload = (await readDraftUrls()).cover;
+    ok(coverBeforeActivityUpload, "Cover re-upload restores cover slot (no undo control in UI)");
+
     const alphaSlot = page.locator(`[data-lre-photo-activity="${activityKeys.alphaKey}"][data-lre-photo-field="setupImageUrl"]`);
     await alphaSlot.locator("input[data-lre-activity-upload]").setInputFiles(pngPath);
     await page.waitForFunction(
@@ -343,7 +364,7 @@ async function main() {
     const afterAlpha = await readDraftUrls();
     ok(afterAlpha.alpha !== beforeUrls.alpha, `Target activity setup URL changed (${beforeUrls.alpha} → ${afterAlpha.alpha})`);
     ok(afterAlpha.beta === beforeUrls.beta, "Other activity setup URL unchanged");
-    ok(afterAlpha.cover === afterCover.cover, "Cover unchanged after single-activity upload");
+    ok(afterAlpha.cover === coverBeforeActivityUpload, "Cover unchanged after single-activity upload");
 
     await page.click("[data-lre-save-draft]");
     await page.waitForFunction(
