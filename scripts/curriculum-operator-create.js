@@ -241,6 +241,13 @@ function parseCreationBrief(rawCommand, options = {}) {
     attachments: options.attachments,
     researchSources: options.researchSources,
   });
+  if (options.effectiveInstructions?.phraseInterpretation) {
+    enrichedBrief.ownerWorkflowProfile = {
+      permanentProfileVersion: options.effectiveInstructions.permanentProfileVersion,
+      phraseFlags: options.effectiveInstructions.phraseInterpretation.flags || {},
+      phraseMatched: options.effectiveInstructions.phraseInterpretation.matched || [],
+    };
+  }
   enrichedBrief.guidedUnderstanding = guidedMaterials.buildUnderstandingSummary(enrichedBrief);
 
   if (enrichedBrief.guidedWorkflow === true) {

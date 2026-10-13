@@ -11,6 +11,7 @@ function createApi() {
 
 const knowledge = require("./curriculum-operator-childcare-knowledge.js");
 const ageSafety = require("./curriculum-operator-guided-age-safety.js");
+const instructionProfile = require("./curriculum-operator-instruction-profile.js");
 
 const FIELDS_AI_FILLS = Object.freeze(knowledge.fieldsAiShouldFill());
 
@@ -318,6 +319,7 @@ function enrichCreationBrief(brief, rawCommand, options = {}) {
       }
     });
   }
+  const phraseSemantics = instructionProfile.interpretOwnerPhrases(raw);
   const ownerInstructions = [];
   const actInstr = raw.match(/\b(?:exact instructions|instructions for)[^.!?]{0,40}:?\s*([^.!?]{10,500})/i);
   if (actInstr) ownerInstructions.push(text(actInstr[1], 500));
@@ -355,6 +357,12 @@ function enrichCreationBrief(brief, rawCommand, options = {}) {
     ],
     preserveExistingLessonContent: keepReplace.replace.length === 0,
     replaceOnlyWithEvidence: true,
+    ownerPhraseFlags: phraseSemantics.flags,
+    ownerPhraseMatched: phraseSemantics.matched,
+    scopedImageActivityIndex: phraseSemantics.scoped?.activityIndex || null,
+    fillInBlanks: phraseSemantics.flags.fillInBlanks === true,
+    lockSuppliedActivityCore: phraseSemantics.flags.preserveSuppliedActivities === true
+      || phraseSemantics.flags.lockActivityCore === true,
   };
 
   const researchContext = [
@@ -486,21 +494,25 @@ function appendGuidedSummaryToOwnerText(ownerSummaryText, brief) {
 }
 
 const GUIDED_PROGRESS_STEPS = Object.freeze([
-  { key: "organize", label: "Organizing lesson" },
-  { key: "fill", label: "Filling missing teaching details" },
-  { key: "images", label: "Creating images" },
-  { key: "printables", label: "Creating printables" },
-  { key: "save", label: "Saving draft" },
-  { key: "review", label: "Ready for review" },
+  { key: "understand", label: "Understanding your lesson" },
+  { key: "organize", label: "Organizing your activities" },
+  { key: "fill", label: "Filling in missing teaching details" },
+  { key: "safety", label: "Checking age and safety" },
+  { key: "images", label: "Creating requested images" },
+  { key: "printables", label: "Creating requested printables" },
+  { key: "save", label: "Saving your draft" },
+  { key: "review", label: "Ready for your review" },
 ]);
 
 function mapJobActionToGuidedStep(actionType) {
   const key = text(actionType, 80).toLowerCase();
   if (!key) return "";
-  if (/creation\.|lesson\.create|activity\.|upgrade|composer|batch/.test(key)) return "organize";
-  if (/upgrade|text|objective|material|step|vocab/.test(key)) return "fill";
-  if (/^image/.test(key)) return "images";
+  if (/parse|understand|confirm/.test(key)) return "understand";
   if (/^printable/.test(key)) return "printables";
+  if (/^image/.test(key)) return "images";
+  if (/creation\.|lesson\.create|activity\.|upgrade|composer|batch/.test(key)) return "organize";
+  if (/safety_check|age_safety|guided_validation/.test(key)) return "safety";
+  if (/upgrade|text|objective|material|\bsteps\b|vocab/.test(key)) return "fill";
   if (/save|persist|verification/.test(key)) return "save";
   return "";
 }
@@ -508,7 +520,7 @@ function mapJobActionToGuidedStep(actionType) {
 function guidedProgressFromJob(job) {
   const lr = schema.asArray(job?.lessonResults)[0];
   const actions = schema.asArray(lr?.actions);
-  let current = "organize";
+  let current = "understand";
   actions.forEach((a) => {
     const step = mapJobActionToGuidedStep(a.type);
     if (step) current = step;

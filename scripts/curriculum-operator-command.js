@@ -739,6 +739,11 @@ function parseOperatorCommand(rawCommand, options = {}) {
     ])];
     result.mutationsStripped = true;
   }
+  const effectiveInstructionsApi = require("./curriculum-operator-effective-instructions.js");
+  result.effectiveInstructions = effectiveInstructionsApi.buildEffectiveInstructions({
+    rawCommand: raw,
+    profile: options.ownerProfile || null,
+  });
   return result;
 }
 
