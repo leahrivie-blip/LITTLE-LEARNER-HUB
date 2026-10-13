@@ -18,9 +18,9 @@ const ROOT = path.join(__dirname, "..");
 const PORT = 7200 + Math.floor(Math.random() * 120);
 const STORE_PATH = path.join(os.tmpdir(), `llh-lre-staging-${crypto.randomBytes(4).toString("hex")}.json`);
 const OWNER = {
-  email: "leahivie@icloud.com", // pragma: allowlist secret
-  password: "lre-staging-owner-pass",
-  code: "lre-staging-owner-code",
+  email: process.env.ADMIN_EMAIL || process.env.LLH_SMOKE_ADMIN_EMAIL || "owner-staging@test.local",
+  password: process.env.ADMIN_PASSWORD || "lre-staging-owner-pass",
+  code: process.env.ADMIN_ACCESS_CODE || "lre-staging-owner-code",
 };
 const FIXTURE_ID = `cur-lp-disposable-lre-staging-${crypto.randomBytes(4).toString("hex")}`;
 const TINY_PNG = Buffer.from(
