@@ -658,6 +658,7 @@
     }
     cursor[parts[parts.length - 1]] = value;
     state.dirty = true;
+    refreshSaveIndicator();
   }
 
   function adminToken() {
@@ -667,7 +668,14 @@
   function saveStateLabel() {
     if (state.saving) return "Saving…";
     if (state.dirty) return "Needs saving";
-    return state.lastSavedAt ? "Saved" : "Saved";
+    if (state.lastSavedAt) return "Saved";
+    return "Saved";
+  }
+
+  function refreshSaveIndicator() {
+    if (!state.open) return;
+    const el = document.querySelector("[data-lre-save-indicator]");
+    if (el) el.textContent = saveStateLabel();
   }
 
   function readFileAsDataUrl(file) {
@@ -728,11 +736,18 @@
     });
     const json = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(json.error || "Photo upload failed.");
+    const assetId = text(json.mediaAssetId || "");
+    const persistedFull = assetId
+      ? `/api/media/enrichment-photos/${encodeURIComponent(assetId)}?variant=full`
+      : text(json.mediaUrl || "");
+    const persistedThumb = assetId
+      ? `/api/media/enrichment-photos/${encodeURIComponent(assetId)}?variant=thumb`
+      : text(json.thumbUrl || json.mediaUrl || "");
     const path = `dailyPlans.${item.dayOfWeek}.items.${item._index}`;
-    setField(`${path}.${field}`, json.mediaUrl || "");
-    if (field === "setupImageUrl" && json.thumbUrl) setField(`${path}.setupImageThumbUrl`, json.thumbUrl);
-    if (field === "exampleImageUrl" && json.thumbUrl) setField(`${path}.exampleImageThumbUrl`, json.thumbUrl);
-    return json.mediaUrl || "";
+    setField(`${path}.${field}`, persistedFull);
+    if (field === "setupImageUrl") setField(`${path}.setupImageThumbUrl`, persistedThumb);
+    if (field === "exampleImageUrl") setField(`${path}.exampleImageThumbUrl`, persistedThumb);
+    return persistedFull;
   }
 
   function renderCoverImageBlock() {
@@ -1733,6 +1748,7 @@
       state.lastSavedAt = new Date().toISOString();
       state.statusText = "Draft saved. Nothing was published.";
       state.isSuccess = true;
+      refreshSaveIndicator();
       return true;
     } catch (error) {
       state.statusText = error.message || "Draft save failed.";
