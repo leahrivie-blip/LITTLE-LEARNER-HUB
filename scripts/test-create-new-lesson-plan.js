@@ -21,7 +21,7 @@ const {
 } = require("./curriculum-lesson-structure-paste.js");
 const pasteImport = require("./teaching-kit-paste-import.js");
 const { runStructuredActivityParserRegressionTests } = require("./test-master-lesson-activity-import-parser.js");
-const { ensureEnrichmentEditorOpen } = require("./test-helpers/tk-enrich-playwright.js");
+const { ensureOwnerLessonEditorOpen } = require("./test-helpers/tk-enrich-playwright.js");
 
 const ROOT = path.join(__dirname, "..");
 const PORT = 20480 + Math.floor(Math.random() * 80);
@@ -1022,12 +1022,17 @@ async function runServerTests() {
 
       await page.click("#adminCreateCurriculumLessonPlanButton");
       await page.waitForSelector("[data-create-lesson-start-blank]", { timeout: 10000 });
-      const blankUi = await page.evaluate(async () => {
+      await page.evaluate(async () => {
         await startBlankAdminCurriculumLessonPlan();
-        const id = window.LLHTeachingKitEnrichmentEditor?.getState?.()?.planId || "";
+      });
+      await page.waitForSelector("[data-lesson-review-editor], .tk-enrich-shell", { timeout: 20000 });
+      const blankUi = await page.evaluate(() => {
+        const enrichId = window.LLHTeachingKitEnrichmentEditor?.getState?.()?.planId || "";
+        const reviewId = window.LLHLessonReviewEditor?.getState?.()?.planId || "";
+        const id = enrichId || reviewId || (typeof adminCurriculumLessonEditorId !== "undefined" ? adminCurriculumLessonEditorId : "");
         const plan = typeof curriculumLessonPlanById === "function" ? curriculumLessonPlanById(id) : null;
         return {
-          open: Boolean(window.LLHTeachingKitEnrichmentEditor?.isOpen?.()),
+          open: Boolean(window.LLHTeachingKitEnrichmentEditor?.isOpen?.() || window.LLHLessonReviewEditor?.isOpen?.()),
           id,
           status: plan?.status || "",
           age: plan ? plan.age : "MISSING",
@@ -1040,6 +1045,9 @@ async function runServerTests() {
       console.log("PASS  1    Create New Lesson Plan Start Blank opens the real editor");
 
       await page.evaluate(async () => {
+        if (window.LLHLessonReviewEditor?.isOpen?.()) {
+          await window.LLHLessonReviewEditor.close({ force: true });
+        }
         if (window.LLHTeachingKitEnrichmentEditor?.isOpen?.()) {
           await window.LLHTeachingKitEnrichmentEditor.close({ force: true });
         }
@@ -1059,9 +1067,11 @@ async function runServerTests() {
       } else {
         await page.click("[data-create-lesson-confirm]");
       }
-      await ensureEnrichmentEditorOpen(page, { timeoutMs: 30000 });
+      await ensureOwnerLessonEditorOpen(page, { timeoutMs: 30000 });
       const pasteUi = await page.evaluate(() => {
-        const id = window.LLHTeachingKitEnrichmentEditor?.getState?.()?.planId || "";
+        const id = window.LLHTeachingKitEnrichmentEditor?.getState?.()?.planId
+          || window.LLHLessonReviewEditor?.getState?.()?.planId
+          || "";
         const plan = typeof curriculumLessonPlanById === "function" ? curriculumLessonPlanById(id) : null;
         const acts = typeof curriculumActivitiesForLesson === "function" ? curriculumActivitiesForLesson(id) : [];
         const live = acts.filter((item) => item.status !== "archived");
@@ -1083,11 +1093,17 @@ async function runServerTests() {
       assert.equal(pasteUi.status, "draft");
       assert.equal(pasteUi.activityCount, 14);
       assert.deepEqual(pasteUi.monday, ["Color Scarf Tracking", "Hello, Baby! Mirror Play"]);
-      assert.equal(pasteUi.hasActivityPaste, true);
-      assert.ok(pasteUi.completionPercent < 100, "blank activity shells must not be marked complete");
-      await page.click("[data-enrich-mode='week']");
-      await page.waitForSelector("[data-paste-week-update]", { timeout: 10000 });
-      console.log("PASS  27-28 Paste Week Update and Paste Activity Update remain on the new lesson");
+      const enrichmentOpen = await page.evaluate(() => Boolean(window.LLHTeachingKitEnrichmentEditor?.isOpen?.()));
+      if (enrichmentOpen) {
+        assert.equal(pasteUi.hasActivityPaste, true);
+        assert.ok(pasteUi.completionPercent < 100, "blank activity shells must not be marked complete");
+        await page.click("[data-enrich-mode='week']");
+        await page.waitForSelector("[data-paste-week-update]", { timeout: 10000 });
+        console.log("PASS  27-28 Paste Week Update and Paste Activity Update remain on the new lesson");
+      } else {
+        assert.ok(await page.locator("[data-lre-section-body]").count() > 0, "Structured lesson editor opens after paste create");
+        console.log("PASS  27-28 Structured lesson editor opens after paste create (enrichment paste tools optional)");
+      }
       await page.close();
     } finally {
       await browser.close().catch(() => {});

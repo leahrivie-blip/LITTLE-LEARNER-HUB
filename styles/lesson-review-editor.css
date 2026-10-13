@@ -501,7 +501,129 @@ body.llh-lre-screenshot .admin-workspace-sidebar {
   }
 }
 
+.llh-lre-quick-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.65rem 0 0;
+}
+
+.llh-lre-quick-nav-btn.is-active {
+  border-color: var(--lre-accent, #2f6fab);
+  background: #eef4fb;
+}
+
+.llh-lre-save-indicator {
+  font-weight: 650;
+}
+
+.llh-lre-day-collapse {
+  border: 1px solid var(--lre-line);
+  border-radius: 12px;
+  margin: 0.65rem 0;
+  padding: 0.35rem 0.75rem;
+  background: rgba(255, 255, 255, 0.85);
+}
+
+.llh-lre-day-collapse-body {
+  padding: 0.35rem 0 0.75rem;
+}
+
+.llh-lre-upload-btn {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.llh-lre-cover-block {
+  margin: 1rem 0;
+  padding: 0.85rem;
+  border: 1px dashed var(--lre-line);
+  border-radius: 12px;
+}
+
+.llh-lre-preview-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  background: rgba(18, 28, 38, 0.55);
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.llh-lre-preview-panel {
+  background: #fff;
+  border-radius: 16px;
+  width: min(1100px, 100%);
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+}
+
+.llh-lre-preview-panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--lre-line);
+}
+
+.llh-lre-preview-body {
+  overflow: auto;
+  padding: 0.75rem 1rem 1.25rem;
+  flex: 1;
+}
+
+.llh-lre-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 13000;
+  background: rgba(0, 0, 0, 0.82);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.llh-lre-lightbox img {
+  max-width: min(960px, 100%);
+  max-height: 80vh;
+  border-radius: 8px;
+}
+
+.llh-lre-mobile-bar {
+  display: none;
+  position: sticky;
+  bottom: 0;
+  z-index: 50;
+  gap: 0.35rem;
+  padding: 0.55rem 0.75rem;
+  background: rgba(255, 255, 255, 0.96);
+  border-top: 1px solid var(--lre-line);
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.06);
+}
+
+.llh-lre-photo-slot {
+  margin: 0.75rem 0;
+  padding: 0.65rem;
+  border: 1px solid var(--lre-line);
+  border-radius: 10px;
+}
+
 @media (max-width: 900px) {
+  .llh-lre-mobile-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
   .llh-lre-layout {
     grid-template-columns: 1fr;
   }
