@@ -199,7 +199,7 @@ function buildArchitectUserPrompt(brief, { revisionIssues, previousContent, prev
       ...(schema.asArray(brief.ownerMaterials?.ownerInstructions).length
         ? brief.ownerMaterials.ownerInstructions.map((line) => `Owner instruction: ${line}`)
         : []),
-      ...(brief.ageBand ? childcareKnowledge.architectGuidanceLines(brief.ageBand) : []),
+      ...(brief.ageBand ? childcareKnowledge.architectGuidanceLines(brief.ageBand, brief) : []),
       ...(brief.ownerMaterials?.replace?.length
         ? ["Replace assets only when audit shows mismatch or owner explicitly requested replace; otherwise KEEP valid existing assets."]
         : []),
