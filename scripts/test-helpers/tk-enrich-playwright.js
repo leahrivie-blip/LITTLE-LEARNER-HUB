@@ -26,6 +26,19 @@ async function hideCookieConsentChrome(page) {
   });
 }
 
+async function ensureOwnerLessonEditorOpen(page, { timeoutMs = 10000 } = {}) {
+  await page.waitForFunction(
+    () => Boolean(document.querySelector(".tk-enrich-shell") || document.querySelector("[data-lesson-review-editor]")),
+    null,
+    { timeout: timeoutMs },
+  );
+  if (await page.locator("[data-lesson-review-editor]").count()) {
+    await page.locator("[data-lesson-review-editor]").first().waitFor({ state: "visible", timeout: timeoutMs });
+    return page.locator("[data-lesson-review-editor]").first();
+  }
+  return ensureEnrichmentEditorOpen(page, { timeoutMs });
+}
+
 async function ensureEnrichmentEditorOpen(page, { timeoutMs = 10000 } = {}) {
   // Product CSS: #adminTeachingKitEnrichmentHost is display:none until body.tk-enrich-open.
   // Some suites open the editor via page.evaluate; a stray Escape/cancel can clear the class
@@ -105,6 +118,7 @@ async function clickPreviewViewport(page, viewport) {
 
 module.exports = {
   hideCookieConsentChrome,
+  ensureOwnerLessonEditorOpen,
   ensureEnrichmentEditorOpen,
   clickEnrichmentMode,
   clickPreviewViewport,

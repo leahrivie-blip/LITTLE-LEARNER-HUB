@@ -285,11 +285,17 @@ async function runBrowserTests(token) {
   await page.waitForSelector("[data-lesson-review-editor]", { timeout: 10000 });
   const textboxCount = await page.locator("[data-lre-section-body] input, [data-lre-section-body] textarea").count();
   ok(textboxCount > 0 && textboxCount < 40, `Basics section shows a manageable field count (${textboxCount})`);
+  ok(await page.locator("[data-lre-cover-block]").count() >= 1, "Cover image block visible in overview");
+  ok(await page.locator("[data-lre-save-indicator]").count() >= 1, "Save state indicator visible");
 
   // Section navigation — only one section body; Activities opens one card at a time.
   await page.click('[data-lre-section="week"]');
   await page.waitForTimeout(200);
-  ok(await page.locator("[data-lre-section-chrome] h2").innerText() === "Week Plan", "Week Plan section opens");
+  ok(await page.locator("[data-lre-section-chrome] h2").innerText() === "Weekly plan", "Weekly plan section opens");
+  ok(await page.locator("details.llh-lre-day-collapse").count() >= 5, "Week days use collapsible sections");
+  await page.click("[data-lre-quick-nav=\"activities\"]");
+  await page.waitForTimeout(150);
+  ok(await page.locator("[data-lre-section-chrome] h2").innerText() === "Activities", "Quick nav jumps to Activities");
   await page.click('[data-lre-section="activities"]');
   await page.waitForTimeout(200);
   ok(await page.locator("[data-lre-section-chrome] h2").innerText() === "Activities", "Activities section opens");
@@ -545,6 +551,24 @@ async function runBrowserTests(token) {
   ok(publishDisabled, "Publish stays disabled without deliberate confirmation");
 
   await page.screenshot({ path: path.join(ARTIFACT_DIR, "lesson-review-desktop-publish.png"), fullPage: false });
+
+  // Read-only published-style preview overlay
+  await page.evaluate((planId) => LLHLessonReviewEditor.open(planId, { sectionId: "basics" }), FIXTURE_ID);
+  await page.waitForSelector("[data-lesson-review-editor]", { timeout: 10000 });
+  const statusBeforePreview = await page.evaluate((id) => {
+    return typeof curriculumLessonPlanById === "function" ? curriculumLessonPlanById(id)?.status : "";
+  }, FIXTURE_ID);
+  await page.click("[data-lre-preview-lesson]");
+  await page.waitForSelector("[data-lre-preview-overlay]", { timeout: 10000 });
+  const previewText = await page.locator("[data-lre-preview-overlay]").innerText();
+  ok(/Preview only/i.test(previewText) && /not published/i.test(previewText), "Preview overlay is labeled read-only");
+  await page.click("[data-lre-preview-back]");
+  await page.waitForTimeout(250);
+  ok(await page.locator("[data-lre-preview-overlay]").count() === 0, "Back to editing closes preview overlay");
+  const statusAfterPreview = await page.evaluate((id) => {
+    return typeof curriculumLessonPlanById === "function" ? curriculumLessonPlanById(id)?.status : "";
+  }, FIXTURE_ID);
+  ok(statusBeforePreview === statusAfterPreview, "Preview does not mutate lesson publish status");
 
   // Back to lesson plans
   await page.click("[data-lre-back]");

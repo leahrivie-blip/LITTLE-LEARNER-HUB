@@ -10274,10 +10274,34 @@ async function openOwnerTeachingKitEditor(planId, options = {}) {
     const enrichEditor = typeof LLHTeachingKitEnrichmentEditor !== "undefined"
       ? LLHTeachingKitEnrichmentEditor
       : null;
+    const useEnrichmentEditor = source === "upgrade" || options.useEnrichmentEditor === true;
+
+    // Owner Edit: structured Lesson Review editor first (clear sections, preview, image controls).
+    if (
+      isOwner
+      && !useEnrichmentEditor
+      && typeof LLHLessonReviewEditor !== "undefined"
+      && typeof LLHLessonReviewEditor.open === "function"
+    ) {
+      const openedReview = LLHLessonReviewEditor.open(id, {
+        sectionId: options.sectionId || options.fallbackSectionId || "basics",
+      });
+      if (openedReview) {
+        document.body.classList.add("tk-editor-focused", "llh-lre-open");
+        const reviewHost = document.querySelector("#adminLessonReviewEditorHost");
+        if (reviewHost) {
+          reviewHost.hidden = false;
+          reviewHost.removeAttribute("hidden");
+        }
+        renderAdminCurriculumLessonPlanManager();
+        applyAdminSectionVisibility();
+        return true;
+      }
+    }
+
     if (enrichEditor && typeof enrichEditor.open === "function") {
       const opened = enrichEditor.open(id, {
         initialMode: options.initialMode || "activities",
-        // Owner Lesson Plans CTA may open the real editor without flipping customer flags.
         ownerWorkspace: isOwner === true,
       });
       if (opened) {
@@ -10296,7 +10320,6 @@ async function openOwnerTeachingKitEditor(planId, options = {}) {
       showEditorError("Teaching Kit editor script did not load. Hard refresh this page, then try again.");
     }
 
-    // Fallback: focused Lesson Review editor (still owner-only).
     if (
       isOwner
       && typeof LLHLessonReviewEditor !== "undefined"

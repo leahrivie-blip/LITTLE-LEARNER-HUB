@@ -8,17 +8,29 @@
 
   const WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday"];
   const SECTION_DEFS = [
-    { id: "basics", label: "Basics", blurb: "Title, age, theme, cover, overview, objectives, materials, and family connection." },
-    { id: "week", label: "Week Plan", blurb: "Monday–Friday focus, objectives, and schedule — one week view without opening every activity." },
-    { id: "activities", label: "Activities", blurb: "Activity cards first. Open only one activity at a time to edit directions, materials, and tips." },
+    { id: "basics", label: "Lesson overview", blurb: "Title, age, theme, cover, overview, objectives, and weekly materials. Required fields are marked in the section status." },
+    { id: "week", label: "Weekly plan", blurb: "Monday–Friday focus and flow. Expand each day to edit without scrolling the whole week at once." },
+    { id: "activities", label: "Activities", blurb: "Open one activity at a time. Core fields first, then enrichment and pictures." },
     { id: "books", label: "Books", blurb: "Complete book details and discussion prompts teachers can use aloud." },
     { id: "songs", label: "Songs", blurb: "Verified song details, motions, teaching directions, and weekday placement." },
     { id: "printables", label: "Printables", blurb: "Linked printable packs with page previews and owner approval actions." },
-    { id: "images", label: "Images", blurb: "Real classroom images labeled by lesson, activity, and purpose. Draft until published." },
-    { id: "toolkit", label: "Teacher Toolkit", blurb: "Prep checklist, tips, and binder-ready teacher supports." },
-    { id: "quality", label: "Quality Review", blurb: "Honest blockers. Click any item to jump to the exact section or activity." },
-    { id: "publish", label: "Preview / Publish", blurb: "Compare draft vs published, preview layouts, and confirm before publishing." },
+    { id: "family", label: "Family connection", blurb: "Take-home ideas and questions for families. Optional but recommended." },
+    { id: "images", label: "Images", blurb: "Cover and activity photos labeled by lesson and activity. Upload replaces only the chosen slot." },
+    { id: "toolkit", label: "Teacher notes", blurb: "Prep checklist, tips, and binder-ready teacher supports." },
+    { id: "quality", label: "Quality review", blurb: "Honest blockers. Click any item to jump to the exact section or activity." },
+    { id: "publish", label: "Review and preview", blurb: "Published-style preview (read-only), compare draft vs published, and confirm before publishing." },
   ];
+
+  const QUICK_NAV = [
+    { id: "basics", label: "Cover" },
+    { id: "activities", label: "Activities" },
+    { id: "books", label: "Books" },
+    { id: "printables", label: "Printables" },
+    { id: "publish", label: "Preview" },
+  ];
+
+  const PHOTO_ACCEPT = "image/jpeg,image/png,image/webp,image/gif";
+  const PHOTO_MAX_BYTES = 5 * 1024 * 1024;
 
   const IMAGE_REQUIREMENT_OPTIONS = Object.freeze([
     { id: "no_image_needed", label: "No image needed" },
@@ -71,6 +83,10 @@
     returnToQueue: false,
     previewViewport: "desktop",
     publishConfirm: "",
+    customerPreviewOpen: false,
+    imagePreviewUrl: "",
+    lastSavedAt: "",
+    beforeUnloadBound: false,
   };
 
   function esc(value) {
@@ -417,7 +433,8 @@
       bump(meaningfulText(plan.weeklyOverview, 8), "Weekly overview");
       bump(meaningfulText(plan.objectives, 6), "Weekly learning objectives");
       bump(meaningfulText(plan.weeklyMaterials, 6), "Weekly materials list");
-      bump(meaningfulText(plan.familyConnection, 5), "Family connection", true);
+    } else if (sectionId === "family") {
+      bump(meaningfulText(plan.familyConnection, 5), "Family connection summary", true);
     } else if (sectionId === "week") {
       WEEKDAYS.forEach((dayId) => {
         const day = plan.dailyPlans?.[dayId] || emptyDay();
@@ -641,6 +658,141 @@
     }
     cursor[parts[parts.length - 1]] = value;
     state.dirty = true;
+    refreshSaveIndicator();
+  }
+
+  function adminToken() {
+    return (typeof adminSession === "function" ? adminSession()?.token : "") || "";
+  }
+
+  function saveStateLabel() {
+    if (state.saving) return "Saving…";
+    if (state.dirty) return "Needs saving";
+    if (state.lastSavedAt) return "Saved";
+    return "Saved";
+  }
+
+  function refreshSaveIndicator() {
+    if (!state.open) return;
+    const el = document.querySelector("[data-lre-save-indicator]");
+    if (el) el.textContent = saveStateLabel();
+  }
+
+  function readFileAsDataUrl(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.onerror = () => reject(new Error("Could not read file."));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function validatePhotoFile(file) {
+    if (!file) return { ok: false, error: "Choose an image file." };
+    if (file.size > PHOTO_MAX_BYTES) return { ok: false, error: "Image must be 5 MB or smaller." };
+    const type = String(file.type || "").toLowerCase();
+    if (!PHOTO_ACCEPT.split(",").some((part) => type === part.trim())) {
+      return { ok: false, error: "Use JPEG, PNG, WebP, or GIF." };
+    }
+    return { ok: true };
+  }
+
+  async function uploadCoverPhoto(file) {
+    const token = adminToken();
+    if (!token) throw new Error("Admin session required.");
+    const compress = typeof global.compressLessonCoverFileForUpload === "function"
+      ? global.compressLessonCoverFileForUpload
+      : readFileAsDataUrl;
+    const fileData = await compress(file);
+    const response = await fetch("/api/admin/curriculum/lesson-covers/upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ fileName: file.name || "lesson-cover", fileData }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.url) throw new Error(data.error || "Cover upload failed.");
+    return data.url;
+  }
+
+  async function uploadActivityPhoto(activityKey, field, file) {
+    const check = validatePhotoFile(file);
+    if (!check.ok) throw new Error(check.error);
+    const token = adminToken();
+    if (!token) throw new Error("Admin session required.");
+    const item = findActivity(activityKey);
+    if (!item) throw new Error("Activity not found.");
+    const dataUrl = await readFileAsDataUrl(file);
+    const response = await fetch("/api/admin/curriculum/enrichment-photos/upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        adminToken: token,
+        lessonPlanId: state.planId,
+        activityKey,
+        field,
+        fileName: file.name || "activity-photo",
+        fileData: dataUrl,
+      }),
+    });
+    const json = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(json.error || "Photo upload failed.");
+    const assetId = text(json.mediaAssetId || "");
+    const persistedFull = assetId
+      ? `/api/media/enrichment-photos/${encodeURIComponent(assetId)}?variant=full`
+      : text(json.mediaUrl || "");
+    const persistedThumb = assetId
+      ? `/api/media/enrichment-photos/${encodeURIComponent(assetId)}?variant=thumb`
+      : text(json.thumbUrl || json.mediaUrl || "");
+    const path = `dailyPlans.${item.dayOfWeek}.items.${item._index}`;
+    setField(`${path}.${field}`, persistedFull);
+    if (field === "setupImageUrl") setField(`${path}.setupImageThumbUrl`, persistedThumb);
+    if (field === "exampleImageUrl") setField(`${path}.exampleImageThumbUrl`, persistedThumb);
+    return persistedFull;
+  }
+
+  function renderCoverImageBlock() {
+    const plan = state.draft;
+    const title = plan.title || "Lesson";
+    const url = text(plan.coverImageUrl);
+    return `
+      <section class="llh-lre-cover-block" data-lre-cover-block aria-labelledby="lre-cover-heading">
+        <h3 id="lre-cover-heading">Cover image · ${esc(title)}</h3>
+        <p class="muted-copy">This control updates the cover for this lesson only.</p>
+        ${url
+          ? `<figure class="llh-lre-figure"><img class="llh-lre-cover" src="${esc(url)}" alt="Cover for ${esc(title)}" data-lre-cover-preview /></figure>`
+          : `<div class="llh-lre-image llh-lre-image--empty" data-lre-cover-empty>Add picture</div>`}
+        <div class="form-actions llh-lre-image-actions">
+          <label class="primary-button llh-lre-upload-btn">${url ? "Update picture" : "Add picture"}
+            <input type="file" accept="image/jpeg,image/png,image/webp" hidden data-lre-cover-upload />
+          </label>
+          ${url ? `<button type="button" class="ghost-button" data-lre-cover-preview-btn>Preview</button>` : ""}
+          ${url ? `<button type="button" class="ghost-button" data-lre-cover-remove>Remove image</button>` : ""}
+        </div>
+        ${input("Cover image URL (optional paste)", "coverImageUrl", plan.coverImageUrl || "", "/images/lesson-covers/...")}
+      </section>
+    `;
+  }
+
+  function renderActivityPhotoControl(item, field, label) {
+    const url = field === "exampleImageUrl"
+      ? text(item.exampleImageUrl || item.imageUrl)
+      : text(item.setupImageUrl);
+    const activityLabel = `${item.title || "Activity"} · ${item.dayOfWeek} · ${label}`;
+    return `
+      <div class="llh-lre-photo-slot" data-lre-photo-slot data-lre-photo-field="${esc(field)}" data-lre-photo-activity="${esc(item._key)}">
+        <p class="llh-lre-label">${esc(activityLabel)}</p>
+        ${url
+          ? `<figure class="llh-lre-figure"><img class="llh-lre-image" src="${esc(url)}" alt="${esc(label)} for ${esc(item.title || "activity")}" /></figure>`
+          : `<div class="llh-lre-image llh-lre-image--empty">Add picture</div>`}
+        <div class="form-actions llh-lre-image-actions">
+          <label class="ghost-button llh-lre-upload-btn">${url ? "Update picture" : "Add picture"}
+            <input type="file" accept="${PHOTO_ACCEPT}" hidden data-lre-activity-upload data-lre-upload-field="${esc(field)}" data-lre-upload-activity="${esc(item._key)}" />
+          </label>
+          ${url ? `<button type="button" class="ghost-button" data-lre-activity-preview data-lre-preview-field="${esc(field)}" data-lre-preview-activity="${esc(item._key)}">Preview</button>` : ""}
+          ${url ? `<button type="button" class="ghost-button" data-lre-activity-remove-photo data-lre-remove-field="${esc(field)}" data-lre-remove-activity="${esc(item._key)}">Remove image</button>` : ""}
+        </div>
+      </div>
+    `;
   }
 
   function textarea(label, path, value, example = "") {
@@ -793,12 +945,10 @@
             </select>
           </label>
           <p class="muted-copy">Circle time, songs, movement, and obvious activities can be No image needed. Art, unclear finished products, printable/card work, and unusual setups usually need pictures.</p>
+          ${renderActivityPhotoControl(item, "setupImageUrl", "Setup photo")}
+          ${renderActivityPhotoControl(item, "exampleImageUrl", "Finished example photo")}
           ${textarea("Setup image brief", `${base}.imageBriefSetup`, item.imageBriefSetup || "", "Low table with three whole apples on placemats; damp cloth nearby; no tasting props.")}
           ${textarea("Finished example image brief", `${base}.imageBriefExample`, item.imageBriefExample || "", "Child-led stamp sheet with imperfect apple prints — not an adult craft model.")}
-          ${input("Setup image URL", `${base}.setupImageUrl`, item.setupImageUrl || "", "")}
-          ${input("Finished example image URL", `${base}.exampleImageUrl`, item.exampleImageUrl || "", "")}
-          ${item.setupImageUrl ? `<figure class="llh-lre-figure"><img class="llh-lre-thumb" src="${esc(item.setupImageUrl)}" alt="Setup for ${esc(item.title || "activity")}" /><figcaption>Setup · ${esc(item.title || "Activity")} · ${esc(day)}</figcaption></figure>` : ""}
-          ${item.exampleImageUrl ? `<figure class="llh-lre-figure"><img class="llh-lre-thumb" src="${esc(item.exampleImageUrl)}" alt="Finished example for ${esc(item.title || "activity")}" /><figcaption>Finished example · ${esc(item.title || "Activity")} · ${esc(day)}</figcaption></figure>` : ""}
         </section>
       </article>
     `;
@@ -811,14 +961,17 @@
         const day = state.draft.dailyPlans[dayId] || emptyDay();
         const base = `dailyPlans.${dayId}`;
         const count = Array.isArray(day.items) ? day.items.length : 0;
+        const dayLabel = dayId.charAt(0).toUpperCase() + dayId.slice(1);
         return `
-          <article class="llh-lre-card-block" data-lre-week-day="${esc(dayId)}">
-            <h3>${esc(dayId.charAt(0).toUpperCase() + dayId.slice(1))} · ${count} activit${count === 1 ? "y" : "ies"}</h3>
-            ${input("Daily focus", `${base}.theme`, day.theme || day.focus || "", "Faces & Feelings")}
-            ${textarea("Daily objectives", `${base}.objectives`, day.objectives || "", "Children practice naming feelings during play.")}
-            ${textarea("Schedule / flow", `${base}.schedule`, day.schedule || "", "Arrival → circle song → small groups → outdoor → closing")}
-            ${textarea("Day-specific materials", `${base}.materials`, day.materials || "", "Feeling cards for today’s small group — not the full weekly list")}
-          </article>
+          <details class="llh-lre-day-collapse" data-lre-week-day="${esc(dayId)}" open>
+            <summary><strong>${esc(dayLabel)}</strong> · ${count} activit${count === 1 ? "y" : "ies"}</summary>
+            <div class="llh-lre-day-collapse-body">
+              ${input("Daily focus", `${base}.theme`, day.theme || day.focus || "", "Faces & Feelings")}
+              ${textarea("Daily objectives", `${base}.objectives`, day.objectives || "", "Children practice naming feelings during play.")}
+              ${textarea("Schedule / flow", `${base}.schedule`, day.schedule || "", "Arrival → circle song → small groups → outdoor → closing")}
+              ${textarea("Day-specific materials", `${base}.materials`, day.materials || "", "Feeling cards for today’s small group — not the full weekly list")}
+            </div>
+          </details>
         `;
       }).join("")}
     `;
@@ -958,7 +1111,8 @@
     const acts = flattenActivities(state.draft);
     const lessonTitle = state.draft.title || "Lesson";
     return `
-      <p class="muted-copy">Images stay draft-only until owner publish. Customers cannot open draft image URLs.</p>
+      <p class="muted-copy">Images stay draft-only until owner publish. Each upload is tied to this lesson and one activity slot.</p>
+      ${renderCoverImageBlock()}
       <div class="llh-lre-image-grid">
         ${acts.map((item) => {
           const req = imageRequirementForActivity(item);
@@ -973,18 +1127,12 @@
                   ${IMAGE_REQUIREMENT_OPTIONS.map((opt) => `<option value="${esc(opt.id)}" ${req === opt.id ? "selected" : ""}>${esc(opt.label)}</option>`).join("")}
                 </select>
               </label>
-              ${item.setupImageUrl
-                ? `<figure class="llh-lre-figure"><img class="llh-lre-image" src="${esc(item.setupImageUrl)}" alt="Setup for ${esc(item.title || "Activity")}" /><figcaption>Setup · ${esc(item.title || "Activity")}</figcaption></figure>`
-                : `<div class="llh-lre-image llh-lre-image--empty">No setup image</div>`}
-              ${item.exampleImageUrl || item.imageUrl
-                ? `<figure class="llh-lre-figure"><img class="llh-lre-image" src="${esc(item.exampleImageUrl || item.imageUrl)}" alt="Finished example for ${esc(item.title || "Activity")}" /><figcaption>Finished example · ${esc(item.title || "Activity")}</figcaption></figure>`
-                : `<div class="llh-lre-image llh-lre-image--empty">No finished example</div>`}
-              ${input("Setup image URL", `${base}.setupImageUrl`, item.setupImageUrl || "", "")}
-              ${input("Finished example URL", `${base}.exampleImageUrl`, item.exampleImageUrl || "", "")}
+              ${renderActivityPhotoControl(item, "setupImageUrl", "Setup photo")}
+              ${renderActivityPhotoControl(item, "exampleImageUrl", "Finished example photo")}
               <div class="form-actions">
                 <button type="button" class="ghost-button" data-lre-approve-image="${esc(item._key)}">Approve</button>
                 <button type="button" class="ghost-button" data-lre-reject-image="${esc(item._key)}">Request Changes</button>
-                <button type="button" class="ghost-button" data-lre-clear-image="${esc(item._key)}">Remove</button>
+                <button type="button" class="ghost-button" data-lre-clear-image="${esc(item._key)}">Remove both images</button>
               </div>
             </article>
           `;
@@ -1074,14 +1222,18 @@
         ${input("Lesson title", "title", plan.title, "All About Me")}
         ${input("Age group", "age", plan.age, "Preschool")}
         ${input("Theme", "theme", plan.theme, "All About Me")}
-        ${input("Cover image URL", "coverImageUrl", plan.coverImageUrl || "", "/images/lesson-covers/...")}
-        ${plan.coverImageUrl ? `<img class="llh-lre-cover" src="${esc(plan.coverImageUrl)}" alt="Lesson cover" />` : ""}
+        ${renderCoverImageBlock()}
         ${textarea("Weekly overview", "weeklyOverview", plan.weeklyOverview, "This week children explore names, feelings, and what makes each friend unique.")}
         ${textarea("Learning objectives", "objectives", plan.objectives, "Children will name one feeling and one thing that makes them unique.")}
         ${textarea("Weekly vocabulary", "vocabularyWords", plan.vocabularyWords, "unique, feelings, family, friends")}
         ${textarea("Weekly materials", "weeklyMaterials", plan.weeklyMaterials, "Mirrors, name cards, multicultural crayons, family photo frames")}
         ${textarea("Adaptations", "adaptations", plan.adaptations, "Offer photo supports for dual-language learners.")}
+      `;
+    }
+    if (sectionId === "family") {
+      return `
         ${textarea("Family connection", "familyConnection", plan.familyConnection, "Ask your child which feeling they practiced and draw it together.")}
+        <p class="muted-copy">Optional. Day-level family notes remain on each day in Weekly plan and Activities.</p>
       `;
     }
     if (sectionId === "week") return renderWeekPlan();
@@ -1132,25 +1284,122 @@
     `;
   }
 
+  function renderQuickNav() {
+    return `
+      <nav class="llh-lre-quick-nav" aria-label="Jump to lesson section">
+        ${QUICK_NAV.map((row) => `
+          <button type="button" class="ghost-button llh-lre-quick-nav-btn ${state.sectionId === row.id ? "is-active" : ""}" data-lre-quick-nav="${esc(row.id)}">${esc(row.label)}</button>
+        `).join("")}
+      </nav>
+    `;
+  }
+
   function renderHeader(progress) {
+    const statusTag = /^(published|featured)$/i.test(String(state.draft.status || "")) ? "Published" : "Draft";
     return `
       <header class="llh-lre-header" data-lre-sticky-header>
         <div class="llh-lre-header-main">
           <div>
-            <p class="llh-lre-kicker">Lesson Review & Editor · Owner only</p>
+            <p class="llh-lre-kicker">Lesson editor · Owner</p>
             <h1>${esc(state.draft.title || "Untitled lesson")}</h1>
-            <p class="muted-copy" data-lre-summary-status>${esc(state.draft.age || "Age")} · ${esc(state.draft.theme || "Theme")} · ${esc(progress.summaryStatus || ownerSummaryStatus(progress))} · Progress ${progress.percent}% · Blocking ${progress.blockerCount} · Warnings ${progress.warningCount || 0}</p>
+            <p class="muted-copy" data-lre-summary-status>
+              <span class="tag">${esc(statusTag)}</span>
+              ${esc(state.draft.age || "Age")} · ${esc(state.draft.theme || "Theme")}
+              · <span data-lre-save-indicator class="llh-lre-save-indicator">${esc(saveStateLabel())}</span>
+              · Progress ${progress.percent}% (${progress.complete}/${progress.required} required)
+            </p>
           </div>
           <div class="llh-lre-header-actions">
-            <button type="button" class="ghost-button" data-lre-preview>Preview</button>
-            <button type="button" class="primary-button" data-lre-save-draft ${state.saving ? "disabled" : ""}>Save Draft</button>
+            <button type="button" class="ghost-button" data-lre-preview-lesson>Preview lesson</button>
+            <button type="button" class="primary-button" data-lre-save-draft ${state.saving ? "disabled" : ""}>Save</button>
             <button type="button" class="ghost-button" data-lre-back>${state.returnToQueue ? "Back to Draft Review" : "Back to Lesson Plans"}</button>
             <button type="button" class="ghost-button" data-lre-screenshot-toggle>${state.screenshotMode ? "Exit Screenshot mode" : "Screenshot mode"}</button>
           </div>
         </div>
+        ${renderQuickNav()}
         ${state.statusText ? `<p class="form-message ${state.isSuccess ? "success" : "error"}" role="status">${esc(state.statusText)}</p>` : ""}
       </header>
     `;
+  }
+
+  function renderCustomerPreviewOverlay() {
+    if (!state.customerPreviewOpen) return "";
+    return `
+      <div class="llh-lre-preview-overlay" role="dialog" aria-modal="true" aria-labelledby="lre-preview-title" data-lre-preview-overlay>
+        <div class="llh-lre-preview-panel">
+          <header class="llh-lre-preview-panel-head">
+            <div>
+              <p class="llh-lre-kicker" id="lre-preview-title">Preview only — not published</p>
+              <p class="muted-copy">Read-only customer-style layout. Saving and publishing are disabled here.</p>
+            </div>
+            <button type="button" class="primary-button" data-lre-preview-back>Back to editing</button>
+          </header>
+          <div class="llh-lre-preview-body" data-lre-customer-preview-host tabindex="0"></div>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderImageLightbox() {
+    if (!state.imagePreviewUrl) return "";
+    return `
+      <div class="llh-lre-lightbox" data-lre-image-lightbox role="dialog" aria-label="Image preview">
+        <button type="button" class="ghost-button" data-lre-lightbox-close>Close preview</button>
+        <img src="${esc(state.imagePreviewUrl)}" alt="Image preview" />
+      </div>
+    `;
+  }
+
+  function renderMobileStickyBar() {
+    return `
+      <div class="llh-lre-mobile-bar" data-lre-mobile-bar aria-label="Lesson actions">
+        <button type="button" class="ghost-button" data-lre-preview-lesson>Preview</button>
+        <button type="button" class="primary-button" data-lre-save-draft ${state.saving ? "disabled" : ""}>Save</button>
+        <label class="ghost-button llh-lre-upload-btn">Photo
+          <input type="file" accept="${PHOTO_ACCEPT}" hidden data-lre-mobile-photo />
+        </label>
+      </div>
+    `;
+  }
+
+  async function paintCustomerPreview() {
+    const hostEl = document.querySelector("[data-lre-customer-preview-host]");
+    if (!hostEl || !state.customerPreviewOpen) return;
+    hostEl.innerHTML = `<p class="muted-copy">Loading preview…</p>`;
+    try {
+      const enrich = global.LLHTeachingKitEnrichment;
+      const viewer = global.LLHTeachingKitViewer;
+      const workspace = global.LLHTeachingKitOwnerWorkspace;
+      if (!enrich?.buildTeachingKitPreviewModel || !viewer?.enhanceLessonWorkspace) {
+        hostEl.innerHTML = `<p class="muted-copy">Preview requires Teaching Kit scripts. Use Preview as User from Admin if needed.</p>`;
+        return;
+      }
+      const plan = ensurePlanShape(clone(state.draft));
+      const activities = flattenActivities(plan);
+      const resources = typeof curriculumResourcesForAdmin === "function" ? curriculumResourcesForAdmin() : [];
+      const linked = linkedResources(plan);
+      const resourceRows = linked.length ? linked : resources.filter((r) => (plan.resourceIds || []).includes(r.id));
+      const sanitized = workspace?.sanitizePublicPreviewPlan ? workspace.sanitizePublicPreviewPlan(plan) : plan;
+      const model = enrich.buildTeachingKitPreviewModel(
+        sanitized,
+        activities,
+        resourceRows,
+        plan.enrichmentDraft || null,
+        { preview: true, ownerPreview: true },
+        enrich.mapActivityToOwnerEditorModel,
+      );
+      hostEl.innerHTML = `<div class="llh-teaching-kit-workspace" data-lre-preview-workspace></div>`;
+      const mount = hostEl.querySelector("[data-lre-preview-workspace]");
+      await viewer.enhanceLessonWorkspace({
+        host: mount,
+        resource: model.resource,
+        lessonPlan: model.lessonPlan,
+        mode: "preview",
+        readOnly: true,
+      });
+    } catch (error) {
+      hostEl.innerHTML = `<p class="form-message" role="alert">${esc(error.message || "Preview failed.")}</p>`;
+    }
   }
 
   function mountPreview() {
@@ -1191,6 +1440,9 @@
             </div>
           </main>
         </div>
+        ${renderMobileStickyBar()}
+        ${renderCustomerPreviewOverlay()}
+        ${renderImageLightbox()}
       </div>
     `;
     document.body.classList.toggle("llh-lre-open", true);
@@ -1199,6 +1451,27 @@
       document.querySelector(".llh-meta-cookie-dismiss, [data-cookie-dismiss], #llhMetaCookieNotice button")?.click?.();
     }
     if (section.id === "publish") mountPreview();
+    if (state.customerPreviewOpen) {
+      requestAnimationFrame(() => { void paintCustomerPreview(); });
+    }
+  }
+
+  function bindBeforeUnload() {
+    if (state.beforeUnloadBound) return;
+    state.beforeUnloadBound = true;
+    window.addEventListener("beforeunload", onBeforeUnload);
+  }
+
+  function unbindBeforeUnload() {
+    if (!state.beforeUnloadBound) return;
+    state.beforeUnloadBound = false;
+    window.removeEventListener("beforeunload", onBeforeUnload);
+  }
+
+  function onBeforeUnload(event) {
+    if (!state.open || !state.dirty || state.saving) return;
+    event.preventDefault();
+    event.returnValue = "";
   }
 
   function normalizeCollectedPlan(plan) {
@@ -1426,6 +1699,7 @@
         state.draft = hydratePlanFromEnrichmentDraft(lessonPlan, enrichmentDraft);
         state.originalSnapshot = JSON.stringify(state.draft);
         state.dirty = false;
+        state.lastSavedAt = new Date().toISOString();
         state.statusText = "Draft saved. Published lesson unchanged.";
         state.isSuccess = true;
         return true;
@@ -1471,8 +1745,10 @@
       state.draft = ensurePlanShape(saved);
       state.originalSnapshot = JSON.stringify(state.draft);
       state.dirty = false;
+      state.lastSavedAt = new Date().toISOString();
       state.statusText = "Draft saved. Nothing was published.";
       state.isSuccess = true;
+      refreshSaveIndicator();
       return true;
     } catch (error) {
       state.statusText = error.message || "Draft save failed.";
@@ -1539,7 +1815,7 @@
       overview: "basics",
       objectives: "basics",
       materials: "basics",
-      family: "basics",
+      family: "family",
       monday: "week",
       tuesday: "week",
       wednesday: "week",
@@ -1579,6 +1855,7 @@
       const merged = new Set([...(state.draft.resourceIds || []), ...options.draftResourceIds]);
       state.draft.resourceIds = [...merged];
     }
+    bindBeforeUnload();
     render();
     return true;
   }
@@ -1598,7 +1875,10 @@
     const draftReviewId = state.draftReviewId;
     state.open = false;
     state.dirty = false;
+    state.customerPreviewOpen = false;
+    state.imagePreviewUrl = "";
     state.screenshotMode = false;
+    unbindBeforeUnload();
     state.ownerDraftReview = false;
     state.returnToQueue = false;
     state.draftReviewId = "";
@@ -1671,6 +1951,69 @@
     }
     if (t.closest("[data-lre-preview]")) {
       state.sectionId = "publish";
+      render();
+      return;
+    }
+    if (t.closest("[data-lre-preview-lesson]")) {
+      state.customerPreviewOpen = true;
+      render();
+      return;
+    }
+    if (t.closest("[data-lre-preview-back]")) {
+      state.customerPreviewOpen = false;
+      render();
+      return;
+    }
+    if (t.closest("[data-lre-lightbox-close]")) {
+      state.imagePreviewUrl = "";
+      render();
+      return;
+    }
+    const quickNav = t.closest("[data-lre-quick-nav]");
+    if (quickNav) {
+      state.sectionId = quickNav.getAttribute("data-lre-quick-nav") || "basics";
+      state.openActivityKey = "";
+      render();
+      return;
+    }
+    if (t.closest("[data-lre-cover-remove]")) {
+      setField("coverImageUrl", "");
+      render();
+      return;
+    }
+    if (t.closest("[data-lre-cover-preview-btn]")) {
+      const url = text(state.draft.coverImageUrl);
+      if (url) {
+        state.imagePreviewUrl = url;
+        render();
+      }
+      return;
+    }
+    const actPreview = t.closest("[data-lre-activity-preview]");
+    if (actPreview) {
+      const key = actPreview.getAttribute("data-lre-preview-activity");
+      const field = actPreview.getAttribute("data-lre-preview-field");
+      const item = findActivity(key);
+      if (item) {
+        const url = field === "exampleImageUrl" ? text(item.exampleImageUrl || item.imageUrl) : text(item.setupImageUrl);
+        if (url) {
+          state.imagePreviewUrl = url;
+          render();
+        }
+      }
+      return;
+    }
+    const actRemove = t.closest("[data-lre-activity-remove-photo]");
+    if (actRemove) {
+      const key = actRemove.getAttribute("data-lre-remove-activity");
+      const field = actRemove.getAttribute("data-lre-remove-field");
+      const item = findActivity(key);
+      if (item) {
+        const path = `dailyPlans.${item.dayOfWeek}.items.${item._index}`;
+        setField(`${path}.${field}`, "");
+        if (field === "setupImageUrl") setField(`${path}.setupImageThumbUrl`, "");
+        if (field === "exampleImageUrl") setField(`${path}.exampleImageThumbUrl`, "");
+      }
       render();
       return;
     }
@@ -1874,8 +2217,72 @@
     }
   }
 
-  function onChange(event) {
+  async function onChange(event) {
     if (!state.open) return;
+    if (event.target.matches("[data-lre-cover-upload]")) {
+      const file = event.target.files?.[0];
+      event.target.value = "";
+      if (!file) return;
+      try {
+        state.statusText = "Uploading cover…";
+        state.saving = true;
+        render();
+        const url = await uploadCoverPhoto(file);
+        setField("coverImageUrl", url);
+        state.statusText = "Cover updated. Save when ready.";
+        state.isSuccess = true;
+      } catch (error) {
+        state.statusText = error.message || "Cover upload failed.";
+        state.isSuccess = false;
+      } finally {
+        state.saving = false;
+        render();
+      }
+      return;
+    }
+    const actUpload = event.target.matches("[data-lre-activity-upload]") ? event.target : null;
+    if (actUpload) {
+      const file = actUpload.files?.[0];
+      const field = actUpload.getAttribute("data-lre-upload-field");
+      const key = actUpload.getAttribute("data-lre-upload-activity");
+      actUpload.value = "";
+      if (!file || !field || !key) return;
+      try {
+        state.statusText = "Uploading photo…";
+        state.saving = true;
+        render();
+        await uploadActivityPhoto(key, field, file);
+        state.statusText = "Photo updated for this activity only. Save when ready.";
+        state.isSuccess = true;
+      } catch (error) {
+        state.statusText = error.message || "Photo upload failed.";
+        state.isSuccess = false;
+      } finally {
+        state.saving = false;
+        render();
+      }
+      return;
+    }
+    if (event.target.matches("[data-lre-mobile-photo]")) {
+      const file = event.target.files?.[0];
+      event.target.value = "";
+      if (!file) return;
+      if (state.openActivityKey) {
+        try {
+          await uploadActivityPhoto(state.openActivityKey, "setupImageUrl", file);
+          state.statusText = "Photo added to open activity.";
+          state.isSuccess = true;
+        } catch (error) {
+          state.statusText = error.message || "Upload failed.";
+          state.isSuccess = false;
+        }
+      } else {
+        state.statusText = "Open an activity first, or use Images section.";
+        state.isSuccess = false;
+      }
+      render();
+      return;
+    }
     const path = event.target.getAttribute("data-lre-path");
     if (path) {
       applyPathValue(path, event.target.value);
