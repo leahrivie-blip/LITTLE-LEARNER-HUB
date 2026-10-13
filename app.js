@@ -6932,6 +6932,12 @@ let adminCreateLessonPlanUi = {
   duplicate: null,
   error: "",
   creating: false,
+  originalPasteText: "",
+  organizerParse: null,
+  organizerDecisions: {},
+  ageMarkedUnknown: false,
+  themeMarkedUnknown: false,
+  organizerError: "",
 };
 let adminCurriculumLessonImportTextCache = "";
 let adminCurriculumLessonImportPreview = null;
@@ -10360,6 +10366,18 @@ function curriculumLessonStructurePasteApi() {
   return globalThis.LLHCurriculumLessonStructurePaste || null;
 }
 
+function lessonPasteOrganizerParserApi() {
+  return globalThis.LLHLessonPasteOrganizerParser || null;
+}
+
+function lessonPasteOrganizerApplyApi() {
+  return globalThis.LLHLessonPasteOrganizerApply || null;
+}
+
+function lessonPasteOrganizerUiApi() {
+  return globalThis.LLHLessonPasteOrganizerUi || null;
+}
+
 function resetAdminCreateLessonPlanUi() {
   adminCreateLessonPlanUi = {
     step: "",
@@ -10373,8 +10391,96 @@ function resetAdminCreateLessonPlanUi() {
     error: "",
     creating: false,
     replaceComparison: null,
+    originalPasteText: "",
+    organizerParse: null,
+    organizerDecisions: {},
+    ageMarkedUnknown: false,
+    themeMarkedUnknown: false,
+    organizerError: "",
+    organizerDecisionHistory: [],
   };
   document.querySelector("#adminCreateLessonPlanOverlay")?.remove();
+}
+
+function startAdminPasteOrganizeLessonPlan() {
+  adminCreateLessonPlanUi.step = "organize-paste";
+  adminCreateLessonPlanUi.pasteText = "";
+  adminCreateLessonPlanUi.originalPasteText = "";
+  adminCreateLessonPlanUi.organizerParse = null;
+  adminCreateLessonPlanUi.organizerDecisions = {};
+  adminCreateLessonPlanUi.organizerDecisionHistory = [];
+  adminCreateLessonPlanUi.organizerError = "";
+  adminCreateLessonPlanUi.error = "";
+  renderAdminCreateLessonPlanDialog();
+}
+
+function refreshAdminPasteOrganizeParse() {
+  const parserApi = lessonPasteOrganizerParserApi();
+  if (!parserApi) return;
+  const parsed = parserApi.parseDeterministicPaste(adminCreateLessonPlanUi.pasteText || "", {
+    ageMarkedUnknown: adminCreateLessonPlanUi.ageMarkedUnknown === true,
+    themeMarkedUnknown: adminCreateLessonPlanUi.themeMarkedUnknown === true,
+  });
+  const applyApi = lessonPasteOrganizerApplyApi();
+  if (applyApi) {
+    const validation = applyApi.validateBeforeSave(parsed, {
+      ownerDecisions: adminCreateLessonPlanUi.organizerDecisions || {},
+      ageMarkedUnknown: adminCreateLessonPlanUi.ageMarkedUnknown === true,
+      themeMarkedUnknown: adminCreateLessonPlanUi.themeMarkedUnknown === true,
+    });
+    parsed.canSaveDraft = validation.ok;
+  }
+  adminCreateLessonPlanUi.organizerParse = parsed;
+}
+
+function previewAdminPasteOrganize() {
+  const parserApi = lessonPasteOrganizerParserApi();
+  if (!parserApi) {
+    adminCreateLessonPlanUi.organizerError = "Paste organizer did not load.";
+    renderAdminCreateLessonPlanDialog();
+    return;
+  }
+  const textarea = document.querySelector("#adminPasteOrganizeText");
+  const pasteText = textarea ? textarea.value : adminCreateLessonPlanUi.pasteText;
+  adminCreateLessonPlanUi.pasteText = pasteText;
+  if (!adminCreateLessonPlanUi.originalPasteText) adminCreateLessonPlanUi.originalPasteText = pasteText;
+  refreshAdminPasteOrganizeParse();
+  adminCreateLessonPlanUi.organizerError = "";
+  adminCreateLessonPlanUi.step = "organize-review";
+  renderAdminCreateLessonPlanDialog();
+}
+
+async function confirmAdminPasteOrganizeDraft() {
+  const applyApi = lessonPasteOrganizerApplyApi();
+  if (!applyApi || !adminCreateLessonPlanUi.organizerParse) {
+    adminCreateLessonPlanUi.organizerError = "Organize the paste before saving.";
+    renderAdminCreateLessonPlanDialog();
+    return;
+  }
+  refreshAdminPasteOrganizeParse();
+  const built = applyApi.buildDraftLessonPlan(adminCreateLessonPlanUi.organizerParse, {
+    ownerDecisions: adminCreateLessonPlanUi.organizerDecisions || {},
+    ageMarkedUnknown: adminCreateLessonPlanUi.ageMarkedUnknown === true,
+    themeMarkedUnknown: adminCreateLessonPlanUi.themeMarkedUnknown === true,
+  });
+  if (!built.ok) {
+    adminCreateLessonPlanUi.organizerError = (built.validation?.issues || []).map((issue) => issue.message).join(" ");
+    renderAdminCreateLessonPlanDialog();
+    return;
+  }
+  adminCreateLessonPlanUi.creating = true;
+  adminCreateLessonPlanUi.organizerError = "";
+  renderAdminCreateLessonPlanDialog();
+  try {
+    const saved = await persistNewCurriculumLessonDraft(built.lessonPlan);
+    const lessonId = saved?.id || saved?.lessonPlan?.id;
+    resetAdminCreateLessonPlanUi();
+    if (lessonId) await openOwnerTeachingKitEditor(lessonId, { source: "create", scroll: true });
+  } catch (error) {
+    adminCreateLessonPlanUi.creating = false;
+    adminCreateLessonPlanUi.organizerError = error.message || "Could not save draft.";
+    renderAdminCreateLessonPlanDialog();
+  }
 }
 
 function masterPasteWeekdayCounts(parsedOrPreview) {
@@ -10578,9 +10684,15 @@ function renderAdminCreateLessonPlanDialog() {
       <div class="form-actions">
         <button type="button" class="primary-button" data-create-lesson-start-blank${busy}>Start Blank</button>
         <button type="button" class="ghost-button" data-create-lesson-paste${busy}>Paste Full Lesson Plan</button>
+        <button type="button" class="ghost-button" data-paste-organize-start${busy}>Paste and Organize</button>
         <button type="button" class="ghost-button" data-create-lesson-cancel${busy}>Cancel</button>
       </div>
     `;
+  } else if (ui.step === "organize-paste" || ui.step === "organize-review") {
+    const organizerUi = lessonPasteOrganizerUiApi();
+    body = organizerUi
+      ? (ui.step === "organize-paste" ? organizerUi.renderPasteStep(ui) : organizerUi.renderReviewStep(ui))
+      : `<p class="form-message">Paste organizer UI did not load.</p>`;
   } else if (ui.step === "paste") {
     const isReplace = ui.mode === "replace";
     const snapshot = ui.currentSnapshot || {};
@@ -74864,6 +74976,23 @@ searchInput.addEventListener("input", () => {
 });
 
 document.addEventListener("change", (event) => {
+  if (event.target.matches("#adminPasteOrganizeFile")) {
+    const fileInput = event.target;
+    const file = fileInput.files && fileInput.files[0];
+    if (file) {
+      void file.text().then((fileText) => {
+        adminCreateLessonPlanUi.pasteText = fileText;
+        if (!adminCreateLessonPlanUi.originalPasteText) adminCreateLessonPlanUi.originalPasteText = fileText;
+        refreshAdminPasteOrganizeParse();
+        renderAdminCreateLessonPlanDialog();
+      }).catch(() => {
+        adminCreateLessonPlanUi.organizerError = "Could not read the text file.";
+        renderAdminCreateLessonPlanDialog();
+      });
+    }
+    fileInput.value = "";
+    return;
+  }
   if (event.target.closest("#userLessonPlanEditorForm")) {
     markUserLessonEditorDirty();
   }
@@ -76699,6 +76828,94 @@ document.addEventListener("click", async (event) => {
     if (textarea) adminCreateLessonPlanUi.pasteText = textarea.value;
     adminCreateLessonPlanUi.step = "paste";
     adminCreateLessonPlanUi.error = "";
+    renderAdminCreateLessonPlanDialog();
+    return;
+  }
+  if (event.target.closest("[data-paste-organize-start]")) {
+    startAdminPasteOrganizeLessonPlan();
+    return;
+  }
+  if (event.target.closest("[data-paste-organize-parse]")) {
+    previewAdminPasteOrganize();
+    return;
+  }
+  if (event.target.closest("[data-paste-organize-back]")) {
+    adminCreateLessonPlanUi.step = "organize-paste";
+    adminCreateLessonPlanUi.organizerError = "";
+    renderAdminCreateLessonPlanDialog();
+    return;
+  }
+  if (event.target.closest("[data-paste-organize-clear]")) {
+    adminCreateLessonPlanUi.pasteText = "";
+    adminCreateLessonPlanUi.organizerParse = null;
+    renderAdminCreateLessonPlanDialog();
+    return;
+  }
+  if (event.target.closest("[data-paste-organize-restore]")) {
+    adminCreateLessonPlanUi.pasteText = adminCreateLessonPlanUi.originalPasteText || "";
+    adminCreateLessonPlanUi.organizerDecisions = {};
+    adminCreateLessonPlanUi.organizerDecisionHistory = [];
+    refreshAdminPasteOrganizeParse();
+    renderAdminCreateLessonPlanDialog();
+    return;
+  }
+  if (event.target.closest("[data-paste-organize-undo]")) {
+    const history = adminCreateLessonPlanUi.organizerDecisionHistory || [];
+    const last = history.pop();
+    if (last) {
+      if (last.previous == null) delete adminCreateLessonPlanUi.organizerDecisions[last.itemId];
+      else adminCreateLessonPlanUi.organizerDecisions[last.itemId] = last.previous;
+    }
+    adminCreateLessonPlanUi.organizerDecisionHistory = history;
+    refreshAdminPasteOrganizeParse();
+    renderAdminCreateLessonPlanDialog();
+    return;
+  }
+  if (event.target.closest("[data-paste-organize-print]")) {
+    const applyApi = lessonPasteOrganizerApplyApi();
+    if (applyApi && adminCreateLessonPlanUi.organizerParse) {
+      const html = applyApi.buildPrintPreviewHtml(adminCreateLessonPlanUi.organizerParse, {
+        ownerDecisions: adminCreateLessonPlanUi.organizerDecisions || {},
+        ageMarkedUnknown: adminCreateLessonPlanUi.ageMarkedUnknown === true,
+        themeMarkedUnknown: adminCreateLessonPlanUi.themeMarkedUnknown === true,
+      });
+      const win = window.open("", "_blank", "noopener,noreferrer");
+      if (win) {
+        win.document.write(html);
+        win.document.close();
+        win.focus();
+        win.print();
+      }
+    }
+    return;
+  }
+  if (event.target.closest("[data-paste-organize-save-draft]")) {
+    void confirmAdminPasteOrganizeDraft();
+    return;
+  }
+  const pasteOrganizeDecision = event.target.closest("[data-paste-organize-decision]");
+  if (pasteOrganizeDecision) {
+    const itemId = pasteOrganizeDecision.getAttribute("data-paste-organize-item") || "";
+    const decision = pasteOrganizeDecision.getAttribute("data-paste-organize-decision") || "";
+    if (itemId && decision) {
+      const previous = adminCreateLessonPlanUi.organizerDecisions[itemId];
+      adminCreateLessonPlanUi.organizerDecisionHistory = adminCreateLessonPlanUi.organizerDecisionHistory || [];
+      adminCreateLessonPlanUi.organizerDecisionHistory.push({ itemId, previous: previous == null ? null : previous });
+      adminCreateLessonPlanUi.organizerDecisions[itemId] = decision;
+      refreshAdminPasteOrganizeParse();
+      renderAdminCreateLessonPlanDialog();
+    }
+    return;
+  }
+  if (event.target.closest("[data-paste-organize-age-unknown]")) {
+    adminCreateLessonPlanUi.ageMarkedUnknown = event.target.checked === true;
+    refreshAdminPasteOrganizeParse();
+    renderAdminCreateLessonPlanDialog();
+    return;
+  }
+  if (event.target.closest("[data-paste-organize-theme-unknown]")) {
+    adminCreateLessonPlanUi.themeMarkedUnknown = event.target.checked === true;
+    refreshAdminPasteOrganizeParse();
     renderAdminCreateLessonPlanDialog();
     return;
   }
