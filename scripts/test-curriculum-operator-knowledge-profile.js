@@ -13,7 +13,9 @@ function ok(cond, msg) {
 }
 
 console.log("Knowledge profile structure");
-ok(kp.KNOWLEDGE_PROFILE_VERSION >= 1, "versioned profile");
+ok(kp.KNOWLEDGE_PROFILE_VERSION >= 2, "versioned profile v2+");
+ok(kp.developmentLinesForStage("infant_0_3", 20).length >= 9, "infant 0-3 full stage lines");
+ok(kp.getSectionLines("development", { stage: "young_toddler", maxLines: 30 }).length >= 8, "section API by stage");
 ok(kp.SECTION_IDS.length >= 8, "independent sections");
 ok(kp.DOMAINS.length >= 10, "developmental domains listed");
 
