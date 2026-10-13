@@ -43,6 +43,30 @@ console.log("Effective instructions bundle");
   ok(bundle.profileLoaded === true, "profile loaded");
   ok(bundle.permanentInstructions.length >= 20, "permanent lines merged");
   ok(bundle.preserveOwnerActivities !== false, "preserve owner activities default");
+  ok(bundle.knowledgeProfileLines?.length >= 4, "knowledge profile lines on effective bundle");
+  ok(bundle.draftOnly !== false, "draft-only default on guided bundle");
+}
+
+console.log("Realistic image and printable phrase flags");
+{
+  const phrases = profile.interpretOwnerPhrases(
+    "Make the picture realistic. Make a printable with counting cards. Keep this activity. Fill in the blanks.",
+  );
+  ok(phrases.flags.realisticPhotos === true || phrases.matched.includes("realistic_picture"), "realistic image phrase");
+  ok(phrases.matched.includes("make_printable"), "printable phrase");
+  ok(phrases.flags.preserveSuppliedActivities === true || phrases.matched.some((m) => /keep|preserve|supplied/i.test(m)), "preserve supplied activities phrase");
+  ok(phrases.flags.fillInBlanks === true, "fill in blanks phrase");
+}
+
+console.log("Unsupported age validation fails safely");
+{
+  const ageSafety = require("./curriculum-operator-guided-age-safety.js");
+  const r = ageSafety.validateActivityIdea({
+    ageBand: "infant",
+    title: "Letter tracing worksheet",
+    materialsText: "pencils",
+  });
+  ok(r.ok === false && r.flags.includes("infant_inappropriate"), "infant worksheet fails closed");
 }
 
 console.log("Guided create brief + confirmation");
