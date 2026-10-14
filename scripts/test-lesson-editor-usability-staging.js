@@ -277,7 +277,7 @@ async function main() {
     await page.click('[data-lre-section="basics"]');
     await page.fill('[data-lre-path="title"]', "DISPOSABLE LRE Staging Usability QA edited");
     await page.waitForTimeout(100);
-    const needsSaving = await page.locator("[data-lre-save-indicator]").innerText();
+    const needsSaving = await page.locator("[data-lre-save-indicator]").first().innerText();
     ok(/Needs saving/i.test(needsSaving), "Text edit shows Needs saving");
     const hasBeforeUnload = await page.evaluate(() => Boolean(window.LLHLessonReviewEditor?.isDirty?.()));
     ok(hasBeforeUnload, "Editor reports dirty before save");
@@ -421,6 +421,11 @@ async function main() {
     await mobile.selectOption("[data-lre-section-select]", "images");
     ok(await mobile.locator("[data-lre-section-chrome] h2").innerText() === "Images", "Mobile section picker reaches Images");
     ok(await mobile.locator("[data-lre-mobile-bar]").count() === 1, "Mobile sticky action bar present");
+    ok(await mobile.locator(".llh-lre-mobile-back").isVisible(), "Mobile back to Lesson Plans visible");
+    mobile.once("dialog", (dialog) => dialog.accept());
+    await mobile.click(".llh-lre-mobile-back");
+    await mobile.waitForTimeout(300);
+    ok(await mobile.evaluate(() => !window.LLHLessonReviewEditor?.isOpen?.()), "Mobile back returns toward lesson list (editor closed)");
 
     console.log("\nAll lesson editor usability staging checks passed.");
   } finally {

@@ -488,7 +488,7 @@ async function runBrowserTests(token) {
   ok(typeof coreRules.progressWarnings === "number" && coreRules.progressWarnings >= 1, "Progress exposes warning count separately from blockers");
 
   // Screenshot mode
-  await page.click("[data-lre-screenshot-toggle]");
+  await page.locator(".llh-lre-header-desktop [data-lre-screenshot-toggle]").click();
   await page.waitForTimeout(150);
   ok(await page.locator(".llh-lre.is-screenshot-mode").count() === 1, "Screenshot mode enabled");
   const screenshotChrome = await page.evaluate(() => {
@@ -510,7 +510,7 @@ async function runBrowserTests(token) {
   ok(screenshotChrome.sidebarHidden, "Screenshot mode hides admin sidebar");
   ok(screenshotChrome.keeps.lesson && screenshotChrome.keeps.section && screenshotChrome.keeps.activity && screenshotChrome.keeps.labels, "Screenshot mode preserves lesson/activity/section/labels");
   await page.screenshot({ path: path.join(ARTIFACT_DIR, "lesson-review-desktop-screenshot-mode.png"), fullPage: false });
-  await page.locator("[data-lre-screenshot-toggle]").click({ force: true });
+  await page.locator(".llh-lre-header-desktop [data-lre-screenshot-toggle]").click({ force: true });
   await page.waitForTimeout(100);
   ok(await page.locator(".llh-lre.is-screenshot-mode").count() === 0, "Screenshot mode exits");
 
@@ -571,7 +571,7 @@ async function runBrowserTests(token) {
   ok(statusBeforePreview === statusAfterPreview, "Preview does not mutate lesson publish status");
 
   // Back to lesson plans
-  await page.click("[data-lre-back]");
+  await page.locator(".llh-lre-header-desktop [data-lre-back]").click();
   await page.waitForTimeout(400);
   const closed = await page.evaluate(() => LLHLessonReviewEditor.isOpen() !== true);
   ok(closed, "Back to Lesson Plans closes editor");
@@ -815,14 +815,91 @@ async function runBrowserTests(token) {
   const listText = await page.locator("#adminCurriculumLessonPlanList").innerText();
   ok(!/DISPOSABLE TK Printable Prod Verify/i.test(listText), "Archived disposable fixture hidden from main lesson library");
 
-  // Mobile section navigator
+  // Mobile layout + navigation (390px)
+  await page.evaluate((planId) => LLHLessonReviewEditor.open(planId, { sectionId: "basics" }), FIXTURE_ID);
+  await page.waitForSelector(".llh-lre-header-desktop", { timeout: 10000 });
+  ok(await page.locator(".llh-lre-header-desktop").isVisible(), "Desktop keeps full header at wide viewport");
+  ok(await page.locator(".llh-lre-header-mobile").isHidden(), "Desktop hides compact mobile header");
+  await page.evaluate(() => LLHLessonReviewEditor.close({ force: true, skipReturnNavigation: true }));
+
   const mobilePage = await mobile.newPage();
   await unlock(mobilePage);
   await mobilePage.evaluate((planId) => LLHLessonReviewEditor.open(planId, { sectionId: "basics" }), FIXTURE_ID);
   await mobilePage.waitForSelector("[data-lre-section-select]", { timeout: 10000 });
+  ok(await mobilePage.locator(".llh-lre-mobile-back").isVisible(), "Back to Lesson Plans visible on mobile");
+  ok(await mobilePage.locator(".llh-lre-header-mobile").isVisible(), "Compact mobile header visible");
+  ok(await mobilePage.locator(".llh-lre-header-mobile .llh-lre-quick-nav").count() === 0, "Mobile header has no quick section button row");
+  ok(await mobilePage.locator(".llh-lre-header-desktop .llh-lre-quick-nav").isHidden(), "Desktop quick nav hidden on mobile viewport");
+  const hostBg = await mobilePage.evaluate(() => getComputedStyle(document.querySelector("#adminLessonReviewEditorHost")).backgroundColor);
+  ok(!/18,\s*24,\s*32/.test(hostBg), "Mobile editor host avoids dark full-screen overlay tint");
+
+  await mobilePage.locator("[data-lre-mobile-details] summary").click();
+  ok(await mobilePage.locator("[data-lre-mobile-details][open]").count() === 1, "Lesson details panel expands");
+  await mobilePage.locator("[data-lre-mobile-details] summary").click();
+
   await mobilePage.selectOption("[data-lre-section-select]", "activities");
   await mobilePage.waitForTimeout(200);
   ok(await mobilePage.locator("[data-lre-section-chrome] h2").innerText() === "Activities", "Mobile section dropdown navigates");
+  ok(await mobilePage.locator(".llh-lre-section-blurb").first().isHidden(), "Mobile hides large section blurbs");
+
+  await mobilePage.evaluate(() => {
+    const host = document.querySelector("#adminLessonReviewEditorHost");
+    const main = document.querySelector("[data-lre-main]");
+    if (host) host.scrollTop = host.scrollHeight;
+    if (main) main.scrollTop = main.scrollHeight;
+    const last = document.querySelector("[data-lre-section-body] textarea, [data-lre-section-body] input");
+    last?.scrollIntoView({ block: "end" });
+  });
+  const bottomClear = await mobilePage.evaluate(() => {
+    const bar = document.querySelector("[data-lre-mobile-bar]");
+    const fields = [...document.querySelectorAll("[data-lre-section-body] textarea, [data-lre-section-body] input")];
+    const last = fields[fields.length - 1];
+    if (!bar || !last) return true;
+    return last.getBoundingClientRect().bottom <= bar.getBoundingClientRect().top + 4;
+  });
+  ok(bottomClear, "Bottom action bar does not cover last field after scroll");
+
+  ok(await mobilePage.locator("[data-lre-mobile-bar] [data-lre-save-draft]").count() >= 1, "Save remains accessible on mobile bar");
+  await mobilePage.locator("[data-lre-mobile-bar] [data-lre-preview-lesson]").click();
+  await mobilePage.waitForSelector("[data-lre-preview-overlay]", { timeout: 15000 });
+  const previewCopy = await mobilePage.locator("[data-lre-preview-overlay]").innerText();
+  ok(/Preview only/i.test(previewCopy) && /not published/i.test(previewCopy), "Mobile preview read-only label");
+  await mobilePage.click("[data-lre-preview-back]");
+  ok(await mobilePage.locator("[data-lre-section-select]").count() >= 1, "Image/section controls reachable after preview");
+
+  await mobilePage.selectOption("[data-lre-section-select]", "images");
+  ok(await mobilePage.locator("input[data-lre-cover-upload]").count() >= 1, "Mobile image controls accessible");
+
+  await mobilePage.click(".llh-lre-mobile-back");
+  await mobilePage.waitForTimeout(300);
+  ok(await mobilePage.evaluate(() => LLHLessonReviewEditor.isOpen() === false), "Back navigation closes editor when clean");
+
+  await mobilePage.evaluate((planId) => LLHLessonReviewEditor.open(planId, { sectionId: "basics" }), FIXTURE_ID);
+  await mobilePage.waitForSelector("[data-lre-section-select]", { timeout: 10000 });
+  await mobilePage.fill('[data-lre-path="title"]', "Mobile dirty back probe title");
+  await mobilePage.waitForTimeout(150);
+  const dirtyBack = await mobilePage.evaluate(async () => {
+    const prompts = [];
+    const orig = window.confirm;
+    window.confirm = (msg) => {
+      prompts.push(String(msg || ""));
+      return false;
+    };
+    const stillOpenBefore = LLHLessonReviewEditor.isOpen() === true;
+    const closed = await LLHLessonReviewEditor.close();
+    window.confirm = orig;
+    return {
+      stillOpenBefore,
+      closed,
+      prompts,
+      stillOpenAfter: LLHLessonReviewEditor.isOpen() === true,
+    };
+  });
+  ok(dirtyBack.prompts.length >= 1, "Unsaved-change warning before leaving when dirty");
+  ok(dirtyBack.stillOpenAfter, "Dirty back cancel keeps editor open");
+
+  await mobilePage.setViewportSize({ width: 375, height: 812 });
+  ok(await mobilePage.locator(".llh-lre-mobile-back").isVisible(), "Back control visible at 375px width");
   await mobilePage.screenshot({ path: path.join(ARTIFACT_DIR, "lesson-review-mobile-activities.png"), fullPage: false });
 
   // Owner-only gate
