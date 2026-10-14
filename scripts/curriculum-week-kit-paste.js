@@ -126,8 +126,21 @@
 
   const ACTIVITY_ITEM_ALIASES = freezeNormalizedAliases({
     "activity name": "title",
+    "activity title": "title",
     name: "title",
     title: "title",
+    "activity description": "description",
+    "activity materials": "materials",
+    "activity safety": "safetyNotes",
+    "activity image": "imageRequirement",
+    "teacher questions": "teacherLanguage",
+    "learning and observation": "observationOpportunities",
+    enrichment: "extensions",
+    "challenge adaptations": "extensions",
+    "group and setting": "indoorOutdoorOptions",
+    images: "imageRequirement",
+    "setup image brief": "imageBriefSetup",
+    "finished example image brief": "imageBriefExample",
     weekday: "dayOfWeek",
     "activity weekday": "dayOfWeek",
     category: "activityCategory",
@@ -154,6 +167,7 @@
     "suggested questions": "teacherLanguage",
     questions: "teacherLanguage",
     "learning and observation focus": "observationOpportunities",
+    "learning and observation": "observationOpportunities",
     "observation focus": "observationOpportunities",
     "safety and supervision": "safetyNotes",
     safety: "safetyNotes",
@@ -165,6 +179,7 @@
     "indoor/outdoor options": "indoorOutdoorOptions",
     "indoor outdoor options": "indoorOutdoorOptions",
     "teacher tips": "teacherTips",
+    "teacher role": "teacherRole",
     tips: "teacherTips",
     "supply substitutions": "substitutions",
     substitutions: "substitutions",
@@ -196,7 +211,7 @@
 
   function isExplicitActivityStartLabel(label) {
     const key = normalizeHeading(label);
-    return key === "activity name" || key === "name";
+    return key === "activity name" || key === "name" || key === "activity title" || key === "activity";
   }
 
   /**
@@ -205,7 +220,8 @@
    */
   function hasExplicitActivityStart(source) {
     const text = String(source || "");
-    if (/\bactivity\s*name\b/i.test(text)) return true;
+    if (/\bactivity\s*(?:name|title)\b/i.test(text)) return true;
+    if (/^\s*activity\s*:\s*$/im.test(text)) return true;
     return text.split(/\r?\n/).some((line) => {
       const cleaned = stripHeadingDecorators(line);
       if (!cleaned) return false;
@@ -367,7 +383,18 @@
         });
         return;
       }
-      current[section.fieldId] = multiline(section.body);
+      const next = multiline(section.body);
+      if (!next) return;
+      const fieldId = section.fieldId;
+      if (!current[fieldId]) {
+        current[fieldId] = next;
+        return;
+      }
+      const prev = multiline(current[fieldId]);
+      if (prev.trim() === next.trim()) return;
+      if (!current.__duplicateFields) current.__duplicateFields = {};
+      if (!current.__duplicateFields[fieldId]) current.__duplicateFields[fieldId] = [prev];
+      if (!current.__duplicateFields[fieldId].includes(next)) current.__duplicateFields[fieldId].push(next);
     });
     flush();
     return { records, unsupported };
@@ -571,6 +598,25 @@
     };
   }
 
+  function coerceImageInstructionProse(raw) {
+    const value = multiline(raw);
+    if (!value) return null;
+    const lower = value.toLowerCase();
+    const out = { imageRequirement: "needs_owner_classification" };
+    const exampleSplit = value.split(/\bfinished example photo needed\.?\s*/i);
+    if (exampleSplit.length >= 2) {
+      const setupPart = exampleSplit[0].trim();
+      const examplePart = `Finished example photo needed. ${exampleSplit.slice(1).join(" ").trim()}`.trim();
+      if (setupPart) out.imageBriefSetup = setupPart;
+      if (examplePart) out.imageBriefExample = examplePart;
+      return out;
+    }
+    if (/setup photo|setup image/.test(lower)) out.imageBriefSetup = value;
+    if (/finished example|example photo/.test(lower)) out.imageBriefExample = value;
+    if (!out.imageBriefSetup && !out.imageBriefExample) out.imageBriefSetup = value;
+    return out;
+  }
+
   function parseImageRequirement(raw) {
     const value = text(raw).toLowerCase().replace(/\s+/g, "_");
     const compact = text(raw).toLowerCase();
@@ -701,11 +747,14 @@
       const title = text(raw.title);
       if (!title) return null;
       const out = { title, dayOfWeek: weekday || "" };
+      if (raw.__duplicateFields && typeof raw.__duplicateFields === "object") {
+        out.__duplicateFields = raw.__duplicateFields;
+      }
       [
         "activityCategory", "ageModifications", "durationMinutes", "objective", "description",
-        "materials", "preparation", "setup", "steps", "teacherLanguage", "observationOpportunities",
-        "safetyNotes", "cleanupTips", "indoorAlternatives", "outdoorAlternatives", "adaptations",
-        "extensions", "mixedAgeAdaptations", "vocabulary",
+        "materials", "preparation", "setup", "steps", "teacherLanguage", "teacherRole",
+        "observationOpportunities", "safetyNotes", "cleanupTips", "indoorAlternatives",
+        "outdoorAlternatives", "adaptations", "extensions", "mixedAgeAdaptations", "vocabulary",
       ].forEach((key) => {
         if (multiline(raw[key])) out[key] = key === "vocabulary" || key === "materials" || key === "steps" || key === "teacherLanguage"
           ? multiline(raw[key])
@@ -731,7 +780,11 @@
       }
       const imageReq = parseImageRequirement(raw.imageRequirement);
       if (imageReq) out.imageRequirement = imageReq;
-      else if (text(raw.imageRequirement)) out.unresolvedImageRequirement = text(raw.imageRequirement);
+      else if (text(raw.imageRequirement)) {
+        const prose = coerceImageInstructionProse(raw.imageRequirement);
+        if (prose) Object.assign(out, prose);
+        else out.unresolvedImageRequirement = text(raw.imageRequirement);
+      }
       if (multiline(raw.imageBriefSetup)) out.imageBriefSetup = multiline(raw.imageBriefSetup);
       if (multiline(raw.imageBriefExample)) out.imageBriefExample = multiline(raw.imageBriefExample);
       if (text(raw.setupImageUpload) && !isPlaceholderPasteValue(raw.setupImageUpload)) {
@@ -821,6 +874,7 @@
     labeledSectionBody,
     parsePendingPrintableSection,
     parseImageRequirement,
+    coerceImageInstructionProse,
     parseCoverOrUrl,
     parseLinkedResourcesSection,
     resolveExistingResource,
