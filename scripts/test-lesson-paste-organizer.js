@@ -309,6 +309,9 @@ console.log("Static wiring");
   const app = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
   ok(app.includes("organize-paste"), "app.js organize paste step");
   ok(app.includes("data-paste-organize"), "app.js paste organize handlers");
+  const enrichEditor = fs.readFileSync(path.join(__dirname, "teaching-kit-enrichment-editor.js"), "utf8");
+  ok(enrichEditor.includes("data-week-cover-image-instructions"), "week tab cover instructions field");
+  ok(enrichEditor.includes("Cover Image Instructions"), "week tab cover instructions label");
 }
 
 const http = require("node:http");
@@ -420,6 +423,30 @@ async function runOrganizerSaveReloadTest() {
     ok(monPatch.observationOpportunities?.includes("calm engagement"), "reload observation");
     ok(monPatch.imageBriefSetup?.includes("Caregiver hands"), "reload setup image brief");
     ok(plan.enrichmentDraft?.week?.coverImageInstructions?.includes("Realistic photo"), "reload cover instructions");
+    const editedCover = "Owner-edited cover brief — calm infant Halloween sensory.";
+    const coverSave = await organizerRequestJson(port, "POST", "/api/admin/curriculum/lesson-plans", {
+      saveMode: "enrichment_draft",
+      expectedUpdatedAt: stamp,
+      adminEmail: admin.email,
+      lessonPlan: {
+        id: savedId,
+        enrichmentDraft: {
+          ...(plan.enrichmentDraft || {}),
+          week: {
+            ...(plan.enrichmentDraft?.week || {}),
+            coverImageInstructions: editedCover,
+          },
+        },
+      },
+    }, token);
+    assert.equal(coverSave.status, 200, coverSave.text);
+    stamp = coverSave.json.siteContentUpdatedAt || stamp;
+    const reloadCover = await organizerRequestJson(port, "GET", "/api/admin/site-content", null, token);
+    const planAfterCover = (reloadCover.json.siteContent?.curriculum?.lessonPlans || []).find((item) => item.id === savedId);
+    ok(
+      planAfterCover?.enrichmentDraft?.week?.coverImageInstructions === editedCover,
+      "cover instructions persist after enrichment draft save",
+    );
     const importHistory = plan.enrichmentDraft?.pasteOrganizerImport || plan.pasteOrganizerImport;
     ok(importHistory?.originalPaste?.includes("My First Halloween"), "reload paste history");
     ok((plan.enrichmentDraft?.week?.books || []).length >= 1, "reload week books");

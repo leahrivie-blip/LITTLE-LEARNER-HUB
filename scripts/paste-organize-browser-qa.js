@@ -127,6 +127,10 @@ async function screenshot(page, name) {
 }
 
 async function run() {
+  if (!ADMIN.email) {
+    fail("Admin credentials", "Set LLH_SMOKE_ADMIN_EMAIL (owner alias) for enrichment editor QA");
+    process.exit(1);
+  }
   if (!fs.existsSync(FIXTURE)) {
     fail("fixture", FIXTURE);
     process.exit(1);
@@ -266,10 +270,15 @@ async function run() {
       if ((await weekBooks.textContent().catch(() => "")).includes("Peek-a-Who")) pass("Week books visible");
       else warn("Week books", "Peek-a-Who not visible in Week tab");
 
-      warn(
-        "Cover image instructions in enrichment UI",
-        "stored on enrichmentDraft.week.coverImageInstructions — no dedicated Week-tab field in editor",
-      );
+      const coverField = page.locator("[data-week-cover-image-instructions]");
+      await coverField.scrollIntoViewIfNeeded().catch(() => {});
+      const coverBefore = await coverField.inputValue().catch(() => "");
+      if (/Realistic photo/i.test(coverBefore)) pass("Cover image instructions populated in Week tab");
+      else fail("Cover instructions in Week tab", coverBefore.slice(0, 80));
+      const coverEdit = `${coverBefore}\nBrowser QA cover edit line.`;
+      await coverField.fill(coverEdit);
+      await page.locator("[data-enrich-save-draft]").click();
+      await page.waitForTimeout(2500);
 
       await screenshot(page, "02-enrichment-editor");
 
@@ -326,6 +335,10 @@ async function run() {
         const printableAfterReopen = (await page.locator("#tk-week-printables").textContent()) || "";
         if (/family photo strip/i.test(printableAfterReopen)) pass("Reopen: printable still visible");
         else fail("Reopen: printable missing");
+
+        const coverAfterReopen = await page.locator("[data-week-cover-image-instructions]").inputValue().catch(() => "");
+        if (/Browser QA cover edit line/i.test(coverAfterReopen)) pass("Reopen: cover instructions edit preserved");
+        else fail("Reopen: cover instructions", coverAfterReopen.slice(0, 100));
 
         await screenshot(page, "03-reopen-draft");
         await page.evaluate(async () => {

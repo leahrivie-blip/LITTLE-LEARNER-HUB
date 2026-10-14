@@ -3490,6 +3490,14 @@
           ${plan.familyConnection ? `<div class="tk-enrich-current-text">${esc(plan.familyConnection)}</div>` : ""}
           <textarea data-week-family rows="3" placeholder="Optional draft family idea…">${esc(week.familyConnection || "")}</textarea>
         </section>
+        <section class="tk-enrich-card-block${importHighlightClass("coverImageInstructions")}" data-import-field="coverImageInstructions" data-enrich-week-cover id="tk-week-cover-instructions">
+          <h4>Cover image</h4>
+          <p class="muted-copy">Instructions for cover art or manual upload only. This does not generate or replace a cover image.</p>
+          <label>
+            <span>Cover Image Instructions</span>
+            <textarea data-week-cover-image-instructions rows="3" placeholder="Describe the cover photo you want…">${esc(week.coverImageInstructions || "")}</textarea>
+          </label>
+        </section>
         <section class="tk-enrich-card-block" data-tk-enrich-linked-resources-wrap>
           <h4>Linked Resources</h4>
           <p class="muted-copy">Create or upload a draft printable and link it to this lesson. Drafts stay hidden from customers until you publish.</p>
@@ -6318,6 +6326,10 @@
           .map((line) => line.trim())
           .filter(Boolean)
           .slice(0, 24);
+        markDirty();
+      } else if (event.target.matches("[data-week-cover-image-instructions]")) {
+        if (!state.draft.week || typeof state.draft.week !== "object") state.draft.week = {};
+        state.draft.week.coverImageInstructions = String(event.target.value || "").slice(0, 4000);
         markDirty();
       } else {
         return;
