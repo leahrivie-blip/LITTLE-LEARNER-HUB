@@ -3,9 +3,22 @@
  */
 "use strict";
 
-const manifest = require("./lesson-paste-organizer-manifest.js");
-const weekKit = require("./curriculum-week-kit-paste.js");
-const ageSafety = require("./curriculum-operator-guided-age-safety.js");
+function loadOrganizerDep(nodePath, globalKey) {
+  const g = typeof globalThis !== "undefined" ? globalThis : {};
+  if (g[globalKey]) return g[globalKey];
+  if (typeof module === "object" && module.exports) {
+    // eslint-disable-next-line global-require, import/no-dynamic-require
+    return require(nodePath);
+  }
+  return null;
+}
+
+const organizerManifest = loadOrganizerDep("./lesson-paste-organizer-manifest.js", "LLHLessonPasteOrganizerManifest");
+const organizerWeekKit = loadOrganizerDep("./curriculum-week-kit-paste.js", "LLHCurriculumWeekKitPaste");
+const ageSafety = loadOrganizerDep(
+  "./curriculum-operator-guided-age-safety.js",
+  "LLHCurriculumOperatorGuidedAgeSafety",
+) || { validateLessonActivities: () => ({ ok: true, safetyWarnings: [] }) };
 
 const ACTIVITY_TITLE_MAX = 180;
 
@@ -454,8 +467,8 @@ function multiline(value) {
 
 function weekdayBodyHasStructuredActivities(body) {
   const source = String(body || "");
-  if (weekKit.hasExplicitActivityStart(source)) return true;
-  if (weekKit.looksLikeStructuredActivityFields(source)) return true;
+  if (organizerWeekKit.hasExplicitActivityStart(source)) return true;
+  if (organizerWeekKit.looksLikeStructuredActivityFields(source)) return true;
   return false;
 }
 
@@ -521,10 +534,10 @@ function parseDeterministicPaste(pastedText, options = {}) {
     const block = floatingActivityLines.join("\n").trim();
     floatingActivityLines = [];
     if (!block) return;
-    const parsed = weekKit.parseStructuredActivities(block, "");
+    const parsed = organizerWeekKit.parseStructuredActivities(block, "");
     (parsed.records || []).forEach((record, index) => {
-      const day = weekKit.parseWeekdayName(record.dayOfWeek) || context.day || "";
-      if (!manifest.WEEKDAYS.includes(day)) {
+      const day = organizerWeekKit.parseWeekdayName(record.dayOfWeek) || context.day || "";
+      if (!organizerManifest.WEEKDAYS.includes(day)) {
         unsorted.push({
           id: `unsorted-activity-${sections.length}-${index}`,
           line: 0,
@@ -571,7 +584,7 @@ function parseDeterministicPaste(pastedText, options = {}) {
       flushFloatingActivities();
       context = { day: section.resolved.day, activityBlock: false };
       if (body && weekdayBodyHasStructuredActivities(body)) {
-        const parsedDay = weekKit.parseStructuredActivities(body, section.resolved.day);
+        const parsedDay = organizerWeekKit.parseStructuredActivities(body, section.resolved.day);
         (parsedDay.records || []).forEach((record, index) => {
           const slot = `activity${Math.min(index + 1, 3)}`;
           applyStructuredActivityRecord(
@@ -622,7 +635,7 @@ function parseDeterministicPaste(pastedText, options = {}) {
     const path = section.resolved?.path;
     if (path === "kit.books") {
       flushFloatingActivities();
-      const parsedBooks = weekKit.parseBooksSection(body);
+      const parsedBooks = organizerWeekKit.parseBooksSection(body);
       (parsedBooks.records || []).forEach((book) => {
         books.push({
           title: text(book.title, 200),
@@ -638,7 +651,7 @@ function parseDeterministicPaste(pastedText, options = {}) {
     }
     if (path === "kit.songs") {
       flushFloatingActivities();
-      const parsedSongs = weekKit.parseSongsSection(body);
+      const parsedSongs = organizerWeekKit.parseSongsSection(body);
       (parsedSongs.records || []).forEach((song) => {
         songs.push({
           title: text(song.title, 200),
@@ -654,7 +667,7 @@ function parseDeterministicPaste(pastedText, options = {}) {
     }
     if (path === "kit.printables") {
       flushFloatingActivities();
-      const parsedIdeas = weekKit.parsePrintableIdeasSection(body);
+      const parsedIdeas = organizerWeekKit.parsePrintableIdeasSection(body);
       (parsedIdeas.records || []).forEach((idea) => {
         printables.push({
           title: text(idea.title, 200),
@@ -728,7 +741,7 @@ function parseDeterministicPaste(pastedText, options = {}) {
   if (ageUnknown) missingRequired.push({ id: "ageGroup", label: "Age group (or mark unknown)" });
   if (themeUnknown) missingRequired.push({ id: "theme", label: "Theme (or mark unknown)" });
 
-  const missingOptional = manifest.GLOBAL_FIELD_IDS
+  const missingOptional = organizerManifest.GLOBAL_FIELD_IDS
     .filter((id) => id !== "title" && !values[`global.${id}`]?.value)
     .map((id) => ({ id, label: id }));
 
@@ -767,7 +780,7 @@ function parseDeterministicPaste(pastedText, options = {}) {
   const unresolvedTitleLength = titleIssues.length > 0;
 
   return {
-    manifestVersion: manifest.MANIFEST_VERSION,
+    manifestVersion: organizerManifest.MANIFEST_VERSION,
     originalText,
     characterCount: originalText.length,
     detectedSections,
@@ -800,11 +813,11 @@ function parseDeterministicPaste(pastedText, options = {}) {
   };
 }
 
-const api = {
+const llhLessonPasteOrganizerParserExports = {
   normalizeHeading,
   parseDeterministicPaste,
   RELATIVE_DATE_RE,
   ABSOLUTE_DATE_RE,
 };
-module.exports = api;
-if (typeof globalThis !== "undefined") globalThis.LLHLessonPasteOrganizerParser = api;
+if (typeof module === "object" && module.exports) module.exports = llhLessonPasteOrganizerParserExports;
+if (typeof globalThis !== "undefined") globalThis.LLHLessonPasteOrganizerParser = llhLessonPasteOrganizerParserExports;

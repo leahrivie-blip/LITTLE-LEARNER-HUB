@@ -169,7 +169,7 @@ function getAllFieldDefinitions() {
   return out;
 }
 
-const api = {
+const lessonPasteOrganizerManifestApi = {
   MANIFEST_VERSION,
   WEEKDAYS,
   GLOBAL_FIELD_IDS,
@@ -184,5 +184,5 @@ const api = {
   GLOBAL_FIELDS,
   getAllFieldDefinitions,
 };
-module.exports = api;
-if (typeof globalThis !== "undefined") globalThis.LLHLessonPasteOrganizerManifest = api;
+if (typeof module === "object" && module.exports) module.exports = lessonPasteOrganizerManifestApi;
+if (typeof globalThis !== "undefined") globalThis.LLHLessonPasteOrganizerManifest = lessonPasteOrganizerManifestApi;

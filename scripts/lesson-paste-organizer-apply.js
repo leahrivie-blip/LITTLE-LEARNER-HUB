@@ -3,8 +3,21 @@
  */
 "use strict";
 
-const structurePaste = require("./curriculum-lesson-structure-paste.js");
-const manifest = require("./lesson-paste-organizer-manifest.js");
+function loadOrganizerDep(nodePath, globalKey) {
+  const g = typeof globalThis !== "undefined" ? globalThis : {};
+  if (g[globalKey]) return g[globalKey];
+  if (typeof module === "object" && module.exports) {
+    // eslint-disable-next-line global-require, import/no-dynamic-require
+    return require(nodePath);
+  }
+  return null;
+}
+
+const structurePaste = loadOrganizerDep(
+  "./curriculum-lesson-structure-paste.js",
+  "LLHCurriculumLessonStructurePaste",
+);
+const organizerApplyManifest = loadOrganizerDep("./lesson-paste-organizer-manifest.js", "LLHLessonPasteOrganizerManifest");
 
 function text(value, max = 4000) {
   return String(value == null ? "" : value).trim().slice(0, max);
@@ -12,7 +25,7 @@ function text(value, max = 4000) {
 
 function emptyDailyPlans() {
   const out = {};
-  manifest.WEEKDAYS.forEach((day) => {
+  organizerApplyManifest.WEEKDAYS.forEach((day) => {
     out[day] = { theme: "", items: [] };
   });
   return out;
@@ -49,7 +62,7 @@ function applyOwnerDecisions(parseResult, decisions = {}) {
       values[path] = { value: prev ? `${prev}\n\n${item.text}` : item.text, occurrences: [] };
       return;
     }
-    if (manifest.WEEKDAYS.includes(choice)) {
+    if (organizerApplyManifest.WEEKDAYS.includes(choice)) {
       const path = `daily.${choice}.activity1`;
       if (!values[path]?.value) {
         values[path] = { value: item.text, occurrences: [] };
@@ -86,7 +99,7 @@ function buildParsedShapeFromOrganizer(parseResult, options = {}) {
   const dailyPlans = emptyDailyPlans();
   const generateId = structurePaste.generateItemId || (() => `cur-act-${Date.now()}`);
 
-  manifest.WEEKDAYS.forEach((day) => {
+  organizerApplyManifest.WEEKDAYS.forEach((day) => {
     ["activity1", "activity2", "activity3"].forEach((slot) => {
       const raw = values[`daily.${day}.${slot}`]?.value;
       if (!raw) return;
@@ -233,7 +246,7 @@ function buildStructurePreview(parseResult, options = {}) {
       : field("Cover image instructions", parseResult.values?.["global.cover"]?.value),
   ];
 
-  const days = manifest.WEEKDAYS.map((day) => {
+  const days = organizerApplyManifest.WEEKDAYS.map((day) => {
     const plan = parsed.dailyPlans[day] || { items: [] };
     const activities = (plan.items || []).flatMap((item, index) => {
       const prefix = `Activity ${index + 1}`;
@@ -346,7 +359,7 @@ function buildPrintPreviewHtml(parseResult, options = {}) {
 <body><h1>Paste &amp; Organize — Print Preview (draft)</h1>${sections}</body></html>`;
 }
 
-const api = {
+const llhLessonPasteOrganizerApplyExports = {
   applyOwnerDecisions,
   buildParsedShapeFromOrganizer,
   validateBeforeSave,
@@ -354,5 +367,5 @@ const api = {
   buildStructurePreview,
   buildPrintPreviewHtml,
 };
-module.exports = api;
-if (typeof globalThis !== "undefined") globalThis.LLHLessonPasteOrganizerApply = api;
+if (typeof module === "object" && module.exports) module.exports = llhLessonPasteOrganizerApplyExports;
+if (typeof globalThis !== "undefined") globalThis.LLHLessonPasteOrganizerApply = llhLessonPasteOrganizerApplyExports;
