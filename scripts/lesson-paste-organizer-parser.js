@@ -4,6 +4,10 @@
 "use strict";
 
 const manifest = require("./lesson-paste-organizer-manifest.js");
+const weekKit = require("./curriculum-week-kit-paste.js");
+const ageSafety = require("./curriculum-operator-guided-age-safety.js");
+
+const ACTIVITY_TITLE_MAX = 180;
 
 const RELATIVE_DATE_RE = /\b(next\s+(?:monday|tuesday|wednesday|thursday|friday|week|month)|this\s+week|tomorrow|later|soon)\b/i;
 const ABSOLUTE_DATE_RE = /\b(?:\d{1,2}\/\d{1,2}\/\d{2,4}|(?:january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2},?\s+\d{4}|(?:monday|tuesday|wednesday|thursday|friday),?\s+(?:january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2}|week\s+of\s+(?:\d{1,2}\/\d{1,2}|\w+\s+\d{1,2}))/i;
@@ -34,35 +38,50 @@ function freezeAliasMap(entries) {
 const GLOBAL_ALIASES = freezeAliasMap({
   lesson: "global.title",
   "lesson plan": "global.title",
+  "lesson plan title": "global.title",
   title: "global.title",
   theme: "global.theme",
   age: "global.ageGroup",
   "age group": "global.ageGroup",
   "age band": "global.ageGroup",
+  "recommended age": "global.ageGroup",
   week: "global.dateRange",
   "week of": "global.weekStartDate",
   objectives: "global.weeklyObjectives",
   "weekly objectives": "global.weeklyObjectives",
+  "learning objectives": "global.weeklyObjectives",
+  "weekly overview": "global.weeklyFocus",
+  "week overview": "global.weeklyFocus",
   materials: "global.weeklyMaterials",
+  "materials list": "global.weeklyMaterials",
   "weekly materials": "global.weeklyMaterials",
   supplies: "global.weeklyMaterials",
   "what you need": "global.weeklyMaterials",
   preparation: "global.weeklyPreparation",
+  "teacher preparation": "global.weeklyPreparation",
+  "weekly teacher preparation": "global.weeklyPreparation",
   "how to prepare": "global.weeklyPreparation",
   setup: "global.classroomSetup",
   safety: "global.weeklySafety",
   "safety notes": "global.weeklySafety",
+  "weekly safety": "global.weeklySafety",
   cleanup: "global.cleanupSupplies",
   vocabulary: "global.weeklyVocabulary",
   "family connection": "global.familyConnection",
   "home connection": "global.familyConnection",
   books: "global.weeklyBooks",
+  "weekly books": "kit.books",
   book: "book.record",
   songs: "global.weeklySongs",
+  "weekly songs and movement": "kit.songs",
+  "weekly songs": "kit.songs",
   song: "song.record",
   printables: "global.weeklyPrintables",
+  "weekly printables": "kit.printables",
+  "printable ideas": "kit.printables",
   printable: "printable.record",
   cover: "global.cover",
+  "cover image": "global.cover",
   "teacher notes": "global.teacherNotes",
   notes: "global.teacherNotes",
 });
@@ -140,9 +159,48 @@ function parseHeadingLine(line) {
   return { labelRaw: labelRaw.trim(), inlineBody: inlineBody.trim(), normalized: normalizeHeading(labelRaw) };
 }
 
+const GLOBAL_LESSON_BOUNDARY = new Set(
+  Object.entries(GLOBAL_ALIASES)
+    .filter(([, path]) => String(path).startsWith("global.") || String(path).startsWith("kit."))
+    .map(([key]) => normalizeHeading(key)),
+);
+
+function isGreedyKitSection(resolved) {
+  const path = resolved?.path || "";
+  return path === "kit.books" || path === "kit.songs" || path === "kit.printables";
+}
+
+function endsGreedyWeekdaySection(normalized, context) {
+  if (WEEKDAY_ALIASES[normalized]) return true;
+  const resolved = resolveFieldPath(normalized, context);
+  if (!resolved) return false;
+  if (resolved.path === "book.record" || resolved.path === "song.record" || resolved.path === "printable.record") {
+    return true;
+  }
+  if (isGreedyKitSection(resolved)) return true;
+  const path = String(resolved.path || "");
+  if (path === "global.title" || path === "global.theme") return true;
+  if (path === "global.ageGroup") return !context.day;
+  if (path === "global.weeklyFocus" || path === "global.weeklyObjectives") return true;
+  if (path === "global.familyConnection" || path === "global.teacherNotes" || path === "global.cover") return true;
+  if (path === "global.weeklyMaterials") {
+    return normalized.includes("weekly") || normalized === "materials list" || normalized === "supplies" || normalized === "what you need";
+  }
+  if (path === "global.weeklySafety") {
+    return normalized.includes("weekly") || normalized === "safety notes";
+  }
+  if (path === "global.weeklyPreparation") {
+    return normalized.includes("weekly") || normalized === "how to prepare";
+  }
+  return false;
+}
+
 function resolveFieldPath(normalized, context) {
   if (WEEKDAY_ALIASES[normalized]) {
     return { kind: "weekday", day: WEEKDAY_ALIASES[normalized] };
+  }
+  if (normalized === "activity name" || normalized === "activity title" || normalized === "activity") {
+    return { kind: "structuredActivityBlock", anchor: normalized };
   }
   if (normalized === "book" || normalized === "books") {
     return { kind: "field", path: "book.record" };
@@ -182,6 +240,23 @@ function splitSections(pastedText) {
 
   lines.forEach((line, index) => {
     const heading = parseHeadingLine(line);
+    if (heading && current?.greedy) {
+      if (current.resolved?.kind === "weekday") {
+        if (endsGreedyWeekdaySection(heading.normalized, activeContext)) {
+          pushCurrent();
+        } else {
+          current.bodyLines.push(line);
+          return;
+        }
+      } else if (isGreedyKitSection(current.resolved)) {
+        if (WEEKDAY_ALIASES[heading.normalized] || GLOBAL_LESSON_BOUNDARY.has(heading.normalized)) {
+          pushCurrent();
+        } else {
+          current.bodyLines.push(line);
+          return;
+        }
+      }
+    }
     if (heading) {
       const resolved = resolveFieldPath(heading.normalized, activeContext);
       pushCurrent();
@@ -196,6 +271,7 @@ function splitSections(pastedText) {
         bodyLines: [],
         resolved,
         context: { ...activeContext },
+        greedy: resolved?.kind === "weekday" || isGreedyKitSection(resolved),
       };
       return;
     }
@@ -224,6 +300,111 @@ function bodyText(section) {
   return parts.join("\n").trim();
 }
 
+function normalizeActivityTitle(raw) {
+  return String(raw == null ? "" : raw).replace(/\r\n/g, "\n").replace(/\s+/g, " ").trim();
+}
+
+function inferAgeBand(ageGroupText) {
+  const value = text(ageGroupText, 120).toLowerCase();
+  if (!value) return "";
+  if (/infant/.test(value)) return "infant";
+  if (/toddler/.test(value)) return "toddler";
+  if (/preschool|pre-k|prek/.test(value)) return "preschool";
+  return "";
+}
+
+function structuredActivityMissingFields(record) {
+  const missing = [];
+  if (!text(record.objective, 20)) missing.push("objective");
+  if (!text(record.materials, 10)) missing.push("materials");
+  if (!text(record.steps, 20)) missing.push("directions");
+  if (!text(record.safetyNotes, 10)) missing.push("safety");
+  return missing;
+}
+
+function applyStructuredActivityRecord(values, day, slot, record, meta, titleIssues, activitiesReport) {
+  const title = normalizeActivityTitle(record.title);
+  if (!title) return;
+  if (title.length > ACTIVITY_TITLE_MAX) {
+    titleIssues.push({
+      type: "activity_title_too_long",
+      day,
+      titlePreview: title.slice(0, 80),
+      length: title.length,
+      max: ACTIVITY_TITLE_MAX,
+    });
+  }
+  assignValue(values, `daily.${day}.${slot}`, title, meta);
+  if (text(record.objective)) assignValue(values, `daily.${day}.dailyObjective`, record.objective, meta);
+  if (text(record.description)) assignValue(values, `daily.${day}.dailyFocus`, record.description, meta);
+  if (multiline(record.materials)) assignValue(values, `daily.${day}.materials`, record.materials, meta);
+  if (text(record.preparation)) assignValue(values, `daily.${day}.preparation`, record.preparation, meta);
+  if (text(record.setup)) assignValue(values, `daily.${day}.setup`, record.setup, meta);
+  if (multiline(record.steps)) assignValue(values, `daily.${day}.directions`, record.steps, meta);
+  else if (text(record.description)) assignValue(values, `daily.${day}.directions`, record.description, meta);
+  if (multiline(record.teacherLanguage)) assignValue(values, `daily.${day}.teacherQuestions`, record.teacherLanguage, meta);
+  if (multiline(record.observationOpportunities)) assignValue(values, `daily.${day}.observation`, record.observationOpportunities, meta);
+  if (multiline(record.safetyNotes)) assignValue(values, `daily.${day}.safety`, record.safetyNotes, meta);
+  if (text(record.cleanupTips)) assignValue(values, `daily.${day}.cleanup`, record.cleanupTips, meta);
+  if (text(record.indoorAlternatives)) assignValue(values, `daily.${day}.indoorAlternative`, record.indoorAlternatives, meta);
+  if (text(record.outdoorAlternatives)) assignValue(values, `daily.${day}.outdoorAlternative`, record.outdoorAlternatives, meta);
+  if (text(record.adaptations)) assignValue(values, `daily.${day}.supportModification`, record.adaptations, meta);
+  if (text(record.extensions)) assignValue(values, `daily.${day}.challengeExtension`, record.extensions, meta);
+  if (text(record.mixedAgeAdaptations)) assignValue(values, `daily.${day}.mixedAgeAdaptation`, record.mixedAgeAdaptations, meta);
+  if (multiline(record.vocabulary)) assignValue(values, `daily.${day}.vocabulary`, record.vocabulary, meta);
+
+  activitiesReport.push({
+    title,
+    weekday: day,
+    slot,
+    missingFields: structuredActivityMissingFields(record),
+    fieldPaths: [
+      `daily.${day}.${slot}`,
+      `daily.${day}.dailyObjective`,
+      `daily.${day}.materials`,
+      `daily.${day}.directions`,
+      `daily.${day}.safety`,
+    ],
+  });
+}
+
+function multiline(value) {
+  return String(value == null ? "" : value).replace(/\r\n/g, "\n").replace(/^\n+|\n+$/g, "").trim();
+}
+
+function weekdayBodyHasStructuredActivities(body) {
+  const source = String(body || "");
+  if (weekKit.hasExplicitActivityStart(source)) return true;
+  if (weekKit.looksLikeStructuredActivityFields(source)) return true;
+  return false;
+}
+
+function applyLegacyWeekdayBody(values, day, body, meta) {
+  const lines = String(body || "").replace(/\r\n/g, "\n").split("\n");
+  let currentPath = null;
+  const currentLines = [];
+  function flush() {
+    if (!currentPath) return;
+    assignValue(values, currentPath, currentLines.join("\n"), meta);
+    currentPath = null;
+    currentLines.length = 0;
+  }
+  lines.forEach((line) => {
+    const heading = parseHeadingLine(line);
+    if (heading) {
+      const resolved = resolveFieldPath(heading.normalized, { day });
+      flush();
+      if (resolved?.kind === "field" && String(resolved.path || "").startsWith(`daily.${day}.`)) {
+        currentPath = resolved.path;
+        if (heading.inlineBody) currentLines.push(heading.inlineBody);
+      }
+      return;
+    }
+    if (currentPath) currentLines.push(line);
+  });
+  flush();
+}
+
 function assignValue(store, path, value, meta) {
   if (!path || !text(value, 20000)) return;
   if (!store[path]) {
@@ -250,7 +431,42 @@ function parseDeterministicPaste(pastedText, options = {}) {
   const books = [];
   const songs = [];
   const printables = [];
+  const activitiesReport = [];
+  const titleIssues = [];
   let context = {};
+  let floatingActivityLines = [];
+
+  function flushFloatingActivities() {
+    if (!floatingActivityLines.length) return;
+    const block = floatingActivityLines.join("\n").trim();
+    floatingActivityLines = [];
+    if (!block) return;
+    const parsed = weekKit.parseStructuredActivities(block, "");
+    (parsed.records || []).forEach((record, index) => {
+      const day = weekKit.parseWeekdayName(record.dayOfWeek) || context.day || "";
+      if (!manifest.WEEKDAYS.includes(day)) {
+        unsorted.push({
+          id: `unsorted-activity-${sections.length}-${index}`,
+          line: 0,
+          heading: record.title || "Activity",
+          text: block.slice(0, 400),
+          reason: "activity_weekday_missing",
+        });
+        return;
+      }
+      const slot = `activity${Math.min(index + 1, 3)}`;
+      applyStructuredActivityRecord(values, day, slot, record, { line: 0, heading: "Activity name" }, titleIssues, activitiesReport);
+    });
+    (parsed.unsupported || []).forEach((row, index) => {
+      unsorted.push({
+        id: `unsorted-activity-field-${index}`,
+        line: 0,
+        heading: row.heading || "Activity field",
+        text: row.body || "",
+        reason: "unsupported_activity_field",
+      });
+    });
+  }
 
   sections.forEach((section) => {
     const body = bodyText(section);
@@ -272,20 +488,106 @@ function parseDeterministicPaste(pastedText, options = {}) {
     }
 
     if (section.resolved?.kind === "weekday") {
+      flushFloatingActivities();
       context = { day: section.resolved.day, activityBlock: false };
-      if (body) {
-        unsorted.push({
-          id: `unsorted-${section.lineStart}`,
+      if (body && weekdayBodyHasStructuredActivities(body)) {
+        const parsedDay = weekKit.parseStructuredActivities(body, section.resolved.day);
+        (parsedDay.records || []).forEach((record, index) => {
+          const slot = `activity${Math.min(index + 1, 3)}`;
+          applyStructuredActivityRecord(
+            values,
+            section.resolved.day,
+            slot,
+            record,
+            { line: section.lineStart, heading: section.headingRaw },
+            titleIssues,
+            activitiesReport,
+          );
+        });
+        (parsedDay.unsupported || []).forEach((row, index) => {
+          unsorted.push({
+            id: `unsorted-${section.lineStart}-field-${index}`,
+            line: section.lineStart,
+            heading: row.heading || section.headingRaw,
+            text: row.body || "",
+            reason: "unsupported_activity_field",
+          });
+        });
+      } else if (body) {
+        applyLegacyWeekdayBody(values, section.resolved.day, body, {
           line: section.lineStart,
           heading: section.headingRaw,
-          text: body,
-          reason: "weekday_block_needs_activity_labels",
         });
+        if (!values[`daily.${section.resolved.day}.activity1`]?.value
+          && !values[`daily.${section.resolved.day}.activity2`]?.value) {
+          unsorted.push({
+            id: `unsorted-${section.lineStart}`,
+            line: section.lineStart,
+            heading: section.headingRaw,
+            text: body,
+            reason: "weekday_block_needs_activity_labels",
+          });
+        }
       }
       return;
     }
 
+    if (section.resolved?.kind === "structuredActivityBlock") {
+      flushFloatingActivities();
+      const chunk = [section.headingRaw ? `${section.headingRaw}:` : "Activity name:", section.inlineBody, ...section.bodyLines].filter(Boolean).join("\n");
+      floatingActivityLines.push(chunk);
+      return;
+    }
+
     const path = section.resolved?.path;
+    if (path === "kit.books") {
+      flushFloatingActivities();
+      const parsedBooks = weekKit.parseBooksSection(body);
+      (parsedBooks.records || []).forEach((book) => {
+        books.push({
+          title: text(book.title, 200),
+          body: [book.title, book.author, book.questions].filter(Boolean).join("\n"),
+          line: section.lineStart,
+          assignedDay: book.suggestedWeekday || "",
+        });
+      });
+      if (text(body) && !(parsedBooks.records || []).length) {
+        assignValue(values, "global.weeklyBooks", body, { line: section.lineStart, heading: section.headingRaw });
+      }
+      return;
+    }
+    if (path === "kit.songs") {
+      flushFloatingActivities();
+      const parsedSongs = weekKit.parseSongsSection(body);
+      (parsedSongs.records || []).forEach((song) => {
+        songs.push({
+          title: text(song.title, 200),
+          body: [song.title, song.lyrics, song.teacherDirections].filter(Boolean).join("\n"),
+          line: section.lineStart,
+          assignedDay: song.linkedWeekday || "",
+        });
+      });
+      if (text(body) && !(parsedSongs.records || []).length) {
+        assignValue(values, "global.weeklySongs", body, { line: section.lineStart, heading: section.headingRaw });
+      }
+      return;
+    }
+    if (path === "kit.printables") {
+      flushFloatingActivities();
+      const parsedIdeas = weekKit.parsePrintableIdeasSection(body);
+      (parsedIdeas.records || []).forEach((idea) => {
+        printables.push({
+          title: text(idea.title, 200),
+          body: [idea.title, idea.purpose, idea.instructions].filter(Boolean).join("\n"),
+          line: section.lineStart,
+          assignedDay: "",
+        });
+      });
+      if (text(body) && !(parsedIdeas.records || []).length) {
+        assignValue(values, "global.weeklyPrintables", body, { line: section.lineStart, heading: section.headingRaw });
+      }
+      return;
+    }
     if (path === "book.record") {
       books.push({ title: text(body.split("\n")[0], 200), body, line: section.lineStart, assignedDay: context.day || "" });
       return;
@@ -300,6 +602,7 @@ function parseDeterministicPaste(pastedText, options = {}) {
     }
 
     if (path) {
+      flushFloatingActivities();
       assignValue(values, path, body, { line: section.lineStart, heading: section.headingRaw });
       return;
     }
@@ -314,6 +617,7 @@ function parseDeterministicPaste(pastedText, options = {}) {
       });
     }
   });
+  flushFloatingActivities();
 
   const conflicts = [];
   Object.keys(values).forEach((path) => {
@@ -356,9 +660,31 @@ function parseDeterministicPaste(pastedText, options = {}) {
     ],
   }));
 
+  titleIssues.forEach((issue) => {
+    conflicts.push({
+      type: issue.type,
+      path: `daily.${issue.day}.activity1`,
+      values: [`${issue.length} characters`],
+      message: `Activity title exceeds ${issue.max} characters.`,
+    });
+  });
+
+  const ageBand = inferAgeBand(values["global.ageGroup"]?.value);
+  const infantSafety = ageSafety.validateLessonActivities({
+    brief: { ageBand, guidedWorkflow: false },
+    activities: activitiesReport.map((row) => ({
+      title: row.title,
+      materials: values[`daily.${row.weekday}.materials`]?.value || "",
+      objective: values[`daily.${row.weekday}.dailyObjective`]?.value || "",
+      steps: values[`daily.${row.weekday}.directions`]?.value || "",
+      safetyNotes: values[`daily.${row.weekday}.safety`]?.value || "",
+    })),
+  });
+
   const unresolvedConflicts = conflicts.length > 0;
   const unresolvedUnsorted = unsorted.length > 0;
   const unresolvedRelativeDates = unresolvedDates.length > 0;
+  const unresolvedTitleLength = titleIssues.length > 0;
 
   return {
     manifestVersion: manifest.MANIFEST_VERSION,
@@ -369,6 +695,7 @@ function parseDeterministicPaste(pastedText, options = {}) {
     books,
     songs,
     printables,
+    activities: activitiesReport,
     report: {
       filled,
       missingRequired,
@@ -377,12 +704,15 @@ function parseDeterministicPaste(pastedText, options = {}) {
       conflicts,
       needsOwnerDecision,
       unresolvedDates,
+      titleIssues,
+      infantSafety,
+      activities: activitiesReport,
     },
     flags: {
       ageMarkedUnknown: options.ageMarkedUnknown === true,
       themeMarkedUnknown: options.themeMarkedUnknown === true,
     },
-    canSaveDraft: !unresolvedConflicts && !unresolvedUnsorted && !unresolvedRelativeDates
+    canSaveDraft: !unresolvedConflicts && !unresolvedUnsorted && !unresolvedRelativeDates && !unresolvedTitleLength
       && Boolean(values["global.title"]?.value)
       && (!ageUnknown || options.ageMarkedUnknown)
       && (!themeUnknown || options.themeMarkedUnknown),

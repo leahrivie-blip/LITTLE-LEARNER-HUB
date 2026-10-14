@@ -96,10 +96,11 @@ function buildParsedShapeFromOrganizer(parseResult, options = {}) {
         itemId: generateId(),
         title,
         objective: text(values[`daily.${day}.dailyObjective`]?.value, 800),
-        description: text(values[`daily.${day}.directions`]?.value, 4000),
+        description: text(values[`daily.${day}.dailyFocus`]?.value, 4000)
+          || text(values[`daily.${day}.directions`]?.value, 4000),
         materials: text(values[`daily.${day}.materials`]?.value, 2000) || text(lesson.weeklyMaterials, 500),
         setup: text(values[`daily.${day}.setup`]?.value, 2000),
-        steps: restLines(raw) || text(values[`daily.${day}.directions`]?.value, 4000),
+        steps: text(values[`daily.${day}.directions`]?.value, 4000) || restLines(raw),
         teacherLanguage: text(values[`daily.${day}.teacherQuestions`]?.value, 2000),
         observationOpportunities: text(values[`daily.${day}.observation`]?.value, 2000),
         safetyNotes: text(values[`daily.${day}.safety`]?.value, 2000),

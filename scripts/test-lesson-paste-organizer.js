@@ -7,6 +7,20 @@ const path = require("node:path");
 const manifest = require("./lesson-paste-organizer-manifest.js");
 const parser = require("./lesson-paste-organizer-parser.js");
 const applyApi = require("./lesson-paste-organizer-apply.js");
+const ageSafety = require("./curriculum-operator-guided-age-safety.js");
+
+const MY_FIRST_HALLOWEEN_PASTE = fs.readFileSync(
+  path.join(__dirname, "fixtures", "my-first-halloween-infant-paste.txt"),
+  "utf8",
+).trim();
+
+const EXPECTED_HALLOWEEN_TITLES = Object.freeze({
+  monday: "Pumpkin Footprint Keepsake",
+  tuesday: "Orange and Black Texture Exploration",
+  wednesday: "Ghost Peekaboo and Face-to-Face Movement",
+  thursday: "Pumpkin Water Painting",
+  friday: "Halloween Color Scarf Movement",
+});
 
 const LARGE_PASTE = `
 Title:
@@ -211,6 +225,63 @@ console.log("Unrelated lessons unchanged (apply isolation)");
   });
   ok(draft.ok, "isolated new draft");
   ok(before.title === "Other Lesson", "unrelated lesson object untouched");
+}
+
+console.log("My First Halloween — structured infant paste");
+{
+  const parsed = parser.parseDeterministicPaste(MY_FIRST_HALLOWEEN_PASTE);
+  ok(parsed.aiUsed === false, "Halloween paste stays deterministic");
+  ok(parsed.values["global.title"]?.value === "My First Halloween", "Halloween lesson title");
+  ok(/Infant 0.?12 Months/i.test(parsed.values["global.ageGroup"]?.value || ""), "infant age group preserved");
+  ok(parsed.values["global.theme"]?.value.includes("Gentle Halloween"), "theme mapped");
+  ok(parsed.report.unsorted.length === 0, "no unsorted blocks for structured infant paste");
+  ok(parsed.report.conflicts.length === 0, "no field conflicts");
+  ok(parsed.books.length >= 1, "books detected globally");
+  ok(parsed.songs.length >= 1, "songs detected globally");
+  ok(parsed.printables.length >= 1, "printables detected globally");
+  ok(parsed.values["global.familyConnection"]?.value.includes("orange and black"), "family connection detected");
+  ok(parsed.values["global.cover"]?.value.includes("Realistic photo"), "cover image instructions detected");
+  ok((parsed.activities || []).length === 5, "five activities parsed");
+  manifest.WEEKDAYS.forEach((day) => {
+    const title = parsed.values[`daily.${day}.activity1`]?.value || "";
+    ok(title === EXPECTED_HALLOWEEN_TITLES[day], `${day} activity title`);
+    ok(title.length <= 180, `${day} title under 180 chars`);
+    ok(!/Weekday|Category|Recommended age|Estimated duration/i.test(title), `${day} title excludes field labels`);
+  });
+  ok(
+    !(parsed.activities || []).some((row) => /^Activity objective$/i.test(row.title)),
+    "Activity objective does not create activities",
+  );
+  ok(parsed.values["daily.monday.materials"]?.value.includes("Washable orange paint"), "multiline materials stay in materials");
+  ok(parsed.values["daily.monday.directions"]?.value.includes("1. Caregiver paints"), "numbered directions preserved");
+  ok(parsed.values["daily.monday.safety"]?.value.includes("Adult completes"), "safety stays on activity");
+  ok(parsed.values["daily.monday.vocabulary"]?.value.includes("Pumpkin"), "vocabulary list preserved");
+  const mondaySafety = ageSafety.validateActivityIdea({
+    ageBand: "infant",
+    title: EXPECTED_HALLOWEEN_TITLES.monday,
+    materialsText: parsed.values["daily.monday.materials"]?.value || "",
+    ownerInstructions: parsed.values["daily.monday.dailyFocus"]?.value || "",
+  });
+  ok(mondaySafety.ok, "infant keepsake craft wording does not hard-fail safety");
+  ok(Array.isArray(parsed.report.infantSafety?.safetyWarnings), "infant safety report attached");
+  ok(parsed.canSaveDraft, "Halloween paste can save draft");
+  const draft = applyApi.buildDraftLessonPlan(parsed, {
+    ownerDecisions: {},
+    ageMarkedUnknown: false,
+    themeMarkedUnknown: false,
+  });
+  ok(draft.ok, "Halloween draft builds");
+  ok(draft.lessonPlan.title === "My First Halloween", "draft lesson title");
+  ok(
+    manifest.WEEKDAYS.every((day) => (draft.lessonPlan.dailyPlans?.[day]?.items || []).length === 1),
+    "one activity per weekday in draft",
+  );
+  const preview = applyApi.buildStructurePreview(parsed, {
+    ownerDecisions: {},
+    ageMarkedUnknown: false,
+    themeMarkedUnknown: false,
+  });
+  ok(preview.sections.some((s) => s.id === "books"), "review preview lists books section");
 }
 
 console.log("Static wiring");

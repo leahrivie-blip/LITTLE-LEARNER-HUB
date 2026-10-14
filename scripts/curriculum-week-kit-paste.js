@@ -126,8 +126,21 @@
 
   const ACTIVITY_ITEM_ALIASES = freezeNormalizedAliases({
     "activity name": "title",
+    "activity title": "title",
     name: "title",
     title: "title",
+    "activity description": "description",
+    "activity materials": "materials",
+    "activity safety": "safetyNotes",
+    "activity image": "imageRequirement",
+    "teacher questions": "teacherLanguage",
+    "learning and observation": "observationOpportunities",
+    enrichment: "extensions",
+    "challenge adaptations": "extensions",
+    "group and setting": "indoorOutdoorOptions",
+    images: "imageRequirement",
+    "setup image brief": "imageBriefSetup",
+    "finished example image brief": "imageBriefExample",
     weekday: "dayOfWeek",
     "activity weekday": "dayOfWeek",
     category: "activityCategory",
@@ -196,7 +209,7 @@
 
   function isExplicitActivityStartLabel(label) {
     const key = normalizeHeading(label);
-    return key === "activity name" || key === "name";
+    return key === "activity name" || key === "name" || key === "activity title" || key === "activity";
   }
 
   /**
@@ -205,7 +218,8 @@
    */
   function hasExplicitActivityStart(source) {
     const text = String(source || "");
-    if (/\bactivity\s*name\b/i.test(text)) return true;
+    if (/\bactivity\s*(?:name|title)\b/i.test(text)) return true;
+    if (/^\s*activity\s*:\s*$/im.test(text)) return true;
     return text.split(/\r?\n/).some((line) => {
       const cleaned = stripHeadingDecorators(line);
       if (!cleaned) return false;
