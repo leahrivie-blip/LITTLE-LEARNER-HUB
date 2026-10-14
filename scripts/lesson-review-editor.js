@@ -87,6 +87,7 @@
     imagePreviewUrl: "",
     lastSavedAt: "",
     beforeUnloadBound: false,
+    mobileDetailsOpen: false,
   };
 
   function esc(value) {
@@ -685,8 +686,13 @@
 
   function refreshSaveIndicator() {
     if (!state.open) return;
-    const el = document.querySelector("[data-lre-save-indicator]");
-    if (el) el.textContent = saveStateLabel();
+    const label = saveStateLabel();
+    document.querySelectorAll("[data-lre-save-indicator]").forEach((el) => {
+      el.textContent = label;
+    });
+    document.querySelectorAll(".llh-lre-save-indicator-static").forEach((el) => {
+      el.textContent = label;
+    });
   }
 
   function readFileAsDataUrl(file) {
@@ -834,9 +840,9 @@
   function sectionChrome(section, info) {
     return `
       <header class="llh-lre-section-chrome" data-lre-section-chrome>
-        <p class="llh-lre-kicker">${esc(state.draft.title || "Untitled lesson")}</p>
+        <p class="llh-lre-kicker llh-lre-section-kicker">${esc(state.draft.title || "Untitled lesson")}</p>
         <h2>${esc(section.label)}</h2>
-        <p class="muted-copy">${esc(section.blurb)}</p>
+        <p class="muted-copy llh-lre-section-blurb">${esc(section.blurb)}</p>
         <div class="llh-lre-section-meta">
           ${statusBadge(info.status)}
           <span>${info.complete}/${info.required} required fields complete</span>
@@ -1279,15 +1285,33 @@
     return `<p class="muted-copy">Unknown section.</p>`;
   }
 
+  function renderSectionJumpOptions() {
+    return SECTION_DEFS.map((section) => {
+      const info = computeSectionStatus(section.id, state.draft);
+      return `<option value="${esc(section.id)}" ${state.sectionId === section.id ? "selected" : ""}>${esc(section.label)} · ${esc(info.status)}</option>`;
+    }).join("");
+  }
+
+  function renderMobileSectionJump() {
+    const current = SECTION_DEFS.find((row) => row.id === state.sectionId) || SECTION_DEFS[0];
+    const currentInfo = computeSectionStatus(current.id, state.draft);
+    return `
+      <div class="llh-lre-jump-wrap">
+        <label class="llh-lre-jump-label" for="lre-section-jump-select">Jump to section</label>
+        <select id="lre-section-jump-select" class="llh-lre-jump-select" data-lre-section-select aria-label="Jump to section">
+          ${renderSectionJumpOptions()}
+        </select>
+        <p class="llh-lre-jump-current" aria-live="polite">${esc(current.label)} · ${esc(currentInfo.status)} · ${currentInfo.complete}/${currentInfo.required}</p>
+      </div>
+    `;
+  }
+
   function renderNav() {
     return `
       <nav class="llh-lre-nav" aria-label="Lesson sections">
         <label class="llh-lre-nav-mobile">Jump to section
-          <select data-lre-section-select>
-            ${SECTION_DEFS.map((section) => {
-              const info = computeSectionStatus(section.id, state.draft);
-              return `<option value="${esc(section.id)}" ${state.sectionId === section.id ? "selected" : ""}>${esc(section.label)} · ${esc(info.status)}</option>`;
-            }).join("")}
+          <select data-lre-section-select aria-label="Jump to section">
+            ${renderSectionJumpOptions()}
           </select>
         </label>
         <ul class="llh-lre-nav-list">
@@ -1318,30 +1342,69 @@
     `;
   }
 
+  function backLabel() {
+    return state.returnToQueue ? "Back to Draft Review" : "Back to Lesson Plans";
+  }
+
   function renderHeader(progress) {
     const statusTag = /^(published|featured)$/i.test(String(state.draft.status || "")) ? "Published" : "Draft";
+    const statusMessage = state.statusText
+      ? `<p class="form-message ${state.isSuccess ? "success" : "error"}" role="status" data-lre-status-message>${esc(state.statusText)}</p>`
+      : "";
     return `
       <header class="llh-lre-header" data-lre-sticky-header>
-        <div class="llh-lre-header-main">
-          <div>
-            <p class="llh-lre-kicker">Lesson editor · Owner</p>
-            <h1>${esc(state.draft.title || "Untitled lesson")}</h1>
-            <p class="muted-copy" data-lre-summary-status>
+        <div class="llh-lre-header-mobile">
+          <button type="button" class="llh-lre-mobile-back" data-lre-back aria-label="${esc(backLabel())}">
+            <span class="llh-lre-mobile-back-icon" aria-hidden="true">←</span>
+            <span>${esc(backLabel())}</span>
+          </button>
+          <div class="llh-lre-mobile-title-row">
+            <h1 class="llh-lre-mobile-title">${esc(state.draft.title || "Untitled lesson")}</h1>
+            <p class="llh-lre-mobile-section-line">
               <span class="tag">${esc(statusTag)}</span>
-              ${esc(state.draft.age || "Age")} · ${esc(state.draft.theme || "Theme")}
               · <span data-lre-save-indicator class="llh-lre-save-indicator">${esc(saveStateLabel())}</span>
-              · Progress ${progress.percent}% (${progress.complete}/${progress.required} required)
+              · Progress ${progress.percent}%
             </p>
           </div>
-          <div class="llh-lre-header-actions">
-            <button type="button" class="ghost-button" data-lre-preview-lesson>Preview lesson</button>
-            <button type="button" class="primary-button" data-lre-save-draft ${state.saving ? "disabled" : ""}>Save</button>
-            <button type="button" class="ghost-button" data-lre-back>${state.returnToQueue ? "Back to Draft Review" : "Back to Lesson Plans"}</button>
-            <button type="button" class="ghost-button" data-lre-screenshot-toggle>${state.screenshotMode ? "Exit Screenshot mode" : "Screenshot mode"}</button>
-          </div>
+          ${renderMobileSectionJump()}
+          <details class="llh-lre-mobile-details" data-lre-mobile-details ${state.mobileDetailsOpen ? "open" : ""}>
+            <summary>Lesson Details &amp; Actions</summary>
+            <div class="llh-lre-mobile-details-body" data-lre-summary-status>
+              <p class="llh-lre-mobile-full-title"><strong>${esc(state.draft.title || "Untitled lesson")}</strong></p>
+              <p><span class="tag">${esc(statusTag)}</span> ${esc(state.draft.age || "Age")} · ${esc(state.draft.theme || "Theme")}</p>
+              ${text(state.draft.weeklyOverview) ? `<p class="llh-lre-mobile-overview">${esc(state.draft.weeklyOverview)}</p>` : ""}
+              <p>Progress ${progress.percent}% (${progress.complete}/${progress.required} required)</p>
+              <div class="llh-lre-mobile-details-actions">
+                <button type="button" class="primary-button" data-lre-save-draft ${state.saving ? "disabled" : ""}>Save</button>
+                <button type="button" class="ghost-button" data-lre-preview-lesson>Preview lesson</button>
+                <button type="button" class="ghost-button" data-lre-back>${esc(backLabel())}</button>
+                <button type="button" class="ghost-button" data-lre-mobile-screenshot>${state.screenshotMode ? "Exit Screenshot mode" : "Screenshot mode"}</button>
+              </div>
+            </div>
+          </details>
         </div>
-        ${renderQuickNav()}
-        ${state.statusText ? `<p class="form-message ${state.isSuccess ? "success" : "error"}" role="status">${esc(state.statusText)}</p>` : ""}
+        <div class="llh-lre-header-desktop">
+          <div class="llh-lre-header-main">
+            <div>
+              <p class="llh-lre-kicker">Lesson editor · Owner</p>
+              <h1>${esc(state.draft.title || "Untitled lesson")}</h1>
+              <p class="muted-copy" data-lre-summary-status>
+                <span class="tag">${esc(statusTag)}</span>
+                ${esc(state.draft.age || "Age")} · ${esc(state.draft.theme || "Theme")}
+                · <span data-lre-save-indicator class="llh-lre-save-indicator">${esc(saveStateLabel())}</span>
+                · Progress ${progress.percent}% (${progress.complete}/${progress.required} required)
+              </p>
+            </div>
+            <div class="llh-lre-header-actions">
+              <button type="button" class="ghost-button" data-lre-preview-lesson>Preview lesson</button>
+              <button type="button" class="primary-button" data-lre-save-draft ${state.saving ? "disabled" : ""}>Save</button>
+              <button type="button" class="ghost-button" data-lre-back>${esc(backLabel())}</button>
+              <button type="button" class="ghost-button" data-lre-screenshot-toggle>${state.screenshotMode ? "Exit Screenshot mode" : "Screenshot mode"}</button>
+            </div>
+          </div>
+          ${renderQuickNav()}
+        </div>
+        ${statusMessage}
       </header>
     `;
   }
@@ -1374,14 +1437,30 @@
     `;
   }
 
+  function mobilePhotoRelevant() {
+    return state.sectionId === "images" || state.sectionId === "basics" || state.sectionId === "activities";
+  }
+
   function renderMobileStickyBar() {
+    const photoPrimary = mobilePhotoRelevant();
+    const photoControl = `
+      <label class="ghost-button llh-lre-upload-btn llh-lre-mobile-photo-btn">Photo
+        <input type="file" accept="${PHOTO_ACCEPT}" hidden data-lre-mobile-photo />
+      </label>
+    `;
     return `
       <div class="llh-lre-mobile-bar" data-lre-mobile-bar aria-label="Lesson actions">
         <button type="button" class="ghost-button" data-lre-preview-lesson>Preview</button>
         <button type="button" class="primary-button" data-lre-save-draft ${state.saving ? "disabled" : ""}>Save</button>
-        <label class="ghost-button llh-lre-upload-btn">Photo
-          <input type="file" accept="${PHOTO_ACCEPT}" hidden data-lre-mobile-photo />
-        </label>
+        ${photoPrimary ? photoControl : ""}
+        <details class="llh-lre-mobile-more">
+          <summary aria-label="More actions">More</summary>
+          <div class="llh-lre-mobile-more-menu">
+            ${photoPrimary ? "" : photoControl}
+            <button type="button" class="ghost-button" data-lre-mobile-screenshot>${state.screenshotMode ? "Exit Screenshot mode" : "Screenshot mode"}</button>
+            <button type="button" class="ghost-button" data-lre-back>${esc(backLabel())}</button>
+          </div>
+        </details>
       </div>
     `;
   }
@@ -1394,8 +1473,13 @@
       const enrich = global.LLHTeachingKitEnrichment;
       const viewer = global.LLHTeachingKitViewer;
       const workspace = global.LLHTeachingKitOwnerWorkspace;
+      const kitApi = global.LLHTeachingKit;
       if (!enrich?.buildTeachingKitPreviewModel || !viewer?.enhanceLessonWorkspace) {
         hostEl.innerHTML = `<p class="muted-copy">Preview requires Teaching Kit scripts. Use Preview as User from Admin if needed.</p>`;
+        return;
+      }
+      if (!kitApi?.mapLessonPlanToTeachingKit) {
+        hostEl.innerHTML = `<p class="muted-copy">Preview requires Teaching Kit mapping. Reload the page and try again.</p>`;
         return;
       }
       const plan = ensurePlanShape(clone(state.draft));
@@ -1403,25 +1487,56 @@
       const resources = typeof curriculumResourcesForAdmin === "function" ? curriculumResourcesForAdmin() : [];
       const linked = linkedResources(plan);
       const resourceRows = linked.length ? linked : resources.filter((r) => (plan.resourceIds || []).includes(r.id));
-      const sanitized = workspace?.sanitizePublicPreviewPlan ? workspace.sanitizePublicPreviewPlan(plan) : plan;
+      const publicPlan = workspace?.sanitizePublicPreviewPlan ? workspace.sanitizePublicPreviewPlan(plan) : plan;
       const model = enrich.buildTeachingKitPreviewModel(
-        sanitized,
+        publicPlan,
         activities,
         resourceRows,
         plan.enrichmentDraft || null,
-        { preview: true, ownerPreview: true },
-        enrich.mapActivityToOwnerEditorModel,
+        { day: "monday", includeEmptySections: false, preview: true, ownerPreview: true },
+        kitApi.mapLessonPlanToTeachingKit.bind(kitApi),
       );
-      hostEl.innerHTML = `<div class="llh-teaching-kit-workspace" data-lre-preview-workspace></div>`;
-      const mount = hostEl.querySelector("[data-lre-preview-workspace]");
-      await viewer.enhanceLessonWorkspace({
-        host: mount,
-        resource: model.resource,
-        lessonPlan: model.lessonPlan,
-        mode: "preview",
-        readOnly: true,
+      const teachingKit = {
+        ...model.draftKit,
+        locked: false,
+        ok: model.draftKit?.ok !== false,
+      };
+      if (!teachingKit.companion) {
+        hostEl.innerHTML = `<p class="muted-copy">Preview has no companion layout yet for this draft. Complete lesson basics and try again.</p>`;
+        return;
+      }
+      hostEl.innerHTML = "";
+      const body = document.createElement("div");
+      body.className = "llh-lre-preview-workspace-body";
+      body.setAttribute("data-lre-preview-workspace", "");
+      hostEl.appendChild(body);
+      const result = await viewer.enhanceLessonWorkspace({
+        body,
+        teachingKit,
+        featureFlags: {
+          teachingKitViewer: true,
+          teachingKitPrintCenter: true,
+          teachingKitAttachments: false,
+          ownerPreview: true,
+        },
+        initialDay: "monday",
+        chrome: {
+          title: model.merged?.plan?.title || plan.title,
+          age: model.merged?.plan?.age || plan.age,
+          planLabel: model.merged?.plan?.plan || plan.plan,
+          backLabel: "Preview only",
+          saveButtonHtml: "",
+          actionBarsHtml: `<div class="tk-enrich-draft-preview-chip" aria-hidden="true">Owner preview — not published</div>`,
+          feedbackHtml: "",
+          copyrightHtml: "",
+          ownerPreview: true,
+        },
       });
+      if (result?.enhanced === false) {
+        hostEl.innerHTML = `<p class="muted-copy">Preview unavailable (${esc(result.reason || "unknown")}).</p>`;
+      }
     } catch (error) {
+      console.error("[LLHLessonReviewEditor] preview failed", error);
       hostEl.innerHTML = `<p class="form-message" role="alert">${esc(error.message || "Preview failed.")}</p>`;
     }
   }
@@ -2070,10 +2185,9 @@
     state.screenshotMode = false;
     state.dirty = false;
     state.saving = false;
-    state.statusText = options.ownerDraftReview
-      ? "Draft Review lesson opened. Only one section is shown at a time."
-      : "Lesson opened in Review & Editor. Only one section is shown at a time.";
+    state.statusText = "";
     state.isSuccess = true;
+    state.mobileDetailsOpen = false;
     state.ownerDraftReview = options.ownerDraftReview === true;
     state.draftReviewId = text(options.draftReviewId || "");
     state.returnToQueue = options.returnToQueue === true;
@@ -2178,7 +2292,7 @@
       await saveDraft();
       return;
     }
-    if (t.closest("[data-lre-screenshot-toggle]")) {
+    if (t.closest("[data-lre-screenshot-toggle], [data-lre-mobile-screenshot]")) {
       state.screenshotMode = !state.screenshotMode;
       render();
       return;
@@ -2543,6 +2657,12 @@
 
   document.addEventListener("click", (event) => { void onClick(event); });
   document.addEventListener("change", onChange);
+  document.addEventListener("toggle", (event) => {
+    if (!state.open) return;
+    if (event.target.matches("[data-lre-mobile-details]")) {
+      state.mobileDetailsOpen = event.target.open === true;
+    }
+  }, true);
   document.addEventListener("input", (event) => {
     if (!state.open) return;
     if (event.target.matches("[data-lre-publish-confirm]")) onChange(event);
