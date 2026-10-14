@@ -472,11 +472,13 @@
       songs.filter((song) => !songComplete(song)).forEach((song) => {
         warnings.push(`Song “${song.title || "Untitled"}” is missing lyrics/motions or source notes.`);
       });
+      mediaImportConflictWarnings(plan, "songs").forEach((warning) => warnings.push(warning));
     } else if (sectionId === "books") {
       const books = [...(plan.books || [])];
       WEEKDAYS.forEach((day) => books.push(...(plan.dailyPlans?.[day]?.books || [])));
       bump(books.length > 0, "At least one book");
       bump(books.some(bookComplete), "Book with author + discussion prompts");
+      mediaImportConflictWarnings(plan, "books").forEach((warning) => warnings.push(warning));
     } else if (sectionId === "printables") {
       const linked = linkedResources(plan);
       bump(linked.length > 0, "At least one linked printable/resource");
@@ -1014,6 +1016,7 @@
           ${textarea("Notes", `books.${index}.notes`, book.notes || "", "Keep the read-aloud under 8 minutes for toddlers.")}
         </article>
       `).join("") || "<p class='muted-copy'>No weekly books yet. Day-level books still count in section status.</p>"}
+      ${renderMediaImportRetentionPanel("books")}
       <button type="button" class="ghost-button" data-lre-add-book>+ Add book</button>
     `;
   }
@@ -1032,6 +1035,7 @@
           ${input("Weekday placement", `songs.${index}.weekday`, song.weekday || "", "monday")}
         </article>
       `).join("") || "<p class='muted-copy'>No weekly songs yet.</p>"}
+      ${renderMediaImportRetentionPanel("songs")}
       <button type="button" class="ghost-button" data-lre-add-song>+ Add song</button>
     `;
   }
@@ -1517,23 +1521,180 @@
     return text(value).toLowerCase().replace(/\s+/g, " ").trim();
   }
 
+  function mediaRecordFieldText(record, field, aliases = []) {
+    if (!record || typeof record !== "object") return "";
+    const keys = [field, ...aliases];
+    for (let i = 0; i < keys.length; i += 1) {
+      const val = text(record[keys[i]]);
+      if (val) return val;
+    }
+    return "";
+  }
+
+  function mediaFieldValuesEquivalent(a, b) {
+    const left = text(a);
+    const right = text(b);
+    if (!left || !right) return left === right;
+    if (left === right) return true;
+    return normalizeMediaListTitle(left) === normalizeMediaListTitle(right);
+  }
+
+  function ensureMediaImportRetention(week) {
+    if (!week.mediaImportRetention || typeof week.mediaImportRetention !== "object") {
+      week.mediaImportRetention = { books: {}, songs: {} };
+    }
+    if (!week.mediaImportRetention.books || typeof week.mediaImportRetention.books !== "object") {
+      week.mediaImportRetention.books = {};
+    }
+    if (!week.mediaImportRetention.songs || typeof week.mediaImportRetention.songs !== "object") {
+      week.mediaImportRetention.songs = {};
+    }
+    return week.mediaImportRetention;
+  }
+
+  const BOOK_MERGE_FIELDS = Object.freeze([
+    { field: "author", aliases: ["by"] },
+    { field: "discussionPrompts", aliases: ["discussion", "questions"] },
+    { field: "notes", aliases: [] },
+    { field: "whyThisBook", aliases: [] },
+  ]);
+
+  const SONG_MERGE_FIELDS = Object.freeze([
+    { field: "lyrics", aliases: [] },
+    { field: "source", aliases: ["rights"] },
+    { field: "motions", aliases: ["actions", "teachingDirections", "directions"] },
+    { field: "notes", aliases: [] },
+  ]);
+
+  function mergeMediaRecordFields(canonRow, weekRow, fieldDefs) {
+    const merged = clone(canonRow);
+    const conflicts = [];
+    fieldDefs.forEach(({ field, aliases }) => {
+      const canonVal = mediaRecordFieldText(merged, field, aliases);
+      const weekVal = mediaRecordFieldText(weekRow, field, aliases);
+      if (!weekVal) return;
+      if (!canonVal) {
+        merged[field] = weekVal;
+        return;
+      }
+      if (!mediaFieldValuesEquivalent(canonVal, weekVal)) {
+        conflicts.push({ field, canonical: canonVal, week: weekVal });
+      }
+    });
+    return { merged, conflicts };
+  }
+
+  function findMediaIndexByTitle(list, titleKey) {
+    if (!titleKey || !Array.isArray(list)) return -1;
+    return list.findIndex((row) => normalizeMediaListTitle(row?.title) === titleKey);
+  }
+
   /** Merge enrichment week lists into canonical plan fields without overwriting owner edits (title-key dedupe). */
-  function mergeWeekMediaListIntoPlan(canonical, weekList) {
+  function mergeWeekMediaListIntoPlan(canonical, weekList, options = {}) {
+    const kind = options.kind === "songs" ? "songs" : "books";
+    const fieldDefs = kind === "songs" ? SONG_MERGE_FIELDS : BOOK_MERGE_FIELDS;
+    const enrichmentWeek = options.enrichmentWeek && typeof options.enrichmentWeek === "object"
+      ? options.enrichmentWeek
+      : null;
+    const retention = enrichmentWeek ? ensureMediaImportRetention(enrichmentWeek)[kind] : null;
+
     const canon = Array.isArray(canonical) ? clone(canonical) : [];
     const week = Array.isArray(weekList) ? weekList : [];
     if (!week.length) return canon;
-    if (!canon.length) return clone(week);
+
     const seen = new Set(
       canon.map((row) => normalizeMediaListTitle(row?.title)).filter(Boolean),
     );
+
     week.forEach((row) => {
       if (!row || typeof row !== "object") return;
       const key = normalizeMediaListTitle(row.title);
-      if (!key || seen.has(key)) return;
+      if (!key) return;
+
+      const existingIndex = findMediaIndexByTitle(canon, key);
+      if (existingIndex >= 0) {
+        const { merged, conflicts } = mergeMediaRecordFields(canon[existingIndex], row, fieldDefs);
+        canon[existingIndex] = merged;
+        if (retention) {
+          if (conflicts.length) {
+            retention[key] = {
+              title: text(canon[existingIndex].title) || text(row.title) || key,
+              snapshot: clone(row),
+              conflicts,
+            };
+          } else {
+            delete retention[key];
+          }
+        }
+        return;
+      }
+
+      if (seen.has(key)) return;
       seen.add(key);
       canon.push(clone(row));
     });
+
     return canon;
+  }
+
+  function mediaImportConflictWarnings(plan, kind) {
+    const bucket = plan?.enrichmentDraft?.week?.mediaImportRetention?.[kind];
+    if (!bucket || typeof bucket !== "object") return [];
+    return Object.entries(bucket).map(([, row]) => {
+      const title = text(row?.title || row?.snapshot?.title || "Untitled");
+      const fields = (row?.conflicts || []).map((c) => c.field).filter(Boolean);
+      const fieldLabel = fields.length ? fields.join(", ") : "metadata";
+      return `Import review: “${title}” still has paste-import ${fieldLabel} that differs from the saved record. Compare the import details shown below and update the fields above if needed.`;
+    });
+  }
+
+  function reconcileMediaImportRetention(plan) {
+    const week = plan?.enrichmentDraft?.week;
+    if (!week?.mediaImportRetention) return;
+    ["books", "songs"].forEach((kind) => {
+      const fieldDefs = kind === "songs" ? SONG_MERGE_FIELDS : BOOK_MERGE_FIELDS;
+      const list = kind === "songs" ? (plan.songs || []) : (plan.books || []);
+      const bucket = week.mediaImportRetention[kind];
+      if (!bucket || typeof bucket !== "object") return;
+      Object.keys(bucket).forEach((key) => {
+        const entry = bucket[key];
+        const canonRow = list.find((row) => normalizeMediaListTitle(row?.title) === key);
+        const snapshot = entry?.snapshot;
+        if (!canonRow || !snapshot) {
+          delete bucket[key];
+          return;
+        }
+        const { conflicts } = mergeMediaRecordFields(canonRow, snapshot, fieldDefs);
+        if (!conflicts.length) delete bucket[key];
+        else entry.conflicts = conflicts;
+      });
+    });
+  }
+
+  function renderMediaImportRetentionPanel(kind) {
+    const bucket = state.draft?.enrichmentDraft?.week?.mediaImportRetention?.[kind];
+    if (!bucket || typeof bucket !== "object") return "";
+    const rows = Object.values(bucket).filter((row) => row && row.snapshot);
+    if (!rows.length) return "";
+    const label = kind === "songs" ? "song" : "book";
+    return `
+      <div class="llh-lre-warnings" data-lre-media-import-retention="${esc(kind)}">
+        <strong>Paste import ${label} details to review</strong>
+        <p class="muted-copy">These values came from the import draft and differ from the saved ${label} fields above. Nothing here was applied automatically. Edit the fields above or keep your saved version.</p>
+        ${rows.map((row) => {
+          const title = esc(row.title || row.snapshot?.title || "Untitled");
+          const conflictLines = (row.conflicts || []).map((c) => (
+            `<li><strong>${esc(c.field)}</strong> (import): ${esc(String(c.week || "").slice(0, 240))}</li>`
+          )).join("");
+          return `
+            <article class="llh-lre-card-block">
+              <h4>${title}</h4>
+              ${conflictLines ? `<ul>${conflictLines}</ul>` : ""}
+            </article>
+          `;
+        }).join("")}
+      </div>
+    `;
   }
 
   /** Owner Edit open: surface week kit fields in LRE without replacing dailyPlans / activity bodies. */
@@ -1544,8 +1705,9 @@
       : null;
     if (!enrichmentDraft?.week || typeof enrichmentDraft.week !== "object") return next;
     const week = enrichmentDraft.week;
-    next.books = mergeWeekMediaListIntoPlan(next.books, week.books);
-    next.songs = mergeWeekMediaListIntoPlan(next.songs, week.songs);
+    ensureMediaImportRetention(week);
+    next.books = mergeWeekMediaListIntoPlan(next.books, week.books, { kind: "books", enrichmentWeek: week });
+    next.songs = mergeWeekMediaListIntoPlan(next.songs, week.songs, { kind: "songs", enrichmentWeek: week });
     return next;
   }
 
@@ -1566,10 +1728,12 @@
     if (meaningfulText(week.familyConnection, 1)) next.familyConnection = week.familyConnection;
     if (meaningfulText(week.adaptations, 1)) next.adaptations = week.adaptations;
     if (Array.isArray(week.books) && week.books.length) {
-      next.books = mergeWeekMediaListIntoPlan(next.books, week.books);
+      ensureMediaImportRetention(week);
+      next.books = mergeWeekMediaListIntoPlan(next.books, week.books, { kind: "books", enrichmentWeek: week });
     }
     if (Array.isArray(week.songs) && week.songs.length) {
-      next.songs = mergeWeekMediaListIntoPlan(next.songs, week.songs);
+      ensureMediaImportRetention(week);
+      next.songs = mergeWeekMediaListIntoPlan(next.songs, week.songs, { kind: "songs", enrichmentWeek: week });
     }
     if (week.teacherToolkit && typeof week.teacherToolkit === "object") {
       next.teachingKit = next.teachingKit || { schemaVersion: 1 };
@@ -1635,8 +1799,14 @@
     existing.week.vocabularyWords = plan.vocabularyWords || existing.week.vocabularyWords || "";
     existing.week.familyConnection = plan.familyConnection || existing.week.familyConnection || "";
     existing.week.adaptations = plan.adaptations || existing.week.adaptations || "";
+    reconcileMediaImportRetention(plan);
     existing.week.books = clone(plan.books || existing.week.books || []);
     existing.week.songs = clone(plan.songs || existing.week.songs || []);
+    if (plan.enrichmentDraft?.week?.mediaImportRetention) {
+      existing.week.mediaImportRetention = clone(plan.enrichmentDraft.week.mediaImportRetention);
+    } else if (!existing.week.mediaImportRetention) {
+      existing.week.mediaImportRetention = { books: {}, songs: {} };
+    }
     existing.week.teacherToolkit = clone(plan.teachingKit?.teacherToolkit || existing.week.teacherToolkit || {});
     flattenActivities(plan).forEach((item) => {
       const key = text(item.sourceKey) || (text(item.itemId) ? `${plan.id}:${item.itemId}` : item._key);
@@ -2399,6 +2569,8 @@
     assessCoreActivity,
     hydrateOwnerEditWeekFields,
     mergeWeekMediaListIntoPlan,
+    mediaImportConflictWarnings,
+    reconcileMediaImportRetention,
     computeSectionStatus: (sectionId, plan) => computeSectionStatus(sectionId, plan || state.draft),
     evaluateQuality: (plan) => evaluateQuality(plan || state.draft),
     overallProgress: (plan) => overallProgress(plan || state.draft),
