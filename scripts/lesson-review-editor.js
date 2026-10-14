@@ -170,6 +170,15 @@
     if (!next.teachingKit.teacherToolkit || typeof next.teachingKit.teacherToolkit !== "object") {
       next.teachingKit.teacherToolkit = {};
     }
+    if (!next.enrichmentDraft || typeof next.enrichmentDraft !== "object") {
+      next.enrichmentDraft = { activities: {}, week: {} };
+    }
+    if (!next.enrichmentDraft.week || typeof next.enrichmentDraft.week !== "object") {
+      next.enrichmentDraft.week = {};
+    }
+    if (!next.enrichmentDraft.activities || typeof next.enrichmentDraft.activities !== "object") {
+      next.enrichmentDraft.activities = {};
+    }
     return next;
   }
 
@@ -463,11 +472,13 @@
       songs.filter((song) => !songComplete(song)).forEach((song) => {
         warnings.push(`Song “${song.title || "Untitled"}” is missing lyrics/motions or source notes.`);
       });
+      mediaImportConflictWarnings(plan, "songs").forEach((warning) => warnings.push(warning));
     } else if (sectionId === "books") {
       const books = [...(plan.books || [])];
       WEEKDAYS.forEach((day) => books.push(...(plan.dailyPlans?.[day]?.books || [])));
       bump(books.length > 0, "At least one book");
       bump(books.some(bookComplete), "Book with author + discussion prompts");
+      mediaImportConflictWarnings(plan, "books").forEach((warning) => warnings.push(warning));
     } else if (sectionId === "printables") {
       const linked = linkedResources(plan);
       bump(linked.length > 0, "At least one linked printable/resource");
@@ -929,6 +940,7 @@
           <p class="muted-copy">Optional depth after Core Activity is solid. Keep tips short and classroom-ready.</p>
           ${textarea("Group and setting", `${base}.groupSetting`, settingTags, "small group, indoor")}
           ${textarea("Teacher tips", `${base}.teacherTips`, teacherTips, "Stay at the table and narrate gently. End before anyone bites.")}
+          ${textarea("Teacher role", `${base}.teacherRole`, item.teacherRole || "", "Stay within arm's reach. Model gentle touch and follow each child's comfort level.")}
           ${textarea("Supply substitutions", `${base}.substitutionsText`, substitutions, "No view-finders → use empty paper-towel tubes\nNo placemats → use trays")}
           ${textarea("Observation prompts", `${base}.observationPrompts`, observationPrompts, "Does the child try a new sensory word without prompting?")}
           ${textarea("Vocabulary", `${base}.vocabulary`, item.vocabulary || "", "apple, stem, skin, cool, bumpy")}
@@ -1004,6 +1016,7 @@
           ${textarea("Notes", `books.${index}.notes`, book.notes || "", "Keep the read-aloud under 8 minutes for toddlers.")}
         </article>
       `).join("") || "<p class='muted-copy'>No weekly books yet. Day-level books still count in section status.</p>"}
+      ${renderMediaImportRetentionPanel("books")}
       <button type="button" class="ghost-button" data-lre-add-book>+ Add book</button>
     `;
   }
@@ -1022,29 +1035,34 @@
           ${input("Weekday placement", `songs.${index}.weekday`, song.weekday || "", "monday")}
         </article>
       `).join("") || "<p class='muted-copy'>No weekly songs yet.</p>"}
+      ${renderMediaImportRetentionPanel("songs")}
       <button type="button" class="ghost-button" data-lre-add-song>+ Add song</button>
     `;
   }
 
-  function renderPrintableIdeaCard(idea) {
+  function renderPrintableIdeaEditor(idea, index) {
     const enrich = global.LLHTeachingKitEnrichment;
     const item = enrich && typeof enrich.normalizePrintableIdea === "function"
       ? enrich.normalizePrintableIdea(idea)
       : (idea && typeof idea === "object" ? idea : (typeof idea === "string" ? { title: idea } : null));
     if (!item) return "";
-    const title = esc(item.title || item.name || item.label || "");
-    const description = esc(item.description || item.purpose || item.summary || "");
-    const type = esc(item.type || item.kind || item.format || "");
-    const instructions = esc(item.instructions || item.howTo || item.directions || "");
-    const notes = esc(item.notes || "");
-    if (!title && !description && !type && !instructions && !notes) return "";
+    const base = `enrichmentDraft.week.printableIdeas.${index}`;
+    const titleVal = item.title || item.name || item.label || "";
+    const bodyVal = item.body || "";
+    const descriptionVal = item.description || item.purpose || item.summary || bodyVal || "";
+    const instructionsVal = item.instructions || item.howTo || item.directions || "";
+    const typeVal = item.type || item.kind || item.format || "";
+    const notesVal = item.notes || "";
+    if (!titleVal && !descriptionVal && !instructionsVal && !typeVal && !notesVal) return "";
     return `
-      <article class="llh-lre-card-block llh-lre-printable-idea" data-lre-printable-idea="1">
-        <h3>${title || "Printable idea"}</h3>
-        ${type ? `<p><span class="muted-copy">Type</span> ${type}</p>` : ""}
-        ${description ? `<p><span class="muted-copy">Description</span> ${description}</p>` : ""}
-        ${instructions ? `<p><span class="muted-copy">Instructions</span> ${instructions}</p>` : ""}
-        ${notes ? `<p><span class="muted-copy">Notes</span> ${notes}</p>` : ""}
+      <article class="llh-lre-card-block llh-lre-printable-idea" data-lre-printable-idea="${esc(String(index))}">
+        <h3>Printable idea ${index + 1}</h3>
+        <p class="muted-copy">Text-only ideas from paste import — not uploaded PDFs.</p>
+        ${input("Title", `${base}.title`, titleVal, "Pumpkin sponge-painting page")}
+        ${textarea("Description / purpose", `${base}.body`, bodyVal || descriptionVal, "One sponge per child; orange paint only.")}
+        ${textarea("Instructions", `${base}.instructions`, instructionsVal, "Print letter-size; trim with adult scissors only.")}
+        ${typeVal || notesVal ? `${input("Type", `${base}.type`, typeVal, "Art page")}
+        ${textarea("Notes", `${base}.notes`, notesVal, "Optional classroom notes.")}` : ""}
       </article>
     `;
   }
@@ -1054,7 +1072,7 @@
     const ideaList = Array.isArray(state.draft?.enrichmentDraft?.week?.printableIdeas)
       ? state.draft.enrichmentDraft.week.printableIdeas
       : [];
-    const ideaCards = ideaList.map((idea) => renderPrintableIdeaCard(idea)).filter(Boolean).join("");
+    const ideaCards = ideaList.map((idea, index) => renderPrintableIdeaEditor(idea, index)).filter(Boolean).join("");
     return `
       <p class="muted-copy">Printable previews stay inside Admin. Nothing publishes automatically.</p>
       ${ideaCards ? `
@@ -1223,6 +1241,12 @@
         ${input("Age group", "age", plan.age, "Preschool")}
         ${input("Theme", "theme", plan.theme, "All About Me")}
         ${renderCoverImageBlock()}
+        ${textarea(
+          "Cover Image Instructions",
+          "enrichmentDraft.week.coverImageInstructions",
+          plan.enrichmentDraft?.week?.coverImageInstructions || "",
+          "Realistic photo of a caregiver and infant doing a calm sensory activity. No masks on infants.",
+        )}
         ${textarea("Weekly overview", "weeklyOverview", plan.weeklyOverview, "This week children explore names, feelings, and what makes each friend unique.")}
         ${textarea("Learning objectives", "objectives", plan.objectives, "Children will name one feeling and one thing that makes them unique.")}
         ${textarea("Weekly vocabulary", "vocabularyWords", plan.vocabularyWords, "unique, feelings, family, friends")}
@@ -1489,6 +1513,201 @@
         }
       });
     });
+    next.enrichmentDraft = buildEnrichmentDraftFromPlan(next);
+    return next;
+  }
+
+  function normalizeMediaListTitle(value) {
+    return text(value).toLowerCase().replace(/\s+/g, " ").trim();
+  }
+
+  function mediaRecordFieldText(record, field, aliases = []) {
+    if (!record || typeof record !== "object") return "";
+    const keys = [field, ...aliases];
+    for (let i = 0; i < keys.length; i += 1) {
+      const val = text(record[keys[i]]);
+      if (val) return val;
+    }
+    return "";
+  }
+
+  function mediaFieldValuesEquivalent(a, b) {
+    const left = text(a);
+    const right = text(b);
+    if (!left || !right) return left === right;
+    if (left === right) return true;
+    return normalizeMediaListTitle(left) === normalizeMediaListTitle(right);
+  }
+
+  function ensureMediaImportRetention(week) {
+    if (!week.mediaImportRetention || typeof week.mediaImportRetention !== "object") {
+      week.mediaImportRetention = { books: {}, songs: {} };
+    }
+    if (!week.mediaImportRetention.books || typeof week.mediaImportRetention.books !== "object") {
+      week.mediaImportRetention.books = {};
+    }
+    if (!week.mediaImportRetention.songs || typeof week.mediaImportRetention.songs !== "object") {
+      week.mediaImportRetention.songs = {};
+    }
+    return week.mediaImportRetention;
+  }
+
+  const BOOK_MERGE_FIELDS = Object.freeze([
+    { field: "author", aliases: ["by"] },
+    { field: "discussionPrompts", aliases: ["discussion", "questions"] },
+    { field: "notes", aliases: [] },
+    { field: "whyThisBook", aliases: [] },
+  ]);
+
+  const SONG_MERGE_FIELDS = Object.freeze([
+    { field: "lyrics", aliases: [] },
+    { field: "source", aliases: ["rights"] },
+    { field: "motions", aliases: ["actions", "teachingDirections", "directions"] },
+    { field: "notes", aliases: [] },
+  ]);
+
+  function mergeMediaRecordFields(canonRow, weekRow, fieldDefs) {
+    const merged = clone(canonRow);
+    const conflicts = [];
+    fieldDefs.forEach(({ field, aliases }) => {
+      const canonVal = mediaRecordFieldText(merged, field, aliases);
+      const weekVal = mediaRecordFieldText(weekRow, field, aliases);
+      if (!weekVal) return;
+      if (!canonVal) {
+        merged[field] = weekVal;
+        return;
+      }
+      if (!mediaFieldValuesEquivalent(canonVal, weekVal)) {
+        conflicts.push({ field, canonical: canonVal, week: weekVal });
+      }
+    });
+    return { merged, conflicts };
+  }
+
+  function findMediaIndexByTitle(list, titleKey) {
+    if (!titleKey || !Array.isArray(list)) return -1;
+    return list.findIndex((row) => normalizeMediaListTitle(row?.title) === titleKey);
+  }
+
+  /** Merge enrichment week lists into canonical plan fields without overwriting owner edits (title-key dedupe). */
+  function mergeWeekMediaListIntoPlan(canonical, weekList, options = {}) {
+    const kind = options.kind === "songs" ? "songs" : "books";
+    const fieldDefs = kind === "songs" ? SONG_MERGE_FIELDS : BOOK_MERGE_FIELDS;
+    const enrichmentWeek = options.enrichmentWeek && typeof options.enrichmentWeek === "object"
+      ? options.enrichmentWeek
+      : null;
+    const retention = enrichmentWeek ? ensureMediaImportRetention(enrichmentWeek)[kind] : null;
+
+    const canon = Array.isArray(canonical) ? clone(canonical) : [];
+    const week = Array.isArray(weekList) ? weekList : [];
+    if (!week.length) return canon;
+
+    const seen = new Set(
+      canon.map((row) => normalizeMediaListTitle(row?.title)).filter(Boolean),
+    );
+
+    week.forEach((row) => {
+      if (!row || typeof row !== "object") return;
+      const key = normalizeMediaListTitle(row.title);
+      if (!key) return;
+
+      const existingIndex = findMediaIndexByTitle(canon, key);
+      if (existingIndex >= 0) {
+        const { merged, conflicts } = mergeMediaRecordFields(canon[existingIndex], row, fieldDefs);
+        canon[existingIndex] = merged;
+        if (retention) {
+          if (conflicts.length) {
+            retention[key] = {
+              title: text(canon[existingIndex].title) || text(row.title) || key,
+              snapshot: clone(row),
+              conflicts,
+            };
+          } else {
+            delete retention[key];
+          }
+        }
+        return;
+      }
+
+      if (seen.has(key)) return;
+      seen.add(key);
+      canon.push(clone(row));
+    });
+
+    return canon;
+  }
+
+  function mediaImportConflictWarnings(plan, kind) {
+    const bucket = plan?.enrichmentDraft?.week?.mediaImportRetention?.[kind];
+    if (!bucket || typeof bucket !== "object") return [];
+    return Object.entries(bucket).map(([, row]) => {
+      const title = text(row?.title || row?.snapshot?.title || "Untitled");
+      const fields = (row?.conflicts || []).map((c) => c.field).filter(Boolean);
+      const fieldLabel = fields.length ? fields.join(", ") : "metadata";
+      return `Import review: “${title}” still has paste-import ${fieldLabel} that differs from the saved record. Compare the import details shown below and update the fields above if needed.`;
+    });
+  }
+
+  function reconcileMediaImportRetention(plan) {
+    const week = plan?.enrichmentDraft?.week;
+    if (!week?.mediaImportRetention) return;
+    ["books", "songs"].forEach((kind) => {
+      const fieldDefs = kind === "songs" ? SONG_MERGE_FIELDS : BOOK_MERGE_FIELDS;
+      const list = kind === "songs" ? (plan.songs || []) : (plan.books || []);
+      const bucket = week.mediaImportRetention[kind];
+      if (!bucket || typeof bucket !== "object") return;
+      Object.keys(bucket).forEach((key) => {
+        const entry = bucket[key];
+        const canonRow = list.find((row) => normalizeMediaListTitle(row?.title) === key);
+        const snapshot = entry?.snapshot;
+        if (!canonRow || !snapshot) {
+          delete bucket[key];
+          return;
+        }
+        const { conflicts } = mergeMediaRecordFields(canonRow, snapshot, fieldDefs);
+        if (!conflicts.length) delete bucket[key];
+        else entry.conflicts = conflicts;
+      });
+    });
+  }
+
+  function renderMediaImportRetentionPanel(kind) {
+    const bucket = state.draft?.enrichmentDraft?.week?.mediaImportRetention?.[kind];
+    if (!bucket || typeof bucket !== "object") return "";
+    const rows = Object.values(bucket).filter((row) => row && row.snapshot);
+    if (!rows.length) return "";
+    const label = kind === "songs" ? "song" : "book";
+    return `
+      <div class="llh-lre-warnings" data-lre-media-import-retention="${esc(kind)}">
+        <strong>Paste import ${label} details to review</strong>
+        <p class="muted-copy">These values came from the import draft and differ from the saved ${label} fields above. Nothing here was applied automatically. Edit the fields above or keep your saved version.</p>
+        ${rows.map((row) => {
+          const title = esc(row.title || row.snapshot?.title || "Untitled");
+          const conflictLines = (row.conflicts || []).map((c) => (
+            `<li><strong>${esc(c.field)}</strong> (import): ${esc(String(c.week || "").slice(0, 240))}</li>`
+          )).join("");
+          return `
+            <article class="llh-lre-card-block">
+              <h4>${title}</h4>
+              ${conflictLines ? `<ul>${conflictLines}</ul>` : ""}
+            </article>
+          `;
+        }).join("")}
+      </div>
+    `;
+  }
+
+  /** Owner Edit open: surface week kit fields in LRE without replacing dailyPlans / activity bodies. */
+  function hydrateOwnerEditWeekFields(plan) {
+    const next = ensurePlanShape(plan);
+    const enrichmentDraft = next.enrichmentDraft && typeof next.enrichmentDraft === "object"
+      ? next.enrichmentDraft
+      : null;
+    if (!enrichmentDraft?.week || typeof enrichmentDraft.week !== "object") return next;
+    const week = enrichmentDraft.week;
+    ensureMediaImportRetention(week);
+    next.books = mergeWeekMediaListIntoPlan(next.books, week.books, { kind: "books", enrichmentWeek: week });
+    next.songs = mergeWeekMediaListIntoPlan(next.songs, week.songs, { kind: "songs", enrichmentWeek: week });
     return next;
   }
 
@@ -1508,8 +1727,14 @@
     }
     if (meaningfulText(week.familyConnection, 1)) next.familyConnection = week.familyConnection;
     if (meaningfulText(week.adaptations, 1)) next.adaptations = week.adaptations;
-    if (Array.isArray(week.books) && week.books.length) next.books = clone(week.books);
-    if (Array.isArray(week.songs) && week.songs.length) next.songs = clone(week.songs);
+    if (Array.isArray(week.books) && week.books.length) {
+      ensureMediaImportRetention(week);
+      next.books = mergeWeekMediaListIntoPlan(next.books, week.books, { kind: "books", enrichmentWeek: week });
+    }
+    if (Array.isArray(week.songs) && week.songs.length) {
+      ensureMediaImportRetention(week);
+      next.songs = mergeWeekMediaListIntoPlan(next.songs, week.songs, { kind: "songs", enrichmentWeek: week });
+    }
     if (week.teacherToolkit && typeof week.teacherToolkit === "object") {
       next.teachingKit = next.teachingKit || { schemaVersion: 1 };
       next.teachingKit.teacherToolkit = {
@@ -1574,8 +1799,14 @@
     existing.week.vocabularyWords = plan.vocabularyWords || existing.week.vocabularyWords || "";
     existing.week.familyConnection = plan.familyConnection || existing.week.familyConnection || "";
     existing.week.adaptations = plan.adaptations || existing.week.adaptations || "";
+    reconcileMediaImportRetention(plan);
     existing.week.books = clone(plan.books || existing.week.books || []);
     existing.week.songs = clone(plan.songs || existing.week.songs || []);
+    if (plan.enrichmentDraft?.week?.mediaImportRetention) {
+      existing.week.mediaImportRetention = clone(plan.enrichmentDraft.week.mediaImportRetention);
+    } else if (!existing.week.mediaImportRetention) {
+      existing.week.mediaImportRetention = { books: {}, songs: {} };
+    }
     existing.week.teacherToolkit = clone(plan.teachingKit?.teacherToolkit || existing.week.teacherToolkit || {});
     flattenActivities(plan).forEach((item) => {
       const key = text(item.sourceKey) || (text(item.itemId) ? `${plan.id}:${item.itemId}` : item._key);
@@ -1607,6 +1838,7 @@
         cleanupTips: item.cleanupTips || item.cleanup || item.resetNotes || "",
         groupSetting: item.groupSetting || "",
         teacherTips: item.teacherTips || prev.teacherTips || "",
+        teacherRole: item.teacherRole || prev.teacherRole || "",
         substitutionsText: item.substitutionsText || "",
         observationPrompts: item.observationPrompts || prev.observationPrompts || "",
         vocabulary: item.vocabulary || "",
@@ -1809,6 +2041,8 @@
       plan = hydratePlanFromEnrichmentDraft(plan, options.enrichmentDraft);
     } else if (plan.enrichmentDraft && typeof plan.enrichmentDraft === "object" && options.ownerDraftReview === true) {
       plan = hydratePlanFromEnrichmentDraft(plan, plan.enrichmentDraft);
+    } else if (plan.enrichmentDraft && typeof plan.enrichmentDraft === "object") {
+      plan = hydrateOwnerEditWeekFields(plan);
     }
     // Map legacy section ids from older callers onto the simplified menu.
     const sectionAlias = {
@@ -2333,6 +2567,10 @@
     SECTION_DEFS,
     CORE_ACTIVITY_FIELDS,
     assessCoreActivity,
+    hydrateOwnerEditWeekFields,
+    mergeWeekMediaListIntoPlan,
+    mediaImportConflictWarnings,
+    reconcileMediaImportRetention,
     computeSectionStatus: (sectionId, plan) => computeSectionStatus(sectionId, plan || state.draft),
     evaluateQuality: (plan) => evaluateQuality(plan || state.draft),
     overallProgress: (plan) => overallProgress(plan || state.draft),

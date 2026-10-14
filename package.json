@@ -211,6 +211,8 @@
     "test:curriculum-import": "node scripts/test-curriculum-import-parser.js",
     "test:create-new-lesson-plan": "NODE_ENV=test node scripts/test-create-new-lesson-plan.js",
     "test:lesson-paste-organizer": "NODE_ENV=test node scripts/test-lesson-paste-organizer.js",
+    "test:lre-import-hydration": "NODE_ENV=test node scripts/test-lre-import-hydration.js",
+    "test:lre-media-merge": "NODE_ENV=test node scripts/test-lre-media-merge.js",
     "test:master-lesson-activity-parser": "NODE_ENV=test node scripts/test-master-lesson-activity-import-parser.js",
     "test:master-lesson-paste-persistence": "NODE_ENV=test node scripts/test-master-lesson-paste-persistence.js",
     "test:master-lesson-import-create-write": "NODE_ENV=test node scripts/test-master-lesson-import-create-write.js",
