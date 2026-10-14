@@ -144,6 +144,26 @@ function buildParsedShapeFromOrganizer(parseResult, options = {}) {
       if (text(values[`daily.${day}.imageBriefExample`]?.value)) {
         item.imageBriefExample = text(values[`daily.${day}.imageBriefExample`].value, 2000);
       }
+      if (text(values[`daily.${day}.teacherRole`]?.value)) {
+        item.teacherRole = text(values[`daily.${day}.teacherRole`].value, 4000);
+      }
+      const tipsRaw = text(values[`daily.${day}.teacherTips`]?.value, 4000);
+      if (tipsRaw) {
+        item.teacherTips = tipsRaw.split(/\n+/).map((line) => line.trim()).filter(Boolean);
+      }
+      const obsPromptsRaw = text(values[`daily.${day}.observationPrompts`]?.value, 2000);
+      if (obsPromptsRaw) {
+        item.observationPrompts = obsPromptsRaw.split(/\n+/).map((line) => line.trim()).filter(Boolean);
+      }
+      const subsRaw = text(values[`daily.${day}.substitutions`]?.value, 4000);
+      if (subsRaw) {
+        try {
+          const parsedSubs = JSON.parse(subsRaw);
+          if (Array.isArray(parsedSubs) && parsedSubs.length) item.substitutions = parsedSubs;
+        } catch {
+          /* keep organizer strict — ignore malformed substitutions JSON */
+        }
+      }
       dailyPlans[day].items.push(item);
     });
   });

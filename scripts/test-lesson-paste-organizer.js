@@ -14,6 +14,19 @@ const MY_FIRST_HALLOWEEN_PASTE = fs.readFileSync(
   "utf8",
 ).trim();
 
+const TODDLER_HALLOWEEN_PASTE = fs.readFileSync(
+  path.join(__dirname, "fixtures", "toddler-halloween-paste.txt"),
+  "utf8",
+).trim();
+
+const EXPECTED_TODDLER_TITLES = Object.freeze({
+  monday: "Pumpkin Touch and Notice",
+  tuesday: "Pumpkin Sponge Painting",
+  wednesday: "Fall Color Sorting",
+  thursday: "Pumpkin Rolling and Chasing",
+  friday: "Pumpkin Patch Pretend Play",
+});
+
 const EXPECTED_HALLOWEEN_TITLES = Object.freeze({
   monday: "Pumpkin Footprint Keepsake",
   tuesday: "Orange and Black Texture Exploration",
@@ -292,6 +305,39 @@ console.log("My First Halloween — structured infant paste");
   const monPreview = preview.sections.find((s) => s.id === "monday");
   ok(monPreview.fields.some((f) => /Objective/.test(f.label) && /Support bonding/.test(f.value)), "preview shows objective");
   ok(monPreview.fields.some((f) => /Materials/.test(f.label)), "preview shows materials");
+}
+
+console.log("Toddler Halloween — structured paste (bare MONDAY headings)");
+{
+  const parsed = parser.parseDeterministicPaste(TODDLER_HALLOWEEN_PASTE);
+  ok(parsed.aiUsed === false, "toddler paste stays deterministic");
+  ok(parsed.values["global.title"]?.value === "Pumpkins, Colors, and Fall Fun", "toddler lesson title");
+  ok(/Toddler \(18/.test(parsed.values["global.ageGroup"]?.value || ""), "toddler age group preserved");
+  ok(parsed.values["global.weeklyObjectives"]?.value.includes("Describing colors"), "weekly learning objectives mapped");
+  ok(parsed.report.unsorted.length === 0, "no unsorted blocks for toddler Halloween paste");
+  ok(parsed.report.conflicts.length === 0, "no field conflicts for toddler Halloween paste");
+  ok(parsed.books.length === 5, "five weekly books");
+  ok(parsed.songs.length === 5, "five weekly songs");
+  ok(parsed.printables.length === 6, "six weekly printables");
+  ok((parsed.activities || []).length === 5, "five toddler activities parsed");
+  manifest.WEEKDAYS.forEach((day) => {
+    const title = parsed.values[`daily.${day}.activity1`]?.value || "";
+    ok(title === EXPECTED_TODDLER_TITLES[day], `${day} toddler activity title`);
+  });
+  ok(parsed.values["daily.monday.safety"]?.value.includes("whole pumpkins only"), "monday safety on activity");
+  ok(parsed.values["daily.monday.teacherRole"]?.value.includes("arm"), "monday teacher role mapped");
+  ok(parsed.values["daily.monday.imageBriefSetup"]?.value.includes("Setup photo needed"), "monday image brief preserved");
+  ok(parsed.values["daily.tuesday.imageBriefExample"]?.value.includes("Finished example"), "tuesday example image brief preserved");
+  ok(parsed.values["global.cover"]?.value.includes("realistic classroom photos"), "image style mapped to cover instructions");
+  ok(parsed.canSaveDraft, "toddler Halloween paste can save draft");
+  const draft = applyApi.buildDraftLessonPlan(parsed, {
+    ownerDecisions: {},
+    ageMarkedUnknown: false,
+    themeMarkedUnknown: false,
+  });
+  ok(draft.ok, "toddler Halloween draft builds");
+  ok(draft.lessonPlan.dailyPlans.monday.items[0].title === EXPECTED_TODDLER_TITLES.monday, "draft monday title");
+  ok(draft.lessonPlan.dailyPlans.monday.items[0].teacherRole?.includes("arm"), "draft monday teacher role");
 }
 
 console.log("Duplicate activity objective — conflict blocks save");
