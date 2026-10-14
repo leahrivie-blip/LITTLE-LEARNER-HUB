@@ -170,6 +170,15 @@
     if (!next.teachingKit.teacherToolkit || typeof next.teachingKit.teacherToolkit !== "object") {
       next.teachingKit.teacherToolkit = {};
     }
+    if (!next.enrichmentDraft || typeof next.enrichmentDraft !== "object") {
+      next.enrichmentDraft = { activities: {}, week: {} };
+    }
+    if (!next.enrichmentDraft.week || typeof next.enrichmentDraft.week !== "object") {
+      next.enrichmentDraft.week = {};
+    }
+    if (!next.enrichmentDraft.activities || typeof next.enrichmentDraft.activities !== "object") {
+      next.enrichmentDraft.activities = {};
+    }
     return next;
   }
 
@@ -929,6 +938,7 @@
           <p class="muted-copy">Optional depth after Core Activity is solid. Keep tips short and classroom-ready.</p>
           ${textarea("Group and setting", `${base}.groupSetting`, settingTags, "small group, indoor")}
           ${textarea("Teacher tips", `${base}.teacherTips`, teacherTips, "Stay at the table and narrate gently. End before anyone bites.")}
+          ${textarea("Teacher role", `${base}.teacherRole`, item.teacherRole || "", "Stay within arm's reach. Model gentle touch and follow each child's comfort level.")}
           ${textarea("Supply substitutions", `${base}.substitutionsText`, substitutions, "No view-finders → use empty paper-towel tubes\nNo placemats → use trays")}
           ${textarea("Observation prompts", `${base}.observationPrompts`, observationPrompts, "Does the child try a new sensory word without prompting?")}
           ${textarea("Vocabulary", `${base}.vocabulary`, item.vocabulary || "", "apple, stem, skin, cool, bumpy")}
@@ -1026,25 +1036,29 @@
     `;
   }
 
-  function renderPrintableIdeaCard(idea) {
+  function renderPrintableIdeaEditor(idea, index) {
     const enrich = global.LLHTeachingKitEnrichment;
     const item = enrich && typeof enrich.normalizePrintableIdea === "function"
       ? enrich.normalizePrintableIdea(idea)
       : (idea && typeof idea === "object" ? idea : (typeof idea === "string" ? { title: idea } : null));
     if (!item) return "";
-    const title = esc(item.title || item.name || item.label || "");
-    const description = esc(item.description || item.purpose || item.summary || "");
-    const type = esc(item.type || item.kind || item.format || "");
-    const instructions = esc(item.instructions || item.howTo || item.directions || "");
-    const notes = esc(item.notes || "");
-    if (!title && !description && !type && !instructions && !notes) return "";
+    const base = `enrichmentDraft.week.printableIdeas.${index}`;
+    const titleVal = item.title || item.name || item.label || "";
+    const bodyVal = item.body || "";
+    const descriptionVal = item.description || item.purpose || item.summary || bodyVal || "";
+    const instructionsVal = item.instructions || item.howTo || item.directions || "";
+    const typeVal = item.type || item.kind || item.format || "";
+    const notesVal = item.notes || "";
+    if (!titleVal && !descriptionVal && !instructionsVal && !typeVal && !notesVal) return "";
     return `
-      <article class="llh-lre-card-block llh-lre-printable-idea" data-lre-printable-idea="1">
-        <h3>${title || "Printable idea"}</h3>
-        ${type ? `<p><span class="muted-copy">Type</span> ${type}</p>` : ""}
-        ${description ? `<p><span class="muted-copy">Description</span> ${description}</p>` : ""}
-        ${instructions ? `<p><span class="muted-copy">Instructions</span> ${instructions}</p>` : ""}
-        ${notes ? `<p><span class="muted-copy">Notes</span> ${notes}</p>` : ""}
+      <article class="llh-lre-card-block llh-lre-printable-idea" data-lre-printable-idea="${esc(String(index))}">
+        <h3>Printable idea ${index + 1}</h3>
+        <p class="muted-copy">Text-only ideas from paste import — not uploaded PDFs.</p>
+        ${input("Title", `${base}.title`, titleVal, "Pumpkin sponge-painting page")}
+        ${textarea("Description / purpose", `${base}.body`, bodyVal || descriptionVal, "One sponge per child; orange paint only.")}
+        ${textarea("Instructions", `${base}.instructions`, instructionsVal, "Print letter-size; trim with adult scissors only.")}
+        ${typeVal || notesVal ? `${input("Type", `${base}.type`, typeVal, "Art page")}
+        ${textarea("Notes", `${base}.notes`, notesVal, "Optional classroom notes.")}` : ""}
       </article>
     `;
   }
@@ -1054,7 +1068,7 @@
     const ideaList = Array.isArray(state.draft?.enrichmentDraft?.week?.printableIdeas)
       ? state.draft.enrichmentDraft.week.printableIdeas
       : [];
-    const ideaCards = ideaList.map((idea) => renderPrintableIdeaCard(idea)).filter(Boolean).join("");
+    const ideaCards = ideaList.map((idea, index) => renderPrintableIdeaEditor(idea, index)).filter(Boolean).join("");
     return `
       <p class="muted-copy">Printable previews stay inside Admin. Nothing publishes automatically.</p>
       ${ideaCards ? `
@@ -1223,6 +1237,12 @@
         ${input("Age group", "age", plan.age, "Preschool")}
         ${input("Theme", "theme", plan.theme, "All About Me")}
         ${renderCoverImageBlock()}
+        ${textarea(
+          "Cover Image Instructions",
+          "enrichmentDraft.week.coverImageInstructions",
+          plan.enrichmentDraft?.week?.coverImageInstructions || "",
+          "Realistic photo of a caregiver and infant doing a calm sensory activity. No masks on infants.",
+        )}
         ${textarea("Weekly overview", "weeklyOverview", plan.weeklyOverview, "This week children explore names, feelings, and what makes each friend unique.")}
         ${textarea("Learning objectives", "objectives", plan.objectives, "Children will name one feeling and one thing that makes them unique.")}
         ${textarea("Weekly vocabulary", "vocabularyWords", plan.vocabularyWords, "unique, feelings, family, friends")}
@@ -1489,6 +1509,43 @@
         }
       });
     });
+    next.enrichmentDraft = buildEnrichmentDraftFromPlan(next);
+    return next;
+  }
+
+  function normalizeMediaListTitle(value) {
+    return text(value).toLowerCase().replace(/\s+/g, " ").trim();
+  }
+
+  /** Merge enrichment week lists into canonical plan fields without overwriting owner edits (title-key dedupe). */
+  function mergeWeekMediaListIntoPlan(canonical, weekList) {
+    const canon = Array.isArray(canonical) ? clone(canonical) : [];
+    const week = Array.isArray(weekList) ? weekList : [];
+    if (!week.length) return canon;
+    if (!canon.length) return clone(week);
+    const seen = new Set(
+      canon.map((row) => normalizeMediaListTitle(row?.title)).filter(Boolean),
+    );
+    week.forEach((row) => {
+      if (!row || typeof row !== "object") return;
+      const key = normalizeMediaListTitle(row.title);
+      if (!key || seen.has(key)) return;
+      seen.add(key);
+      canon.push(clone(row));
+    });
+    return canon;
+  }
+
+  /** Owner Edit open: surface week kit fields in LRE without replacing dailyPlans / activity bodies. */
+  function hydrateOwnerEditWeekFields(plan) {
+    const next = ensurePlanShape(plan);
+    const enrichmentDraft = next.enrichmentDraft && typeof next.enrichmentDraft === "object"
+      ? next.enrichmentDraft
+      : null;
+    if (!enrichmentDraft?.week || typeof enrichmentDraft.week !== "object") return next;
+    const week = enrichmentDraft.week;
+    next.books = mergeWeekMediaListIntoPlan(next.books, week.books);
+    next.songs = mergeWeekMediaListIntoPlan(next.songs, week.songs);
     return next;
   }
 
@@ -1508,8 +1565,12 @@
     }
     if (meaningfulText(week.familyConnection, 1)) next.familyConnection = week.familyConnection;
     if (meaningfulText(week.adaptations, 1)) next.adaptations = week.adaptations;
-    if (Array.isArray(week.books) && week.books.length) next.books = clone(week.books);
-    if (Array.isArray(week.songs) && week.songs.length) next.songs = clone(week.songs);
+    if (Array.isArray(week.books) && week.books.length) {
+      next.books = mergeWeekMediaListIntoPlan(next.books, week.books);
+    }
+    if (Array.isArray(week.songs) && week.songs.length) {
+      next.songs = mergeWeekMediaListIntoPlan(next.songs, week.songs);
+    }
     if (week.teacherToolkit && typeof week.teacherToolkit === "object") {
       next.teachingKit = next.teachingKit || { schemaVersion: 1 };
       next.teachingKit.teacherToolkit = {
@@ -1607,6 +1668,7 @@
         cleanupTips: item.cleanupTips || item.cleanup || item.resetNotes || "",
         groupSetting: item.groupSetting || "",
         teacherTips: item.teacherTips || prev.teacherTips || "",
+        teacherRole: item.teacherRole || prev.teacherRole || "",
         substitutionsText: item.substitutionsText || "",
         observationPrompts: item.observationPrompts || prev.observationPrompts || "",
         vocabulary: item.vocabulary || "",
@@ -1809,6 +1871,8 @@
       plan = hydratePlanFromEnrichmentDraft(plan, options.enrichmentDraft);
     } else if (plan.enrichmentDraft && typeof plan.enrichmentDraft === "object" && options.ownerDraftReview === true) {
       plan = hydratePlanFromEnrichmentDraft(plan, plan.enrichmentDraft);
+    } else if (plan.enrichmentDraft && typeof plan.enrichmentDraft === "object") {
+      plan = hydrateOwnerEditWeekFields(plan);
     }
     // Map legacy section ids from older callers onto the simplified menu.
     const sectionAlias = {
@@ -2333,6 +2397,8 @@
     SECTION_DEFS,
     CORE_ACTIVITY_FIELDS,
     assessCoreActivity,
+    hydrateOwnerEditWeekFields,
+    mergeWeekMediaListIntoPlan,
     computeSectionStatus: (sectionId, plan) => computeSectionStatus(sectionId, plan || state.draft),
     evaluateQuality: (plan) => evaluateQuality(plan || state.draft),
     overallProgress: (plan) => overallProgress(plan || state.draft),
