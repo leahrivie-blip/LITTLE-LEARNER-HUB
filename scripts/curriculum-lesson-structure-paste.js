@@ -1131,6 +1131,9 @@
     const id = text(options.id || "");
     const weekDraft = {};
     if (text(lesson.teacherPreparation)) weekDraft.teacherPreparation = lesson.teacherPreparation;
+    if (text(lesson.coverManualUpload?.raw)) {
+      weekDraft.coverImageInstructions = text(lesson.coverManualUpload.raw, 4000);
+    }
     if (lesson.prepChecklist?.length) {
       weekDraft.teacherToolkit = Object.assign({}, weekDraft.teacherToolkit, {
         prepChecklist: lesson.prepChecklist.slice(),
@@ -1171,6 +1174,9 @@
     if (text(lesson.coverImageAlt)) plan.coverImageAlt = lesson.coverImageAlt;
     if (text(lesson.coverImagePosition)) plan.coverImagePosition = lesson.coverImagePosition;
     if (text(lesson.coverQualityStatus)) plan.coverQualityStatus = lesson.coverQualityStatus;
+    if (lesson.coverManualUpload && typeof lesson.coverManualUpload === "object") {
+      plan.coverManualUpload = lesson.coverManualUpload;
+    }
     if (id) plan.id = id;
     const activitiesDraft = buildActivityDraftMap(plan.dailyPlans);
     if (Object.keys(weekDraft).length || Object.keys(activitiesDraft).length) {

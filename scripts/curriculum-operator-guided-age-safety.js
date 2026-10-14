@@ -142,9 +142,11 @@ function readyForOwnerReviewGates({
   return text(ownerReviewStatus, 40).toUpperCase() === "READY_FOR_OWNER_REVIEW";
 }
 
-module.exports = {
+const ageSafetyApi = {
   validateActivityIdea,
   validateGuidedBrief,
   validateLessonActivities,
   readyForOwnerReviewGates,
 };
+if (typeof module === "object" && module.exports) module.exports = ageSafetyApi;
+if (typeof globalThis !== "undefined") globalThis.LLHCurriculumOperatorGuidedAgeSafety = ageSafetyApi;
