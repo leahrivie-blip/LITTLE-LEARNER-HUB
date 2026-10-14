@@ -322,6 +322,47 @@ function structuredActivityMissingFields(record) {
   return missing;
 }
 
+function organizerPathForActivityField(day, fieldId) {
+  const map = {
+    title: null,
+    objective: "dailyObjective",
+    description: "dailyFocus",
+    materials: "materials",
+    preparation: "preparation",
+    setup: "setup",
+    steps: "directions",
+    teacherLanguage: "teacherQuestions",
+    observationOpportunities: "observation",
+    safetyNotes: "safety",
+    cleanupTips: "cleanup",
+    activityCategory: "activityCategory",
+    ageModifications: "ageModifications",
+    durationMinutes: "durationMinutes",
+    imageRequirement: "imageRequirement",
+    imageBriefSetup: "imageBriefSetup",
+    imageBriefExample: "imageBriefExample",
+    vocabulary: "vocabulary",
+    indoorAlternatives: "indoorAlternative",
+    outdoorAlternatives: "outdoorAlternative",
+    adaptations: "supportModification",
+    extensions: "challengeExtension",
+    mixedAgeAdaptations: "mixedAgeAdaptation",
+  };
+  const suffix = map[fieldId];
+  return suffix ? `daily.${day}.${suffix}` : "";
+}
+
+function assignStructuredField(values, path, rawValue, meta, duplicateValues) {
+  const value = multiline(rawValue);
+  if (!path || !value) return;
+  const dupes = Array.isArray(duplicateValues) ? duplicateValues.filter((v) => text(v)) : [];
+  if (dupes.length <= 1) {
+    assignValue(values, path, value, meta);
+    return;
+  }
+  dupes.forEach((entry) => assignValue(values, path, multiline(entry), meta));
+}
+
 function applyStructuredActivityRecord(values, day, slot, record, meta, titleIssues, activitiesReport) {
   const title = normalizeActivityTitle(record.title);
   if (!title) return;
@@ -335,23 +376,62 @@ function applyStructuredActivityRecord(values, day, slot, record, meta, titleIss
     });
   }
   assignValue(values, `daily.${day}.${slot}`, title, meta);
-  if (text(record.objective)) assignValue(values, `daily.${day}.dailyObjective`, record.objective, meta);
-  if (text(record.description)) assignValue(values, `daily.${day}.dailyFocus`, record.description, meta);
-  if (multiline(record.materials)) assignValue(values, `daily.${day}.materials`, record.materials, meta);
-  if (text(record.preparation)) assignValue(values, `daily.${day}.preparation`, record.preparation, meta);
-  if (text(record.setup)) assignValue(values, `daily.${day}.setup`, record.setup, meta);
-  if (multiline(record.steps)) assignValue(values, `daily.${day}.directions`, record.steps, meta);
-  else if (text(record.description)) assignValue(values, `daily.${day}.directions`, record.description, meta);
-  if (multiline(record.teacherLanguage)) assignValue(values, `daily.${day}.teacherQuestions`, record.teacherLanguage, meta);
-  if (multiline(record.observationOpportunities)) assignValue(values, `daily.${day}.observation`, record.observationOpportunities, meta);
-  if (multiline(record.safetyNotes)) assignValue(values, `daily.${day}.safety`, record.safetyNotes, meta);
-  if (text(record.cleanupTips)) assignValue(values, `daily.${day}.cleanup`, record.cleanupTips, meta);
-  if (text(record.indoorAlternatives)) assignValue(values, `daily.${day}.indoorAlternative`, record.indoorAlternatives, meta);
-  if (text(record.outdoorAlternatives)) assignValue(values, `daily.${day}.outdoorAlternative`, record.outdoorAlternatives, meta);
-  if (text(record.adaptations)) assignValue(values, `daily.${day}.supportModification`, record.adaptations, meta);
-  if (text(record.extensions)) assignValue(values, `daily.${day}.challengeExtension`, record.extensions, meta);
-  if (text(record.mixedAgeAdaptations)) assignValue(values, `daily.${day}.mixedAgeAdaptation`, record.mixedAgeAdaptations, meta);
-  if (multiline(record.vocabulary)) assignValue(values, `daily.${day}.vocabulary`, record.vocabulary, meta);
+  const dup = record.__duplicateFields || {};
+  assignStructuredField(
+    values,
+    `daily.${day}.dailyObjective`,
+    record.objective,
+    meta,
+    dup.objective,
+  );
+  assignStructuredField(values, `daily.${day}.dailyFocus`, record.description, meta, dup.description);
+  assignStructuredField(values, `daily.${day}.materials`, record.materials, meta, dup.materials);
+  assignStructuredField(values, `daily.${day}.preparation`, record.preparation, meta, dup.preparation);
+  assignStructuredField(values, `daily.${day}.setup`, record.setup, meta, dup.setup);
+  if (multiline(record.steps)) {
+    assignStructuredField(values, `daily.${day}.directions`, record.steps, meta, dup.steps);
+  } else if (text(record.description)) {
+    assignStructuredField(values, `daily.${day}.directions`, record.description, meta, dup.description);
+  }
+  assignStructuredField(values, `daily.${day}.teacherQuestions`, record.teacherLanguage, meta, dup.teacherLanguage);
+  assignStructuredField(
+    values,
+    `daily.${day}.observation`,
+    record.observationOpportunities,
+    meta,
+    dup.observationOpportunities,
+  );
+  assignStructuredField(values, `daily.${day}.safety`, record.safetyNotes, meta, dup.safetyNotes);
+  assignStructuredField(values, `daily.${day}.cleanup`, record.cleanupTips, meta, dup.cleanupTips);
+  assignStructuredField(values, `daily.${day}.activityCategory`, record.activityCategory, meta, dup.activityCategory);
+  assignStructuredField(values, `daily.${day}.ageModifications`, record.ageModifications, meta, dup.ageModifications);
+  const durationLabel = typeof record.durationMinutes === "number"
+    ? String(record.durationMinutes)
+    : text(record.durationMinutes, 80);
+  if (durationLabel) {
+    assignStructuredField(values, `daily.${day}.durationMinutes`, durationLabel, meta, dup.durationMinutes);
+  }
+  assignStructuredField(values, `daily.${day}.imageRequirement`, record.imageRequirement, meta, dup.imageRequirement);
+  assignStructuredField(values, `daily.${day}.imageBriefSetup`, record.imageBriefSetup, meta, dup.imageBriefSetup);
+  assignStructuredField(
+    values,
+    `daily.${day}.imageBriefExample`,
+    record.imageBriefExample,
+    meta,
+    dup.imageBriefExample,
+  );
+  assignStructuredField(values, `daily.${day}.indoorAlternative`, record.indoorAlternatives, meta, dup.indoorAlternatives);
+  assignStructuredField(values, `daily.${day}.outdoorAlternative`, record.outdoorAlternatives, meta, dup.outdoorAlternatives);
+  assignStructuredField(values, `daily.${day}.supportModification`, record.adaptations, meta, dup.adaptations);
+  assignStructuredField(values, `daily.${day}.challengeExtension`, record.extensions, meta, dup.extensions);
+  assignStructuredField(
+    values,
+    `daily.${day}.mixedAgeAdaptation`,
+    record.mixedAgeAdaptations,
+    meta,
+    dup.mixedAgeAdaptations,
+  );
+  assignStructuredField(values, `daily.${day}.vocabulary`, record.vocabulary, meta, dup.vocabulary);
 
   activitiesReport.push({
     title,

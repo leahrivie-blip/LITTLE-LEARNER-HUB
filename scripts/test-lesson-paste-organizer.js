@@ -256,6 +256,13 @@ console.log("My First Halloween — structured infant paste");
   ok(parsed.values["daily.monday.directions"]?.value.includes("1. Caregiver paints"), "numbered directions preserved");
   ok(parsed.values["daily.monday.safety"]?.value.includes("Adult completes"), "safety stays on activity");
   ok(parsed.values["daily.monday.vocabulary"]?.value.includes("Pumpkin"), "vocabulary list preserved");
+  ok(parsed.values["daily.monday.activityCategory"]?.value.includes("Creative Expression"), "developmental domain mapped");
+  ok(parsed.values["daily.monday.ageModifications"]?.value.includes("Infant"), "recommended activity age mapped");
+  ok(parsed.values["daily.monday.preparation"]?.value.includes("Tape cardstock"), "teacher preparation mapped");
+  ok(parsed.values["daily.monday.observation"]?.value.includes("calm engagement"), "learning and observation mapped");
+  ok(parsed.values["daily.monday.imageRequirement"]?.value, "image requirement mapped");
+  ok(parsed.values["daily.monday.imageBriefSetup"]?.value.includes("Caregiver hands"), "setup image brief mapped");
+  ok(parsed.values["daily.monday.dailyObjective"]?.value.includes("Support bonding"), "objective text preserved");
   const mondaySafety = ageSafety.validateActivityIdea({
     ageBand: "infant",
     title: EXPECTED_HALLOWEEN_TITLES.monday,
@@ -282,6 +289,17 @@ console.log("My First Halloween — structured infant paste");
     themeMarkedUnknown: false,
   });
   ok(preview.sections.some((s) => s.id === "books"), "review preview lists books section");
+  const monPreview = preview.sections.find((s) => s.id === "monday");
+  ok(monPreview.fields.some((f) => /Objective/.test(f.label) && /Support bonding/.test(f.value)), "preview shows objective");
+  ok(monPreview.fields.some((f) => /Materials/.test(f.label)), "preview shows materials");
+}
+
+console.log("Duplicate activity objective — conflict blocks save");
+{
+  const paste = "Title:\nDup Obj\n\nAge Group:\nInfant 0–12 Months\n\nTheme:\nFall\n\nMonday:\nActivity name:\nOne\nActivity objective:\nFirst objective here.\nActivity objective:\nSecond different objective.\nMaterials:\nYarn\nSafety and supervision:\nAdult holds all items.\nStep-by-step directions:\n1. Do one thing.\n";
+  const parsed = parser.parseDeterministicPaste(paste);
+  ok(parsed.report.conflicts.some((c) => c.path === "daily.monday.dailyObjective"), "duplicate objectives become conflict");
+  ok(!parsed.canSaveDraft, "unresolved objective conflict blocks save");
 }
 
 console.log("Static wiring");
@@ -293,4 +311,138 @@ console.log("Static wiring");
   ok(app.includes("data-paste-organize"), "app.js paste organize handlers");
 }
 
-console.log("All lesson paste organizer checks passed.");
+const http = require("node:http");
+const os = require("node:os");
+const crypto = require("node:crypto");
+const { spawn } = require("node:child_process");
+const ROOT = path.join(__dirname, "..");
+
+function organizerRequestJson(port, method, urlPath, body, token) {
+  return new Promise((resolve, reject) => {
+    const payload = body ? JSON.stringify(body) : null;
+    const headers = payload
+      ? { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(payload) }
+      : {};
+    if (token) headers.Authorization = `Bearer ${token}`;
+    const req = http.request(
+      { hostname: "127.0.0.1", port, path: urlPath, method, headers, timeout: 45000 },
+      (res) => {
+        const chunks = [];
+        res.on("data", (chunk) => chunks.push(chunk));
+        res.on("end", () => {
+          const raw = Buffer.concat(chunks).toString("utf8");
+          let json = null;
+          try { json = raw ? JSON.parse(raw) : null; } catch { json = null; }
+          resolve({ status: res.statusCode, json, text: raw });
+        });
+      },
+    );
+    req.on("error", reject);
+    if (payload) req.write(payload);
+    req.end();
+  });
+}
+
+async function runOrganizerSaveReloadTest() {
+  const port = 20580 + Math.floor(Math.random() * 40);
+  const base = `http://127.0.0.1:${port}`;
+  const storePath = path.join(os.tmpdir(), `llh-paste-organizer-${crypto.randomBytes(4).toString("hex")}.json`);
+  const admin = {
+    email: "paste-organizer@test.local",
+    password: "paste-organizer-pass",
+    code: "paste-organizer-code",
+  };
+  fs.writeFileSync(storePath, JSON.stringify({ users: {}, siteContent: {}, adminSessions: {} }, null, 2));
+  const child = spawn(process.execPath, ["server/index.js"], {
+    cwd: ROOT,
+    env: {
+      ...process.env,
+      PORT: String(port),
+      SITE_URL: base,
+      DATABASE_PROVIDER: "local-json",
+      LLH_STORE_PATH: storePath,
+      NODE_ENV: "test",
+      ADMIN_EMAIL: admin.email,
+      ADMIN_PASSWORD: admin.password,
+      ADMIN_ACCESS_CODE: admin.code,
+    },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  try {
+    let booted = false;
+    for (let i = 0; i < 80; i += 1) {
+      if (child.exitCode !== null) throw new Error("Server exited early");
+      try {
+        const health = await organizerRequestJson(port, "GET", "/api/health");
+        if (health.status === 200 && health.json?.ok) { booted = true; break; }
+      } catch { /* retry */ }
+      await new Promise((r) => setTimeout(r, 120));
+    }
+    if (!booted) throw new Error("Server did not boot");
+
+    const login = await organizerRequestJson(port, "POST", "/api/admin/login", {
+      email: admin.email,
+      password: admin.password,
+      code: admin.code,
+    });
+    assert.equal(login.status, 200, login.text);
+    const token = login.json.token;
+    const stampRes = await organizerRequestJson(port, "GET", "/api/admin/site-content", null, token);
+    assert.equal(stampRes.status, 200, stampRes.text);
+    let stamp = stampRes.json.siteContent?.updatedAt || "";
+
+    const parsed = parser.parseDeterministicPaste(MY_FIRST_HALLOWEEN_PASTE);
+    const built = applyApi.buildDraftLessonPlan(parsed, {
+      ownerDecisions: {},
+      ageMarkedUnknown: false,
+      themeMarkedUnknown: false,
+    });
+    ok(built.ok, "organizer draft builds before save");
+    const save = await organizerRequestJson(port, "POST", "/api/admin/curriculum/lesson-plans", {
+      expectedUpdatedAt: stamp,
+      lessonPlan: built.lessonPlan,
+    }, token);
+    assert.equal(save.status, 200, save.text);
+    const savedId = save.json.lessonPlan.id;
+    stamp = save.json.siteContentUpdatedAt;
+
+    const reload = await organizerRequestJson(port, "GET", "/api/admin/site-content", null, token);
+    const plan = (reload.json.siteContent?.curriculum?.lessonPlans || []).find((item) => item.id === savedId);
+    ok(plan, "reload finds saved organizer draft");
+    ok(plan.title === "My First Halloween", "reload title");
+    const monItem = plan.dailyPlans.monday.items[0];
+    const monPatch = plan.enrichmentDraft?.activities?.[monItem.itemId] || {};
+    ok(monItem.title === EXPECTED_HALLOWEEN_TITLES.monday, "reload monday title");
+    ok(monPatch.activityCategory?.includes("Creative Expression"), "reload category");
+    ok(monPatch.preparation?.includes("Tape cardstock"), "reload preparation");
+    ok(monPatch.ageModifications?.includes("Infant"), "reload recommended age");
+    ok(monPatch.durationMinutes === 8, "reload duration");
+    ok(monPatch.observationOpportunities?.includes("calm engagement"), "reload observation");
+    ok(monPatch.imageBriefSetup?.includes("Caregiver hands"), "reload setup image brief");
+    ok(plan.enrichmentDraft?.week?.coverImageInstructions?.includes("Realistic photo"), "reload cover instructions");
+    const importHistory = plan.enrichmentDraft?.pasteOrganizerImport || plan.pasteOrganizerImport;
+    ok(importHistory?.originalPaste?.includes("My First Halloween"), "reload paste history");
+    ok((plan.enrichmentDraft?.week?.books || []).length >= 1, "reload week books");
+    ok((plan.enrichmentDraft?.week?.songs || []).length >= 1, "reload week songs");
+    console.log("  ✓ organizer save/reload via admin curriculum API");
+  } finally {
+    if (child.exitCode === null) {
+      child.kill("SIGTERM");
+      await new Promise((resolve) => {
+        const timer = setTimeout(() => { child.kill("SIGKILL"); resolve(); }, 3000);
+        child.on("exit", () => { clearTimeout(timer); resolve(); });
+      });
+    }
+    try { fs.unlinkSync(storePath); } catch { /* ignore */ }
+  }
+}
+
+async function main() {
+  await runOrganizerSaveReloadTest();
+  console.log("All lesson paste organizer checks passed.");
+}
+
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

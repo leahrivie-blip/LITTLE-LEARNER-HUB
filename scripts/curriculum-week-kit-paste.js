@@ -167,6 +167,7 @@
     "suggested questions": "teacherLanguage",
     questions: "teacherLanguage",
     "learning and observation focus": "observationOpportunities",
+    "learning and observation": "observationOpportunities",
     "observation focus": "observationOpportunities",
     "safety and supervision": "safetyNotes",
     safety: "safetyNotes",
@@ -381,7 +382,18 @@
         });
         return;
       }
-      current[section.fieldId] = multiline(section.body);
+      const next = multiline(section.body);
+      if (!next) return;
+      const fieldId = section.fieldId;
+      if (!current[fieldId]) {
+        current[fieldId] = next;
+        return;
+      }
+      const prev = multiline(current[fieldId]);
+      if (prev.trim() === next.trim()) return;
+      if (!current.__duplicateFields) current.__duplicateFields = {};
+      if (!current.__duplicateFields[fieldId]) current.__duplicateFields[fieldId] = [prev];
+      if (!current.__duplicateFields[fieldId].includes(next)) current.__duplicateFields[fieldId].push(next);
     });
     flush();
     return { records, unsupported };
@@ -715,6 +727,9 @@
       const title = text(raw.title);
       if (!title) return null;
       const out = { title, dayOfWeek: weekday || "" };
+      if (raw.__duplicateFields && typeof raw.__duplicateFields === "object") {
+        out.__duplicateFields = raw.__duplicateFields;
+      }
       [
         "activityCategory", "ageModifications", "durationMinutes", "objective", "description",
         "materials", "preparation", "setup", "steps", "teacherLanguage", "observationOpportunities",

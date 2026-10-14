@@ -77,8 +77,6 @@ Estimated duration:
 8 minutes
 Activity objective:
 Support bonding while caregivers create a supervised footprint keepsake.
-Activity objective:
-Repeat label must stay in the same activity, not start a new one.
 What children will do:
 Infants watch and touch the caregiver's hands during the adult-led footprint craft.
 Materials:
@@ -103,6 +101,14 @@ Vocabulary:
 Orange
 Pumpkin
 Soft
+Learning and observation:
+Watch for looking, reaching, and calm engagement during the footprint experience.
+Image requirement:
+Finished example only
+Setup image brief:
+Caregiver hands supporting infant foot near orange paint on cardstock.
+Finished example image brief:
+Completed orange footprint art on cardstock with no infant faces in frame.
 
 Tuesday:
 Activity name:

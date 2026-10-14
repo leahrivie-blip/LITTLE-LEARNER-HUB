@@ -92,6 +92,8 @@ function buildParsedShapeFromOrganizer(parseResult, options = {}) {
       if (!raw) return;
       const title = firstLine(raw);
       if (!title) return;
+      const durationRaw = text(values[`daily.${day}.durationMinutes`]?.value, 40);
+      const durationMatch = durationRaw.match(/(\d+)/);
       const item = {
         itemId: generateId(),
         title,
@@ -99,6 +101,7 @@ function buildParsedShapeFromOrganizer(parseResult, options = {}) {
         description: text(values[`daily.${day}.dailyFocus`]?.value, 4000)
           || text(values[`daily.${day}.directions`]?.value, 4000),
         materials: text(values[`daily.${day}.materials`]?.value, 2000) || text(lesson.weeklyMaterials, 500),
+        preparation: text(values[`daily.${day}.preparation`]?.value, 2000),
         setup: text(values[`daily.${day}.setup`]?.value, 2000),
         steps: text(values[`daily.${day}.directions`]?.value, 4000) || restLines(raw),
         teacherLanguage: text(values[`daily.${day}.teacherQuestions`]?.value, 2000),
@@ -112,6 +115,22 @@ function buildParsedShapeFromOrganizer(parseResult, options = {}) {
         extensions: text(values[`daily.${day}.challengeExtension`]?.value, 2000),
         mixedAgeAdaptations: text(values[`daily.${day}.mixedAgeAdaptation`]?.value, 2000),
       };
+      if (text(values[`daily.${day}.activityCategory`]?.value)) {
+        item.activityCategory = text(values[`daily.${day}.activityCategory`].value, 500);
+      }
+      if (text(values[`daily.${day}.ageModifications`]?.value)) {
+        item.ageModifications = text(values[`daily.${day}.ageModifications`].value, 200);
+      }
+      if (durationMatch) item.durationMinutes = Number(durationMatch[1]);
+      if (text(values[`daily.${day}.imageRequirement`]?.value)) {
+        item.imageRequirement = text(values[`daily.${day}.imageRequirement`].value, 200);
+      }
+      if (text(values[`daily.${day}.imageBriefSetup`]?.value)) {
+        item.imageBriefSetup = text(values[`daily.${day}.imageBriefSetup`].value, 2000);
+      }
+      if (text(values[`daily.${day}.imageBriefExample`]?.value)) {
+        item.imageBriefExample = text(values[`daily.${day}.imageBriefExample`].value, 2000);
+      }
       dailyPlans[day].items.push(item);
     });
   });
@@ -183,6 +202,9 @@ function buildDraftLessonPlan(parseResult, options = {}) {
     now: options.now,
   });
   lessonPlan.pasteOrganizerImport = parsed.importHistory;
+  if (lessonPlan.enrichmentDraft && typeof lessonPlan.enrichmentDraft === "object") {
+    lessonPlan.enrichmentDraft.pasteOrganizerImport = parsed.importHistory;
+  }
   lessonPlan.status = "draft";
   lessonPlan.publishedAt = null;
   return { ok: true, validation, parsed, lessonPlan };
@@ -206,22 +228,58 @@ function buildStructurePreview(parseResult, options = {}) {
     field("Family connection", parsed.lesson.familyConnection),
     field("Safety", (parsed.lesson.observationFocus || [])[0]),
     field("Teacher notes", parseResult.values?.["global.teacherNotes"]?.value),
+    parsed.lesson.coverManualUpload?.raw
+      ? field("Cover image instructions", parsed.lesson.coverManualUpload.raw)
+      : field("Cover image instructions", parseResult.values?.["global.cover"]?.value),
   ];
 
   const days = manifest.WEEKDAYS.map((day) => {
     const plan = parsed.dailyPlans[day] || { items: [] };
-    const activities = (plan.items || []).map((item, index) =>
-      field(`Activity ${index + 1}`, item.title, "activity needs a title"),
-    );
+    const activities = (plan.items || []).flatMap((item, index) => {
+      const prefix = `Activity ${index + 1}`;
+      const rows = [field(`${prefix} — Title`, item.title, "activity needs a title")];
+      if (text(item.objective)) rows.push(field(`${prefix} — Objective`, item.objective));
+      if (text(item.materials)) rows.push(field(`${prefix} — Materials`, item.materials));
+      if (text(item.preparation)) rows.push(field(`${prefix} — Preparation`, item.preparation));
+      if (text(item.steps)) rows.push(field(`${prefix} — Instructions`, item.steps));
+      if (text(item.safetyNotes)) rows.push(field(`${prefix} — Safety`, item.safetyNotes));
+      if (text(item.ageModifications)) rows.push(field(`${prefix} — Recommended age`, item.ageModifications));
+      if (item.durationMinutes != null && item.durationMinutes !== "") {
+        rows.push(field(`${prefix} — Duration`, `${item.durationMinutes} minutes`));
+      }
+      if (text(item.observationOpportunities)) {
+        rows.push(field(`${prefix} — Observation`, item.observationOpportunities));
+      }
+      if (text(item.imageRequirement)) rows.push(field(`${prefix} — Image requirement`, item.imageRequirement));
+      if (text(item.imageBriefSetup)) rows.push(field(`${prefix} — Setup image brief`, item.imageBriefSetup));
+      if (text(item.imageBriefExample)) {
+        rows.push(field(`${prefix} — Finished example brief`, item.imageBriefExample));
+      }
+      if (text(item.activityCategory)) rows.push(field(`${prefix} — Category`, item.activityCategory));
+      return rows;
+    });
     return {
       day,
       activities: activities.length ? activities : [warn("Activities", "no labeled activities for this day")],
     };
   });
 
+  const conflictFields = (parseResult.report?.conflicts || []).map((c) => field(
+    `Conflict — ${c.path || c.type}`,
+    (c.values || []).join(" | "),
+    "resolve before save",
+  ));
+  const unsupportedFields = (parseResult.report?.unsupportedStorage || []).map((row) => field(
+    row.label || "Unsupported",
+    row.detail || "",
+    "not stored in lesson schema",
+  ));
+
   return {
     sections: [
       { id: "overview", title: "Overview", fields: overview },
+      ...(conflictFields.length ? [{ id: "conflicts", title: "Conflicts", fields: conflictFields }] : []),
+      ...(unsupportedFields.length ? [{ id: "unsupported", title: "Unsupported", fields: unsupportedFields }] : []),
       ...days.map((d) => ({
         id: d.day,
         title: d.day.charAt(0).toUpperCase() + d.day.slice(1),
