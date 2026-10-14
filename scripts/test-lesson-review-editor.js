@@ -868,6 +868,18 @@ async function runBrowserTests(token) {
   const previewCopy = await mobilePage.locator("[data-lre-preview-overlay]").innerText();
   ok(/Preview only/i.test(previewCopy) && /not published/i.test(previewCopy), "Mobile preview read-only label");
   ok(await mobilePage.locator("[data-lre-preview-overlay] [data-teaching-kit-workspace]").count() >= 1, "Mobile preview renders Teaching Kit workspace");
+  const previewStack = await mobilePage.evaluate(() => {
+    const bar = document.querySelector("[data-lre-mobile-bar]");
+    const overlay = document.querySelector("[data-lre-preview-overlay]");
+    if (!overlay) return { ok: false, reason: "no overlay" };
+    const barStyle = bar ? getComputedStyle(bar) : null;
+    const overlayStyle = getComputedStyle(overlay);
+    const barHidden = !bar || barStyle.display === "none" || barStyle.visibility === "hidden";
+    const zOk = parseInt(overlayStyle.zIndex, 10) > parseInt(barStyle?.zIndex || "0", 10);
+    return { ok: barHidden || zOk, barHidden, overlayZ: overlayStyle.zIndex, barZ: barStyle?.zIndex || "" };
+  });
+  ok(previewStack.ok, `Mobile preview stacks above editor toolbar (${JSON.stringify(previewStack)})`);
+  await mobilePage.screenshot({ path: path.join(ARTIFACT_DIR, "lesson-review-mobile-preview-overlay.png"), fullPage: false });
   await mobilePage.click("[data-lre-preview-back]");
   ok(await mobilePage.locator("[data-lre-section-select]").count() >= 1, "Image/section controls reachable after preview");
 

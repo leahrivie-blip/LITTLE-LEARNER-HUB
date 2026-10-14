@@ -547,7 +547,8 @@ body.llh-lre-screenshot .admin-workspace-sidebar {
 .llh-lre-preview-overlay {
   position: fixed;
   inset: 0;
-  z-index: 12000;
+  /* Above .llh-lre-mobile-bar (12001) so preview is fully interactive on mobile */
+  z-index: 12010;
   background: rgba(18, 28, 38, 0.55);
   display: flex;
   align-items: stretch;
@@ -910,9 +911,14 @@ body.llh-lre-screenshot .admin-workspace-sidebar {
     max-width: 100%;
   }
 
+  .llh-lre:has([data-lre-preview-overlay]) .llh-lre-mobile-bar {
+    display: none;
+  }
+
   .llh-lre-preview-overlay {
     padding: 0;
     align-items: stretch;
+    z-index: 12010;
   }
 
   .llh-lre-preview-panel {
