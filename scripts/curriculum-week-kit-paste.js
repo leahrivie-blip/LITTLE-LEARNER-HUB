@@ -179,6 +179,7 @@
     "indoor/outdoor options": "indoorOutdoorOptions",
     "indoor outdoor options": "indoorOutdoorOptions",
     "teacher tips": "teacherTips",
+    "teacher role": "teacherRole",
     tips: "teacherTips",
     "supply substitutions": "substitutions",
     substitutions: "substitutions",
@@ -597,6 +598,25 @@
     };
   }
 
+  function coerceImageInstructionProse(raw) {
+    const value = multiline(raw);
+    if (!value) return null;
+    const lower = value.toLowerCase();
+    const out = { imageRequirement: "needs_owner_classification" };
+    const exampleSplit = value.split(/\bfinished example photo needed\.?\s*/i);
+    if (exampleSplit.length >= 2) {
+      const setupPart = exampleSplit[0].trim();
+      const examplePart = `Finished example photo needed. ${exampleSplit.slice(1).join(" ").trim()}`.trim();
+      if (setupPart) out.imageBriefSetup = setupPart;
+      if (examplePart) out.imageBriefExample = examplePart;
+      return out;
+    }
+    if (/setup photo|setup image/.test(lower)) out.imageBriefSetup = value;
+    if (/finished example|example photo/.test(lower)) out.imageBriefExample = value;
+    if (!out.imageBriefSetup && !out.imageBriefExample) out.imageBriefSetup = value;
+    return out;
+  }
+
   function parseImageRequirement(raw) {
     const value = text(raw).toLowerCase().replace(/\s+/g, "_");
     const compact = text(raw).toLowerCase();
@@ -732,9 +752,9 @@
       }
       [
         "activityCategory", "ageModifications", "durationMinutes", "objective", "description",
-        "materials", "preparation", "setup", "steps", "teacherLanguage", "observationOpportunities",
-        "safetyNotes", "cleanupTips", "indoorAlternatives", "outdoorAlternatives", "adaptations",
-        "extensions", "mixedAgeAdaptations", "vocabulary",
+        "materials", "preparation", "setup", "steps", "teacherLanguage", "teacherRole",
+        "observationOpportunities", "safetyNotes", "cleanupTips", "indoorAlternatives",
+        "outdoorAlternatives", "adaptations", "extensions", "mixedAgeAdaptations", "vocabulary",
       ].forEach((key) => {
         if (multiline(raw[key])) out[key] = key === "vocabulary" || key === "materials" || key === "steps" || key === "teacherLanguage"
           ? multiline(raw[key])
@@ -760,7 +780,11 @@
       }
       const imageReq = parseImageRequirement(raw.imageRequirement);
       if (imageReq) out.imageRequirement = imageReq;
-      else if (text(raw.imageRequirement)) out.unresolvedImageRequirement = text(raw.imageRequirement);
+      else if (text(raw.imageRequirement)) {
+        const prose = coerceImageInstructionProse(raw.imageRequirement);
+        if (prose) Object.assign(out, prose);
+        else out.unresolvedImageRequirement = text(raw.imageRequirement);
+      }
       if (multiline(raw.imageBriefSetup)) out.imageBriefSetup = multiline(raw.imageBriefSetup);
       if (multiline(raw.imageBriefExample)) out.imageBriefExample = multiline(raw.imageBriefExample);
       if (text(raw.setupImageUpload) && !isPlaceholderPasteValue(raw.setupImageUpload)) {
@@ -850,6 +874,7 @@
     labeledSectionBody,
     parsePendingPrintableSection,
     parseImageRequirement,
+    coerceImageInstructionProse,
     parseCoverOrUrl,
     parseLinkedResourcesSection,
     resolveExistingResource,

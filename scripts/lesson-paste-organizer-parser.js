@@ -63,6 +63,8 @@ const GLOBAL_ALIASES = freezeAliasMap({
   objectives: "global.weeklyObjectives",
   "weekly objectives": "global.weeklyObjectives",
   "learning objectives": "global.weeklyObjectives",
+  "weekly learning objectives": "global.weeklyObjectives",
+  "children will practice": "global.weeklyObjectives",
   "weekly overview": "global.weeklyFocus",
   "week overview": "global.weeklyFocus",
   materials: "global.weeklyMaterials",
@@ -97,6 +99,10 @@ const GLOBAL_ALIASES = freezeAliasMap({
   "cover image": "global.cover",
   "teacher notes": "global.teacherNotes",
   notes: "global.teacherNotes",
+  "weekly observation": "global.teacherNotes",
+  "weekly cleanup": "global.cleanupSupplies",
+  "image style": "global.cover",
+  "plan type": "global.teacherNotes",
 });
 
 const WEEKDAY_ALIASES = freezeAliasMap({
@@ -161,15 +167,32 @@ const ACTIVITY_TYPE_ALIASES = freezeAliasMap({
   indoor: "indoorActivity",
 });
 
+function isStandaloneWeekdayHeadingLine(trimmed) {
+  if (!trimmed || /[:：]/.test(trimmed)) return false;
+  const compact = trimmed.replace(/\s+/g, " ").trim();
+  if (!/^[A-Za-z]+$/i.test(compact)) return false;
+  if (compact !== compact.toUpperCase()) return false;
+  return Boolean(WEEKDAY_ALIASES[normalizeHeading(compact)]);
+}
+
 function parseHeadingLine(line) {
   const trimmed = String(line || "").trim();
   if (!trimmed) return null;
   const md = trimmed.match(/^#{1,6}\s+(.+?)\s*[:：]?\s*$/);
+  if (md) {
+    const labelRaw = md[1].trim();
+    return { labelRaw, inlineBody: "", normalized: normalizeHeading(labelRaw) };
+  }
   const plain = trimmed.match(/^(.{2,120}?)\s*[:：]\s*(.*)$/);
-  const labelRaw = md ? md[1] : (plain ? plain[1] : null);
-  if (!labelRaw) return null;
-  const inlineBody = plain && plain[2] != null ? plain[2] : "";
-  return { labelRaw: labelRaw.trim(), inlineBody: inlineBody.trim(), normalized: normalizeHeading(labelRaw) };
+  if (plain) {
+    const labelRaw = plain[1].trim();
+    const inlineBody = plain[2] != null ? plain[2].trim() : "";
+    return { labelRaw, inlineBody, normalized: normalizeHeading(labelRaw) };
+  }
+  if (isStandaloneWeekdayHeadingLine(trimmed)) {
+    return { labelRaw: trimmed, inlineBody: "", normalized: normalizeHeading(trimmed) };
+  }
+  return null;
 }
 
 const GLOBAL_LESSON_BOUNDARY = new Set(
@@ -360,6 +383,10 @@ function organizerPathForActivityField(day, fieldId) {
     adaptations: "supportModification",
     extensions: "challengeExtension",
     mixedAgeAdaptations: "mixedAgeAdaptation",
+    teacherRole: "teacherRole",
+    teacherTips: "teacherTips",
+    observationPrompts: "observationPrompts",
+    substitutions: "substitutions",
   };
   const suffix = map[fieldId];
   return suffix ? `daily.${day}.${suffix}` : "";
@@ -445,6 +472,64 @@ function applyStructuredActivityRecord(values, day, slot, record, meta, titleIss
     dup.mixedAgeAdaptations,
   );
   assignStructuredField(values, `daily.${day}.vocabulary`, record.vocabulary, meta, dup.vocabulary);
+  assignStructuredField(values, `daily.${day}.teacherRole`, record.teacherRole, meta, dup.teacherRole);
+  if (Array.isArray(record.teacherTips) && record.teacherTips.length) {
+    assignStructuredField(
+      values,
+      `daily.${day}.teacherTips`,
+      record.teacherTips.join("\n"),
+      meta,
+      dup.teacherTips,
+    );
+  } else if (multiline(record.teacherTips)) {
+    assignStructuredField(values, `daily.${day}.teacherTips`, record.teacherTips, meta, dup.teacherTips);
+  }
+  if (Array.isArray(record.observationPrompts) && record.observationPrompts.length) {
+    assignStructuredField(
+      values,
+      `daily.${day}.observationPrompts`,
+      record.observationPrompts.join("\n"),
+      meta,
+      dup.observationPrompts,
+    );
+  } else if (multiline(record.observationPrompts)) {
+    assignStructuredField(
+      values,
+      `daily.${day}.observationPrompts`,
+      record.observationPrompts,
+      meta,
+      dup.observationPrompts,
+    );
+  }
+  if (Array.isArray(record.substitutions) && record.substitutions.length) {
+    assignStructuredField(
+      values,
+      `daily.${day}.substitutions`,
+      JSON.stringify(record.substitutions),
+      meta,
+      dup.substitutions,
+    );
+  }
+  if (multiline(record.unresolvedImageRequirement)) {
+    const prose = organizerWeekKit.coerceImageInstructionProse
+      ? organizerWeekKit.coerceImageInstructionProse(record.unresolvedImageRequirement)
+      : null;
+    if (prose?.imageRequirement) {
+      assignStructuredField(values, `daily.${day}.imageRequirement`, prose.imageRequirement, meta, dup.imageRequirement);
+    }
+    if (prose?.imageBriefSetup) {
+      assignStructuredField(values, `daily.${day}.imageBriefSetup`, prose.imageBriefSetup, meta, dup.imageBriefSetup);
+    }
+    if (prose?.imageBriefExample) {
+      assignStructuredField(
+        values,
+        `daily.${day}.imageBriefExample`,
+        prose.imageBriefExample,
+        meta,
+        dup.imageBriefExample,
+      );
+    }
+  }
 
   activitiesReport.push({
     title,
@@ -496,6 +581,41 @@ function applyLegacyWeekdayBody(values, day, body, meta) {
     if (currentPath) currentLines.push(line);
   });
   flush();
+}
+
+const MERGE_GLOBAL_PATHS = new Set([
+  "global.teacherNotes",
+  "global.weeklyObjectives",
+  "global.cleanupSupplies",
+  "global.cover",
+]);
+
+function globalMergeChunk(section, body) {
+  const norm = section.headingNormalized || normalizeHeading(section.headingRaw);
+  const piece = multiline(body);
+  if (norm === "plan type") return piece ? `Plan type: ${piece}` : "";
+  if (norm === "document label") return piece ? `Document label: ${piece}` : "";
+  if (norm === "weekly observation") return piece ? `Weekly observation:\n${piece}` : "";
+  if (norm === "weekly learning objectives" && !piece) return "";
+  if (norm === "children will practice") {
+    return piece ? `Children will practice:\n${piece}` : "Children will practice:";
+  }
+  return piece || text(section.inlineBody, 8000);
+}
+
+function mergeGlobalField(values, path, section, body, meta) {
+  const chunk = globalMergeChunk(section, body);
+  if (!chunk) return;
+  if (!values[path]?.value) {
+    assignValue(values, path, chunk, meta);
+    return;
+  }
+  const prev = values[path].value.trim();
+  const next = prev === chunk.trim() ? prev : `${prev}\n\n${chunk.trim()}`;
+  values[path].value = next;
+  values[path].occurrences.push(meta);
+  delete values[path].conflict;
+  delete values[path].conflictValues;
 }
 
 function assignValue(store, path, value, meta) {
@@ -682,31 +802,82 @@ function parseDeterministicPaste(pastedText, options = {}) {
       return;
     }
     if (path === "book.record") {
-      books.push({ title: text(body.split("\n")[0], 200), body, line: section.lineStart, assignedDay: context.day || "" });
+      flushFloatingActivities();
+      const parsedBooks = organizerWeekKit.parseBooksSection(body);
+      (parsedBooks.records || []).forEach((book) => {
+        books.push({
+          title: text(book.title, 200),
+          body: [book.title, book.author, book.questions].filter(Boolean).join("\n"),
+          line: section.lineStart,
+          assignedDay: book.suggestedWeekday || context.day || "",
+        });
+      });
+      if (text(body) && !(parsedBooks.records || []).length) {
+        books.push({ title: text(body.split("\n")[0], 200), body, line: section.lineStart, assignedDay: context.day || "" });
+      }
       return;
     }
     if (path === "song.record") {
-      songs.push({ title: text(body.split("\n")[0], 200), body, line: section.lineStart, assignedDay: context.day || "" });
+      flushFloatingActivities();
+      const parsedSongs = organizerWeekKit.parseSongsSection(body);
+      (parsedSongs.records || []).forEach((song) => {
+        songs.push({
+          title: text(song.title, 200),
+          body: [song.title, song.lyrics, song.teacherDirections].filter(Boolean).join("\n"),
+          line: section.lineStart,
+          assignedDay: song.linkedWeekday || context.day || "",
+        });
+      });
+      if (text(body) && !(parsedSongs.records || []).length) {
+        songs.push({ title: text(body.split("\n")[0], 200), body, line: section.lineStart, assignedDay: context.day || "" });
+      }
       return;
     }
     if (path === "printable.record") {
-      printables.push({ title: text(body.split("\n")[0], 200), body, line: section.lineStart, assignedDay: context.day || "" });
+      flushFloatingActivities();
+      const parsedIdeas = organizerWeekKit.parsePrintableIdeasSection(body);
+      (parsedIdeas.records || []).forEach((idea) => {
+        printables.push({
+          title: text(idea.title, 200),
+          body: [idea.title, idea.purpose, idea.instructions].filter(Boolean).join("\n"),
+          line: section.lineStart,
+          assignedDay: "",
+        });
+      });
+      if (text(body) && !(parsedIdeas.records || []).length) {
+        printables.push({ title: text(body.split("\n")[0], 200), body, line: section.lineStart, assignedDay: context.day || "" });
+      }
       return;
     }
 
     if (path) {
       flushFloatingActivities();
-      assignValue(values, path, body, { line: section.lineStart, heading: section.headingRaw });
+      if (MERGE_GLOBAL_PATHS.has(path)) {
+        mergeGlobalField(values, path, section, body, { line: section.lineStart, heading: section.headingRaw });
+      } else {
+        assignValue(values, path, body, { line: section.lineStart, heading: section.headingRaw });
+      }
       return;
     }
 
     if (body || section.headingRaw) {
+      const reason = section.headingRaw ? "unrecognized_heading" : "preamble_without_heading";
+      if (reason === "preamble_without_heading" && text(body || section.headingRaw, 120).length <= 80) {
+        mergeGlobalField(
+          values,
+          "global.teacherNotes",
+          { headingRaw: "Document label", headingNormalized: "document label", inlineBody: "" },
+          body || section.headingRaw,
+          { line: section.lineStart, heading: section.headingRaw || "(preamble)" },
+        );
+        return;
+      }
       unsorted.push({
         id: `unsorted-${section.lineStart}`,
         line: section.lineStart,
         heading: section.headingRaw || "(no heading)",
         text: body || section.headingRaw,
-        reason: section.headingRaw ? "unrecognized_heading" : "preamble_without_heading",
+        reason,
       });
     }
   });
