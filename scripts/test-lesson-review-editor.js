@@ -515,7 +515,7 @@ async function runBrowserTests(token) {
   ok(await page.locator(".llh-lre.is-screenshot-mode").count() === 0, "Screenshot mode exits");
 
   // Sticky save draft
-  await page.click("[data-lre-save-draft]");
+  await page.locator(".llh-lre-header-desktop [data-lre-save-draft]").click();
   await page.waitForFunction(() => {
     const msg = document.querySelector(".llh-lre-header .form-message");
     const text = msg?.textContent || "";
@@ -558,10 +558,12 @@ async function runBrowserTests(token) {
   const statusBeforePreview = await page.evaluate((id) => {
     return typeof curriculumLessonPlanById === "function" ? curriculumLessonPlanById(id)?.status : "";
   }, FIXTURE_ID);
-  await page.click("[data-lre-preview-lesson]");
+  await page.locator(".llh-lre-header-desktop [data-lre-preview-lesson]").click();
   await page.waitForSelector("[data-lre-preview-overlay]", { timeout: 10000 });
+  await page.waitForSelector("[data-lre-preview-overlay] [data-teaching-kit-workspace]", { timeout: 20000 });
   const previewText = await page.locator("[data-lre-preview-overlay]").innerText();
   ok(/Preview only/i.test(previewText) && /not published/i.test(previewText), "Preview overlay is labeled read-only");
+  ok(await page.locator("[data-lre-preview-overlay] [data-teaching-kit-workspace]").count() >= 1, "Preview renders Teaching Kit workspace");
   await page.click("[data-lre-preview-back]");
   await page.waitForTimeout(250);
   ok(await page.locator("[data-lre-preview-overlay]").count() === 0, "Back to editing closes preview overlay");
@@ -674,7 +676,7 @@ async function runBrowserTests(token) {
     const durationValue = "12 minutes — owner-persisted duration";
     await page.fill("[data-lre-core-field='ageModifications'] textarea", ageValue);
     await page.fill("[data-lre-core-field='durationMinutes'] textarea", durationValue);
-    await page.click("[data-lre-save-draft]");
+    await page.locator(".llh-lre-header-desktop [data-lre-save-draft]").click();
     await page.waitForFunction(() => {
       const msg = document.querySelector(".llh-lre-header .form-message");
       const text = msg?.textContent || "";
@@ -862,8 +864,10 @@ async function runBrowserTests(token) {
   ok(await mobilePage.locator("[data-lre-mobile-bar] [data-lre-save-draft]").count() >= 1, "Save remains accessible on mobile bar");
   await mobilePage.locator("[data-lre-mobile-bar] [data-lre-preview-lesson]").click();
   await mobilePage.waitForSelector("[data-lre-preview-overlay]", { timeout: 15000 });
+  await mobilePage.waitForSelector("[data-lre-preview-overlay] [data-teaching-kit-workspace]", { timeout: 20000 });
   const previewCopy = await mobilePage.locator("[data-lre-preview-overlay]").innerText();
   ok(/Preview only/i.test(previewCopy) && /not published/i.test(previewCopy), "Mobile preview read-only label");
+  ok(await mobilePage.locator("[data-lre-preview-overlay] [data-teaching-kit-workspace]").count() >= 1, "Mobile preview renders Teaching Kit workspace");
   await mobilePage.click("[data-lre-preview-back]");
   ok(await mobilePage.locator("[data-lre-section-select]").count() >= 1, "Image/section controls reachable after preview");
 

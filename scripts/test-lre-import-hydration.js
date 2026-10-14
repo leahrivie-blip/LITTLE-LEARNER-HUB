@@ -177,7 +177,7 @@ async function main() {
     const infantCover = await page.locator('textarea[data-lre-path="enrichmentDraft.week.coverImageInstructions"]').inputValue();
     assert.match(infantCover, /Realistic photo/i, "infant cover instructions visible");
     await page.locator('textarea[data-lre-path="enrichmentDraft.week.coverImageInstructions"]').fill("Owner LRE cover brief edit.");
-    await page.locator("[data-lre-save-draft]").first().click();
+    await page.locator(".llh-lre-header-desktop [data-lre-save-draft]").click();
     await page.waitForFunction(
       () => /saved/i.test(document.querySelector("[data-lre-save-indicator]")?.textContent || ""),
       null,
@@ -195,7 +195,7 @@ async function main() {
     const beforePrintable = await printableBody.inputValue();
     assert.ok(beforePrintable.length > 3, "infant printable idea body visible");
     await printableBody.fill(`${beforePrintable}\nEdited in LRE.`);
-    await page.locator("[data-lre-save-draft]").first().click();
+    await page.locator(".llh-lre-header-desktop [data-lre-save-draft]").click();
     await page.waitForTimeout(800);
     await page.evaluate(() => LLHLessonReviewEditor.close({ force: true, skipReturnNavigation: true }));
     await openLre(infant.id, "printables");

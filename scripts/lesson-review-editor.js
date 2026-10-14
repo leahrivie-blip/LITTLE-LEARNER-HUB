@@ -1348,7 +1348,6 @@
 
   function renderHeader(progress) {
     const statusTag = /^(published|featured)$/i.test(String(state.draft.status || "")) ? "Published" : "Draft";
-    const currentSection = SECTION_DEFS.find((row) => row.id === state.sectionId) || SECTION_DEFS[0];
     const statusMessage = state.statusText
       ? `<p class="form-message ${state.isSuccess ? "success" : "error"}" role="status" data-lre-status-message>${esc(state.statusText)}</p>`
       : "";
@@ -1363,17 +1362,24 @@
             <h1 class="llh-lre-mobile-title">${esc(state.draft.title || "Untitled lesson")}</h1>
             <p class="llh-lre-mobile-section-line">
               <span class="tag">${esc(statusTag)}</span>
-              ${esc(currentSection.label)}
               · <span data-lre-save-indicator class="llh-lre-save-indicator">${esc(saveStateLabel())}</span>
+              · Progress ${progress.percent}%
             </p>
           </div>
           ${renderMobileSectionJump()}
           <details class="llh-lre-mobile-details" data-lre-mobile-details ${state.mobileDetailsOpen ? "open" : ""}>
-            <summary>Lesson details</summary>
+            <summary>Lesson Details &amp; Actions</summary>
             <div class="llh-lre-mobile-details-body" data-lre-summary-status>
+              <p class="llh-lre-mobile-full-title"><strong>${esc(state.draft.title || "Untitled lesson")}</strong></p>
               <p><span class="tag">${esc(statusTag)}</span> ${esc(state.draft.age || "Age")} · ${esc(state.draft.theme || "Theme")}</p>
+              ${text(state.draft.weeklyOverview) ? `<p class="llh-lre-mobile-overview">${esc(state.draft.weeklyOverview)}</p>` : ""}
               <p>Progress ${progress.percent}% (${progress.complete}/${progress.required} required)</p>
-              <p>Saved state: <span class="llh-lre-save-indicator-static">${esc(saveStateLabel())}</span></p>
+              <div class="llh-lre-mobile-details-actions">
+                <button type="button" class="primary-button" data-lre-save-draft ${state.saving ? "disabled" : ""}>Save</button>
+                <button type="button" class="ghost-button" data-lre-preview-lesson>Preview lesson</button>
+                <button type="button" class="ghost-button" data-lre-back>${esc(backLabel())}</button>
+                <button type="button" class="ghost-button" data-lre-mobile-screenshot>${state.screenshotMode ? "Exit Screenshot mode" : "Screenshot mode"}</button>
+              </div>
             </div>
           </details>
         </div>
@@ -1467,8 +1473,13 @@
       const enrich = global.LLHTeachingKitEnrichment;
       const viewer = global.LLHTeachingKitViewer;
       const workspace = global.LLHTeachingKitOwnerWorkspace;
+      const kitApi = global.LLHTeachingKit;
       if (!enrich?.buildTeachingKitPreviewModel || !viewer?.enhanceLessonWorkspace) {
         hostEl.innerHTML = `<p class="muted-copy">Preview requires Teaching Kit scripts. Use Preview as User from Admin if needed.</p>`;
+        return;
+      }
+      if (!kitApi?.mapLessonPlanToTeachingKit) {
+        hostEl.innerHTML = `<p class="muted-copy">Preview requires Teaching Kit mapping. Reload the page and try again.</p>`;
         return;
       }
       const plan = ensurePlanShape(clone(state.draft));
@@ -1476,25 +1487,56 @@
       const resources = typeof curriculumResourcesForAdmin === "function" ? curriculumResourcesForAdmin() : [];
       const linked = linkedResources(plan);
       const resourceRows = linked.length ? linked : resources.filter((r) => (plan.resourceIds || []).includes(r.id));
-      const sanitized = workspace?.sanitizePublicPreviewPlan ? workspace.sanitizePublicPreviewPlan(plan) : plan;
+      const publicPlan = workspace?.sanitizePublicPreviewPlan ? workspace.sanitizePublicPreviewPlan(plan) : plan;
       const model = enrich.buildTeachingKitPreviewModel(
-        sanitized,
+        publicPlan,
         activities,
         resourceRows,
         plan.enrichmentDraft || null,
-        { preview: true, ownerPreview: true },
-        enrich.mapActivityToOwnerEditorModel,
+        { day: "monday", includeEmptySections: false, preview: true, ownerPreview: true },
+        kitApi.mapLessonPlanToTeachingKit.bind(kitApi),
       );
-      hostEl.innerHTML = `<div class="llh-teaching-kit-workspace" data-lre-preview-workspace></div>`;
-      const mount = hostEl.querySelector("[data-lre-preview-workspace]");
-      await viewer.enhanceLessonWorkspace({
-        host: mount,
-        resource: model.resource,
-        lessonPlan: model.lessonPlan,
-        mode: "preview",
-        readOnly: true,
+      const teachingKit = {
+        ...model.draftKit,
+        locked: false,
+        ok: model.draftKit?.ok !== false,
+      };
+      if (!teachingKit.companion) {
+        hostEl.innerHTML = `<p class="muted-copy">Preview has no companion layout yet for this draft. Complete lesson basics and try again.</p>`;
+        return;
+      }
+      hostEl.innerHTML = "";
+      const body = document.createElement("div");
+      body.className = "llh-lre-preview-workspace-body";
+      body.setAttribute("data-lre-preview-workspace", "");
+      hostEl.appendChild(body);
+      const result = await viewer.enhanceLessonWorkspace({
+        body,
+        teachingKit,
+        featureFlags: {
+          teachingKitViewer: true,
+          teachingKitPrintCenter: true,
+          teachingKitAttachments: false,
+          ownerPreview: true,
+        },
+        initialDay: "monday",
+        chrome: {
+          title: model.merged?.plan?.title || plan.title,
+          age: model.merged?.plan?.age || plan.age,
+          planLabel: model.merged?.plan?.plan || plan.plan,
+          backLabel: "Preview only",
+          saveButtonHtml: "",
+          actionBarsHtml: `<div class="tk-enrich-draft-preview-chip" aria-hidden="true">Owner preview — not published</div>`,
+          feedbackHtml: "",
+          copyrightHtml: "",
+          ownerPreview: true,
+        },
       });
+      if (result?.enhanced === false) {
+        hostEl.innerHTML = `<p class="muted-copy">Preview unavailable (${esc(result.reason || "unknown")}).</p>`;
+      }
     } catch (error) {
+      console.error("[LLHLessonReviewEditor] preview failed", error);
       hostEl.innerHTML = `<p class="form-message" role="alert">${esc(error.message || "Preview failed.")}</p>`;
     }
   }
