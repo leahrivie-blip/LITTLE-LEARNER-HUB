@@ -115,6 +115,8 @@ async function main() {
   const child = startServer();
   try {
     await waitForBoot(child);
+    // Let async boot store/touch writes finish so baselines are stable.
+    await new Promise((r) => setTimeout(r, 400));
     const beforeStore = readStatus().conflictUpsertSuccesses || 0;
     const beforeTouch = readStatus().activityTouchUpserts || 0;
 
@@ -167,8 +169,32 @@ async function main() {
     const rowAfter = readStatus().activityTouchRows?.[user];
     assert.ok(new Date(rowAfter.last_seen_at).getTime() >= new Date(newer).getTime());
 
-    console.log("4) Feature usage counters accumulate");
-    assert.ok(Number(rowAfter.feature_usage?.page_view || 0) >= 8);
+    console.log("4) Feature usage counters accumulate without double-counting");
+    assert.equal(Number(rowAfter.feature_usage?.page_view || 0), 9, "8 burst + 1 older-ts event = 9");
+
+    console.log("4b) First logged-in event alone counts exactly 1");
+    const soloUser = "solo-count@llh-test.org";
+    await requestJson("POST", "/api/analytics/event", {
+      name: "page_view",
+      path: "/solo",
+      user: soloUser,
+      sessionId: "solo-session",
+    });
+    await new Promise((r) => setTimeout(r, 500));
+    assert.equal(readStatus().activityTouchRows?.[soloUser]?.feature_usage?.page_view, 1);
+
+    console.log("4c) Two users in the same minute both persist");
+    const u1 = "multi-a@llh-test.org";
+    const u2 = "multi-b@llh-test.org";
+    await requestJson("POST", "/api/analytics/event", {
+      name: "page_view", path: "/a", user: u1, sessionId: "ma",
+    });
+    await requestJson("POST", "/api/analytics/event", {
+      name: "page_view", path: "/b", user: u2, sessionId: "mb",
+    });
+    await new Promise((r) => setTimeout(r, 500));
+    assert.equal(readStatus().activityTouchRows?.[u1]?.feature_usage?.page_view, 1);
+    assert.equal(readStatus().activityTouchRows?.[u2]?.feature_usage?.page_view, 1);
 
     console.log("5) Login still uses durable llh_store write");
     const beforeLoginStore = readStatus().conflictUpsertSuccesses || 0;
@@ -207,6 +233,19 @@ async function main() {
       readStatus().activityTouchUpserts > touchBefore,
       "activity touch should persist during slow llh_store upsert",
     );
+    fs.writeFileSync(controlPath, JSON.stringify({}));
+
+    console.log("7) Failed touch write retries without duplicate increments");
+    const retryUser = "retry-touch@llh-test.org";
+    fs.writeFileSync(controlPath, JSON.stringify({ failNextActivityTouchUpserts: 1 }));
+    await requestJson("POST", "/api/analytics/event", {
+      name: "page_view",
+      path: "/retry",
+      user: retryUser,
+      sessionId: "retry-pv",
+    });
+    await new Promise((r) => setTimeout(r, 900));
+    assert.equal(readStatus().activityTouchRows?.[retryUser]?.feature_usage?.page_view, 1);
     fs.writeFileSync(controlPath, JSON.stringify({}));
 
     console.log("\nAll user-activity-touch tests passed.");

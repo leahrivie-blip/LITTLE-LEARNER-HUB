@@ -5071,7 +5071,11 @@ async function initializeStorage() {
     console.error("[admin-session-store] initialization failed — admin login will still work, but may fall back to slower legacy storage:", error.message);
   }
   try {
-    userActivityTouchStore.configure({ pool: postgresPool, usingPostgres: usePostgresStore() && databaseReady });
+    userActivityTouchStore.configure({
+      pool: postgresPool,
+      usingPostgres: usePostgresStore() && databaseReady,
+      forbidLocalFileFallback: isProductionPostgresDeployment(),
+    });
     await userActivityTouchStore.initTable();
     if (userActivityTouchStore.isEnabled() && databaseReady) {
       await userActivityTouchStore.hydrateIntoStore(storeCache);
@@ -20219,19 +20223,11 @@ async function handleAnalyticsEvent(request, response) {
     if (databaseReady) {
       const now = Date.now();
       if (userActivityTouchStore.isEnabled()) {
-        if (
-          LAST_SEEN_STORE_PERSIST_MIN_INTERVAL_MS === 0
-          || now - lastSeenStorePersistScheduledAt >= LAST_SEEN_STORE_PERSIST_MIN_INTERVAL_MS
-        ) {
-          lastSeenStorePersistScheduledAt = now;
-          userActivityTouchStore.scheduleActivityTouch({
-            email: event.user,
-            lastSeenAt: event.createdAt,
-            eventName: event.name,
-          });
-        } else {
-          storeWriteMetrics.analyticsFullStoreWritesAvoided += 1;
-        }
+        userActivityTouchStore.scheduleActivityTouch({
+          email: event.user,
+          lastSeenAt: event.createdAt,
+          eventName: event.name,
+        });
       } else if (postgresWriteInFlight) {
         // Memory already updated above; skip durable schedule so dirty-drain cannot
         // append a telemetry-only ~29MB UPSERT after a legitimate Admin save.

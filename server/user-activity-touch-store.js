@@ -8,6 +8,8 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const TABLE_NAME = "llh_user_activity_touch";
+const PERSIST_RETRY_BACKOFF_MS = [50, 150, 400];
+const MAX_PERSIST_RETRIES = 3;
 
 /** @typedef {{ [eventName: string]: number }} FeatureUsageIncrements */
 
@@ -26,6 +28,10 @@ function normalizeEmailLocal(email) {
 function parseTimeMs(iso) {
   const ms = new Date(iso || "").getTime();
   return Number.isFinite(ms) ? ms : 0;
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
@@ -48,7 +54,65 @@ function mergeFeatureUsageMax(usage, patch) {
 }
 
 /**
- * @param {import('pg').Pool | null} pool
+ * @param {FeatureUsageIncrements} increments
+ * @returns {Record<string, number>}
+ */
+function normalizeIncrements(increments) {
+  const out = {};
+  Object.entries(increments || {}).forEach(([name, count]) => {
+    const n = Number(count);
+    if (name && Number.isFinite(n) && n > 0) out[name] = n;
+  });
+  return out;
+}
+
+/**
+ * Deltas still needed so a retry after a committed-but-unacknowledged write does not double-count.
+ *
+ * @param {Record<string, unknown>} usageSnapshot feature_usage before this flush began
+ * @param {Record<string, unknown>} currentUsage feature_usage read before this attempt
+ * @param {FeatureUsageIncrements} requestedIncrements totals queued for this flush
+ * @returns {FeatureUsageIncrements}
+ */
+function computeRemainingIncrements(usageSnapshot, currentUsage, requestedIncrements) {
+  const snapshot = usageSnapshot && typeof usageSnapshot === "object" ? usageSnapshot : {};
+  const current = currentUsage && typeof currentUsage === "object" ? currentUsage : {};
+  const remaining = {};
+  Object.entries(requestedIncrements || {}).forEach(([name, count]) => {
+    const want = Number(count);
+    if (!name || !Number.isFinite(want) || want <= 0) return;
+    const applied = Number(current[name] || 0) - Number(snapshot[name] || 0);
+    const left = want - (Number.isFinite(applied) ? applied : 0);
+    if (left > 0) remaining[name] = left;
+  });
+  return remaining;
+}
+
+/**
+ * @param {import('pg').Pool} pool
+ * @param {string} email
+ * @returns {Promise<{ last_seen_at: string, feature_usage: Record<string, number> } | null>}
+ */
+async function loadActivityTouchRowPostgres(pool, email) {
+  const cleanEmail = normalizeEmailLocal(email);
+  if (!cleanEmail || !pool) return null;
+  const result = await pool.query(
+    `SELECT last_seen_at, feature_usage FROM ${TABLE_NAME} WHERE email = $1`,
+    [cleanEmail],
+  );
+  const row = result.rows?.[0];
+  if (!row) return null;
+  const lastSeen = row.last_seen_at instanceof Date
+    ? row.last_seen_at.toISOString()
+    : String(row.last_seen_at || "");
+  const usage = row.feature_usage && typeof row.feature_usage === "object" ? row.feature_usage : {};
+  return { last_seen_at: lastSeen, feature_usage: usage };
+}
+
+/**
+ * One upsert applies last_seen_at + feature_usage deltas exactly once (no INSERT+UPDATE double count).
+ *
+ * @param {import('pg').Pool} pool
  * @param {string} email
  * @param {string} lastSeenAtIso
  * @param {FeatureUsageIncrements} increments
@@ -56,12 +120,7 @@ function mergeFeatureUsageMax(usage, patch) {
 async function upsertActivityTouchPostgres(pool, email, lastSeenAtIso, increments) {
   const cleanEmail = normalizeEmailLocal(email);
   if (!cleanEmail) return;
-  const seenMs = parseTimeMs(lastSeenAtIso);
-  const initialUsage = {};
-  Object.entries(increments || {}).forEach(([name, count]) => {
-    const n = Number(count);
-    if (name && Number.isFinite(n) && n > 0) initialUsage[name] = n;
-  });
+  const delta = normalizeIncrements(increments);
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -70,35 +129,22 @@ async function upsertActivityTouchPostgres(pool, email, lastSeenAtIso, increment
        VALUES ($1, $2::timestamptz, $3::jsonb, NOW())
        ON CONFLICT (email) DO UPDATE SET
          last_seen_at = GREATEST(${TABLE_NAME}.last_seen_at, EXCLUDED.last_seen_at),
-         updated_at = NOW()`,
-      [cleanEmail, lastSeenAtIso, JSON.stringify(initialUsage)],
-    );
-    for (const [eventName, delta] of Object.entries(increments || {})) {
-      const inc = Number(delta);
-      if (!eventName || !Number.isFinite(inc) || inc <= 0) continue;
-      // eslint-disable-next-line no-await-in-loop -- bounded small key set per debounced flush
-      await client.query(
-        `UPDATE ${TABLE_NAME}
-         SET feature_usage = jsonb_set(
-           COALESCE(feature_usage, '{}'::jsonb),
-           ARRAY[$2::text],
-           to_jsonb(COALESCE((feature_usage->>$2)::int, 0) + $3::int),
-           true
+         feature_usage = (
+           SELECT COALESCE(jsonb_object_agg(merged.key, to_jsonb(merged.total)), '{}'::jsonb)
+           FROM (
+             SELECT k AS key,
+               COALESCE((${TABLE_NAME}.feature_usage->>k)::int, 0)
+               + COALESCE((EXCLUDED.feature_usage->>k)::int, 0) AS total
+             FROM (
+               SELECT jsonb_object_keys(
+                 COALESCE(${TABLE_NAME}.feature_usage, '{}'::jsonb) || EXCLUDED.feature_usage
+               ) AS k
+             ) keys
+           ) merged
          ),
-         updated_at = NOW()
-         WHERE email = $1`,
-        [cleanEmail, eventName, inc],
-      );
-    }
-    if (seenMs > 0) {
-      await client.query(
-        `UPDATE ${TABLE_NAME}
-         SET last_seen_at = GREATEST(last_seen_at, $2::timestamptz),
-             updated_at = NOW()
-         WHERE email = $1`,
-        [cleanEmail, lastSeenAtIso],
-      );
-    }
+         updated_at = NOW()`,
+      [cleanEmail, lastSeenAtIso, JSON.stringify(delta)],
+    );
     await client.query("COMMIT");
   } catch (error) {
     try { await client.query("ROLLBACK"); } catch { /* ignore */ }
@@ -109,49 +155,52 @@ async function upsertActivityTouchPostgres(pool, email, lastSeenAtIso, increment
 }
 
 /**
- * @param {Record<string, unknown>} store
- * @param {string} email
- * @param {string} lastSeenAtIso
- * @param {FeatureUsageIncrements} increments
+ * @param {{ lastSeenAt: string, increments: FeatureUsageIncrements }} target
+ * @param {{ lastSeenAt: string, increments: FeatureUsageIncrements }} source
  */
-function mergeTouchIntoLocalUser(store, email, lastSeenAtIso, increments) {
-  if (!store || typeof store !== "object") return;
-  const cleanEmail = normalizeEmailLocal(email);
-  if (!cleanEmail) return;
-  store.users = store.users || {};
-  const existing = store.users[cleanEmail] || store.users[email] || { email: cleanEmail };
-  const seenMs = parseTimeMs(lastSeenAtIso);
-  const blobMs = parseTimeMs(existing.lastSeenAt);
-  const updates = { ...existing, email: existing.email || cleanEmail };
-  if (seenMs > blobMs) updates.lastSeenAt = lastSeenAtIso;
-  const mergedUsage = { ...(updates.featureUsage && typeof updates.featureUsage === "object" ? updates.featureUsage : {}) };
-  Object.entries(increments || {}).forEach(([name, count]) => {
+function mergePendingEntries(target, source) {
+  if (!source) return target;
+  const seenMs = parseTimeMs(source.lastSeenAt);
+  if (seenMs >= parseTimeMs(target.lastSeenAt)) target.lastSeenAt = source.lastSeenAt;
+  Object.entries(source.increments || {}).forEach(([name, count]) => {
     const inc = Number(count);
     if (!name || !Number.isFinite(inc) || inc <= 0) return;
-    mergedUsage[name] = Number(mergedUsage[name] || 0) + inc;
+    target.increments[name] = Number(target.increments[name] || 0) + inc;
   });
-  updates.featureUsage = mergedUsage;
-  store.users[cleanEmail] = updates;
-  if (email !== cleanEmail && store.users[email]) {
-    store.users[email] = updates;
-  }
+  return target;
 }
 
 function createUserActivityTouchStore({
   localFilePath = null,
   debounceMs = Math.max(0, Number(process.env.STORE_WRITE_DEBOUNCE_MS ?? 2500)),
+  persistMinIntervalMs = Math.max(
+    0,
+    Number(process.env.LAST_SEEN_STORE_PERSIST_MIN_INTERVAL_MS ?? 60 * 1000),
+  ),
 } = {}) {
   /** @type {import('pg').Pool | null} */
   let pool = null;
   let usingPostgres = false;
+  /** When true, never write touch data to local JSON (production postgres mode). */
+  let forbidLocalFileFallback = false;
   /** @type {Map<string, { lastSeenAt: string, increments: FeatureUsageIncrements }>} */
   const pendingByEmail = new Map();
+  /** @type {Map<string, { lastSeenAt: string, increments: FeatureUsageIncrements }>} */
+  const inFlightByEmail = new Map();
+  /** @type {Map<string, number>} */
+  const lastPersistScheduledAtByEmail = new Map();
   let debounceTimer = null;
   let debouncePending = false;
+  let retryFlushTimer = null;
 
-  function configure({ pool: nextPool = null, usingPostgres: nextUsingPostgres = false } = {}) {
+  function configure({
+    pool: nextPool = null,
+    usingPostgres: nextUsingPostgres = false,
+    forbidLocalFileFallback: nextForbidLocal = false,
+  } = {}) {
     pool = nextPool;
     usingPostgres = Boolean(nextUsingPostgres);
+    forbidLocalFileFallback = Boolean(nextForbidLocal);
   }
 
   async function initTable() {
@@ -171,7 +220,7 @@ function createUserActivityTouchStore({
   }
 
   function readLocalFile() {
-    if (!localFilePath) return {};
+    if (!localFilePath || forbidLocalFileFallback) return {};
     try {
       if (!fs.existsSync(localFilePath)) return {};
       const parsed = JSON.parse(fs.readFileSync(localFilePath, "utf8"));
@@ -182,7 +231,7 @@ function createUserActivityTouchStore({
   }
 
   function writeLocalFile(rows) {
-    if (!localFilePath) return;
+    if (!localFilePath || forbidLocalFileFallback) return;
     try {
       fs.mkdirSync(path.dirname(localFilePath), { recursive: true });
       fs.writeFileSync(localFilePath, JSON.stringify(rows, null, 2));
@@ -194,9 +243,35 @@ function createUserActivityTouchStore({
   async function persistPendingEntry(email, entry) {
     const cleanEmail = normalizeEmailLocal(email);
     if (!cleanEmail || !entry) return;
-    if (usingPostgres && pool) {
-      await upsertActivityTouchPostgres(pool, cleanEmail, entry.lastSeenAt, entry.increments);
+    if (usingPostgres) {
+      if (!pool) {
+        const err = new Error("Postgres pool unavailable for user activity touch");
+        err.code = "activity_touch_postgres_unavailable";
+        throw err;
+      }
+      if (!entry.usageSnapshot) {
+        const baseline = await loadActivityTouchRowPostgres(pool, cleanEmail);
+        entry.usageSnapshot = baseline?.feature_usage && typeof baseline.feature_usage === "object"
+          ? { ...baseline.feature_usage }
+          : {};
+      }
+      const currentRow = await loadActivityTouchRowPostgres(pool, cleanEmail);
+      const currentUsage = currentRow?.feature_usage || {};
+      const delta = computeRemainingIncrements(
+        entry.usageSnapshot,
+        currentUsage,
+        entry.increments,
+      );
+      const targetSeenMs = parseTimeMs(entry.lastSeenAt);
+      const currentSeenMs = parseTimeMs(currentRow?.last_seen_at);
+      if (Object.keys(delta).length === 0 && targetSeenMs <= currentSeenMs) return;
+      await upsertActivityTouchPostgres(pool, cleanEmail, entry.lastSeenAt, delta);
       return;
+    }
+    if (forbidLocalFileFallback) {
+      const err = new Error("Local file fallback disabled for user activity touch");
+      err.code = "activity_touch_local_fallback_forbidden";
+      throw err;
     }
     const raw = readLocalFile();
     const prev = raw[cleanEmail] && typeof raw[cleanEmail] === "object" ? raw[cleanEmail] : {};
@@ -216,21 +291,73 @@ function createUserActivityTouchStore({
     writeLocalFile(raw);
   }
 
+  async function persistWithRetries(email, entry) {
+    let lastError;
+    for (let attempt = 0; attempt <= MAX_PERSIST_RETRIES; attempt += 1) {
+      try {
+        await persistPendingEntry(email, entry);
+        return;
+      } catch (error) {
+        lastError = error;
+        if (attempt >= MAX_PERSIST_RETRIES) break;
+        await sleep(PERSIST_RETRY_BACKOFF_MS[Math.min(attempt, PERSIST_RETRY_BACKOFF_MS.length - 1)]);
+      }
+    }
+    throw lastError;
+  }
+
+  function requeueFailed(email, entry) {
+    const cleanEmail = normalizeEmailLocal(email);
+    if (!cleanEmail || !entry) return;
+    const existing = pendingByEmail.get(cleanEmail);
+    if (existing) {
+      mergePendingEntries(existing, entry);
+    } else {
+      pendingByEmail.set(cleanEmail, {
+        lastSeenAt: entry.lastSeenAt,
+        increments: { ...entry.increments },
+        usageSnapshot: entry.usageSnapshot ? { ...entry.usageSnapshot } : undefined,
+      });
+    }
+  }
+
+  function scheduleRetryFlush() {
+    if (retryFlushTimer) return;
+    retryFlushTimer = setTimeout(() => {
+      retryFlushTimer = null;
+      flushPending().catch(() => {});
+    }, PERSIST_RETRY_BACKOFF_MS[0]);
+  }
+
   async function flushPending() {
     if (debounceTimer) {
       clearTimeout(debounceTimer);
       debounceTimer = null;
     }
-    if (!debouncePending && pendingByEmail.size === 0) return;
     debouncePending = false;
-    const batch = new Map(pendingByEmail);
-    pendingByEmail.clear();
-    for (const [email, entry] of batch.entries()) {
+
+    const emails = new Set([...inFlightByEmail.keys(), ...pendingByEmail.keys()]);
+    for (const email of emails) {
+      if (inFlightByEmail.has(email)) continue;
+      const pending = pendingByEmail.get(email);
+      if (!pending) continue;
+      pendingByEmail.delete(email);
+      inFlightByEmail.set(email, {
+        lastSeenAt: pending.lastSeenAt,
+        increments: { ...pending.increments },
+        usageSnapshot: pending.usageSnapshot ? { ...pending.usageSnapshot } : undefined,
+      });
+    }
+
+    for (const [email, entry] of [...inFlightByEmail.entries()]) {
       try {
-        // eslint-disable-next-line no-await-in-loop -- one row per active user per debounce window
-        await persistPendingEntry(email, entry);
+        await persistWithRetries(email, entry);
+        inFlightByEmail.delete(email);
       } catch (error) {
-        console.warn("[user-activity-touch] persist failed:", error.message || error);
+        console.warn("[user-activity-touch] persist failed after retries:", error.message || error);
+        inFlightByEmail.delete(email);
+        requeueFailed(email, entry);
+        scheduleRetryFlush();
       }
     }
   }
@@ -245,7 +372,7 @@ function createUserActivityTouchStore({
   }
 
   /**
-   * Queue durable activity touch (debounced). Memory should already be updated by caller.
+   * Queue durable activity touch (debounced per user). Memory should already be updated by caller.
    * @param {{ email: string, lastSeenAt: string, eventName: string }} touch
    */
   function scheduleActivityTouch({ email, lastSeenAt, eventName }) {
@@ -253,6 +380,16 @@ function createUserActivityTouchStore({
     const cleanEmail = normalizeEmailLocal(email);
     const name = String(eventName || "").trim();
     if (!cleanEmail || !name) return;
+    const now = Date.now();
+    const lastScheduled = lastPersistScheduledAtByEmail.get(cleanEmail) || 0;
+    if (
+      persistMinIntervalMs > 0
+      && now - lastScheduled < persistMinIntervalMs
+    ) {
+      return;
+    }
+    lastPersistScheduledAtByEmail.set(cleanEmail, now);
+
     const seenIso = String(lastSeenAt || new Date().toISOString());
     let entry = pendingByEmail.get(cleanEmail);
     if (!entry) {
@@ -274,39 +411,49 @@ function createUserActivityTouchStore({
     if (!isUserActivityTouchPersistEnabled()) return;
     store.users = store.users || {};
 
+    const applyRow = (rowEmail, lastSeenAt, featureUsage) => {
+      const cleanEmail = normalizeEmailLocal(rowEmail);
+      if (!cleanEmail) return;
+      let user = store.users[cleanEmail];
+      if (!user) {
+        const altKey = Object.keys(store.users).find(
+          (key) => normalizeEmailLocal(key) === cleanEmail,
+        );
+        user = altKey ? store.users[altKey] : { email: cleanEmail };
+      }
+      if (!user.email) user.email = cleanEmail;
+      const tableMs = parseTimeMs(lastSeenAt);
+      const blobMs = parseTimeMs(user.lastSeenAt);
+      if (tableMs > blobMs) user.lastSeenAt = lastSeenAt;
+      user.featureUsage = mergeFeatureUsageMax(user.featureUsage, featureUsage);
+      store.users[cleanEmail] = user;
+      if (rowEmail !== cleanEmail && store.users[rowEmail] === user) {
+        delete store.users[rowEmail];
+      }
+    };
+
     if (usingPostgres && pool) {
       const result = await pool.query(
         `SELECT email, last_seen_at, feature_usage FROM ${TABLE_NAME}`,
       );
       result.rows.forEach((row) => {
-        const email = normalizeEmailLocal(row.email);
-        if (!email) return;
-        const user = store.users[email] || store.users[row.email] || { email };
         const tableSeen = row.last_seen_at instanceof Date
           ? row.last_seen_at.toISOString()
           : String(row.last_seen_at || "");
-        const blobMs = parseTimeMs(user.lastSeenAt);
-        const tableMs = parseTimeMs(tableSeen);
-        if (tableMs > blobMs) user.lastSeenAt = tableSeen;
         const tableUsage = row.feature_usage && typeof row.feature_usage === "object"
           ? row.feature_usage
           : {};
-        user.featureUsage = mergeFeatureUsageMax(user.featureUsage, tableUsage);
-        store.users[email] = user;
+        applyRow(row.email, tableSeen, tableUsage);
       });
       return;
     }
 
+    if (forbidLocalFileFallback) return;
+
     const raw = readLocalFile();
     Object.entries(raw).forEach(([email, row]) => {
       if (!row || typeof row !== "object") return;
-      const cleanEmail = normalizeEmailLocal(email);
-      const user = store.users[cleanEmail] || store.users[email] || { email: cleanEmail };
-      const tableMs = parseTimeMs(row.lastSeenAt);
-      const blobMs = parseTimeMs(user.lastSeenAt);
-      if (tableMs > blobMs) user.lastSeenAt = row.lastSeenAt;
-      user.featureUsage = mergeFeatureUsageMax(user.featureUsage, row.featureUsage);
-      store.users[cleanEmail] = user;
+      applyRow(email, row.lastSeenAt, row.featureUsage);
     });
   }
 
@@ -316,7 +463,6 @@ function createUserActivityTouchStore({
     scheduleActivityTouch,
     hydrateIntoStore,
     flushPending,
-    mergeTouchIntoLocalUser,
     isEnabled: isUserActivityTouchPersistEnabled,
   };
 }
@@ -324,5 +470,9 @@ function createUserActivityTouchStore({
 module.exports = {
   createUserActivityTouchStore,
   isUserActivityTouchPersistEnabled,
+  upsertActivityTouchPostgres,
+  loadActivityTouchRowPostgres,
+  computeRemainingIncrements,
+  mergeFeatureUsageMax,
   TABLE_NAME,
 };

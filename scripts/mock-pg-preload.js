@@ -41,6 +41,7 @@ const state = {
   writes: [],
   analyticsInserts: 0,
   activityTouchUpserts: 0,
+  lastActivityTouchWasInsertConflict: false,
   /** @type {Map<string, { last_seen_at: string, feature_usage: Record<string, number> }>} */
   activityTouchRows: new Map(),
   queryDelayMs: Number(process.env.MOCK_PG_QUERY_DELAY_MS || 40),
@@ -255,9 +256,52 @@ Module.prototype.require = function mockPgRequire(id) {
             return { rowCount: 0, rows: [] };
           }
           if (text.includes("llh_user_activity_touch")) {
+            // Upsert SQL embeds SELECT/FROM in subqueries — handle writes before hydration SELECT.
+            if (text.includes("INSERT INTO") || (text.includes("ON CONFLICT") && text.includes("DO UPDATE"))) {
+              const ctrl = readControl();
+              if (ctrl.failActivityTouchUpserts) {
+                writeStatus();
+                const err = new Error("Connection terminated unexpectedly");
+                err.code = "ECONNRESET";
+                throw err;
+              }
+              if (ctrl.failNextActivityTouchUpserts > 0) {
+                ctrl.failNextActivityTouchUpserts -= 1;
+                writeControl(ctrl);
+                writeStatus();
+                const err = new Error("Connection terminated unexpectedly");
+                err.code = "ECONNRESET";
+                throw err;
+              }
+              state.activityTouchUpserts += 1;
+              const email = String(params[0] || "").trim().toLowerCase();
+              if (email && text.includes("INSERT INTO")) {
+                const seen = params[1];
+                const delta = typeof params[2] === "string" ? JSON.parse(params[2]) : (params[2] || {});
+                const existed = state.activityTouchRows.has(email);
+                let row = state.activityTouchRows.get(email) || {
+                  last_seen_at: new Date(0).toISOString(),
+                  feature_usage: {},
+                };
+                const seenMs = new Date(seen).getTime();
+                const rowMs = new Date(row.last_seen_at).getTime();
+                if (Number.isFinite(seenMs) && seenMs >= rowMs) row.last_seen_at = seen;
+                Object.entries(delta).forEach(([k, v]) => {
+                  row.feature_usage[k] = Number(row.feature_usage[k] || 0) + Number(v || 0);
+                });
+                state.activityTouchRows.set(email, row);
+                state.lastActivityTouchWasInsertConflict = existed;
+              }
+              writeStatus();
+              return { rows: [], rowCount: 1 };
+            }
             if (text.includes("SELECT") && text.includes("FROM")) {
+              const filterEmail = text.includes("WHERE email = $1")
+                ? String(params[0] || "").trim().toLowerCase()
+                : null;
               const rows = [];
               state.activityTouchRows.forEach((row, email) => {
+                if (filterEmail && email !== filterEmail) return;
                 rows.push({
                   email,
                   last_seen_at: row.last_seen_at,
@@ -266,38 +310,6 @@ Module.prototype.require = function mockPgRequire(id) {
               });
               writeStatus();
               return { rows };
-            }
-            if (text.includes("INSERT INTO") || text.includes("UPDATE")) {
-              state.activityTouchUpserts += 1;
-              const email = String(params[0] || "").trim().toLowerCase();
-              if (email) {
-                let row = state.activityTouchRows.get(email) || {
-                  last_seen_at: new Date(0).toISOString(),
-                  feature_usage: {},
-                };
-                if (text.includes("INSERT INTO")) {
-                  const seen = params[1];
-                  const usage = typeof params[2] === "string" ? JSON.parse(params[2]) : (params[2] || {});
-                  const seenMs = new Date(seen).getTime();
-                  const rowMs = new Date(row.last_seen_at).getTime();
-                  if (Number.isFinite(seenMs) && seenMs >= rowMs) row.last_seen_at = seen;
-                  Object.entries(usage).forEach(([k, v]) => {
-                    row.feature_usage[k] = Number(row.feature_usage[k] || 0) + Number(v || 0);
-                  });
-                }
-                if (text.includes("jsonb_set") && params[1] && params[2] != null) {
-                  const key = String(params[1]);
-                  row.feature_usage[key] = Number(row.feature_usage[key] || 0) + Number(params[2] || 0);
-                }
-                if (text.includes("GREATEST(last_seen_at") && params[1]) {
-                  const seenMs = new Date(params[1]).getTime();
-                  const rowMs = new Date(row.last_seen_at).getTime();
-                  if (Number.isFinite(seenMs) && seenMs >= rowMs) row.last_seen_at = params[1];
-                }
-                state.activityTouchRows.set(email, row);
-              }
-              writeStatus();
-              return { rows: [], rowCount: 1 };
             }
           }
           if (text.includes("INSERT INTO llh_analytics_events")) {
