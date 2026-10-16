@@ -488,6 +488,8 @@
     "test:store-write-debounce": "NODE_ENV=test node scripts/test-store-write-debounce.js",
     "test:user-activity-touch": "NODE_ENV=test node scripts/test-user-activity-touch.js",
     "test:user-activity-touch-unit": "NODE_ENV=test USER_ACTIVITY_TOUCH_PERSIST=true node -r ./scripts/mock-pg-preload.js scripts/test-user-activity-touch-unit.js",
+    "test:user-activity-touch-hydration": "NODE_ENV=test USER_ACTIVITY_TOUCH_PERSIST=true node -r ./scripts/mock-pg-preload.js scripts/test-user-activity-touch-hydration.js",
+    "test:user-activity-touch-pg": "NODE_ENV=test node scripts/test-user-activity-touch-pg.js",
     "test:store-write-degraded": "NODE_ENV=test node scripts/test-store-write-degraded.js",
     "test:admin-session-storage": "NODE_ENV=test node scripts/test-admin-session-storage.js",
     "test:analytics-event-cap": "NODE_ENV=test node scripts/test-analytics-event-cap.js",

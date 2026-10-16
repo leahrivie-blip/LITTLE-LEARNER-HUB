@@ -41,9 +41,12 @@ const state = {
   writes: [],
   analyticsInserts: 0,
   activityTouchUpserts: 0,
+  activityTouchBatchInserts: 0,
   lastActivityTouchWasInsertConflict: false,
   /** @type {Map<string, { last_seen_at: string, feature_usage: Record<string, number> }>} */
   activityTouchRows: new Map(),
+  /** @type {Map<string, { email: string, last_seen_at: string, feature_usage: Record<string, number> }>} */
+  activityTouchBatches: new Map(),
   queryDelayMs: Number(process.env.MOCK_PG_QUERY_DELAY_MS || 40),
   selectCount: 0,
   conflictUpsertAttempts: 0,
@@ -255,7 +258,57 @@ Module.prototype.require = function mockPgRequire(id) {
             writeStatus();
             return { rowCount: 0, rows: [] };
           }
-          if (text.includes("llh_user_activity_touch")) {
+          if (text.includes("COMMIT") && readControl().simulateLostAckAfterActivityTouchCommit) {
+            const ctrl = readControl();
+            ctrl.simulateLostAckAfterActivityTouchCommit = false;
+            writeControl(ctrl);
+            writeStatus();
+            const err = new Error("Connection terminated unexpectedly");
+            err.code = "ECONNRESET";
+            throw err;
+          }
+          if (text === "BEGIN" || text === "ROLLBACK") {
+            writeStatus();
+            return { rows: [] };
+          }
+          if (text.includes("llh_user_activity_touch_batch")) {
+            if (text.includes("INSERT INTO")) {
+              const ctrl = readControl();
+              if (ctrl.failActivityTouchUpserts) {
+                writeStatus();
+                const err = new Error("Connection terminated unexpectedly");
+                err.code = "ECONNRESET";
+                throw err;
+              }
+              if (ctrl.failNextActivityTouchUpserts > 0) {
+                ctrl.failNextActivityTouchUpserts -= 1;
+                writeControl(ctrl);
+                writeStatus();
+                const err = new Error("Connection terminated unexpectedly");
+                err.code = "ECONNRESET";
+                throw err;
+              }
+              const opId = String(params[0] || "").trim();
+              const email = String(params[1] || "").trim().toLowerCase();
+              const seen = params[2];
+              const delta = typeof params[3] === "string" ? JSON.parse(params[3]) : (params[3] || {});
+              if (opId && state.activityTouchBatches.has(opId)) {
+                writeStatus();
+                return { rows: [], rowCount: 0 };
+              }
+              if (opId && email) {
+                state.activityTouchBatchInserts += 1;
+                state.activityTouchBatches.set(opId, {
+                  email,
+                  last_seen_at: seen,
+                  feature_usage: { ...delta },
+                });
+              }
+              writeStatus();
+              return { rows: opId ? [{ operation_id: opId }] : [], rowCount: 1 };
+            }
+          }
+          if (text.includes("llh_user_activity_touch") && !text.includes("_batch")) {
             // Upsert SQL embeds SELECT/FROM in subqueries — handle writes before hydration SELECT.
             if (text.includes("INSERT INTO") || (text.includes("ON CONFLICT") && text.includes("DO UPDATE"))) {
               const ctrl = readControl();

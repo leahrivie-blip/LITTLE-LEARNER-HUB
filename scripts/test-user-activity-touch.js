@@ -244,7 +244,7 @@ async function main() {
       user: retryUser,
       sessionId: "retry-pv",
     });
-    await new Promise((r) => setTimeout(r, 900));
+    await new Promise((r) => setTimeout(r, 1200));
     assert.equal(readStatus().activityTouchRows?.[retryUser]?.feature_usage?.page_view, 1);
     fs.writeFileSync(controlPath, JSON.stringify({}));
 

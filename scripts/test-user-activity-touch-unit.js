@@ -10,8 +10,8 @@ const path = require("node:path");
 
 const {
   createUserActivityTouchStore,
-  upsertActivityTouchPostgres,
-  computeRemainingIncrements,
+  applyActivityTouchBatchPostgres,
+  collectFlushJobs,
 } = require("../server/user-activity-touch-store.js");
 
 const mock = global.__LLH_MOCK_PG__;
@@ -20,11 +20,13 @@ const { Pool } = require("pg");
 async function main() {
   const pool = new Pool({ connectionString: "postgres://mock:mock@127.0.0.1:5432/mock" });
   mock.activityTouchRows.clear();
+  mock.activityTouchBatches.clear();
   mock.activityTouchUpserts = 0;
 
   console.log("1) First event increments feature_usage to exactly 1");
-  await upsertActivityTouchPostgres(
+  await applyActivityTouchBatchPostgres(
     pool,
+    "op-unit-first",
     "unit-first@example.com",
     "2026-10-16T12:00:00.000Z",
     { page_view: 1 },
@@ -32,15 +34,34 @@ async function main() {
   assert.equal(mock.activityTouchRows.get("unit-first@example.com")?.feature_usage?.page_view, 1);
 
   console.log("2) Existing row increments by exactly 1");
-  await upsertActivityTouchPostgres(
+  await applyActivityTouchBatchPostgres(
     pool,
+    "op-unit-second",
     "unit-first@example.com",
     "2026-10-16T12:01:00.000Z",
     { page_view: 1 },
   );
   assert.equal(mock.activityTouchRows.get("unit-first@example.com")?.feature_usage?.page_view, 2);
 
-  console.log("3) Debounced flush applies pending batch once");
+  console.log("3) Same operation_id retry is idempotent (lost ack after COMMIT)");
+  await applyActivityTouchBatchPostgres(
+    pool,
+    "op-dup",
+    "lost-ack@example.com",
+    "2026-10-16T12:02:00.000Z",
+    { page_view: 1 },
+  );
+  const dup = await applyActivityTouchBatchPostgres(
+    pool,
+    "op-dup",
+    "lost-ack@example.com",
+    "2026-10-16T12:02:00.000Z",
+    { page_view: 1 },
+  );
+  assert.equal(dup.alreadyApplied, true);
+  assert.equal(mock.activityTouchRows.get("lost-ack@example.com")?.feature_usage?.page_view, 1);
+
+  console.log("4) Debounced flush applies pending batch once");
   const touchPath = path.join(__dirname, `.tmp-touch-unit-${Date.now()}.json`);
   const store = createUserActivityTouchStore({
     localFilePath: touchPath,
@@ -57,17 +78,22 @@ async function main() {
   assert.equal(mock.activityTouchRows.get("retry@example.com")?.feature_usage?.page_view, 1);
   assert.equal(fs.existsSync(touchPath), false, "production-style config must not create local touch file");
 
-  console.log("4) Retry idempotency — committed write with lost ack does not double-count");
-  assert.deepEqual(
-    computeRemainingIncrements({ page_view: 2 }, { page_view: 5 }, { page_view: 3 }),
-    {},
-  );
-  assert.deepEqual(
-    computeRemainingIncrements({}, {}, { page_view: 1 }),
-    { page_view: 1 },
-  );
+  console.log("5) Requeue + new events produce separate flush jobs");
+  const jobs = collectFlushJobs({
+    lastSeenAt: "2026-10-16T12:03:00.000Z",
+    increments: { page_view: 2 },
+    requeue: {
+      operationId: "op-requeue",
+      lastSeenAt: "2026-10-16T12:02:30.000Z",
+      increments: { page_view: 1 },
+    },
+  });
+  assert.equal(jobs.length, 2);
+  assert.equal(jobs[0].operationId, "op-requeue");
+  assert.equal(jobs[0].increments.page_view, 1);
+  assert.equal(jobs[1].increments.page_view, 2);
 
-  console.log("5) Per-user rate limit isolation");
+  console.log("6) Per-user rate limit isolation");
   const store2 = createUserActivityTouchStore({
     debounceMs: 200,
     persistMinIntervalMs: 5000,
