@@ -63,6 +63,7 @@ const tempPasswordAuth = require("./temp-password-auth.js");
 const emailAuth = require("./email-auth.js");
 const { createMemberAuthRateLimit } = require("./member-auth-rate-limit.js");
 const { createAdminSessionStore } = require("./admin-session-store.js");
+const { createUserActivityTouchStore } = require("./user-activity-touch-store.js");
 const analyticsStore = require("./analytics-store.js");
 const analyticsRevenue = require("./analytics-revenue.js");
 const storeWriteMetricsLib = require("./store-write-metrics.js");
@@ -390,6 +391,9 @@ function shouldSkipStartupCurriculumSeed() {
 const adminSessionStorePath = process.env.LLH_ADMIN_SESSIONS_PATH
   || storePath.replace(/(\.json)?$/, ".admin-sessions.json");
 const adminSessionStore = createAdminSessionStore({ localFilePath: adminSessionStorePath });
+const userActivityTouchStorePath = process.env.LLH_USER_ACTIVITY_TOUCH_PATH
+  || path.join(path.dirname(storePath), "user-activity-touch.json");
+const userActivityTouchStore = createUserActivityTouchStore({ localFilePath: userActivityTouchStorePath });
 const memberAuthRateLimit = createMemberAuthRateLimit();
 const spaRoutePaths = new Set([
   "/admin",
@@ -4845,6 +4849,13 @@ async function initializePostgresStore() {
   lastPostgresError = "";
   lastPersistedStoreCounts = storeInventoryCounts(storeCache);
   rememberPersistedStoreFingerprint(storeCache);
+  if (userActivityTouchStore.isEnabled()) {
+    try {
+      await userActivityTouchStore.hydrateIntoStore(storeCache);
+    } catch (error) {
+      console.warn("[user-activity-touch] boot hydrate skipped:", error.message || error);
+    }
+  }
 }
 
 function loadLocalJsonStoreFallback() {
@@ -4882,6 +4893,13 @@ async function reloadStoreFromPostgres() {
   lastPostgresError = "";
   lastPersistedStoreCounts = storeInventoryCounts(storeCache);
   rememberPersistedStoreFingerprint(storeCache);
+  if (userActivityTouchStore.isEnabled()) {
+    try {
+      await userActivityTouchStore.hydrateIntoStore(storeCache);
+    } catch (error) {
+      console.warn("[user-activity-touch] reload hydrate skipped:", error.message || error);
+    }
+  }
   return true;
 }
 
@@ -5051,6 +5069,19 @@ async function initializeStorage() {
     adminSessionStore.startPruneScheduler();
   } catch (error) {
     console.error("[admin-session-store] initialization failed — admin login will still work, but may fall back to slower legacy storage:", error.message);
+  }
+  try {
+    userActivityTouchStore.configure({
+      pool: postgresPool,
+      usingPostgres: usePostgresStore() && databaseReady,
+      forbidLocalFileFallback: isProductionPostgresDeployment(),
+    });
+    await userActivityTouchStore.initTable();
+    if (userActivityTouchStore.isEnabled() && databaseReady) {
+      await userActivityTouchStore.hydrateIntoStore(storeCache);
+    }
+  } catch (error) {
+    console.warn("[user-activity-touch] initialization failed — telemetry may fall back to legacy debounced store writes:", error.message);
   }
   try {
     // Curriculum operator jobs: dedicated table (Postgres) or intentional local-file (dev).
@@ -5739,6 +5770,9 @@ async function flushPendingStoreWritesForShutdown() {
   logStorePersistence("shutdown_flush_start", {});
   try {
     await flushDebouncedPostgresStoreWrite();
+    if (userActivityTouchStore.isEnabled()) {
+      await userActivityTouchStore.flushPending();
+    }
     await postgresWriteChain.catch(() => {});
   } catch (error) {
     logStorePersistence("shutdown_flush_failed", { error: error.message || String(error) });
@@ -20188,7 +20222,13 @@ async function handleAnalyticsEvent(request, response) {
     updateAnalyticsUser(storeCache, event);
     if (databaseReady) {
       const now = Date.now();
-      if (postgresWriteInFlight) {
+      if (userActivityTouchStore.isEnabled()) {
+        userActivityTouchStore.scheduleActivityTouch({
+          email: event.user,
+          lastSeenAt: event.createdAt,
+          eventName: event.name,
+        });
+      } else if (postgresWriteInFlight) {
         // Memory already updated above; skip durable schedule so dirty-drain cannot
         // append a telemetry-only ~29MB UPSERT after a legitimate Admin save.
         storeWriteMetrics.analyticsFullStoreWritesAvoided += 1;
