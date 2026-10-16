@@ -40,6 +40,9 @@ const state = {
   analyticsEvents: [],
   writes: [],
   analyticsInserts: 0,
+  activityTouchUpserts: 0,
+  /** @type {Map<string, { last_seen_at: string, feature_usage: Record<string, number> }>} */
+  activityTouchRows: new Map(),
   queryDelayMs: Number(process.env.MOCK_PG_QUERY_DELAY_MS || 40),
   selectCount: 0,
   conflictUpsertAttempts: 0,
@@ -106,6 +109,7 @@ function writeStatus() {
           lastWritePayloadBytes: state.writes.length
             ? state.writes[state.writes.length - 1].payloadBytes || 0
             : 0,
+          activityTouchRows: Object.fromEntries(state.activityTouchRows),
         },
         null,
         2,
@@ -249,6 +253,52 @@ Module.prototype.require = function mockPgRequire(id) {
           if (text.includes("DELETE FROM llh_analytics_events")) {
             writeStatus();
             return { rowCount: 0, rows: [] };
+          }
+          if (text.includes("llh_user_activity_touch")) {
+            if (text.includes("SELECT") && text.includes("FROM")) {
+              const rows = [];
+              state.activityTouchRows.forEach((row, email) => {
+                rows.push({
+                  email,
+                  last_seen_at: row.last_seen_at,
+                  feature_usage: row.feature_usage || {},
+                });
+              });
+              writeStatus();
+              return { rows };
+            }
+            if (text.includes("INSERT INTO") || text.includes("UPDATE")) {
+              state.activityTouchUpserts += 1;
+              const email = String(params[0] || "").trim().toLowerCase();
+              if (email) {
+                let row = state.activityTouchRows.get(email) || {
+                  last_seen_at: new Date(0).toISOString(),
+                  feature_usage: {},
+                };
+                if (text.includes("INSERT INTO")) {
+                  const seen = params[1];
+                  const usage = typeof params[2] === "string" ? JSON.parse(params[2]) : (params[2] || {});
+                  const seenMs = new Date(seen).getTime();
+                  const rowMs = new Date(row.last_seen_at).getTime();
+                  if (Number.isFinite(seenMs) && seenMs >= rowMs) row.last_seen_at = seen;
+                  Object.entries(usage).forEach(([k, v]) => {
+                    row.feature_usage[k] = Number(row.feature_usage[k] || 0) + Number(v || 0);
+                  });
+                }
+                if (text.includes("jsonb_set") && params[1] && params[2] != null) {
+                  const key = String(params[1]);
+                  row.feature_usage[key] = Number(row.feature_usage[key] || 0) + Number(params[2] || 0);
+                }
+                if (text.includes("GREATEST(last_seen_at") && params[1]) {
+                  const seenMs = new Date(params[1]).getTime();
+                  const rowMs = new Date(row.last_seen_at).getTime();
+                  if (Number.isFinite(seenMs) && seenMs >= rowMs) row.last_seen_at = params[1];
+                }
+                state.activityTouchRows.set(email, row);
+              }
+              writeStatus();
+              return { rows: [], rowCount: 1 };
+            }
           }
           if (text.includes("INSERT INTO llh_analytics_events")) {
             state.analyticsInserts += 1;

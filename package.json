@@ -486,6 +486,7 @@
     "test:production-storage-failclosed": "NODE_ENV=test node scripts/test-production-storage-failclosed.js",
     "test:store-write-race": "NODE_ENV=test node scripts/test-store-write-race.js",
     "test:store-write-debounce": "NODE_ENV=test node scripts/test-store-write-debounce.js",
+    "test:user-activity-touch": "NODE_ENV=test node scripts/test-user-activity-touch.js",
     "test:store-write-degraded": "NODE_ENV=test node scripts/test-store-write-degraded.js",
     "test:admin-session-storage": "NODE_ENV=test node scripts/test-admin-session-storage.js",
     "test:analytics-event-cap": "NODE_ENV=test node scripts/test-analytics-event-cap.js",
