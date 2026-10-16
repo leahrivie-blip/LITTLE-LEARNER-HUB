@@ -52,11 +52,27 @@ async function initTouchTables(pool) {
 }
 
 async function main() {
+  if (String(process.env.CI || "").toLowerCase() === "true" && !resolveTestDatabaseUrl()) {
+    console.error("FAIL: CI requires TEST_DATABASE_URL for user-activity-touch Postgres tests");
+    process.exitCode = 1;
+    return;
+  }
   const dbUrl = resolveTestDatabaseUrl();
   if (!dbUrl) {
     console.log(
       "SKIP user-activity-touch Postgres integration (set TEST_DATABASE_URL or LLH_USER_ACTIVITY_TOUCH_TEST_DATABASE_URL)",
     );
+    return;
+  }
+  const prodUrl = String(process.env.PRODUCTION_DATABASE_URL || "").trim();
+  if (prodUrl && prodUrl === dbUrl) {
+    console.error("FAIL: TEST_DATABASE_URL must not equal PRODUCTION_DATABASE_URL");
+    process.exitCode = 1;
+    return;
+  }
+  if (/localhost|127\.0\.0\.1/i.test(dbUrl) === false && String(process.env.CI || "").toLowerCase() === "true") {
+    console.error("FAIL: CI touch Postgres tests must use the local service container (localhost)");
+    process.exitCode = 1;
     return;
   }
 
