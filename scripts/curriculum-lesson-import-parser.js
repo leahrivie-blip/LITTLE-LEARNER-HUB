@@ -59,7 +59,16 @@ const ACTIVITY_CATEGORY_ALIASES = {
   "fine motor skills": "Fine Motor",
   "fine-motor": "Fine Motor",
   "sensory": "Sensory Play",
+  "sensory exploration": "Sensory Play",
   "sensory bin": "Sensory Play",
+  "creative art": "Art",
+  "pretend play and social routines": "Dramatic Play",
+  "sorting and early math": "STEM/Discovery",
+  "movement and music": "Music & Movement",
+  "early math": "STEM/Discovery",
+  "color recognition": "STEM/Discovery",
+  "fine-motor development": "Fine Motor",
+  "cause and effect": "STEM/Discovery",
   "music and movement": "Music & Movement",
   "music": "Music & Movement",
   "stem": "STEM/Discovery",
@@ -190,8 +199,11 @@ const V3_LESSON_FIELDS = new Set([
   "VOCABULARY",
   "BOOKS",
   "SONGS",
+  "PRINTABLES",
   "FAMILY_CONNECTION",
   "OBSERVATION_OPPORTUNITIES",
+  "WEEKLY_OBSERVATION",
+  "TEACHER_NOTES",
   "ADAPTATIONS",
 ]);
 
@@ -202,16 +214,26 @@ const V3_ACTIVITY_FIELDS = new Set([
   "DESCRIPTION",
   "MATERIALS",
   "SETUP",
+  "TEACHER_PREPARATION",
   "TEACHER_ROLE",
   "TEACHER_LANGUAGE",
   "DIRECTIONS",
   "LEARNING_GOALS",
   "OBSERVATION_OPPORTUNITIES",
+  "OBSERVATION_PROMPTS",
   "VOCABULARY",
   "EXTENSIONS",
   "ADAPTATIONS",
+  "SUPPORT_ADAPTATIONS",
+  "CHALLENGE_ADAPTATIONS",
   "SAFETY_NOTES",
   "AGE_MODIFICATIONS",
+  "DURATION_MINUTES",
+  "TEACHER_TIPS",
+  "SUPPLY_SUBSTITUTIONS",
+  "CLEANUP",
+  "GROUP_AND_SETTING",
+  "IMAGES",
 ]);
 
 const V3_DAY_FIELDS = new Set([
@@ -236,15 +258,36 @@ const V3_FIELD_ALIASES = {
   "LEARNING GOAL": "LEARNING_GOALS",
   LEARNING_GOAL: "LEARNING_GOALS",
   "LEARNING OBJECTIVES": "LEARNING_OBJECTIVES",
+  "WEEKLY LEARNING OBJECTIVES": "LEARNING_OBJECTIVES",
   "AGE GROUP": "AGE_GROUP",
   "ACTIVITY NAME": "ACTIVITY_NAME",
+  "ACTIVITY OBJECTIVE": "OBJECTIVE",
+  "WHAT CHILDREN WILL DO": "DESCRIPTION",
+  "STEP-BY-STEP DIRECTIONS": "DIRECTIONS",
+  "SAFETY AND SUPERVISION": "SAFETY_NOTES",
+  "LEARNING AND OBSERVATION": "OBSERVATION_OPPORTUNITIES",
+  "TEACHER QUESTIONS": "TEACHER_LANGUAGE",
+  "TEACHER PREPARATION": "TEACHER_PREPARATION",
+  "OBSERVATION PROMPTS": "OBSERVATION_PROMPTS",
+  "SUPPORT ADAPTATIONS": "SUPPORT_ADAPTATIONS",
+  "CHALLENGE ADAPTATIONS": "CHALLENGE_ADAPTATIONS",
+  "ESTIMATED DURATION": "DURATION_MINUTES",
+  "RECOMMENDED AGE": "AGE_MODIFICATIONS",
+  "CATEGORY / DEVELOPMENTAL DOMAIN": "CATEGORY",
+  "PLAN TYPE": "PLAN",
+  WEEKDAY: "WEEKDAY",
   "WEEKLY OVERVIEW": "WEEKLY_OVERVIEW",
   "WEEKLY MATERIALS": "WEEKLY_MATERIALS",
+  "WEEKLY OBSERVATION": "WEEKLY_OBSERVATION",
   "FAMILY CONNECTION": "FAMILY_CONNECTION",
   "OBSERVATION OPPORTUNITIES": "OBSERVATION_OPPORTUNITIES",
   "LEARNING DOMAINS": "LEARNING_DOMAINS",
   "TEACHER ROLE": "TEACHER_ROLE",
   "TEACHER LANGUAGE": "TEACHER_LANGUAGE",
+  "TEACHER TIPS": "TEACHER_TIPS",
+  "TEACHER NOTES": "TEACHER_NOTES",
+  "SUPPLY SUBSTITUTIONS": "SUPPLY_SUBSTITUTIONS",
+  "GROUP AND SETTING": "GROUP_AND_SETTING",
   "DAILY THEME": "DAILY_THEME",
   "DAILY OBJECTIVES": "DAILY_OBJECTIVES",
   "DAILY VOCABULARY": "DAILY_VOCABULARY",
@@ -257,6 +300,8 @@ const V3_FIELD_ALIASES = {
   "SAFETY NOTES": "SAFETY_NOTES",
   "AGE MODIFICATIONS": "AGE_MODIFICATIONS",
 };
+
+const V3_IGNORED_FIELD_LABELS = new Set(["WEEKDAY"]);
 
 const CURRICULUM_IMPORT_COLON_SECTION_KEYS = {
   TITLE: "TITLE",
@@ -411,7 +456,7 @@ function parseLearningDomainsList(text) {
   return domains;
 }
 
-function normalizeActivityCategory(raw) {
+function normalizeActivityCategoryPart(raw) {
   const value = normalizedShortText(raw);
   if (!value) return "";
   const exact = PLAY_ACTIVITY_CATEGORIES_V1.find((entry) => entry.toLowerCase() === value.toLowerCase());
@@ -421,6 +466,18 @@ function normalizeActivityCategory(raw) {
   const lower = value.toLowerCase();
   const fuzzy = PLAY_ACTIVITY_CATEGORIES_V1.find((entry) => lower.includes(entry.toLowerCase()) || entry.toLowerCase().includes(lower));
   return fuzzy || "";
+}
+
+function normalizeActivityCategory(raw) {
+  const value = normalizedShortText(raw);
+  if (!value) return "";
+  const parts = value.split(/[/|]/).map((part) => normalizedShortText(part)).filter(Boolean);
+  const candidates = parts.length ? parts : [value];
+  for (const part of candidates) {
+    const resolved = normalizeActivityCategoryPart(part);
+    if (resolved) return resolved;
+  }
+  return normalizeActivityCategoryPart(value);
 }
 
 function parseCurriculumImportListLines(text, { parts = 2 } = {}) {
@@ -531,9 +588,25 @@ function extractAllMarkedRegions(text, startMarker, endMarker) {
   return regions;
 }
 
+function isIgnoredV3FieldLabel(rawName) {
+  const upper = String(rawName || "").trim().toUpperCase().replace(/\s+/g, " ");
+  const underscored = upper.replace(/ /g, "_");
+  return V3_IGNORED_FIELD_LABELS.has(upper) || V3_IGNORED_FIELD_LABELS.has(underscored);
+}
+
+function looksLikeStructuredFieldLabel(rawName) {
+  const label = String(rawName || "").trim();
+  if (!label) return false;
+  if (isIgnoredV3FieldLabel(label)) return true;
+  const canonical = V3_FIELD_ALIASES[label.toUpperCase()] || V3_FIELD_ALIASES[label.toUpperCase().replace(/ /g, "_")];
+  if (canonical) return true;
+  return label === label.toUpperCase();
+}
+
 function canonicalV3FieldName(name, allowedFields = null) {
   const upper = String(name || "").trim().toUpperCase().replace(/\s+/g, " ");
   const underscored = upper.replace(/ /g, "_");
+  if (isIgnoredV3FieldLabel(name)) return "";
   const alias = V3_FIELD_ALIASES[upper] || V3_FIELD_ALIASES[underscored];
   const canonical = alias || underscored;
   if (allowedFields && !allowedFields.has(canonical)) return "";
@@ -572,17 +645,48 @@ function parseFieldBlock(text, allowedFields, { lineOffset = 1, context = "", fi
       });
       return;
     }
-    const emptyFieldMatch = trimmed.match(/^([A-Za-z][A-Za-z0-9_/ ]*):\s*$/);
+    const emptyFieldMatch = trimmed.match(/^([A-Za-z][A-Za-z0-9_/ \-]*):\s*$/);
     if (emptyFieldMatch) {
+      if (isIgnoredV3FieldLabel(emptyFieldMatch[1])) {
+        flush();
+        return;
+      }
       const canonical = resolveField(emptyFieldMatch[1]);
       if (canonical) {
         flush();
         currentField = canonical;
         return;
       }
+      if (currentField && !looksLikeStructuredFieldLabel(emptyFieldMatch[1])) {
+        currentLines.push(line);
+        return;
+      }
+      if (currentField) {
+        flush();
+      }
+      if (looksLikeStructuredFieldLabel(emptyFieldMatch[1])) {
+        unmapped.push({
+          line: lineOffset + index,
+          text: line,
+          reason: "unsupported_field_label",
+          context,
+        });
+      } else if (trimmed) {
+        unmapped.push({
+          line: lineOffset + index,
+          text: line,
+          reason: "unrecognized_line",
+          context,
+        });
+      }
+      return;
     }
-    const inlineFieldMatch = trimmed.match(/^([A-Za-z][A-Za-z0-9_/ ]*):\s+(.+)$/);
+    const inlineFieldMatch = trimmed.match(/^([A-Za-z][A-Za-z0-9_/ \-]*):\s+(.+)$/);
     if (inlineFieldMatch) {
+      if (isIgnoredV3FieldLabel(inlineFieldMatch[1])) {
+        flush();
+        return;
+      }
       const canonical = resolveField(inlineFieldMatch[1]);
       if (canonical) {
         flush();
@@ -591,6 +695,29 @@ function parseFieldBlock(text, allowedFields, { lineOffset = 1, context = "", fi
         currentLines = [];
         return;
       }
+      if (currentField && !looksLikeStructuredFieldLabel(inlineFieldMatch[1])) {
+        currentLines.push(line);
+        return;
+      }
+      if (currentField) {
+        flush();
+      }
+      if (looksLikeStructuredFieldLabel(inlineFieldMatch[1])) {
+        unmapped.push({
+          line: lineOffset + index,
+          text: line,
+          reason: "unsupported_field_label",
+          context,
+        });
+      } else if (trimmed) {
+        unmapped.push({
+          line: lineOffset + index,
+          text: line,
+          reason: "unrecognized_line",
+          context,
+        });
+      }
+      return;
     }
     if (currentField) {
       currentLines.push(line);
@@ -1246,6 +1373,59 @@ function splitV3DayActivities(dayContent) {
   return blocks.filter((block) => /^ACTIVITY[_ ]NAME:\s*/im.test((block.split(/\r?\n/)[0] || "").trim()));
 }
 
+function extractV3DayTailContent(dayContent) {
+  const content = String(dayContent || "");
+  const blocks = splitV3DayActivities(content);
+  if (!blocks.length) return "";
+  let cursor = 0;
+  blocks.forEach((block) => {
+    const idx = content.indexOf(block, cursor);
+    if (idx >= 0) cursor = idx + block.length;
+  });
+  return content.slice(cursor).trim();
+}
+
+function mergeV3MultilineField(fields, key, value) {
+  const next = preserveMultilineText(value);
+  if (!next) return;
+  fields[key] = fields[key] ? preserveMultilineText(`${fields[key]}\n\n${next}`) : next;
+}
+
+function mergeV3TailLessonFields(lessonFields, tailFields) {
+  [
+    "BOOKS",
+    "SONGS",
+    "PRINTABLES",
+    "FAMILY_CONNECTION",
+    "OBSERVATION_OPPORTUNITIES",
+    "WEEKLY_OBSERVATION",
+    "TEACHER_NOTES",
+    "ADAPTATIONS",
+    "VOCABULARY",
+  ].forEach((key) => {
+    if (!tailFields[key]) return;
+    if (!lessonFields[key]) {
+      lessonFields[key] = tailFields[key];
+      return;
+    }
+    mergeV3MultilineField(lessonFields, key, tailFields[key]);
+  });
+}
+
+const V3_ACTIVITY_SUPPLEMENT_HEADER = /^(BOOKS|SONGS|PRINTABLES|FAMILY CONNECTION|WEEKLY OBSERVATION|TEACHER NOTES|WEEKLY CLEANUP|IMAGE STYLE):\s*$/im;
+
+function splitV3ActivitySupplementTail(block) {
+  const content = String(block || "");
+  const match = V3_ACTIVITY_SUPPLEMENT_HEADER.exec(content);
+  if (!match || match.index == null) {
+    return { activityPart: content.trim(), supplement: "" };
+  }
+  return {
+    activityPart: content.slice(0, match.index).trim(),
+    supplement: content.slice(match.index).trim(),
+  };
+}
+
 function parseV3ActivityBlock(block, { dayKey, lineOffset = 1, existingItemIds = new Map(), generateItemId = generateCurriculumItemId } = {}) {
   const errors = [];
   const warnings = [];
@@ -1293,9 +1473,29 @@ function parseV3ActivityBlock(block, { dayKey, lineOffset = 1, existingItemIds =
     stepsText = preserveMultilineText(split[0] || "");
     learningGoals = parseActivityGoals((split.slice(1).join("\n") || "").replace(/^LEARNING\s+GOALS?:\s*/i, ""));
   }
+  const objectiveText = preserveMultilineText(fields.OBJECTIVE);
+  if (!learningGoals.length && objectiveText) {
+    learningGoals = parseActivityGoals(objectiveText);
+  }
   if (!learningGoals.length) {
     errors.push(`${dayKey}: "${title}" is missing LEARNING_GOALS.`);
   }
+
+  const setupParts = [fields.SETUP, fields.TEACHER_PREPARATION].map((part) => preserveMultilineText(part)).filter(Boolean);
+  const observationParts = [fields.OBSERVATION_OPPORTUNITIES, fields.OBSERVATION_PROMPTS]
+    .map((part) => preserveMultilineText(part))
+    .filter(Boolean);
+  const adaptationParts = [fields.ADAPTATIONS, fields.SUPPORT_ADAPTATIONS, fields.CHALLENGE_ADAPTATIONS]
+    .map((part) => preserveMultilineText(part))
+    .filter(Boolean);
+  const extensionParts = [
+    fields.EXTENSIONS,
+    fields.TEACHER_TIPS,
+    fields.SUPPLY_SUBSTITUTIONS,
+    fields.CLEANUP,
+    fields.GROUP_AND_SETTING,
+    fields.IMAGES,
+  ].map((part) => preserveMultilineText(part)).filter(Boolean);
 
   const itemKey = `${dayKey}:${title.toLowerCase()}`;
   const itemId = existingItemIds.get(itemKey) || generateItemId();
@@ -1305,21 +1505,22 @@ function parseV3ActivityBlock(block, { dayKey, lineOffset = 1, existingItemIds =
     importKey: "",
     activityCategory: category || "",
     title,
-    objective: preserveMultilineText(fields.OBJECTIVE),
+    objective: objectiveText,
     description: preserveMultilineText(fields.DESCRIPTION),
     learningDomains: [],
     materials: preserveMultilineText(fields.MATERIALS),
-    setup: preserveMultilineText(fields.SETUP),
+    setup: setupParts.join("\n\n"),
     steps: stepsText,
     teacherRole: preserveMultilineText(fields.TEACHER_ROLE),
     teacherLanguage: preserveMultilineText(fields.TEACHER_LANGUAGE),
     learningGoals,
-    observationOpportunities: preserveMultilineText(fields.OBSERVATION_OPPORTUNITIES),
+    observationOpportunities: observationParts.join("\n\n"),
     vocabulary: preserveMultilineText(fields.VOCABULARY),
-    extensions: preserveMultilineText(fields.EXTENSIONS),
-    adaptations: preserveMultilineText(fields.ADAPTATIONS),
+    extensions: extensionParts.join("\n\n"),
+    adaptations: adaptationParts.join("\n\n"),
     safetyNotes: preserveMultilineText(fields.SAFETY_NOTES),
     ageModifications: preserveMultilineText(fields.AGE_MODIFICATIONS),
+    durationMinutes: preserveMultilineText(fields.DURATION_MINUTES),
   };
 
   return { activity, errors, warnings, unmapped };
@@ -1396,6 +1597,18 @@ function parseCurriculumLessonPlanImportV3(text, options = {}) {
   });
   unmapped.push(...lessonUnmapped);
 
+  CURRICULUM_WEEKDAYS.forEach((dayKey) => {
+    const tail = extractV3DayTailContent(daySections[dayKey] || "");
+    if (!tail) return;
+    const { fields: tailFields, unmapped: tailUnmapped } = parseFieldBlock(tail, V3_LESSON_FIELDS, {
+      lineOffset: dayLineOffsets[dayKey] || 1,
+      context: `${dayKey}:tail`,
+      fieldAliases: V3_FIELD_ALIASES,
+    });
+    unmapped.push(...tailUnmapped);
+    mergeV3TailLessonFields(lessonFields, tailFields);
+  });
+
   const title = normalizedShortText(lessonFields.TITLE);
   if (!title) errors.push("Missing required field: TITLE:");
   else sectionsDetected.push("TITLE");
@@ -1422,7 +1635,9 @@ function parseCurriculumLessonPlanImportV3(text, options = {}) {
   const statusRaw = normalizedShortText(lessonFields.STATUS).toLowerCase();
   let status = "";
   if (!statusRaw) {
-    errors.push("Missing required field: STATUS (draft, published, featured, or archived).");
+    status = "draft";
+    warnings.push("STATUS not provided; defaulting import to draft for manual review.");
+    sectionsDetected.push("STATUS");
   } else if (CURRICULUM_LESSON_STATUSES.includes(statusRaw)) {
     status = statusRaw;
     sectionsDetected.push("STATUS");
@@ -1450,9 +1665,6 @@ function parseCurriculumLessonPlanImportV3(text, options = {}) {
   if (lessonFields.FAMILY_CONNECTION) sectionsDetected.push("FAMILY_CONNECTION");
   if (lessonFields.OBSERVATION_OPPORTUNITIES) sectionsDetected.push("OBSERVATION_OPPORTUNITIES");
   if (lessonFields.ADAPTATIONS) sectionsDetected.push("ADAPTATIONS");
-
-  const books = parseCurriculumImportListLines(lessonFields.BOOKS, { parts: 3 });
-  const songs = parseCurriculumImportListLines(lessonFields.SONGS, { parts: 2 });
 
   const dailyPlans = emptyCurriculumDailyPlans();
   let activityCount = 0;
@@ -1494,7 +1706,17 @@ function parseCurriculumLessonPlanImportV3(text, options = {}) {
     }
 
     activityBlocks.forEach((block) => {
-      const parsedActivity = parseV3ActivityBlock(block, {
+      const { activityPart, supplement } = splitV3ActivitySupplementTail(block);
+      if (supplement) {
+        const { fields: supplementFields, unmapped: supplementUnmapped } = parseFieldBlock(supplement, V3_LESSON_FIELDS, {
+          lineOffset: dayLineOffsets[dayKey] || 1,
+          context: `${dayKey}:activity-supplement`,
+          fieldAliases: V3_FIELD_ALIASES,
+        });
+        unmapped.push(...supplementUnmapped);
+        mergeV3TailLessonFields(lessonFields, supplementFields);
+      }
+      const parsedActivity = parseV3ActivityBlock(activityPart, {
         dayKey,
         lineOffset: dayLineOffsets[dayKey] || 1,
         existingItemIds,
@@ -1508,7 +1730,25 @@ function parseCurriculumLessonPlanImportV3(text, options = {}) {
         activityCount += 1;
       }
     });
+
+    if (!(dailyPlans[dayKey].circleTime || []).length) {
+      warnings.push(`${dayKey}: no CIRCLE_TIME block detected in the paste; review before adding circle-time content.`);
+    }
+    if (!preserveMultilineText(dailyPlans[dayKey].outdoorPlay)) {
+      warnings.push(`${dayKey}: no OUTDOOR_PLAY block detected in the paste; review before adding outdoor play.`);
+    }
   });
+
+  if (lessonFields.BOOKS) sectionsDetected.push("BOOKS");
+  if (lessonFields.SONGS) sectionsDetected.push("SONGS");
+  if (lessonFields.PRINTABLES) sectionsDetected.push("PRINTABLES");
+
+  const books = parseCurriculumImportListLines(lessonFields.BOOKS, { parts: 3 });
+  const songs = parseCurriculumImportListLines(lessonFields.SONGS, { parts: 2 });
+  const printableIdeas = parseTextListItems(lessonFields.PRINTABLES).map((title) => ({ title, body: "" }));
+  const weeklyObservation = preserveMultilineText(lessonFields.WEEKLY_OBSERVATION);
+  const observationOpportunities = preserveMultilineText(lessonFields.OBSERVATION_OPPORTUNITIES);
+  const mergedObservations = [observationOpportunities, weeklyObservation].filter(Boolean).join("\n\n");
 
   if (!activityCount) {
     errors.push("At least one ACTIVITY_NAME block under a weekday section (MONDAY–FRIDAY) is required.");
@@ -1537,10 +1777,12 @@ function parseCurriculumLessonPlanImportV3(text, options = {}) {
     weeklyMaterials: preserveMultilineText(lessonFields.WEEKLY_MATERIALS),
     vocabularyWords: preserveMultilineText(lessonFields.VOCABULARY),
     familyConnection: preserveMultilineText(lessonFields.FAMILY_CONNECTION),
-    observationOpportunities: preserveMultilineText(lessonFields.OBSERVATION_OPPORTUNITIES),
+    observationOpportunities: mergedObservations,
+    teacherNotes: preserveMultilineText(lessonFields.TEACHER_NOTES),
     adaptations: preserveMultilineText(lessonFields.ADAPTATIONS),
     books,
     songs,
+    printableIdeas,
     dailyPlans,
     dailyPlansCompat: flattenDailyPlansForV1Compat(dailyPlans),
     _activityCount: activityCount,

@@ -241,6 +241,32 @@ MONDAY
   assert(zero.errors.some((err) => /ACTIVITY_NAME/i.test(err)), "zero-activity error mentions ACTIVITY_NAME");
   assert(!(zero.data && zero.data.dailyPlans && Object.values(zero.data.dailyPlans).some((day) => (day.items || []).some((item) => /no activity scheduled/i.test(item.title || "")))), "zero-activity must not invent placeholders");
 
+  console.log("12) Toddler Halloween paste (ChatGPT-style labels) maps fields without merging headers");
+  const toddlerPastePath = path.join(ROOT, "scripts/fixtures/toddler-halloween-paste.txt");
+  const toddlerPaste = fs.readFileSync(toddlerPastePath, "utf8");
+  const toddler = parseCurriculumLessonPlanImport(toddlerPaste);
+  assert(toddler.ok, `toddler Halloween paste should import: ${(toddler.errors || []).join(" | ")}`);
+  assert(toddler.data.title === "Pumpkins, Colors, and Fall Fun", "toddler title");
+  assert(toddler.data.status === "draft", "missing STATUS defaults to draft");
+  assert(toddler.data.plan === "Free", "PLAN TYPE maps to plan Free");
+  assert(toddler.parseReport.activityCount === 5, `toddler activity count ${toddler.parseReport.activityCount}`);
+  const mon = toddler.data.dailyPlans.monday.items[0];
+  assert(mon.title === "Pumpkin Touch and Notice", `monday title "${mon.title}"`);
+  assert(!/WEEKDAY:/i.test(mon.title), "activity title must not include WEEKDAY");
+  assert(mon.activityCategory === "Sensory Play", `monday category ${mon.activityCategory}`);
+  assert(/18–36 months/i.test(mon.ageModifications || ""), "recommended age stays separate from title");
+  assert(/10–15 minutes/i.test(String(mon.durationMinutes || "")), "estimated duration preserved");
+  assert(mon.learningGoals.length && /explore an intact pumpkin/i.test(mon.learningGoals.join(" ")), "ACTIVITY OBJECTIVE maps to learning goals");
+  assert(/Invite children to sit/i.test(mon.steps || ""), "step-by-step directions preserved");
+  assert(toddler.data.books.length === 5, `weekly books ${toddler.data.books.length}`);
+  assert(toddler.data.songs.length === 5, `weekly songs ${toddler.data.songs.length}`);
+  assert(toddler.data.printableIdeas.length === 6, `printables ${toddler.data.printableIdeas.length}`);
+  assert(/Invite families to look for pumpkins/i.test(toddler.data.familyConnection || ""), "family connection");
+  assert(/Children will practice:/i.test(toddler.data.objectives || ""), "weekly learning objectives");
+  assert(toddler.warnings.some((w) => /defaulting import to draft/i.test(w)), "draft default warning");
+  assert(toddler.warnings.some((w) => /no CIRCLE_TIME block/i.test(w)), "circle time missing is surfaced");
+  assert(toddler.warnings.some((w) => /no OUTDOOR_PLAY block/i.test(w)), "outdoor play missing is surfaced");
+
   console.log("\nAll curriculum import parser checks passed.");
 }
 
