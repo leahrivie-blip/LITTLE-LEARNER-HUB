@@ -72,6 +72,8 @@ function startServer() {
         MOCK_PG_STATUS_PATH: statusPath,
         MOCK_PG_QUERY_DELAY_MS: "15",
         STORE_WRITE_DEBOUNCE_MS: "400",
+        USER_ACTIVITY_TOUCH_PERSIST: "true",
+        LAST_SEEN_STORE_PERSIST_MIN_INTERVAL_MS: "0",
         NODE_ENV: "test",
       },
       stdio: ["ignore", "pipe", "pipe"],
@@ -159,8 +161,9 @@ async function main() {
     assert.ok(afterLogin.analyticsInserts >= beforeAnalytics + 13, "login should also insert analytics table row");
     console.log("PASS  critical analytics persists user fields without blob analytics rewrite");
 
-    console.log("3) Logged-in page_view debounces optional lastSeenAt only");
+    console.log("3) Logged-in page_view persists lastSeenAt via activity touch table only");
     const beforeDebounced = readStatus().conflictUpsertSuccesses || 0;
+    const beforeTouch = readStatus().activityTouchUpserts || 0;
     for (let i = 0; i < 6; i += 1) {
       const res = await requestJson("POST", "/api/analytics/event", {
         name: "page_view",
@@ -173,11 +176,16 @@ async function main() {
     }
     await new Promise((r) => setTimeout(r, 700));
     const afterDebounced = readStatus();
-    assert.ok(
-      afterDebounced.conflictUpsertSuccesses <= beforeDebounced + 1,
-      `lastSeenAt debounce should coalesce (got ${afterDebounced.conflictUpsertSuccesses} vs ${beforeDebounced})`,
+    assert.equal(
+      afterDebounced.conflictUpsertSuccesses,
+      beforeDebounced,
+      `logged-in page_view must not upsert llh_store (got ${afterDebounced.conflictUpsertSuccesses} vs ${beforeDebounced})`,
     );
-    console.log("PASS  lastSeenAt debounce coalesces logged-in page views");
+    assert.ok(
+      (afterDebounced.activityTouchUpserts || 0) >= beforeTouch + 1,
+      "activity touch table should persist debounced telemetry",
+    );
+    console.log("PASS  lastSeenAt uses activity touch table without llh_store upsert");
 
     console.log("\nAll store write debounce tests passed.");
   } catch (error) {
